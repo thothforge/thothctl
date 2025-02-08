@@ -1,0 +1,44 @@
+
+[template_input_parameters.project]
+template_value = "#{project}#"
+condition = "\\b[a-zA-Z]+([_-][a-zA-Z]+)*\\b"
+description = "Project Name"
+
+[template_input_parameters.region]
+template_value = "#{region}#"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
+description = "Aws Region"
+default =  "us-east-2"
+
+[template_input_parameters.backend_region]
+template_value = "#{backend_region}#"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
+description = "Backend Aws Region"
+default =  "us-east-2"
+
+
+[template_input_parameters.backend_bucket]
+template_value = "#{backend_bucket}#"
+condition = "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+description = "Backend Bucket"
+
+[template_input_parameters.owner]
+template_value = "#{owner}#"
+condition = "\\b[a-zA-Z]+\\b"
+description = "Deployment Owner"
+
+[template_input_parameters.client]
+template_value = "#{client}#"
+condition = "\\b[a-zA-Z]+\\b"
+description = "Client or Area for this deployment"
+
+[template_input_parameters.backend_dynamodb]
+template_value = "#{backend_dynamodb}#"
+condition = "^[a-zA-Z0-9_.-]{3,255}$"
+description = "Dynamodb for lock state"
+
+[template_input_parameters.environment]
+template_value = "#{environment}#"
+condition = "(dev|qa|stg|test|prod)"
+description = "Environment allowed values (dev|qa|stg|test|prod)"
+

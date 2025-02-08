@@ -1,0 +1,90 @@
+# Define template input parameters
+[template_input_parameters.module_name]
+template_value = "#{ModuleName}#"
+condition = "^[a-z_]+$"
+description = "Module Name"
+
+[template_input_parameters.resources_to_create]
+template_value= "#{ResourcesToCreate}#"
+condition= "^[a-zA-Z\\s]+$"
+description = "Resources to create in this module"
+
+[template_input_parameters.description]
+template_value= "#{ModuleDescription}#"
+condition = "^[a-zA-Z\\s]+$"
+description = "Module description"
+
+# Define project structure
+[project_structure]
+root_files = [
+   ".git",
+    ".gitignore",
+    ".pre-commit-config.yaml",
+    "README.md"
+]
+ignore_folders = [
+    ".git",
+    ".terraform",
+    "Reports"
+]
+
+[[project_structure.folders]]
+name = "catalog"
+mandatory = false
+content = [
+    "catalog-info.yaml",
+    "mkdocs.yaml"
+]
+type= "child_folder"
+[[project_structure.folders]]
+name = "docs"
+mandatory = true
+type= "root"
+[[project_structure.folders]]
+name = "modules"
+mandatory = false
+content = [
+    "variables.tf",
+    "main.tf",
+    "outputs.tf",
+    "README.md"
+]
+type= "root"
+[[project_structure.folders]]
+name = "examples"
+mandatory = true
+type= "root"
+[[project_structure.folders]]
+name = "complete"
+mandatory = true
+type= "child_folder"
+content = [
+    "main.tf",
+    "outputs.tf",
+    "terraform.tfvars",
+    "README.md",
+    "variables.tf",
+]
+[[project_structure.folders]]
+name = "test"
+mandatory = false
+# Set rule for root file
+# idp properties metadata catalog
+[idp]
+tags=[
+  "devops",
+  "devsecops",
+  "iac",
+  "terraform",
+  "terragrunt",
+  "module",
+  "aws",
+  "cloud",
+  "automation",
+  "template"
+]
+[idp.spec]
+lifecycle= "production"
+owner= "IaCPlatform"
+system= "IaCPlatform"
+type= "template"

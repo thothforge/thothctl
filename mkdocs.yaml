@@ -1,0 +1,12 @@
+site_name: 'thothctl'
+
+nav:
+  - Home: index.md
+  - Quick Start: quick_start.md
+  - Template Engine:  template_engine/template_engine.md
+  - IaC DevSecOps: iac_devsecops_use_case.md
+  - Changelog: CHANGELOG.md
+
+
+theme:
+  name: mkdocs
