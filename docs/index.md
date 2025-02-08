@@ -22,16 +22,11 @@
       - Generate reports 
       - Manage inventory and dependencies
       - Review IaC changes and make suggestions (Generative AI)
-  
-# TODO insert control plane diagram and select where the thothctl are
+- **Boostrap and reuse project templates**
+  - Create projects from your templates
 
-  - Build and test Infrastructure deployments
 
-- Accelerate the adoption of DevSecOps IaC Framework created by DevSecOps Sophos Team.
-
-- Accelerate the reuse of common projects, PoCs, and pattern for data analytics, machine learning, Cloud, and DevSecOps projects.
-
-# Express Sheet
+# Getting Started
 ![](img/thothctl_summary.png)
 ```bash
 $ thothctl -h
@@ -118,36 +113,6 @@ There are many dependencies for thothctl functions, these dependencies are autom
 
 
 # Install
-### From AWS CodeArtifacts repository
-
-
->You must have a user into AWS account Sophos Organization, it could be for projects, products, or IT internal Organizations.
-> Before create AWS CLI profile using [AWS IAM Identity Center (SSO)](/DevSecOps/HowTo/setup-sso-profile) or IAM.
-{.is-info}
-
-1. Configure your pip cli for download package from private CodeArtifacs repository 
-
-```commandline 
-
-$ aws codeartifact login --tool pip --repository DevSecOpsAccelerators --domain devsecops-accelerators --domain-owner 008893981236  --profile sh-devsecops
-$ pip install --upgrade thothctl
-
-```
-### From Azure Artifacts
-Project setup
-Ensure you have installed the latest version of the Azure Artifacts keyring from the "Get the tools" menu.
-If you don't already have one, create a virtualenv using these instructions from the official Python documentation. Per the instructions, "it is always recommended to use a virtualenv while developing Python applications."
-
-Add a pip.ini (Windows) or pip.conf (Mac/Linux) file to your virtualenv
-
-```toml
-[global]
-index-url=https://pkgs.dev.azure.com/sophosproyectos/ad711482-90b1-443b-ad48-f0304a67a189/_packaging/DevSecOpsAccelerators/pypi/simple/
-
-```
-```Bash
-pip install --upgrade thothctl
-```
 
 ## Extras
 ### Enable autocomplete

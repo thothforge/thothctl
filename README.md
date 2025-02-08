@@ -28,9 +28,27 @@ Thoth allows you to extend and operate your Developer Control Plane, and enable 
 Package for accelerating the adoption of Internal Frameworks, enable reusing and interaction with the Internal Developer Platform. 
 
 # Use cases
-- Accelerate the adoption of DevSecOps IaC Framework created by DevSecOps Sophos Team.
+- **[Template Engine](template_engine/template_engine.md)**: 
+  - Source control setup
+  - Source code starter kit
+  - Build and configure any kind of template
+  - Handling templates to create, add, remove or update components
+  
+- **Automate tasks**:
+  - Create and bootstrap local development environment
+  - Extend CI/CD pull request workflow
+  - Create documentation for projects (IaC), Generative AI doc generation
 
-- Accelerate the reuse of common projects, PoCs, and pattern for data analytics, machine learning, Cloud, and DevSecOps projects.
+- **Check and compliance**:
+  - Check project structure
+    - DevSecOps for IaC (Terraform, tofu)
+      - Scan your IaC terraform,tofu templates
+      - Generate reports 
+      - Manage inventory and dependencies
+      - Review IaC changes and make suggestions (Generative AI)
+- **Boostrap and reuse project templates**
+  - Create projects from your templates
+
 
 # Getting Started
 

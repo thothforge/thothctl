@@ -19,7 +19,7 @@ g_project_properties = {
     "backend_region": "us-east-1",
     "backend_bucket": "bucket-us-east-1",
     "owner": "me",
-    "client": "sophos",
+    "client": "client_name",
     "environment": "dev",
     "project": "lab",
 }
