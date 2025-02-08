@@ -46,8 +46,10 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
       - Generate reports 
       - Manage inventory and dependencies
       - Review IaC changes and make suggestions (Generative AI)
-- **Boostrap and reuse project templates**
+      
+- **Internal Developer Platform CLI**
   - Create projects from your templates
+  
 
 
 # Getting Started
