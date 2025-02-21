@@ -1,8 +1,7 @@
 
-# IaC Operations Based on DevSecOps Sophos Framework
+# DevSecOPS IaC Operations 
 
 ## Install Environment requirements
-You can install environment tools base on [Toolkit and services for Terraform Users](https://wiki.sophossolutions.com/DevSecOps/Framework/Infrastructure-as-Code/Terraform/Toolkit-and-services-for-Terraform-Users) running the following command:
 
 > At the moment only OS Linux/Debian is supported.
 
@@ -284,7 +283,7 @@ $ thothctl automate project --add_component --component_type resources --compone
  ( I | a | c | P | e | e | r | B | o | t )
   \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/
 
-___ 🕵️  Power By Sophos Solutions SAS  🕵️  ____
+___ 🕵️   🕵️  ____
 👷 Automating tasks 
 👷 Creating resources demo_secret in ./resources/security/secrets_manager
 No config file found. .thothcf.toml 

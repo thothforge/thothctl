@@ -1,0 +1,129 @@
+# Base configuration section
+[default]
+project_name = "ThothForge"
+default_space = "development"
+
+# Environment-specific configurations
+[space]
+
+[space.development]
+# Version Control
+vcs = "git"
+vcs_host = "github.com"
+repository_url = "github.com/your-org/your-repo"
+branch_naming_pattern = "feature/{ticket_id}-{description}"
+default_branch = "develop"
+enable_bkp_idp_integration= false
+
+# CI/CD Configuration
+ci_platform = "github-actions"
+ci_config_path = ".github/workflows"
+auto_deploy = true
+required_checks = ["unit-tests", "integration-tests", "security-scan"]
+
+# Build Configuration
+build_tool = "poetry"
+python_version = "3.11"
+test_framework = "pytest"
+lint_tools = ["ruff", "black", "mypy"]
+
+# Deployment
+deploy_platform = "kubernetes"
+deploy_namespace = "dev"
+container_registry = "ecr.amazonaws.com/thothforge"
+resource_limits = { cpu = "500m", memory = "512Mi" }
+
+# Monitoring and Logging
+log_level = "DEBUG"
+monitoring_enabled = true
+tracing_enabled = true
+metrics_endpoint = "prometheus"
+
+[space.staging]
+vcs = "git"
+vcs_host = "github.com"
+repository_url = "github.com/your-org/your-repo"
+branch_naming_pattern = "release/{version}"
+default_branch = "staging"
+
+ci_platform = "github-actions"
+ci_config_path = ".github/workflows"
+auto_deploy = false
+required_checks = ["unit-tests", "integration-tests", "security-scan", "performance-tests"]
+
+build_tool = "poetry"
+python_version = "3.11"
+test_framework = "pytest"
+lint_tools = ["ruff", "black", "mypy"]
+
+deploy_platform = "kubernetes"
+deploy_namespace = "staging"
+container_registry = "ecr.amazonaws.com/thothforge"
+resource_limits = { cpu = "1000m", memory = "1Gi" }
+
+log_level = "INFO"
+monitoring_enabled = true
+tracing_enabled = true
+metrics_endpoint = "prometheus"
+
+[space.production]
+vcs = "git"
+vcs_host = "github.com"
+repository_url = "github.com/your-org/your-repo"
+branch_naming_pattern = "release/{version}"
+default_branch = "main"
+
+ci_platform = "github-actions"
+ci_config_path = ".github/workflows"
+auto_deploy = false
+required_checks = ["unit-tests", "integration-tests", "security-scan", "performance-tests", "compliance-check"]
+
+build_tool = "poetry"
+python_version = "3.11"
+test_framework = "pytest"
+lint_tools = ["ruff", "black", "mypy"]
+
+deploy_platform = "kubernetes"
+deploy_namespace = "prod"
+container_registry = "ecr.amazonaws.com/thothforge"
+resource_limits = { cpu = "2000m", memory = "2Gi" }
+
+log_level = "WARNING"
+monitoring_enabled = true
+tracing_enabled = true
+metrics_endpoint = "prometheus"
+
+# Security and Access Control
+[security]
+scan_tools = ["bandit", "safety", "trivy"]
+secret_management = "aws-secrets-manager"
+required_reviews = 2
+enforce_signed_commits = true
+vulnerability_threshold = "HIGH"
+
+# Documentation
+[documentation]
+api_doc_tool = "sphinx"
+changelog_format = "keepachangelog"
+architecture_diagrams = "plantuml"
+doc_hosting = "readthedocs"
+
+# Testing
+[testing]
+unit_test_path = "tests/unit"
+integration_test_path = "tests/integration"
+coverage_threshold = 85
+performance_test_tool = "locust"
+mock_service = "wiremock"
+
+# Dependencies
+[dependencies]
+package_manager = "poetry"
+dependency_update_schedule = "weekly"
+auto_merge_patches = true
+vulnerability_alerts = true
+
+# Feature Flags
+[feature_flags]
+provider = "launchdarkly"
+default_state = false

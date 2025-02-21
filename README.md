@@ -28,11 +28,10 @@ Thoth allows you to extend and operate your Developer Control Plane, and enable 
 Package for accelerating the adoption of Internal Frameworks, enable reusing and interaction with the Internal Developer Platform. 
 
 # Use cases
-- **[Template Engine](template_engine/template_engine.md)**: 
-  - Source control setup
-  - Source code starter kit
+- **[Template Engine](template_engine/template_engine.md)**:
   - Build and configure any kind of template
   - Handling templates to create, add, remove or update components
+  - Code generation
   
 - **Automate tasks**:
   - Create and bootstrap local development environment
@@ -49,6 +48,8 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
       
 - **Internal Developer Platform CLI**
   - Create projects from your templates
+  - Source control setup
+  - Scaffold - quickly set up the structure of a project.
   
 
 

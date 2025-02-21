@@ -4,8 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "thothctl"
-#version = "1.0.0"
+dynamic = ["version"]
 dependencies = [
+    "click>=8.0.0",
     "colorama>=0.4.6",
     "pyyaml<7.0.0,>=6.0.0",
     "pyfiglet>=1.0.2",
@@ -33,7 +34,7 @@ dependencies = [
 ]
 
 authors = [
-    { name = "Alejandro Velez", email = "wilmar.velezl@sophossolutions.com" },
+    { name = "Alejandro Velez", email = "velez94@pm.me" },
 ]
 
 
@@ -61,15 +62,15 @@ classifiers = [
 "Homepage" = "https://github.com/thothforge/thothctl"
 
 [tool.hatch.version]
-path = "src/version.py"
+path = "src/thothctl/version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/"]
+packages = ["src/thothctl"]
 core-metadata-version = "2.1"
 
 
 [project.scripts]
-thothctl = "src.thothctl:main"
+thothctl = "thothctl.cli:cli" #"src.thothctl:main"
 
 ## Tools
 [tool.commitizen]

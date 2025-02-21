@@ -65,9 +65,9 @@ Interact with the internal developer platform options and flags:
   -reuse, --reuse_patterns
                         Reuse pattern from external repository. Use with init option
   -azp AZ_PROJECT_NAME, --az_project_name AZ_PROJECT_NAME
-                        Reuse pattern from external repository, default "CoE DevOps Sophos" Use with init option, (default: CoE DevOps Sophos)
+                        Reuse pattern from external repository, Use with init option
   -org_name ORG_NAME, --org_name ORG_NAME
-                        Organization tool for azure DevOps, (default: sophosproyectos) Use with init option
+                        Organization tool for azure DevOps, Use with init option
   -r_action {reuse,clone}, --remote_actions {reuse,clone}
                         Action for clone or list repositories or patterns. Values: reuse, clone, (default: reuse) Use with init option
 

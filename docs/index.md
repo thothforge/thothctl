@@ -1,7 +1,31 @@
-# thothctl
+# Thoth Framework
 
-`thothctl` is a command line interface tool designed for efficient management and automation within your internal developer platform. Inspired by Thoth, the ancient Egyptian god of wisdom and writing, thothctl aims to empower developers with insightful commands that streamline their workflow and enhance productivity.
+Thoth Framework is a framework to create and manage the [Internal Developer Platform](https://internaldeveloperplatform.org/what-is-an-internal-developer-platform/) tasks for infrastructure, devops, devsecops, software developers, and platform engineering teams aligned with the business objectives:
 
+1. [x] Minimize mistakes.
+2. [x] Increase velocity
+3. [x] Improve products
+4. [x] Enforce compliance
+5. [x] Reduce lock-in
+
+## Mapping Mechanisms 
+| Business Objective | Mechanism          | Implementation |
+|-------------------|--------------------|----------------|
+| Minimize mistakes | Meaninful defaults | Templates      |
+| Increase velocity | Automation         | IaC Scripts    |
+| Improve products | Fill product gaps  | New components |
+| Enforce compliance | Restrict choinces  | Wrappers       |
+| Reduce lock-in | Abstraction        | Service layers |
+
+Thoth allows you to extend and operate your Developer Control Plane, and enable the developer experience with the internal developer platform trough command line.
+
+![Thoth and DCP ](./img/framework/thothfr.png)
+
+# Tools
+
+## ThothCTL
+
+Package for accelerating the adoption of Internal Frameworks, enable reusing and interaction with the Internal Developer Platform. 
 
 # Use cases
 - **[Template Engine](template_engine/template_engine.md)**: 
@@ -22,12 +46,14 @@
       - Generate reports 
       - Manage inventory and dependencies
       - Review IaC changes and make suggestions (Generative AI)
-- **Boostrap and reuse project templates**
+      
+- **Internal Developer Platform CLI**
   - Create projects from your templates
+  
 
 
 # Getting Started
-![](img/thothctl_summary.png)
+
 ```bash
 $ thothctl -h
 
@@ -75,7 +101,6 @@ Thanks for using thothctl!
 ## OS Packages
 
 - dot or graphviz
-- [graph-easy ](https://linux.die.net/man/1/graph-easy)
 
 You can install them with:
 
@@ -87,7 +112,7 @@ You can install them with:
 Install packages with apt for Linux/Debian
 - 
 ```bash 
-sudo apt install graphviz libgraph-easy-perl -y
+sudo apt install graphviz -y
 ```
 - python >= 3.8 
     - check: `python --version` 
@@ -114,6 +139,10 @@ There are many dependencies for thothctl functions, these dependencies are autom
 
 # Install
 
+```Bash
+pip install --upgrade thothctl
+```
+
 ## Extras
 ### Enable autocomplete
 Argcomplete provides easy, extensible command line tab completion of arguments for your Python application.
@@ -136,3 +165,14 @@ echo 'eval "$(register-python-argcomplete thothctl)"' >> ~/.bashrc
 source ~/.bashrc
 
 ```
+
+## OpenTofu
+
+## Backstage
+
+## Terragrunt
+
+## Version control Systems (Azure DevOps, Github, Gitlab)
+
+# RoadMap
+
