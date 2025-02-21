@@ -5,9 +5,9 @@ from pathlib import Path
 import os
 
 from ....core.commands import ClickCommand
-from ....services.project.cleanup.clean_project import cleanup_project
+from ....services.project.cleanup.clean_project import remove_projects
 
-class CleanUpProjectCommand(ClickCommand):
+class RemoveProjectCommand(ClickCommand):
     """Command to initialize a new project"""
 
     def validate(self, **kwargs) -> bool:
@@ -17,25 +17,17 @@ class CleanUpProjectCommand(ClickCommand):
 
     def execute(
             self,
-            clean_additional_files: str,
-            clean_additional_folders:str,
+            project_name: str,
             **kwargs
     ) -> None:
         """Execute Environment initialization"""
         ctx = click.get_current_context()
         debug = ctx.obj.get('DEBUG')
-        code_directory = ctx.obj.get('CODE_DIRECTORY')
-        self._clean_up_project(code_directory, clean_additional_files, clean_additional_folders)
+        self._clean_up_project(project_name=project_name)
 
-    def _clean_up_project(self, code_directory: str,clean_additional_files: str,clean_additional_folders:str ) -> None:
+    def _clean_up_project(self, project_name: str ) -> None:
         """Initialize the project using the create_project function"""
-        cleanup_project(
-            directory=code_directory,
-            additional_files=clean_additional_files,
-            additional_folders=clean_additional_folders,
-        )
-
-
+        remove_projects(project_name= project_name        )
 
     def pre_execute(self, **kwargs) -> None:
         self.logger.debug("Starting project cleanup")
@@ -52,19 +44,13 @@ class CleanUpProjectCommand(ClickCommand):
         finally:
             os.chdir(original_dir)
 
-
 # Create the Click command
-cli = CleanUpProjectCommand.as_click_command(
-    help="Clean Up residual files and directories from your project"
+cli = RemoveProjectCommand.as_click_command(
+    help="Remove project from local .thothcf tracking file"
 )(
-    click.option("-cfs",
-        "--clean-additional-files",
-        help="Add folders file to clean specify:  -cfs file_1,file_2",
+    click.option("-pj",
+        "--project-name",
+        help="Project Name to delete",
         default=None,
-                 ),
-    click.option("-cfd",
-        "--clean-additional-folders",
-        help="Add folders file to clean specify:  -cfd folder_1,folder_2",
-        default=None,)
-
+                 )
 )

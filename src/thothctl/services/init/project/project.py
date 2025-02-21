@@ -22,13 +22,13 @@ class ProjectService:
     def __init__(self, logger=None):
         self.logger = logger or logging.getLogger(__name__)
 
-    def initialize_project(self, project_name: str, project_type: str = "terraform") -> None:
+    def initialize_project(self, project_name: str, project_type: str = "terraform", reuse = False) -> None:
         """Initialize the basic project structure"""
         self.logger.info(f"Initializing project: {project_name}")
         create_info_project(project_name=project_name)
         self.logger.info(f"Project {project_name} initialized successfully")
 
-        if project_type:
+        if not reuse:
             create_project(project_name=project_name, project_type=project_type)
 
     def setup_project_config(self, project_name: str) -> None:

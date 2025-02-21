@@ -7,7 +7,7 @@ from pathlib import Path, PurePath
 import os
 from colorama import Fore
 
-from ..create_terramate.create_terramate_stacks import graph_dependencies_to_json
+from ..process_hcl.graph_manager import graph_dependencies_to_json
 
 
 terragrun_file = "terragrunt.hcl"

@@ -8,7 +8,7 @@ from pathlib import Path
 import os
 from colorama import Fore
 
-from ..common.common import load_iac_conf
+from ....common.common import load_iac_conf
 
 
 def check_global_structure(directory, mood="soft", l_project_structure=None):

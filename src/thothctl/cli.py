@@ -22,8 +22,8 @@ from .services.document.create_documentation import (
     recursive_documentation,
     single_documentation,
 )
-from .create_inventory.create_inventory import create_inventory
-from .create_inventory.update_versions import main_update_versions
+from .services.inventory.create_inventory import create_inventory
+from .services.inventory.update_versions import main_update_versions
 from .services.generate.create_template.create_code import create_multiple_repos
 from .services.generate.create_template.create_component import create_component
 from .services.generate.create_template.create_template import (
@@ -31,11 +31,11 @@ from .services.generate.create_template.create_template import (
     disable_thothctl_integration,
     enable_thothctl_integration,
 )
-from .create_terramate.create_terramate_stacks import (
+from .services.project.create_terramate.create_terramate_stacks import (
     create_terramate_main_file,
     recursive_graph_dependencies_to_json,
 )
-from .create_terramate.detect_changes_stacks import (
+from .services.project.create_terramate.detect_changes_stacks import (
     create_changes_file,
     taint_stack,
 )
@@ -48,18 +48,18 @@ from .utils.parser_iac_templates.get_project_data import (
     walk_folder_replace,
 )
 from .utils.parser_iac_templates.set_project_parameters import set_project_conf, create_idp_doc_main
-from .integrate_messages_tools.sent_message_teams import check_reports
-from .manage_backend_resources.manage_backend_resources import validate_backend
-from .process_terraform.analyze_terraform_plan import recursive_convert
-from .process_terraform.process_terraform_file import load_backend
-from .process_terraform.graph_terragrunt_dependencies import graph_terragrunt_dependencies
-from .scan_and_compliance.compliance_review import (
+from .core.integrations.integrate_messages_services.sent_message_teams import check_reports
+from .utils.manage_backend_resources.manage_backend_resources import validate_backend
+from .utils.process_hcl.analyze_terraform_plan import recursive_convert
+from .utils.process_hcl.process_terraform_file import load_backend
+from .utils.process_hcl.graph_terragrunt_dependencies import graph_terragrunt_dependencies
+from .services.scan.compliance_review import (
     create_html_reports,
     recursive_scan,
 )
-from .sync_workspaces.sync_terraform_workspaces import recursive_sync_workspace
-from .sync_workspaces.sync_terragrunt_workspaces import grunt_sync_workspaces
-from .validate_project.validate_project_structure import init_check
+from .utils.sync_workspaces.sync_terraform_workspaces import recursive_sync_workspace
+from .utils.sync_workspaces.sync_terragrunt_workspaces import grunt_sync_workspaces
+from .services.check.project.validate_project_structure import init_check
 
 
 def init(args):
