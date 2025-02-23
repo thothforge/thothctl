@@ -10,7 +10,7 @@ import inquirer
 import os
 from colorama import Fore
 
-from ...common.common import load_iac_conf, update_info_project
+from ....common.common import load_iac_conf, update_info_project
 from .project_defaults import g_project_properties_parse
 
 
@@ -283,9 +283,6 @@ def parse_project(
         project_properties_parse = g_project_properties_parse
 
     if parser_type == "invert":
-        # search = project_properties.get(prop, None)
-        # replace = project_properties_parse[prop]["template_value"]
-        # copy_home_file(file_name=file_name, project_name=project_conf_name, directory=PurePath("."))
         copy_files_info_project(project_name=project_conf_name)
     else:
         for prop in project_properties_parse["template_input_parameters"].keys():
@@ -316,7 +313,7 @@ def parse_project(
                     file.write(data)
 
                 # Printing Text replaced
-                logging.info(f"Text {search} replaced in {file_name} by {replace}")
+                logging.debug(f"Text {search} replaced in {file_name} by {replace}")
                 # verify if search is in data and copy the file
 
 
@@ -333,7 +330,7 @@ def create_tmp_file(file_name: PurePath = None, project_name: str = None) -> Pur
 
     if not os.path.exists(PurePath(f"{Path.home()}/.thothcf/{project_name}")):
         os.makedirs(PurePath(f"{Path.home()}/.thothcf/{project_name}"))
-        logging.info(
+        logging.debug(
             f"Folder {PurePath(f'{Path.home()}/.thothcf/{project_name}')} created"
         )
 
@@ -349,7 +346,7 @@ def create_tmp_file(file_name: PurePath = None, project_name: str = None) -> Pur
     ) or not os.path.exists(tmp_file):
         print(f"{Fore.CYAN}👷 Modifying {file_name.name} for {project_name}")
 
-        # todo check copy many times and entries in iacpb
+        # todo check copy many times and entries in thothcf
         shutil.copy(file_name, tmp_file)
         update_info_project(file_path=Path(file_name), project_name=project_name)
     elif not check_hash_file(file_path=tmp_file, file_path_2=file_name) and (
@@ -424,7 +421,7 @@ def copy_files_info_project(project_name: str):
 
     if project_name in config:
         for file in config[project_name]["template_files"]:
-            logging.info(f"Copying {file['local']} to {file['source']}")
+            logging.debug(f"Copying {file['local']} to {file['source']}")
             copy_home_file(
                 file_name=file["local"],
                 directory=PurePath(file["source"]),
@@ -449,7 +446,7 @@ def get_project_properties_parse(
         project_properties = project_properties_parse.get(
             "project_properties", project_properties
         )
-        logging.info(project_properties_parse)
+        logging.debug(project_properties_parse)
     return {
         "project_properties_parse": project_properties_parse,
         "project_properties": project_properties,
@@ -508,7 +505,7 @@ def walk_folder_replace(
         print(f"{Fore.LIGHTBLUE_EX}👷 Parsing template ... {Fore.RESET}")
         for dirpath, dirnames, filenames in os.walk(directory):
             if not (any(x in dirpath for x in not_allowed_folders)):
-                logging.info(f"dirpath: {dirpath}, dirnames, filenames)")
+                logging.debug(f"dirpath: {dirpath}, dirnames, filenames)")
 
                 for f in filenames:
                     if (
@@ -574,7 +571,7 @@ def make_template_or_project(
         # and project_properties != {}
     ):
         file_path = PurePath(os.path.join(directory, file))
-        logging.info(f"The file to parser {file_path}")
+        logging.debug(f"The file to parser {file_path}")
 
         parse_project(
             project_properties=project_properties,
@@ -585,7 +582,7 @@ def make_template_or_project(
 
     elif action == "make_template":
         file_path = PurePath(os.path.join(directory, file))
-        logging.info(f"The file to parser {file_path}")
+        logging.debug(f"The file to parser {file_path}")
 
         parse_project(
             project_properties=project_properties,

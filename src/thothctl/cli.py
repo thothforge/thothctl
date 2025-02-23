@@ -41,13 +41,13 @@ from .services.project.create_terramate.detect_changes_stacks import (
 )
 from .core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
 from .core.integrations.azure_devops.pull_request_comments import post_comment_to_azure_devops_pr
-from .utils.parser_iac_templates.get_project_data import (
+from .services.project.convert.get_project_data import (
     check_project_properties,
     get_project_props,
     make_template_or_project,
     walk_folder_replace,
 )
-from .utils.parser_iac_templates.set_project_parameters import set_project_conf, create_idp_doc_main
+from .services.project.convert.set_project_parameters import set_project_conf, create_idp_doc_main
 from .core.integrations.integrate_messages_services.sent_message_teams import check_reports
 from .utils.manage_backend_resources.manage_backend_resources import validate_backend
 from .utils.process_hcl.analyze_terraform_plan import recursive_convert
@@ -429,62 +429,7 @@ def automate_project_tasks(args):
     elif args.directory_code and args.deactivate_thothctl_integration:
         disable_thothctl_integration(directory=args.directory_code)
 
-"""
-# src/thothctl/cli.py
-import os
-import click
-import importlib.util
-from pathlib import Path
 
-
-class ThothCLI(click.MultiCommand):
-    def list_commands(self, ctx):
-        commands = []
-        commands_folder = os.path.join(os.path.dirname(__file__), "commands")
-
-        try:
-            for item in os.listdir(commands_folder):
-                if os.path.isdir(os.path.join(commands_folder, item)) and not item.startswith('_'):
-                    commands.append(item)
-        except OSError as e:
-            print(f"Error listing commands: {e}")
-            return []
-
-        commands.sort()
-        return commands
-
-    def get_command(self, ctx, cmd_name):
-        try:
-            # Construct the full path to the cli.py file
-            commands_folder = os.path.join(os.path.dirname(__file__), "commands")
-            module_path = os.path.join(commands_folder, cmd_name, "cli.py")
-
-            # Load the module directly from the file path
-            spec = importlib.util.spec_from_file_location(
-                f"thothctl.commands.{cmd_name}.cli",
-                module_path
-            )
-            if spec is None or spec.loader is None:
-                print(f"Could not load spec for {module_path}")
-                return None
-
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            return module.cli
-        except Exception as e:
-            print(f"Debug - Error loading command {cmd_name}: {str(e)}")
-            return None
-
-@click.group(cls=ThothCLI)
-def thothctl():
-    "ThothForge CLI / The CLI for the Internal Developer Platform"
-    pass
-
-
-if __name__ == "__main__":
-    thothctl()
-"""
 # src/thothctl/cli.py
 import click
 from pathlib import Path

@@ -60,6 +60,33 @@ def get_repos_patterns(
         exit()
 
 
+def get_latest_tag_info(repo: git.Repo) -> tuple[str, str]:
+    """
+    Get the latest tag information from repository.
+
+    Args:
+        repo: Git repository object
+
+    Returns:
+        tuple: (tag_name, commit_sha)
+    """
+    try:
+        tags = list(repo.tags)
+        if not tags:
+            main_commit = repo.rev_parse("origin/main")
+            return "", main_commit.hexsha
+
+        latest_tag = tags[-1]
+        tag_name = latest_tag.name if hasattr(latest_tag, 'name') else str(latest_tag)
+        commit_sha = latest_tag.commit.hexsha
+
+        return tag_name, commit_sha
+    except Exception as e:
+        print(f"{Fore.YELLOW}Warning: Error processing tags: {e}. Falling back to main branch.{Fore.RESET}")
+        main_commit = repo.rev_parse("origin/main")
+        return "", main_commit.hexsha
+
+
 def clone_repo(
         git_client,
         project_name,
@@ -98,7 +125,17 @@ def clone_repo(
     print(f"{Fore.YELLOW}✨ Cloning repository {Fore.RESET}")
 
     repo = git.Repo.clone_from(url=repository["RemoteUrl"], to_path=path)
-    sha = repo.rev_parse("origin/main")
+
+    # List all available tags
+    tag, sha = get_latest_tag_info(repo)
+    # Get the SHA of main branch
+
+    if tag:
+        print(f"{Fore.GREEN}✨ Latest tag: {tag} {Fore.RESET}")
+    else:
+        print(f"{Fore.YELLOW}No tags found. Using main branch.{Fore.RESET}")
+
+
     print("❗ Clean up metadata ... ")
     # Get repositories
     g_path = os.path.join(path, ".git")
@@ -112,6 +149,8 @@ def clone_repo(
         "repo_name": repository["Name"],
         "repo_url": repository["RemoteUrl"],
         "commit": f"{sha}".replace('"', "'"),
+        "tag": tag,
+
     }
 
     return repo_meta

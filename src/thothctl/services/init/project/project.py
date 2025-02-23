@@ -4,14 +4,14 @@ from contextlib import contextmanager
 import os
 import logging
 
-from thothctl.common.common import create_info_project
-from thothctl.utils.parser_iac_templates.set_project_parameters import set_project_conf
-from thothctl.utils.parser_iac_templates.get_project_data import (
+from ....common.common import create_info_project
+from ....utils.parser_iac_templates.set_project_parameters import set_project_conf
+from ....utils.parser_iac_templates.get_project_data import (
     get_project_props,
     walk_folder_replace,
 )
-from thothctl.core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
-from thothctl.services.generate.create_template.create_template import create_project
+from ....core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
+from ....services.generate.create_template.create_template import create_project
 
 
 class ProjectService:

@@ -4,8 +4,8 @@ from contextlib import contextmanager
 from pathlib import Path
 import os
 
-from ....core.commands import ClickCommand
-from ....services.project.cleanup.clean_project import remove_projects
+from ...core.commands import ClickCommand
+from ...services.project.cleanup.clean_project import remove_projects
 
 class RemoveProjectCommand(ClickCommand):
     """Command to initialize a new project"""

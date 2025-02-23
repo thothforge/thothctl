@@ -7,7 +7,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from ...services.project.cleanup.clean_project import remove_projects
 
 
 class ProjectCLI(click.MultiCommand):

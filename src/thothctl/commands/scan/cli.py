@@ -55,6 +55,7 @@ class ScanCLI(click.MultiCommand):
 @click.group(cls=ScanCLI)
 @click.pass_context
 def cli(ctx):
-    """Convert, clean up and manage the current project"""
+    """Scan IaC project and create report with summary.
+    You can send to AI to suggest the recommendations and fix your code"""
     pass
 

@@ -27,7 +27,7 @@ def load_iac_conf(directory, file_name=config_file_name):
         with open(config_path, mode="rt", encoding="utf-8") as fp:
             config = toml.load(fp)
 
-        logging.info(config)
+        logging.debug(config)
     else:
         print(f"{Fore.RED}No config file found. {config_path} {Fore.RESET}")
         config = {}
@@ -45,7 +45,7 @@ def create_iac_conf(file_name=config_file_name):
     config_path = PurePath(f"{Path.home()}/.thothcf/", file_name)
     if not os.path.exists(PurePath(f"{Path.home()}/.thothcf/")):
         os.makedirs(PurePath(f"{Path.home()}/.thothcf/"))
-        logging.info(f"Folder {PurePath(f'{Path.home()}/.thothcf/')} created")
+        logging.debug(f"Folder {PurePath(f'{Path.home()}/.thothcf/')} created")
 
     if not os.path.exists(config_path):
         with open(config_path, mode="wt", encoding="utf-8") as fp:
@@ -74,7 +74,7 @@ def dump_iac_conf(file_name=config_file_name, content=None):
     with open(config_path, mode="wt", encoding="utf-8") as fp:
         toml.dump(content, fp)
 
-    logging.info(f"{Fore.GREEN}Config file updated. {config_path} {Fore.RESET}")
+    logging.debug(f"{Fore.GREEN}Config file updated. {config_path} {Fore.RESET}")
 
     return config_path
 
@@ -129,7 +129,7 @@ def create_info_project(project_name: str, file_name=config_file_name, content=N
         if project_name in config:
             raise ValueError(
                 f'💥 Project  "{project_name}" already exists. \n '
-                f"Run 👉 {Fore.CYAN} thothctl automate project -rm {project_name} 👈🏼 {Fore.RED}if you want to reuse the project name."
+                f"Run 👉 {Fore.CYAN} thothctl remove -pj {project_name} 👈🏼 {Fore.RED}if you want to reuse the project name."
             )
 
         else:

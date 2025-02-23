@@ -10,7 +10,7 @@ import toml
 import yaml
 from colorama import Fore
 
-from ...common.common import load_iac_conf
+from ....common.common import load_iac_conf
 from .get_project_data import (
     check_project_properties,
     check_template_properties,
@@ -110,7 +110,7 @@ def create_project_conf(
     if not check_project_properties(directory="."):
         properties = load_iac_conf(directory=directory)
         properties.pop("project_properties")
-        properties.pop("iacpb")
+        properties.pop("thothcf")
 
     if os.path.exists(file_path):
         mode = "a"
@@ -125,7 +125,7 @@ def create_project_conf(
         properties = {"project_properties": project_properties}
         file.write("\n\n")
         toml.dump(properties, file)
-        toml.dump({"iacpb": {"project_id": project_name}}, file)
+        toml.dump({"thothcf": {"project_id": project_name}}, file)
 
         if mode == "w" and template_input_parameters is None:
             template_input_parameters = {

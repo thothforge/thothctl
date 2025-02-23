@@ -24,9 +24,9 @@ from .project_templates import terraform_module_template, terraform_template
 
 
 # TODO Create project based on type / terraform module / terraform terragrunt / cdkv2 custom / ML /
-def init_iacpb_content(project_type="terraform"):
+def init_thothcf_content(project_type="terraform"):
     """
-    Init iacpb content based in project type.
+    Init thothcf content based in project type.
 
     :param project_type:
     :return:
@@ -136,7 +136,7 @@ def create_project_files(file_name, path, project_type, cloud="aws"):
         elif file_name == ".pre-commit-config.yaml":
             fp.write(pre_commit_content)
         elif file_name == ".thothcf.toml":
-            fp.write(init_iacpb_content(project_type=project_type))
+            fp.write(init_thothcf_content(project_type=project_type))
 
 
 def create_template(template, parent_dir, cloud="aws", project_type="terraform"):

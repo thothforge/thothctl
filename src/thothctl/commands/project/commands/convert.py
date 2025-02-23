@@ -1,112 +1,97 @@
 import click
-from contextlib import contextmanager
+from ....core.commands import ClickCommand
+from pathlib import Path
 
-from pathlib import Path, PurePath
-import os
-import json
-
-from thothctl.core.commands import ClickCommand
-from thothctl.create_terramate.create_terramate_stacks import (
-    create_terramate_main_file,
-    recursive_graph_dependencies_to_json,
+from ....services.project.convert.project_converter import (
+        ProjectConversionConfig
 )
-from thothctl.create_terramate.manage_terramate_stacks import (
-    TerramateStackManager,
-
+from ....services.project.convert.conversion_service import (
+        ProjectConversionService
 )
-
 
 class ConvertProjectCommand(ClickCommand):
-    """Command to initialize a new project"""
+    """Command to convert projects between different formats."""
+
+    def __init__(self):
+        super().__init__()
+
 
     def validate(self, **kwargs) -> bool:
-        """Validate project initialization parameters"""
-
+        """Validate conversion parameters."""
         return True
 
     def execute(
             self,
-            use_terramate_stacks: bool= False,
-
+            make_terramate_stacks: bool = False,
+            make_project: bool = False,
+            make_template: bool = False,
+            template_project_type: str = None,
             **kwargs
     ) -> None:
-        """Execute Environment initialization"""
-        ctx = click.get_current_context()
-        debug = ctx.obj.get('DEBUG')
-        code_directory = ctx.obj.get('CODE_DIRECTORY')
-        if use_terramate_stacks:
-            manager = TerramateStackManager()
+        """Execute project conversion."""
+        try:
+            ctx = click.get_current_context()
+            config = ProjectConversionConfig(
+                code_directory=Path(ctx.obj.get('CODE_DIRECTORY')),
+                debug=ctx.obj.get('DEBUG'),
+                project_type=template_project_type,
+                make_project= make_project,
+                make_template= make_template,
+                make_terramate=make_terramate_stacks
+            )
 
-            try:
-                # Process single directory
-                directory = Path(code_directory)
-                graph = manager.get_dependency_graph(directory)
-                manager.create_stack(json.loads(graph), directory, optimized=False)
+            ProjectConversionService().convert_project(config)
 
-                # Or process recursively
-                manager.process_directory_recursively(directory)
-
-            except Exception as e:
-                self.logger.error(f"Operation failed: {e}")
-            #self._convert_to_terramate(code_directory, "main")
-
-    def _convert_to_terramate(self, code_directory: str, branch_name) -> None:
-        """Convert from terragrunt to terramate stacks"""
-        branch = branch_name
-        self.logger.info(f"Default branch tool is {branch}")
-        create_terramate_main_file(branch)
-        recursive_graph_dependencies_to_json(directory=PurePath(code_directory))
+        except Exception as e:
+            self.logger.error(f"Conversion failed: {e}")
+            raise click.ClickException(str(e))
 
     def pre_execute(self, **kwargs) -> None:
-        self.logger.debug("Starting project cleanup")
+        self.logger.debug("Starting conversion process")
 
     def post_execute(self, **kwargs) -> None:
-        self.logger.debug("Project cleanup completed")
-
-    @contextmanager
-    def _change_directory(self, path: Path):
-        """Safely change directory and return to original"""
-        original_dir = Path.cwd()
-        try:
-            os.chdir(path)
-            yield
-        finally:
-            os.chdir(original_dir)
+        self.logger.debug("Conversion process completed")
 
 
 # Create the Click command
 cli = ConvertProjectCommand.as_click_command(
-    help="Convert project to template, template to project or between frameworks like terragrunt and terramate for IaC"
+    help="Convert project to template, template to project or between IaC frameworks (Terragrunt, Terramate)"
 )(
-
-    click.option("-tm",
-                 "--use_terramate_stacks",
-                 help="Create create terramate stack for advance deployments",
-                 is_flag=True,
-                 default=False
-
-                 ),
-
-    click.option("-mpro", "--make-project",
-
-                 help="Create project from template",
-                 default=None,
-                 ),
-    click.option("-mtem", "--make-template",
-                 help="Create template from project",
-                 default=None,
-                 ),
-    click.option('-tpt', "--template-project-type",
-                 help="Provide project type according to Internal Developer Portal and frameworks",
-                 type=click.Choice(["terraform", "tofu",
-                                    "cdkv2",
-                                    ], case_sensitive=True
-                                   ),
-                 default="terraform"
-                 ),
-    click.option("-br","--branch-name",
-                 help="Provide branch name for terramate stacks",
-                 default="main"
-                 )
-
+    click.option(
+        "-tm",
+        "--make-terramate-stacks",
+        help="Create terramate stack for advance deployments",
+        is_flag=True,
+        default=False
+    ),
+    click.option(
+        "-mpro",
+        "--make-project",
+        help="Create project from template",
+        is_flag=True,
+        default=False
+    ),
+    click.option(
+        "-mtem",
+        "--make-template",
+        help="Create template from project",
+        is_flag=True,
+        default=False
+    ),
+    click.option(
+        '-tpt',
+        "--template-project-type",
+        help="Project type according to Internal Developer Portal",
+        type=click.Choice(
+            ["terraform", "tofu", "cdkv2"],
+            case_sensitive=True
+        ),
+        default="terraform"
+    ),
+    click.option(
+        "-br",
+        "--branch-name",
+        help="Branch name for terramate stacks",
+        default="main"
+    )
 )
