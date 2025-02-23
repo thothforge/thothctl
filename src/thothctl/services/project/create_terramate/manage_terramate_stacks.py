@@ -33,7 +33,7 @@ class TerramateStackManager:
             directory: Root directory to process
         """
         try:
-            self.logger.info(f"Processing directory: {directory}")
+            self.logger.debug(f"Processing directory: {directory}")
 
             # Walk through all directories
             for current_dir, dirs, files in os.walk(directory):
@@ -44,7 +44,7 @@ class TerramateStackManager:
 
                 # Check if current directory is a Terragrunt project
                 if self._is_terragrunt_project(current_path):
-                    self.logger.info(f"Found Terragrunt project in: {current_path}")
+                    self.logger.debug(f"Found Terragrunt project in: {current_path}")
                     print(
                         f"{Fore.GREEN}⚠️ Found terragrunt.hcl files in {current_path} ...\n"
                         f"❇️ Creating Terramate stacks ...{Fore.RESET}"
@@ -102,7 +102,7 @@ class TerramateStackManager:
         """
         try:
             full_path = directory.resolve()
-            self.logger.info(f"Getting dependencies graph for {full_path.name}")
+            self.logger.debug(f"Getting dependencies graph for {full_path.name}")
 
             # Change to target directory
             original_dir = os.getcwd()
@@ -151,14 +151,14 @@ class TerramateStackManager:
         """
         try:
             # Process dependencies
-            after = self._process_dependencies(json_graph)
+            after = self._process_dependencies(json_graph, directory=directory)
             self.logger.debug(f"Dependencies: {after}")
 
             # Generate content
             content = self._generate_stack_content(after)
 
             # Write file
-            terramate_file = directory / "terramate.tm.hcl"
+            terramate_file = directory / "stack.tm.hcl"
             terramate_file.write_text(content)
             print(f"{Fore.GREEN}Created Terramate file: {terramate_file}{Fore.RESET}")
 
@@ -189,31 +189,86 @@ class TerramateStackManager:
             self.logger.error(f"Failed to create main file: {e}")
             raise
 
-    def _process_dependencies(self, json_graph: Dict) -> List[str]:
-        """Process dependency graph to extract dependencies."""
-        after = []
-        if "edges" in json_graph:
+    def _process_dependencies(self, json_graph: Dict, directory: Path) -> List[str]:
+        """Process dependency graph to extract dependencies and convert to relative paths."""
+        try:
+            after = []
+            if "edges" not in json_graph:
+                return after
+
+            current_dir = directory.resolve()
+
             for edge in json_graph["edges"]:
                 for obj in json_graph["objects"]:
                     if edge["tail"] == obj["_gvid"]:
-                        stack_name = json_graph["objects"][edge["head"]]["name"]
-                        self.logger.debug(f"{obj['name']} depends on {stack_name}")
-                        after.append(stack_name)
+                        dep_path = Path(json_graph["objects"][edge["head"]]["name"])
+                        rel_path = self._get_relative_path(dep_path, current_dir)
+
+                        self.logger.debug(f"Adding dependency: {rel_path}")
+                        after.append(rel_path)
 
             return list(dict.fromkeys(after))
-        return after
+
+        except Exception as e:
+            self.logger.error(f"Error processing dependencies: {e}")
+            raise
 
     def _generate_stack_content(self, after: List[str]) -> str:
-        """Generate Terramate stack configuration content."""
+        """
+        Generate Terramate stack configuration content.
+
+        Args:
+            after: List of relative path dependencies
+
+        Returns:
+            str: Stack configuration content
+        """
         watch_content = '''
-        watch = [
-              "./terragrunt.hcl",
-           ]'''
+            watch = [
+                  "./terragrunt.hcl",
+               ]'''
 
-        after_content = f"after= {after}" if after else ""
-        content = f"stack {{\n{after_content}{watch_content}\n}}"
-        return content.replace("'", '"')
+        # Format the after list with proper quotes around paths
+        if after:
+            paths_str = ", ".join(f'"{path}"' for path in after)
+            after_content = f"    after = [{paths_str}]"
+        else:
+            after_content = ""
 
+        content = f"""stack {{
+    {after_content}{watch_content}
+    }}"""
+        return content
+
+    def _get_relative_path(self, target_path: Path, current_dir: Path) -> str:
+        """
+        Get relative path from current directory to target path.
+
+        Args:
+            target_path: Target path to create relative path to
+            current_dir: Current directory to create path from
+
+        Returns:
+            str: Relative path
+        """
+        try:
+            # Resolve both paths to absolute paths
+            target_abs = target_path.resolve()
+            current_abs = current_dir.resolve()
+
+            # Calculate relative path
+            rel_path = os.path.relpath(target_abs, current_abs)
+
+            # Convert Windows paths to Unix-style if needed
+            rel_path = rel_path.replace(os.sep, '/')
+
+            self.logger.debug(f"Relative path from {current_abs} to {target_abs}: {rel_path}")
+            return rel_path
+
+        except Exception as e:
+            self.logger.error(f"Error calculating relative path: {e}")
+            # Return original path if conversion fails
+            return str(target_path)
     def _generate_main_content(self, default_branch: str) -> str:
         """Generate main Terramate configuration content."""
         content = f'''
@@ -228,9 +283,7 @@ terramate {{
         }}
   }}
 }}
-terramate {{
-    required_version = "~> 0.2"
-}}'''
+'''
         return content
 
     def _add_to_git(self, file_path: Path) -> None:

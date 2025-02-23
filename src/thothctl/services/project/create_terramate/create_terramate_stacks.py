@@ -19,15 +19,15 @@ def graph_dependencies_to_json(directory):
     :param directory:
     :return:
     """
-    logging.info(directory)
+    logging.debug(directory)
     d = Path(directory).resolve().name
     full_path = Path(directory).resolve().absolute()
     pwd = os.getcwd()
-    logging.info(f"Current path {pwd}")
+    logging.debug(f"Current path {pwd}")
 
     replace = Path(directory).resolve().parents[1]
-    logging.info(replace)
-    logging.info(pwd)
+    logging.debug(replace)
+    logging.debug(pwd)
 
     logging.info(f"Getting dependencies graph for {d} ")
 
