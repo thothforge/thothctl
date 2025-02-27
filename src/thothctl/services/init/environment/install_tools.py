@@ -152,9 +152,7 @@ def install_trivy(version):
     print(f"{Fore.MAGENTA}Installing Trivy {version}{Fore.RESET}")
 
     _exit = os.system(
-        "sudo apt-get install wget apt-transport-https gnupg lsb-release\
-         && sudo apt-get update \
-        && sudo apt-get install trivy\
+        "curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo  sh -s -- -b /usr/local/bin \
         && trivy --version"
     )
 
@@ -164,8 +162,7 @@ def install_trivy(version):
         )
     else:
         print(
-            f'{Fore.LIGHTBLUE_EX} Please run: \n wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null \
-        && echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list\ \n '
+            f'Please Run -> curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin '
         )
         sys.exit(f"{Fore.RED}❌   Error Installing trivy {version}{Fore.RESET}")
 
@@ -380,7 +377,7 @@ def bootstrap_env(so):
             install_tflint()
             install_commitizen(version=versions["commitizen"])
             install_open_tofu()
-            # install_trivy(version=versions["trivy"])
+            install_trivy(version=versions["trivy"])
             install_snyk()
         else:
             print(names, selected_tools)

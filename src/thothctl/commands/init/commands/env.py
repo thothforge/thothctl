@@ -6,8 +6,8 @@ import os
 import getpass
 
 
-from thothctl.core.commands import ClickCommand
-from thothctl.services.init.environment.install_tools import bootstrap_env
+from ....core.commands import ClickCommand
+from ....services.init.environment.install_tools import bootstrap_env
 
 class EnvInitCommand(ClickCommand):
     """Command to initialize a new project"""

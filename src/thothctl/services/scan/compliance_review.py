@@ -1,151 +1,258 @@
 """Define kind of scanning process using tools for modular deployments."""
 import logging
 import subprocess
-import time
 from pathlib import Path, PurePath
-
 import os
 from colorama import Fore
+from typing import Optional, Dict, List, Union
+from enum import Enum
+import time
 
+class ScanTool(Enum):
+    """Supported scanning tools."""
+    TRIVY = "trivy"
+    TFSEC = "tfsec"
+    CHECKOV = "checkov"
+    TERRAFORM_COMPLIANCE = "terraform-compliance"
 
-def tfsec_scan(directory, reports_dir, options=None):
-    """
-    Run tfsec scan.
+# Constants
+SCAN_COMMANDS: Dict[str, List[str]] = {
+    "trivy": ["trivy", "config"],
+    "tfsec": ["tfsec"],
+    "checkov": ["checkov", "-d"],
+    "terraform-compliance": ["terraform-compliance", "-p"]
+}
 
-    :param directory:
-    :param reports_dir:
-    :param options:
-    :return:
-    """
-    print(Fore.GREEN + f"Running tfsec scan in {directory}... " + Fore.RESET)
-    if options is not None:
-        scan = subprocess.run(
-            ["tfsec", directory, options], capture_output=True, text=True
+def get_report_path(directory: str, reports_dir: str, extension: str) -> PurePath:
+    """Generate standardized report path."""
+    path = Path(directory).resolve()
+    report_name = f"report_{path.parent.name}_{path.name}".replace("/", "_")
+    return PurePath(os.path.join(reports_dir, f"{report_name}.{extension}"))
+
+def run_scan_command(cmd: List[str], capture: bool = True) -> subprocess.CompletedProcess:
+    """Execute scan command with proper error handling."""
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=capture,
+            text=True,
+            check=True
         )
-    else:
-        scan = subprocess.run(["tfsec", directory], capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Scan failed: {e}")
+        raise
+
+def trivy_scan(directory: str, reports_dir: str, options: Optional[str] = None) -> None:
+    """Run trivy scan."""
+    print(Fore.GREEN + f"Running trivy scan in {directory}... " + Fore.RESET)
+
+    cmd = [*SCAN_COMMANDS["trivy"], directory]
+    if options:
+        cmd.append(options)
+
+    scan = run_scan_command(cmd)
     print(scan.stdout)
-    logging.info("Creating tfsec reports.")
-    parent = Path(directory).resolve().parent.name
-    name = Path(directory).resolve().name
 
-    report_name = "report_" + (parent + "_" + name).replace("/", "_")
-    reports_path = PurePath(os.path.join(reports_dir, f"{report_name}"))
-    command = f"tfsec {directory} -f junit > {reports_path}.xml"
-    report = os.popen(command)
-    print(report.read())
+    reports_path = get_report_path(directory, reports_dir, "txt")
+    with open(reports_path, 'w') as f:
+        subprocess.run([*SCAN_COMMANDS["trivy"], directory], stdout=f, check=True)
 
+def tfsec_scan(directory: str, reports_dir: str, options: Optional[str] = None) -> None:
+    """Run tfsec scan."""
+    print(Fore.GREEN + f"Running tfsec scan in {directory}... " + Fore.RESET)
 
-def checkov_scan(directory, reports_dir, options=None, tftool= "tofu"):
+    cmd = [*SCAN_COMMANDS["tfsec"], directory]
+    if options:
+        cmd.append(options)
+
+    scan = run_scan_command(cmd)
+    print(scan.stdout)
+
+    reports_path = get_report_path(directory, reports_dir, "xml")
+    with open(reports_path, 'w') as f:
+        subprocess.run([*cmd, "-f", "junit"], stdout=f, check=True)
+
+def checkov_scan(directory: str, reports_dir: str, options: Optional[str] = None, tftool: str = "tofu") -> None:
+    """Run checkov scan."""
+    print(Fore.GREEN + f"Running checkov scan in {directory}... " + Fore.RESET)
+
+    tf_plan = Path(os.path.join(directory, "tfplan"))
+    tf_plan_json = Path(os.path.join(directory, "tfplan.json"))
+
+    cmd = [*SCAN_COMMANDS["checkov"], directory]
+    if options:
+        cmd.append(options)
+
+    scan = run_scan_command(cmd)
+    print(scan.stdout)
+
+    if tf_plan.exists():
+        subprocess.run(
+            f"cd {directory} && {tftool} show -json tfplan > tfplan.json",
+            shell=True,
+            check=True
+        )
+        cmd.extend(["-f", str(tf_plan_json)])
+
+    reports_path = get_report_path(directory, reports_dir, "xml")
+    with open(reports_path, 'w') as f:
+        cmd.extend(["-o", "junitxml"])
+        subprocess.run(cmd, stdout=f, check=True)
+
+def terraform_compliance_scan(
+    directory: str,
+    reports_dir: str,
+    features_dir: str,
+    options: Optional[str] = None
+) -> None:
+    """Run terraform compliance scan."""
+    print(Fore.GREEN + f"Running terraform-compliance scan in {directory}... " + Fore.RESET)
+
+    tf_plan = Path(os.path.join(directory, "tfplan.json"))
+    if not tf_plan.exists():
+        logging.error(f"tfplan.json not found in {directory}")
+        raise FileNotFoundError(f"tfplan.json not found in {directory}")
+
+    cmd = [
+        *SCAN_COMMANDS["terraform-compliance"],
+        str(tf_plan),
+        "-f",
+        features_dir
+    ]
+
+    if options:
+        cmd.append(options)
+
+    reports_path = get_report_path(directory, reports_dir, "xml")
+    cmd.extend(["--junit-xml", str(reports_path)])
+
+    scan = run_scan_command(cmd)
+    print(scan.stdout)
+
+def generate_reports(scan_results: Dict[str, subprocess.CompletedProcess]) -> Dict[str, str]:
     """
-    Run checkov scan.
+    Generate consolidated reports from scan results.
+
+    Args:
+        scan_results: Dictionary containing scan results for each tool
+
+    Returns:
+        Dictionary containing report paths for each tool
+    """
+    reports = {}
+    for tool, result in scan_results.items():
+        if result.returncode == 0:
+            reports[tool] = "PASS"
+        else:
+            reports[tool] = "FAIL"
+            logging.error(f"{tool} scan failed with output: {result.stderr}")
+
+    return reports
+
+def select_tools(tools: List[str]) -> List[ScanTool]:
+    """
+    Select and validate scanning tools.
+
+    Args:
+        tools: List of tool names to use
+
+    Returns:
+        List of validated ScanTool enums
+    """
+    selected_tools = []
+    for tool in tools:
+        try:
+            scan_tool = ScanTool(tool.lower())
+            # Verify tool is installed
+            subprocess.run(
+                [SCAN_COMMANDS[tool][0], "--version"],
+                capture_output=True,
+                check=True
+            )
+            selected_tools.append(scan_tool)
+        except ValueError:
+            logging.warning(f"Unsupported tool: {tool}")
+        except subprocess.CalledProcessError:
+            logging.warning(f"Tool not installed: {tool}")
+        except FileNotFoundError:
+            logging.warning(f"Tool not found in PATH: {tool}")
+
+    if not selected_tools:
+        raise ValueError("No valid scanning tools selected")
+
+    return selected_tools
+
+def run_scans(
+    directory: str,
+    reports_dir: str,
+    tools: List[str],
+    features_dir: Optional[str] = None,
+    options: Optional[Dict[str, str]] = None
+) -> Dict[str, str]:
+    """
+    Run selected security scans on the specified directory.
+
+    Args:
+        directory: Directory to scan
+        reports_dir: Directory to store reports
+        tools: List of tools to use
+        features_dir: Directory containing terraform-compliance features
+        options: Dictionary of tool-specific options
+
+    Returns:
+        Dictionary containing scan results
+    """
+    if not os.path.exists(reports_dir):
+        os.makedirs(reports_dir)
+
+    selected_tools = select_tools(tools)
+    scan_results = {}
+    options = options or {}
+
+    for tool in selected_tools:
+        try:
+            if tool == ScanTool.TRIVY:
+                trivy_scan(directory, reports_dir, options.get('trivy'))
+            elif tool == ScanTool.TFSEC:
+                tfsec_scan(directory, reports_dir, options.get('tfsec'))
+            elif tool == ScanTool.CHECKOV:
+                checkov_scan(directory, reports_dir, options.get('checkov'))
+            elif tool == ScanTool.TERRAFORM_COMPLIANCE:
+                if not features_dir:
+                    raise ValueError("features_dir is required for terraform-compliance")
+                terraform_compliance_scan(
+                    directory,
+                    reports_dir,
+                    features_dir,
+                    options.get('terraform-compliance')
+                )
+
+            scan_results[tool.value] = "PASS"
+        except Exception as e:
+            logging.error(f"Error running {tool.value}: {str(e)}")
+            scan_results[tool.value] = "FAIL"
+
+    return generate_reports(scan_results)
+
+def scan_root(directory, tool, reports_dir, features_dir: str = "", tftool= "tofu"):
+    """
+    Scan root path.
 
     :param tftool:
     :param directory:
+    :param tool:
     :param reports_dir:
-    :param options:
-    :return:
-    """
-    print(Fore.GREEN + f"Running checkov scan in {directory}... " + Fore.RESET)
-    tf_plan = PurePath(os.path.join(directory, "tfplan"))
-    tf_plan_json = PurePath(os.path.join(directory, "tfplan.json"))
-    add_command = ""
-
-    if options is not None:
-        scan = subprocess.run(
-            ["checkov", "-d", directory, options], capture_output=True, text=True
-        )
-    else:
-        scan = subprocess.run(
-            ["checkov", "-d", directory], capture_output=True, text=True
-        )
-    print(scan.stdout)
-
-    if os.path.exists(PurePath(tf_plan)):
-        os.system(
-            f"cd {directory} && {tftool} show -json tfplan  > tfplan.json"
-        )
-
-        add_command = f"-f {tf_plan_json}"
-
-        logging.info("Creating checkov reports.")
-    parent = Path(directory).resolve().parent.name
-    name = Path(directory).resolve().name
-
-    report_name = "report_" + (parent + "_" + name).replace("/", "_")
-    reports_path = PurePath(os.path.join(reports_dir, f"{report_name}.xml"))
-    command = f"checkov -d {directory} {add_command} -o junitxml > {reports_path}"
-    command = os.popen(command)
-    print(command.read())
-
-
-def terraform_compliance_scan(
-    directory,
-    reports_dir,
-    features_dir,
-    options=None,
-):
-    """
-    Run terraform compliance scan.
-
-    :param directory:
-    :param reports_dir:
-    :param options:
     :param features_dir:
     :return:
     """
-    print(
-        Fore.GREEN
-        + f"Running terraform-compliance scan in {directory}... "
-        + Fore.RESET
-    )
-    logging.info("Creating terraform-compliance reports.")
-    parent = Path(directory).resolve().parent.name
-    name = Path(directory).resolve().name
-
-    report_name = "report_" + (parent + "_" + name).replace("/", "_")
-    tf_plan_path = PurePath(os.path.join(directory, "tfplan"))
-    reports_path = PurePath(os.path.join(reports_dir, f"{report_name}.xml"))
-    if options is not None:
-        command = f"terraform-compliance -f {features_dir} -p {tf_plan_path} --format junit  --junit-xml={reports_path} {options}"
-        print(command)
-
-    else:
-        command = f"terraform-compliance -f {features_dir} -p {tf_plan_path} --format junit  --junit-xml={reports_path}.xml"
-        print(command)
-
-    command = os.popen(command)
-    print(command.read())
-
-
-def create_html_reports(directory, mode="single"):
-    """
-    Create html reports from xml reports.
-
-    :param directory:
-    :param mode:
-    :return:
-    """
-    print(Fore.GREEN + "Converting Reports..." + Fore.RESET)
-    # Clean folder - previous html
-    ls_dir = os.listdir(directory)
-    c = None
-
-    if mode == "xunit":
-        c = f'cd {directory} && xunit-viewer -r .  -o CompactReport -b https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png -t "thothctl - Compact Report" -f https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png  '  # > /dev/null
-        os.popen(c, "w")
-
-    for ll in ls_dir:
-        if ll.endswith(".xml"):
-            s = os.path.join(directory, ll)
-            d = os.path.join(directory, ll.replace("xml", "html"))
-            if mode == "single":
-                c = f"junit2html  {s} {d} & > /dev/null"
-            elif mode == "xunit":
-                c = f'xunit-viewer -r {s} -o {d} -b https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png -t "thothctl-{ll}" -f https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png  '  # > /dev/null
-
-            os.popen(c, "w")
-
+    if os.path.exists(PurePath(f"{directory}/main.tf")):
+        select_tool(
+            directory=directory,
+            tool=tool,
+            reports_dir=reports_dir,
+            features_dir=features_dir,
+            tftool=tftool
+        )
 
 def select_tool(directory, tool, reports_dir, features_dir: str = "", options=None, tftool= "tofu"):
     """
@@ -178,29 +285,37 @@ def select_tool(directory, tool, reports_dir, features_dir: str = "", options=No
             options=options,
         )
 
-
-def scan_root(directory, tool, reports_dir, features_dir: str = "", tftool= "tofu"):
+def create_html_reports(directory, mode="single"):
     """
-    Scan root path.
+    Create html reports from xml reports.
 
-    :param tftool:
     :param directory:
-    :param tool:
-    :param reports_dir:
-    :param features_dir:
+    :param mode:
     :return:
     """
-    if os.path.exists(PurePath(f"{directory}/main.tf")):
-        select_tool(
-            directory=directory,
-            tool=tool,
-            reports_dir=reports_dir,
-            features_dir=features_dir,
-            tftool=tftool
-        )
+    print(Fore.GREEN + "Converting Reports..." + Fore.RESET)
+    # Clean folder - previous html
+    ls_dir = os.listdir(directory)
+    c = None
+
+    if mode == "xunit":
+        c = f'cd {directory} && xunit-viewer -r .  -o CompactReport -b https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png -t "thothctl - Compact Report" -f https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png  '  # > /dev/null
+        os.popen(c, "w")
+
+    for ll in ls_dir:
+        if ll.endswith(".xml"):
+            s = os.path.join(directory, ll)
+            d = os.path.join(directory, ll.replace("xml", "html"))
+            if mode == "single":
+                c = f"junit2html  {s} {d} & > /dev/null"
+            elif mode == "xunit":
+                c = f'xunit-viewer -r {s} -o {d} -b https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png -t "thothctl-{ll}" -f https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png  '  # > /dev/null
+
+            os.popen(c, "w")
 
 
-def recursive_scan(directory, tool, reports_dir, features_dir: str = "", options=None, tftool = "tofu"):
+
+def recursive_scan(directory, tool, reports_dir, features_dir: str = "", options=None, tftool="tofu"):
     """
     Recursive Scan according to the tool selected.
 
@@ -242,7 +357,8 @@ def recursive_scan(directory, tool, reports_dir, features_dir: str = "", options
         if os.path.isdir(nested_dir) and not ld.startswith("."):
             logging.info(f"Finding a folder {ld}...")
             recursive_scan(nested_dir, tool, reports_dir, features_dir)
-            if os.path.exists(PurePath(f"{nested_dir}/main.tf")) or os.path.exists(PurePath(f"{nested_dir}/tfplan.json")):
+            if os.path.exists(PurePath(f"{nested_dir}/main.tf")) or os.path.exists(
+                    PurePath(f"{nested_dir}/tfplan.json")):
                 print(
                     f"⚠️{Fore.GREEN}Find terraform files in {nested_dir} ...\n❇️ Scanning ... "
                     + Fore.RESET

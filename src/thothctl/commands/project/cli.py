@@ -19,7 +19,7 @@ class ProjectCLI(click.MultiCommand):
                 if item.name.endswith('.py') and not item.name.startswith('_'):
                     commands.append(item.stem)
         except Exception as e:
-            logger.error(f"Error listing init commands: {e}")
+            logger.error(f"Error listing project subcommands: {e}")
             return []
 
         commands.sort()
