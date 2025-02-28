@@ -1,9 +1,10 @@
 import click
 import time
-from typing import Optional, List
+from typing import Optional, List, Literal
 import logging
 from ....core.commands import ClickCommand
 from ....services.scan.scan_service import ScanService
+from ....utils.common.create_html_reports import HTMLReportGenerator
 from rich import print as rprint
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class IaCScanCommand(ClickCommand):
             options: Optional[str] = None,
             tftool: str = "tofu",
             verbose: bool = False,
+            html_reports_format: Literal["simple", "xunit"] = "simple",
 
             **kwargs
     ) -> None:
@@ -50,6 +52,8 @@ class IaCScanCommand(ClickCommand):
             finish_time = time.perf_counter()
             scan_time = finish_time - start_time
             rprint(f"[green]✨ Scan finished in {scan_time:.2f} seconds[/green]")
+            generator = HTMLReportGenerator()
+            generator.create_html_reports(directory= reports_dir, mode=html_reports_format)
 
         except Exception as e:
             self.logger.error(f"Scan failed: {e}")
@@ -127,6 +131,12 @@ click.option(
     type=click.Choice(['text', 'json', 'xml']),
     default='text',
     help='Output format for the reports'
+),
+    click.option(
+    '--html-reports-format',
+    type=click.Choice(["simple", "xunit"]),
+    default='simple',
+    help='if you want create a html reports, if you select xunit you must have installed xunit-viewer (npm -g install xunit-viewer),'
 ),
 click.option(
     '--verbose',

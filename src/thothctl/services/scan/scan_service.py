@@ -63,7 +63,7 @@ class ScanService:
                     if path.exists(p):
 
                         reports_path = DirectoryManager.ensure_empty_directory(
-                            reports_dir,
+                            p,
                             verbose=options.get('verbose', False),
                             force_close=True
                         )

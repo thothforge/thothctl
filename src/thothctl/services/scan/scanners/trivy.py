@@ -11,8 +11,9 @@ class TrivyScanner(ScannerPort):
     def __init__(self):
         self.ui = ScannerUI("Trivy")
         self.report_filename = "trivy_report.txt"
+        self.reports_path = "trivy"
 
-    def scan(self, directory: str, reports_dir: str, options: Optional[Dict] = None) -> Dict[str, str]:
+    def scan(self, directory: str, reports_dir: str, options: Optional[Dict] = None, tftoo: str=None) -> Dict[str, str]:
         """
         Execute Trivy scan on specified directory.
 
@@ -55,7 +56,7 @@ class TrivyScanner(ScannerPort):
         Returns:
             Path object for the reports directory
         """
-        reports_path = Path(reports_dir).resolve()
+        reports_path = Path(reports_dir).joinpath(self.reports_path).resolve()
         reports_path.mkdir(parents=True, exist_ok=True)
         return reports_path
 
