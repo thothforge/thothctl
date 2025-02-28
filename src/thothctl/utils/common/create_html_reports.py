@@ -96,31 +96,35 @@ class HTMLReportGenerator:
         except Exception as e:
             self.logger.error(f"Error processing {xml_path.name}: {str(e)}")
 
-    def _create_compact_report(self, directory: Path) -> None:
-        """Create a compact report using xunit-viewer for the current directory."""
+    def _create_compact_report(self, directory: Path, xml_files: List[Path]) -> None:
+        """Create a single compact report using xunit-viewer for all XML files."""
         try:
             cmd = [
                 "xunit-viewer",
-                "-r", ".",
-                "-o", "CompactReport",
+                "-r", ".",  # Use current directory recursively
+                "-o", "CompactReport",  # Output file name
                 "-b", self.config.BANNER_URL,
-                "-t", "thothctl - Compact Report",
+                "-t", "thothctl - Complete Scan Report",
                 "-f", self.config.FAVICON_URL
             ]
 
             result = subprocess.run(
                 cmd,
-                cwd=str(directory),
+                cwd=str(directory),  # Execute in the target directory
                 capture_output=True,
                 text=True,
                 check=True
             )
-            self.logger.info(f"Generated compact report successfully in {directory}")
-            rprint(f"[green]✓ Generated compact report in {directory}[/green]")
+
+            self.logger.info(f"Generated unified compact report in {directory}")
+            rprint(f"[green]✓ Generated unified compact report in {directory}[/green]")
 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Failed to generate compact report in {directory}: {e.stderr}")
-            rprint(f"[red]✗ Failed to generate compact report in {directory}: {e.stderr}[/red]")
+            self.logger.error(f"Failed to generate unified compact report: {e.stderr}")
+            rprint(f"[red]✗ Failed to generate unified compact report: {e.stderr}[/red]")
+            raise
+        except Exception as e:
+            self.logger.error(f"Error generating unified compact report: {str(e)}")
             raise
 
     def _process_directory(self, directory: Path, mode: str) -> None:
@@ -131,13 +135,13 @@ class HTMLReportGenerator:
             except Exception as e:
                 self.logger.error(f"Compact report generation failed for {directory}: {e}")
 
-    def create_html_reports(self, directory: str, mode: Literal["simple", "xunit"] = "simple") -> None:
+    def create_html_reports(self, directory: str, mode: Literal["single", "xunit"] = "single") -> None:
         """
         Create HTML reports from XML reports in parallel, including nested directories.
 
         Args:
             directory: Path to directory containing XML reports
-            mode: Report generation mode ("simple" for junit2html or "xunit" for xunit-viewer)
+            mode: Report generation mode ("single" for junit2html or "xunit" for xunit-viewer)
         """
         try:
             dir_path = Path(directory)
@@ -157,12 +161,9 @@ class HTMLReportGenerator:
 
             rprint(f"[green]Found {len(xml_files)} XML files to convert[/green]")
 
-            # If using xunit mode, create compact reports for each directory containing XML files
+            # If using xunit mode, create a single compact report for all XML files
             if mode == "xunit":
-                # Get unique directories containing XML files
-                xml_dirs = {xml_file.parent for xml_file in xml_files}
-                for xml_dir in xml_dirs:
-                    self._process_directory(xml_dir, mode)
+                self._create_compact_report(dir_path, xml_files)
 
             # Process all XML files in parallel
             with ThreadPoolExecutor() as executor:
