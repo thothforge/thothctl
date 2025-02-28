@@ -5,8 +5,8 @@ import os
 import logging
 
 from ....common.common import create_info_project
-from ....utils.parser_iac_templates.set_project_parameters import set_project_conf
-from ....utils.parser_iac_templates.get_project_data import (
+from ...project.convert.set_project_parameters import set_project_conf
+from ...project.convert.get_project_data import (
     get_project_props,
     walk_folder_replace,
 )
