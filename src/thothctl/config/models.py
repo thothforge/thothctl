@@ -156,19 +156,3 @@ class ScanSummary:
         )
 
 
-class ReportStatus(Enum):
-    APPROVED = "APPROVED"
-    SKIPPED = "SKIPPED"
-    FAILED = "FAILED"
-
-@dataclass
-class ScanResult:
-    module_name: str
-    failures: int
-    total_tests: int
-    status: ReportStatus
-    message: str
-
-@dataclass
-class ReportSummary:
-    results: List[ScanResult]

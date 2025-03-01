@@ -1,10 +1,36 @@
 import json
 import logging
 import xmltodict
-from typing import Dict, Optional
-from ....config.models import ScanResult, ReportStatus
+from dataclasses import dataclass
+from enum import Enum
+from  pathlib import Path
+from typing import List, Optional,Dict
+
+class ReportStatus(Enum):
+    APPROVED = "APPROVED"
+    SKIPPED = "SKIPPED"
+    FAILED = "FAILED"
+
+@dataclass
+class ScanResult:
+    module_name: str
+    failures: int
+    total_tests: int
+    status: ReportStatus
+    message: str
 
 
+@dataclass
+class ScanSummary:
+    file_path: str
+    name: str
+    summary: str
+    fails: int
+    tests: int
+
+@dataclass
+class ReportSummary:
+    results: List[ScanResult]
 class ReportScanner:
     def scan_report(self, report_path: str, report_type: str) -> Optional[ScanResult]:
         try:
@@ -32,7 +58,7 @@ class ReportScanner:
             logging.error(f"Failed to scan report {report_path}: {str(e)}")
             return None
 
-    def _scan_terraform_compliance_report(self, data: Dict) -> ScanResult:
+    def _scan_terraform_compliance_report(self, data: Dict) -> Optional[ScanResult]:
         """
         Scan terraform compliance reports.
         """
@@ -65,7 +91,7 @@ class ReportScanner:
             logging.error(f"Error scanning Terraform-Compliance report: {str(e)}")
             return None
 
-    def _scan_checkov_report(self, data: Dict) -> ScanResult:
+    def _scan_checkov_report(self, data: Dict) -> Optional[ScanResult]:
         try:
             failures = int(data["testsuites"]["@failures"])
             tests = int(data["testsuites"]["@tests"])
@@ -84,7 +110,7 @@ class ReportScanner:
             logging.error(f"Error scanning Checkov report: {str(e)}")
             return None
 
-    def _scan_tfsec_report(self, data: Dict) -> ScanResult:
+    def _scan_tfsec_report(self, data: Dict) -> Optional[ScanResult]:
         try:
             testsuites = data.get("testsuites", {})
             if isinstance(testsuites.get("testsuite"), list):
@@ -108,9 +134,9 @@ class ReportScanner:
             logging.error(f"Error scanning TFSec report: {str(e)}")
             return None
 
-    def _scan_trivy_report(self, data: Dict) -> ScanResult:
+    def _scan_trivy_report(self, data: Dict) -> Optional[ScanResult]:
         try:
-            vulnerabilities = []
+            vulnerabilities: List = []
             total_tests = 0
             failures = 0
 
@@ -119,7 +145,7 @@ class ReportScanner:
                     vulnerabilities.extend(result["Vulnerabilities"])
                     total_tests += len(result["Vulnerabilities"])
                     failures += sum(1 for v in result["Vulnerabilities"]
-                                    if v.get("Severity", "").upper() in ["HIGH", "CRITICAL"])
+                                  if v.get("Severity", "").upper() in ["HIGH", "CRITICAL"])
 
             status = self._determine_status(failures, total_tests)
             message = self._create_message(failures, total_tests, "Trivy")
@@ -148,3 +174,79 @@ class ReportScanner:
         elif failures == 0:
             return f"Approved {scan_type} scanning"
         return f"Failed {scan_type} scanning"
+
+
+
+class ReportProcessor:
+    def __init__(self, scanner, report_generator, teams_notifier=None):
+        self.scanner = scanner
+        self.report_generator = report_generator
+        self.teams_notifier = teams_notifier
+
+    def process_directory(self, directory: str, report_tool: str) -> None:
+        """Process all reports in directory and subdirectories"""
+        try:
+            summary = {"Summary": []}
+            scan_results = self._scan_directory(Path(directory), report_tool)
+
+            for result in scan_results:
+                if self._should_include_in_summary(result):
+                    summary["Summary"].append(self._create_summary_entry(result))
+
+                    if self.teams_notifier:
+                        self.teams_notifier.send_scan_result(result)
+
+            if summary["Summary"]:
+                self.report_generator.generate_report(summary)
+
+        except Exception as e:
+            logging.error(f"Error processing directory {directory}: {e}")
+            raise
+
+    def _scan_directory(self, directory: Path, report_tool: str) -> List[ScanSummary]:
+        """Recursively scan all XML files in directory and subdirectories"""
+        results = []
+
+        try:
+            for item in directory.rglob("*.xml"):
+                scan_result = self._process_file(item, report_tool)
+                if scan_result:
+                    results.append(scan_result)
+
+        except Exception as e:
+            logging.error(f"Error scanning directory {directory}: {e}")
+
+        return results
+
+    def _process_file(self, file_path: Path, report_tool: str) -> Optional[ScanSummary]:
+        """Process a single XML file"""
+        try:
+            scan_result = self.scanner.scan_report(str(file_path), report_tool)
+
+            if scan_result:
+                return ScanSummary(
+                    file_path=str(file_path),
+                    name=file_path.name,
+                    summary=scan_result.message,
+                    fails=scan_result.failures,
+                    tests=scan_result.total_tests
+                )
+
+        except Exception as e:
+            logging.error(f"Error processing file {file_path}: {e}")
+
+        return None
+
+    def _should_include_in_summary(self, result: ScanSummary) -> bool:
+        """Determine if scan result should be included in summary"""
+        return result and result.fails > 0 and result.tests > 0
+
+    def _create_summary_entry(self, result: ScanSummary) -> Dict:
+        """Create a summary entry for reporting"""
+        return {
+            "Name": result.name,
+            "Path": result.file_path,
+            "summary": result.summary,
+            "fails": result.fails,
+            "tests": result.tests
+        }

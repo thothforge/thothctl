@@ -150,35 +150,4 @@ class ComplianceReportGenerator:
         """
 
 
-# use_cases/report_processor.py
-class ComplianceReportProcessor:
-    def __init__(self, scanner, report_generator, teams_notifier=None):
-        self.scanner = scanner
-        self.report_generator = report_generator
-        self.teams_notifier = teams_notifier
-
-    def process_reports(self, directory: str, report_tool: str) -> None:
-        """Process all reports in directory and generate summary"""
-        summary = {"Summary": []}
-
-        for filename in os.listdir(directory):
-            if not filename.endswith(".xml"):
-                continue
-
-            filepath = os.path.join(directory, filename)
-            scan_result = self.scanner.scan_report(filepath, report_tool)
-
-            if scan_result and scan_result.failures > 0 and scan_result.total_tests > 0:
-                summary["Summary"].append({
-                    "Name": filename,
-                    "summary": scan_result.message,
-                    "fails": scan_result.failures,
-                    "tests": scan_result.total_tests
-                })
-
-                if self.teams_notifier:
-                    self.teams_notifier.send_scan_result(scan_result)
-
-        if summary["Summary"]:
-            self.report_generator.generate_report(summary)
 

@@ -135,13 +135,13 @@ class HTMLReportGenerator:
             except Exception as e:
                 self.logger.error(f"Compact report generation failed for {directory}: {e}")
 
-    def create_html_reports(self, directory: str, mode: Literal["single", "xunit"] = "single") -> None:
+    def create_html_reports(self, directory: str, mode: Literal["simple", "xunit"] = "simple") -> None:
         """
         Create HTML reports from XML reports in parallel, including nested directories.
 
         Args:
             directory: Path to directory containing XML reports
-            mode: Report generation mode ("single" for junit2html or "xunit" for xunit-viewer)
+            mode: Report generation mode ("simple" for junit2html or "xunit" for xunit-viewer)
         """
         try:
             dir_path = Path(directory)

@@ -3,16 +3,16 @@ from .scanners.scanners import ScanOrchestrator, Scanner
 from .scanners.trivy import TrivyScanner
 #from .scanners.tfsec import TFSecScanner
 from .scanners.checkov import CheckovScanner
-from .scanners.scan_reports import ReportScanner
-from ...utils.common.create_compliance_html_reports import ComplianceReportGenerator, ComplianceReportProcessor, ReportConfig
-from typing import List, Dict
+from .scanners.scan_reports import ReportScanner, ReportProcessor
+from ...utils.common.create_compliance_html_reports import ComplianceReportGenerator, ReportConfig
+from typing import List, Dict, Literal
 from colorama import Fore
 from os import  remove, listdir, path, makedirs
 from pathlib import Path
 import  time
 import logging
 from ...utils.common.delete_directory import DirectoryManager
-
+from ...utils.common.create_html_reports import HTMLReportGenerator
 
 
 
@@ -35,10 +35,25 @@ class ScanService:
             reports_dir: str,
             selected_tools: List[str],
             options: Dict[str, Dict],
-            tftool: str = "tofu"
+            tftool: str = "tofu",
+            html_reports_format: Literal["simple", "xunit"] = "simple"
     ) -> Dict[str, Dict]:
         """Execute selected security scans."""
         try:
+            report_generator = ComplianceReportGenerator(
+                output_dir=reports_dir,
+                config=ReportConfig(
+                    page_size="A0",
+                    orientation="Landscape"
+                )
+            )
+            scanner = ReportScanner()
+            processor = ReportProcessor(
+                scanner=scanner,
+                report_generator=report_generator,
+                #teams_notifier=teams_notifier
+            )
+
             if options is None:
                 options = {}
 
@@ -79,31 +94,17 @@ class ScanService:
                         tftool=tftool
                     )
                     results[tool] = tool_results
-
+                    processor.process_directory(
+                        directory=f"{reports_dir}/checkov",
+                        report_tool="checkov"
+                    )
             orchestrator = ScanOrchestrator(scanners)
             results = orchestrator.run_scans(directory, reports_path, options)
+            generator = HTMLReportGenerator()
+            generator.create_html_reports(directory=reports_dir, mode=html_reports_format)
 
-            review_reports=  ReportScanner()
 
-            report_generator = ComplianceReportGenerator(
-                output_dir=reports_dir,
-                config=ReportConfig(
-                    page_size="A0",
-                    orientation="Landscape"
-                )
-            )
-            #teams_notifier = TeamsNotifier("webhook_url") if webhook_url else None
 
-            processor = ComplianceReportProcessor(
-                scanner=report_generator,
-                report_generator=report_generator,
-                #teams_notifier=teams_notifier
-            )
-
-            processor.process_reports(
-                directory=reports_dir,
-                report_tool="checkov"
-            )
             return results
 
         except Exception as e:

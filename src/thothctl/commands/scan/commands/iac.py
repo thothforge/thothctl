@@ -4,7 +4,6 @@ from typing import Optional, List, Literal
 import logging
 from ....core.commands import ClickCommand
 from ....services.scan.scan_service import ScanService
-from ....utils.common.create_html_reports import HTMLReportGenerator
 from rich import print as rprint
 
 logger = logging.getLogger(__name__)
@@ -44,7 +43,9 @@ class IaCScanCommand(ClickCommand):
                 directory=code_directory,
                 reports_dir=reports_dir,
                 selected_tools=tools,
-                options= options
+                options= options,
+                tftool=tftool,
+                html_reports_format=html_reports_format
             )
             # Display results
             self._display_results(results)
@@ -52,8 +53,7 @@ class IaCScanCommand(ClickCommand):
             finish_time = time.perf_counter()
             scan_time = finish_time - start_time
             rprint(f"[green]✨ Scan finished in {scan_time:.2f} seconds[/green]")
-            generator = HTMLReportGenerator()
-            generator.create_html_reports(directory= reports_dir, mode=html_reports_format)
+
 
         except Exception as e:
             self.logger.error(f"Scan failed: {e}")
