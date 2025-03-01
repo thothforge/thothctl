@@ -3,6 +3,8 @@ from .scanners.scanners import ScanOrchestrator, Scanner
 from .scanners.trivy import TrivyScanner
 #from .scanners.tfsec import TFSecScanner
 from .scanners.checkov import CheckovScanner
+from .scanners.scan_reports import ReportScanner
+from ...utils.common.create_compliance_html_reports import ComplianceReportGenerator, ComplianceReportProcessor, ReportConfig
 from typing import List, Dict
 from colorama import Fore
 from os import  remove, listdir, path, makedirs
@@ -81,6 +83,27 @@ class ScanService:
             orchestrator = ScanOrchestrator(scanners)
             results = orchestrator.run_scans(directory, reports_path, options)
 
+            review_reports=  ReportScanner()
+
+            report_generator = ComplianceReportGenerator(
+                output_dir=reports_dir,
+                config=ReportConfig(
+                    page_size="A0",
+                    orientation="Landscape"
+                )
+            )
+            #teams_notifier = TeamsNotifier("webhook_url") if webhook_url else None
+
+            processor = ComplianceReportProcessor(
+                scanner=report_generator,
+                report_generator=report_generator,
+                #teams_notifier=teams_notifier
+            )
+
+            processor.process_reports(
+                directory=reports_dir,
+                report_tool="checkov"
+            )
             return results
 
         except Exception as e:

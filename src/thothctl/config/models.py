@@ -1,8 +1,8 @@
-from dataclasses import dataclass
-from enum import Enum
 from typing import Optional, Dict, Any
 from pathlib import Path
-
+from dataclasses import dataclass
+from enum import Enum
+from typing import List
 
 class ScanStatus(Enum):
     """Enumeration of possible scan statuses."""
@@ -154,3 +154,21 @@ class ScanSummary:
             for sev, count in severity_counts.items()
             if sev.value >= min_severity.value
         )
+
+
+class ReportStatus(Enum):
+    APPROVED = "APPROVED"
+    SKIPPED = "SKIPPED"
+    FAILED = "FAILED"
+
+@dataclass
+class ScanResult:
+    module_name: str
+    failures: int
+    total_tests: int
+    status: ReportStatus
+    message: str
+
+@dataclass
+class ReportSummary:
+    results: List[ScanResult]
