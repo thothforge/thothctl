@@ -215,3 +215,31 @@ class ScannerUI:
         self.messages.append(message)
         live.update(self._create_display())
 
+
+
+class CliUI:
+    """CLI user interface helper."""
+
+    def __init__(self):
+        """Initialize CLI UI."""
+        self.console = Console()
+
+    def status_spinner(self, message: str):
+        """Create a status spinner context."""
+        return self.console.status(message, spinner="dots")
+
+    def print_success(self, message: str) -> None:
+        """Print success message."""
+        self.console.print(f"✅ {message}", style="green")
+
+    def print_error(self, message: str) -> None:
+        """Print error message."""
+        self.console.print(f"❌ {message}", style="red")
+
+    def print_warning(self, message: str) -> None:
+        """Print warning message."""
+        self.console.print(f"⚠️ {message}", style="yellow")
+
+    def print_info(self, message: str) -> None:
+        """Print info message."""
+        self.console.print(f"ℹ️ {message}", style="blue")
