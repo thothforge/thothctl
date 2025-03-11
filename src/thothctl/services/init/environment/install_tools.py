@@ -5,7 +5,11 @@ import inquirer
 import os
 from colorama import Fore
 
-from ...check.environment.check_environment import get_tool_version, get_tools_name, load_tools
+from ...check.environment.check_environment import (
+    get_tool_version,
+    get_tools_name,
+    load_tools,
+)
 
 
 def check_result(result, tool, version=""):
@@ -162,7 +166,7 @@ def install_trivy(version):
         )
     else:
         print(
-            f'Please Run -> curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin '
+            "Please Run -> curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin "
         )
         sys.exit(f"{Fore.RED}❌   Error Installing trivy {version}{Fore.RESET}")
 
@@ -265,7 +269,9 @@ def install_pipx():
     """Install pipx."""
     print(f"{Fore.MAGENTA}Installing pipx {Fore.RESET}")
 
-    _exit = os.system("python3 -m pip3 install pipx && python3 -m pipx ensurepath --break-system-packages")
+    _exit = os.system(
+        "python3 -m pip3 install pipx && python3 -m pipx ensurepath --break-system-packages"
+    )
 
     check_result(
         result=_exit,
@@ -297,7 +303,7 @@ def install_tool(
         "open-tofu": install_open_tofu,
         # "trivy": lambda: install_trivy(version=versions["trivy"]),
         "snyk": install_snyk,
-        "tofu": install_open_tofu
+        "tofu": install_open_tofu,
     }
 
     if tool_name in tool_installers:
@@ -321,7 +327,7 @@ def install_selected_tools(names, selected_tools, versions):
     if selected_tools:
         for tn in names:
             if tn in selected_tools:
-                install_tool(tool_name= tn, versions= versions)
+                install_tool(tool_name=tn, versions=versions)
     else:
         print(f"{Fore.RED}No tools selected!{Fore.RESET}")
 

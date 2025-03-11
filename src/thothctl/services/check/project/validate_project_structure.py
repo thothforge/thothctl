@@ -34,7 +34,9 @@ def check_global_structure(directory, mood="soft", l_project_structure=None):
             optional = " but is optional"
 
         if a["name"] in list_dict and a["type"] == "root":
-            print(f"{Fore.GREEN}✅ - {a['name']} {a['type']} exists! in {directory}{Fore.RESET}")
+            print(
+                f"{Fore.GREEN}✅ - {a['name']} {a['type']} exists! in {directory}{Fore.RESET}"
+            )
 
             logging.info(f"{a['name']} Exist!")
 
@@ -46,7 +48,6 @@ def check_global_structure(directory, mood="soft", l_project_structure=None):
             )
             if mandatory:
                 differences.append({"Name": a["name"], "Check": "Fail", "path": a})
-
 
     for a in l_project_structure["root_files"]:
         if a in list_dict:
@@ -152,7 +153,7 @@ def set_mood(mood="soft", differences=None):
         for d in differences:
             message.append(f"❌ No Found file or archive  {d['Name']} ")
 
-        print(Fore.RED +'\n'.join(map(str, message)))
+        print(Fore.RED + "\n".join(map(str, message)))
 
         sys.exit("The code doesn't compliant with the standard structure")
 
@@ -324,17 +325,17 @@ def init_check(directory=".", mood="soft", custom=False, check_type: str = "proj
     )
 
     for rs in rules.keys():
-
         print(f"{Fore.CYAN}👷 Checking child folder {rs}. {Fore.RESET}")
 
         if rs in extend_structure.keys():
-
             logging.info(f"{extend_structure[rs]}, {rules[rs]}")
             check_child_structure(
                 structure=extend_structure[rs], rule_list=rules[rs], mood=mood
             )
         else:
-            print(f"{Fore.CYAN}Child folder {rs} skipped due doesn't exist. {Fore.RESET}")
+            print(
+                f"{Fore.CYAN}Child folder {rs} skipped due doesn't exist. {Fore.RESET}"
+            )
 
 
 def get_child_folder(p_structure: dict, directory="."):
@@ -367,4 +368,3 @@ def get_child_folder(p_structure: dict, directory="."):
 
 
 # TODO go in deep in rules for structure based on files or folders
-

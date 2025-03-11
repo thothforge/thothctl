@@ -1,7 +1,9 @@
-import click
-from pathlib import Path
 import importlib.util
 import logging
+from pathlib import Path
+
+import click
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,7 @@ class ScanCLI(click.Group):
 
         try:
             for item in commands_path.iterdir():
-                if item.name.endswith('.py') and not item.name.startswith('_'):
+                if item.name.endswith(".py") and not item.name.startswith("_"):
                     command_name = item.stem
                     self.commands[command_name] = item
         except Exception as e:
@@ -47,7 +49,7 @@ class ScanCLI(click.Group):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             # Get the command
-            if not hasattr(module, 'cli'):
+            if not hasattr(module, "cli"):
                 logger.error(f"Command {cmd_name} has no 'cli' attribute")
                 return None
 
@@ -63,4 +65,3 @@ class ScanCLI(click.Group):
 def cli(ctx):
     """Scan infrastructure code for security issues. Integrate with AI to analyze and suggest corrections"""
     pass
-

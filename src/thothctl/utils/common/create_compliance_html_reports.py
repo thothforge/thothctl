@@ -1,11 +1,12 @@
+import datetime
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+
 # infrastructure/report_generator.py
 import os
-import logging
-import datetime
 import pdfkit
 from json2html import json2html
-from dataclasses import dataclass
-from typing import List, Dict, Optional
 
 
 @dataclass
@@ -21,7 +22,7 @@ class ReportConfig:
                 "top": "0.7in",
                 "right": "0.7in",
                 "bottom": "0.7in",
-                "left": "0.7in"
+                "left": "0.7in",
             }
 
     @property
@@ -30,7 +31,7 @@ class ReportConfig:
             "page-size": self.page_size,
             "orientation": self.orientation,
             "encoding": self.encoding,
-            **{f"margin-{k}": v for k, v in self.margins.items()}
+            **{f"margin-{k}": v for k, v in self.margins.items()},
         }
 
 
@@ -89,8 +90,7 @@ class ComplianceReportGenerator:
     def _create_html_content(self, summary_data: Dict) -> str:
         """Create complete HTML content with styling and data"""
         table_html = json2html.convert(
-            json=summary_data,
-            table_attributes='id="report-table" class="fl-table"'
+            json=summary_data, table_attributes='id="report-table" class="fl-table"'
         )
 
         return f"""
@@ -148,6 +148,3 @@ class ComplianceReportGenerator:
             background: #F8F8F8;
         }
         """
-
-
-

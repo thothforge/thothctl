@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
 
+
 icons = {"update": "♻️", "create": "❇️", "delete": "⛔"}
 
 output = defaultdict(
@@ -273,7 +274,11 @@ def convert_tfplan(directory: PurePath, tf_tool: str = "terraform") -> Path:
     :return: Path to the generated JSON file, or None if conversion failed
     """
 
-    tf_plan = Path(directory) / "tfplan" if Path(directory / "tfplan").exists() else Path(directory) / "tfplan.tfplan"
+    tf_plan = (
+        Path(directory) / "tfplan"
+        if Path(directory / "tfplan").exists()
+        else Path(directory) / "tfplan.tfplan"
+    )
     tf_plan_json = Path(directory) / "tfplan.json"
 
     if tf_plan.exists() and tf_plan_json.exists() == False:
@@ -328,7 +333,9 @@ def print_routine(p: Path, tf_tool, use_md: bool = False):
         save_summary_to_file(filename="Summary.md", content=content)
 
 
-def recursive_convert(directory, tf_tool="terraform", use_md: bool = False, mood="recursive"):
+def recursive_convert(
+    directory, tf_tool="terraform", use_md: bool = False, mood="recursive"
+):
     """
     Recursive convert TF plan according to the tool selected.
 
@@ -340,7 +347,10 @@ def recursive_convert(directory, tf_tool="terraform", use_md: bool = False, mood
 
     :return:
     """
-    if (os.path.exists(f"{directory}/tfplan") or os.path.exists(f"{directory}/tfplan.tfplan")) and mood == "local":
+    if (
+        os.path.exists(f"{directory}/tfplan")
+        or os.path.exists(f"{directory}/tfplan.tfplan")
+    ) and mood == "local":
         print_routine(p=directory, tf_tool=tf_tool, use_md=use_md)
 
     ls_dir = os.listdir(PurePath(directory))

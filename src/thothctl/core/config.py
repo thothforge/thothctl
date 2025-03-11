@@ -1,8 +1,11 @@
 # src/thothctl/core/config.py
 from pathlib import Path
 from typing import Any, Dict, Optional
+
 import yaml
+
 from .logger import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -22,7 +25,7 @@ class Config:
 
     def _load_config(self) -> None:
         """Load configuration from file"""
-        config_file = Path.home() / '.thothctl' / 'config.yaml'
+        config_file = Path.home() / ".thothctl" / "config.yaml"
 
         if config_file.exists():
             try:
@@ -47,7 +50,7 @@ class Config:
         if self._config_file:
             try:
                 self._config_file.parent.mkdir(parents=True, exist_ok=True)
-                with self._config_file.open('w') as f:
+                with self._config_file.open("w") as f:
                     yaml.safe_dump(self._config, f)
             except Exception as e:
                 logger.error(f"Error saving config: {e}")

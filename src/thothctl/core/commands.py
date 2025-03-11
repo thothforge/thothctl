@@ -1,9 +1,12 @@
+import logging
+from functools import wraps
+from typing import Any, Callable
+
 # src/thothctl/core/commands.py
 import click
+
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional
-from functools import wraps
-import logging
+
 
 class ClickCommand(ABC):
     """Base class for all Click commands"""
@@ -18,7 +21,7 @@ class ClickCommand(ABC):
 
         # Add single handler
         handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(levelname)s - %(message)s')
+        formatter = logging.Formatter("%(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         self.logger.setLevel(logging.INFO)
@@ -43,6 +46,7 @@ class ClickCommand(ABC):
     @classmethod
     def as_click_command(cls, **click_options: Any) -> Callable:
         """Convert to Click command"""
+
         def decorator(*options: Any) -> click.Command:
             cmd_instance = cls()
 

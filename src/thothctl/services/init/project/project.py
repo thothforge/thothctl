@@ -1,17 +1,18 @@
-from pathlib import Path
-from typing import Final, Optional
-from contextlib import contextmanager
-import os
 import logging
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Final
+
+import os
 
 from ....common.common import create_info_project
-from ...project.convert.set_project_parameters import set_project_conf
+from ....core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
+from ....services.generate.create_template.create_template import create_project
 from ...project.convert.get_project_data import (
     get_project_props,
     walk_folder_replace,
 )
-from ....core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
-from ....services.generate.create_template.create_template import create_project
+from ...project.convert.set_project_parameters import set_project_conf
 
 
 class ProjectService:
@@ -22,7 +23,9 @@ class ProjectService:
     def __init__(self, logger=None):
         self.logger = logger or logging.getLogger(__name__)
 
-    def initialize_project(self, project_name: str, project_type: str = "terraform", reuse = False) -> None:
+    def initialize_project(
+        self, project_name: str, project_type: str = "terraform", reuse=False
+    ) -> None:
         """Initialize the basic project structure"""
         self.logger.info(f"Initializing project: {project_name}")
         create_info_project(project_name=project_name)
@@ -44,12 +47,12 @@ class ProjectService:
         )
 
     def setup_azure_repos(
-            self,
-            project_name: str,
-            project_path: Path,
-            az_org_name: str,
-            r_list: bool,
-            pat: str
+        self,
+        project_name: str,
+        project_path: Path,
+        az_org_name: str,
+        r_list: bool,
+        pat: str,
     ) -> None:
         """Setup Azure Repos configuration"""
         org_url = f"{self.AZURE_DEVOPS_URL}/{az_org_name}/"

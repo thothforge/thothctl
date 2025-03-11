@@ -1,9 +1,10 @@
 # config/__init__.py
 """Configuration management for the application."""
 
-from pathlib import Path
 from typing import Any, Dict
+
 import toml
+
 from .defaults import ProjectDefaults
 from .settings import Settings
 

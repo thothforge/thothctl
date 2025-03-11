@@ -1,18 +1,27 @@
 """thothctl main cli."""
-import click
-from pathlib import Path
 import importlib.util
-from typing import Optional
 from functools import wraps
+from pathlib import Path
+from typing import Optional
+
+import click
+
 
 def global_options(f):
-    @click.option('--debug', is_flag=True, help='Enable debug mode')
-    @click.option('-d', '--code-directory', type=click.Path(exists=True),
-                  help='Configuration file path', default= ".")
+    @click.option("--debug", is_flag=True, help="Enable debug mode")
+    @click.option(
+        "-d",
+        "--code-directory",
+        type=click.Path(exists=True),
+        help="Configuration file path",
+        default=".",
+    )
     @wraps(f)
     def wrapper(*args, **kwargs):
         return f(*args, **kwargs)
+
     return wrapper
+
 
 class ThothCLI(click.MultiCommand):
     def list_commands(self, ctx: click.Context) -> list[str]:
@@ -21,7 +30,7 @@ class ThothCLI(click.MultiCommand):
 
         try:
             for item in commands_path.iterdir():
-                if item.is_dir() and not item.name.startswith('_'):
+                if item.is_dir() and not item.name.startswith("_"):
                     commands.append(item.name)
         except Exception as e:
             click.echo(f"Error listing commands: {e}", err=True)
@@ -38,8 +47,7 @@ class ThothCLI(click.MultiCommand):
                 return None
 
             spec = importlib.util.spec_from_file_location(
-                f"thothctl.commands.{cmd_name}.cli",
-                str(module_path)
+                f"thothctl.commands.{cmd_name}.cli", str(module_path)
             )
             if spec is None or spec.loader is None:
                 return None
@@ -47,7 +55,7 @@ class ThothCLI(click.MultiCommand):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
-            return getattr(module, 'cli', None)
+            return getattr(module, "cli", None)
 
         except Exception as e:
             click.echo(f"Error loading command {cmd_name}: {e}", err=True)
@@ -61,12 +69,9 @@ def cli(ctx, debug, code_directory):
     """ThothForge CLI - The Internal Developer Platform CLI"""
     """Thoth CLI tool"""
     ctx.ensure_object(dict)
-    ctx.obj['DEBUG'] = debug
-    ctx.obj['CODE_DIRECTORY'] = code_directory
+    ctx.obj["DEBUG"] = debug
+    ctx.obj["CODE_DIRECTORY"] = code_directory
 
 
 if __name__ == "__main__":
     cli()
-
-
-

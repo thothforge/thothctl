@@ -34,11 +34,12 @@ g_catalog_tags = [
     "aws",
     "cloud",
     "automation",
-    "template"]
+    "template",
+]
 
-g_catalog_spec= {
+g_catalog_spec = {
     "lifecycle": "production",
     "owner": "IaCPlatform",
     "system": "IaCPlatform",
-    "type": "template"
+    "type": "template",
 }

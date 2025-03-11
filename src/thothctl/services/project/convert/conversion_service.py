@@ -1,7 +1,12 @@
 import logging
-from colorama import Fore
-from .project_converter import ProjectConversionConfig, ProjectConverter, ProjectTemplateConverter, TerramateConverter
+
 from ..create_terramate.manage_terramate_stacks import TerramateStackManager
+from .project_converter import (
+    ProjectConversionConfig,
+    ProjectConverter,
+    ProjectTemplateConverter,
+    TerramateConverter,
+)
 
 
 class ProjectConversionService:
@@ -29,8 +34,7 @@ class ProjectConversionService:
 
         if config.make_project or config.make_template:
             return ProjectTemplateConverter(config)
-        elif  config.make_terramate:
-
-            return TerramateConverter(config,  TerramateStackManager())
+        elif config.make_terramate:
+            return TerramateConverter(config, TerramateStackManager())
         else:
             raise ValueError("Invalid conversion configuration")

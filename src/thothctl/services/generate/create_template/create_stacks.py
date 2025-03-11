@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
-import os
 from pathlib import Path
-import yaml
+from typing import Dict, List
+
 import git
+import os
+import yaml
 from jinja2 import Template
 
 
@@ -54,8 +55,7 @@ module "{{ module.name }}" {
 }
 """
         return Template(template).render(
-            module=module,
-            source=f"git::{module.repository_url}?ref={module.version}"
+            module=module, source=f"git::{module.repository_url}?ref={module.version}"
         )
 
     def generate_terraform_config(self, stack_name: str, modules: List[str]) -> str:
@@ -85,7 +85,7 @@ terraform {
             backend_bucket=os.getenv("TF_STATE_BUCKET", "default-tf-state"),
             stack_name=stack_name,
             region=os.getenv("AWS_REGION", "us-east-1"),
-            module_blocks=module_blocks
+            module_blocks=module_blocks,
         )
 
 
@@ -121,13 +121,13 @@ class StackManager:
                 for var_name, var_value in variables.items():
                     f.write(f'variable "{var_name}" {{\n')
                     f.write(f'  description = "Variable for {var_name}"\n')
-                    f.write(f'  type = any\n')
-                    f.write('}\n\n')
+                    f.write("  type = any\n")
+                    f.write("}\n\n")
 
 
 def load_stack_config(config_file: str) -> Dict:
     """Load stack configuration from YAML"""
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         return yaml.safe_load(f)
 
 
@@ -136,8 +136,10 @@ def main():
     import click
 
     @click.command()
-    @click.option('--config', '-c', required=True, help='Stack configuration file')
-    @click.option('--workspace', '-w', default='./terraform', help='Workspace directory')
+    @click.option("--config", "-c", required=True, help="Stack configuration file")
+    @click.option(
+        "--workspace", "-w", default="./terraform", help="Workspace directory"
+    )
     def create_stack(config, workspace):
         # Initialize composer
         composer = TerraformComposer(workspace)
@@ -147,13 +149,13 @@ def main():
         stack_config = load_stack_config(config)
 
         # Register modules
-        for module_config in stack_config.get('modules', []):
+        for module_config in stack_config.get("modules", []):
             module = TerraformModule(
-                name=module_config['name'],
-                repository_url=module_config['repository'],
-                version=module_config['version'],
-                dependencies=module_config.get('dependencies', []),
-                variables=module_config.get('variables', {})
+                name=module_config["name"],
+                repository_url=module_config["repository"],
+                version=module_config["version"],
+                dependencies=module_config.get("dependencies", []),
+                variables=module_config.get("variables", {}),
             )
             composer.add_module(module)
 
@@ -161,11 +163,8 @@ def main():
         stack_manager = StackManager(composer)
 
         # Create stacks
-        for stack in stack_config.get('stacks', []):
-            stack_manager.create_stack(
-                stack['name'],
-                stack['modules']
-            )
+        for stack in stack_config.get("stacks", []):
+            stack_manager.create_stack(stack["name"], stack["modules"])
 
         click.echo("Stack(s) created successfully!")
 

@@ -3,18 +3,19 @@
 Template configurations and default values for different project types.
 """
 
-from typing import Dict, List, Final
 from dataclasses import dataclass, field
+from typing import Dict, Final, List
+
 
 # Define constants for the template configurations
 TERRAFORM_CONFIG: Final[Dict[str, List[str]]] = {
     "required_files": ["main.tf", "variables.tf", "outputs.tf"],
-    "optional_files": ["README.md", "terraform.tfvars"]
+    "optional_files": ["README.md", "terraform.tfvars"],
 }
 
 TERRAGRUNT_CONFIG: Final[Dict[str, List[str]]] = {
     "required_files": ["terragrunt.hcl"],
-    "optional_files": ["README.md"]
+    "optional_files": ["README.md"],
 }
 
 
@@ -50,15 +51,11 @@ class TemplateConfig:
         required_keys = {"required_files", "optional_files"}
         if not all(key in config for key in required_keys):
             missing = required_keys - set(config.keys())
-            raise ValueError(
-                f"{name} configuration missing required keys: {missing}"
-            )
+            raise ValueError(f"{name} configuration missing required keys: {missing}")
 
         for key, value in config.items():
             if not isinstance(value, list):
-                raise ValueError(
-                    f"{name} configuration {key} must be a list"
-                )
+                raise ValueError(f"{name} configuration {key} must be a list")
             if not all(isinstance(item, str) for item in value):
                 raise ValueError(
                     f"All items in {name} configuration {key} must be strings"

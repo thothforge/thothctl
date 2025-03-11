@@ -1,15 +1,17 @@
-from pathlib import Path
-from typing import Literal, List, Generator
-import subprocess
-from rich import print as rprint
 import logging
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Generator, List, Literal
+
+from rich import print as rprint
 
 
 @dataclass
 class ReportConfig:
     """Configuration for report generation."""
+
     BANNER_URL: str = "https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png"
     FAVICON_URL: str = "https://support.content.office.net/en-us/media/b2c496ff-a74d-4dd8-834e-9e414ede8af0.png"
 
@@ -41,51 +43,64 @@ class HTMLReportGenerator:
     def _convert_with_junit2html(self, xml_path: Path) -> None:
         """Convert XML to HTML using junit2html."""
         try:
-            html_path = xml_path.with_suffix('.html')
+            html_path = xml_path.with_suffix(".html")
             cmd = ["junit2html", str(xml_path), str(html_path)]
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            self.logger.debug(
+                f"Successfully converted {xml_path.name} using junit2html"
             )
-            self.logger.debug(f"Successfully converted {xml_path.name} using junit2html")
-            rprint(f"[green]✓ Converted {xml_path.relative_to(xml_path.parent.parent)}[/green]")
+            rprint(
+                f"[green]✓ Converted {xml_path.relative_to(xml_path.parent.parent)}[/green]"
+            )
 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"junit2html conversion failed for {xml_path.name}: {e.stderr}")
-            rprint(f"[red]✗ Failed to convert {xml_path.relative_to(xml_path.parent.parent)}: {e.stderr}[/red]")
+            self.logger.error(
+                f"junit2html conversion failed for {xml_path.name}: {e.stderr}"
+            )
+            rprint(
+                f"[red]✗ Failed to convert {xml_path.relative_to(xml_path.parent.parent)}: {e.stderr}[/red]"
+            )
             raise
 
     def _convert_with_xunit(self, xml_path: Path) -> None:
         """Convert XML to HTML using xunit-viewer."""
         try:
-            html_path = xml_path.with_suffix('.html')
+            html_path = xml_path.with_suffix(".html")
             cmd = [
                 "xunit-viewer",
-                "-r", str(xml_path),
-                "-o", str(html_path),
-                "-b", self.config.BANNER_URL,
-                "-t", f"thothctl-{xml_path.name}",
-                "-f", self.config.FAVICON_URL
+                "-r",
+                str(xml_path),
+                "-o",
+                str(html_path),
+                "-b",
+                self.config.BANNER_URL,
+                "-t",
+                f"thothctl-{xml_path.name}",
+                "-f",
+                self.config.FAVICON_URL,
             ]
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            self.logger.debug(
+                f"Successfully converted {xml_path.name} using xunit-viewer"
             )
-            self.logger.debug(f"Successfully converted {xml_path.name} using xunit-viewer")
-            rprint(f"[green]✓ Converted {xml_path.relative_to(xml_path.parent.parent)}[/green]")
+            rprint(
+                f"[green]✓ Converted {xml_path.relative_to(xml_path.parent.parent)}[/green]"
+            )
 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"xunit-viewer conversion failed for {xml_path.name}: {e.stderr}")
-            rprint(f"[red]✗ Failed to convert {xml_path.relative_to(xml_path.parent.parent)}: {e.stderr}[/red]")
+            self.logger.error(
+                f"xunit-viewer conversion failed for {xml_path.name}: {e.stderr}"
+            )
+            rprint(
+                f"[red]✗ Failed to convert {xml_path.relative_to(xml_path.parent.parent)}: {e.stderr}[/red]"
+            )
             raise
 
-    def _convert_single_file(self, xml_path: Path, mode: Literal["simple", "xunit"]) -> None:
+    def _convert_single_file(
+        self, xml_path: Path, mode: Literal["simple", "xunit"]
+    ) -> None:
         """Convert a single XML file to HTML based on the specified mode."""
         try:
             if mode == "simple":
@@ -101,11 +116,16 @@ class HTMLReportGenerator:
         try:
             cmd = [
                 "xunit-viewer",
-                "-r", ".",  # Use current directory recursively
-                "-o", "CompactReport",  # Output file name
-                "-b", self.config.BANNER_URL,
-                "-t", "thothctl - Complete Scan Report",
-                "-f", self.config.FAVICON_URL
+                "-r",
+                ".",  # Use current directory recursively
+                "-o",
+                "CompactReport",  # Output file name
+                "-b",
+                self.config.BANNER_URL,
+                "-t",
+                "thothctl - Complete Scan Report",
+                "-f",
+                self.config.FAVICON_URL,
             ]
 
             result = subprocess.run(
@@ -113,7 +133,7 @@ class HTMLReportGenerator:
                 cwd=str(directory),  # Execute in the target directory
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             self.logger.info(f"Generated unified compact report in {directory}")
@@ -121,7 +141,9 @@ class HTMLReportGenerator:
 
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Failed to generate unified compact report: {e.stderr}")
-            rprint(f"[red]✗ Failed to generate unified compact report: {e.stderr}[/red]")
+            rprint(
+                f"[red]✗ Failed to generate unified compact report: {e.stderr}[/red]"
+            )
             raise
         except Exception as e:
             self.logger.error(f"Error generating unified compact report: {str(e)}")
@@ -133,9 +155,13 @@ class HTMLReportGenerator:
             try:
                 self._create_compact_report(directory)
             except Exception as e:
-                self.logger.error(f"Compact report generation failed for {directory}: {e}")
+                self.logger.error(
+                    f"Compact report generation failed for {directory}: {e}"
+                )
 
-    def create_html_reports(self, directory: str, mode: Literal["simple", "xunit"] = "simple") -> None:
+    def create_html_reports(
+        self, directory: str, mode: Literal["simple", "xunit"] = "simple"
+    ) -> None:
         """
         Create HTML reports from XML reports in parallel, including nested directories.
 
@@ -155,7 +181,9 @@ class HTMLReportGenerator:
             xml_files = list(self._find_xml_files(dir_path))
 
             if not xml_files:
-                self.logger.warning(f"No XML files found in {directory} or its subdirectories")
+                self.logger.warning(
+                    f"No XML files found in {directory} or its subdirectories"
+                )
                 rprint("[yellow]No XML files found![/yellow]")
                 return
 
@@ -185,7 +213,9 @@ class HTMLReportGenerator:
             raise
 
 
-def create_html_reports(directory: str, mode: Literal["simple", "xunit"] = "simple") -> None:
+def create_html_reports(
+    directory: str, mode: Literal["simple", "xunit"] = "simple"
+) -> None:
     """
     Legacy function to maintain backwards compatibility.
     """

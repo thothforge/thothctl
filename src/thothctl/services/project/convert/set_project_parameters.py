@@ -1,14 +1,14 @@
 """Set project Parameters."""
 import logging
 import re
-from pathlib import PurePath, Path
-from git import  Repo
+from pathlib import Path, PurePath
 
 import inquirer
 import os.path
 import toml
 import yaml
 from colorama import Fore
+from git import Repo
 
 from ....common.common import load_iac_conf
 from .get_project_data import (
@@ -18,7 +18,11 @@ from .get_project_data import (
     get_project_props,
     get_template_props,
 )
-from .project_defaults import g_project_properties_parse, g_catalog_tags, g_catalog_spec
+from .project_defaults import (
+    g_catalog_spec,
+    g_catalog_tags,
+    g_project_properties_parse,
+)
 
 
 def inv_parse_project(
@@ -202,18 +206,17 @@ def set_meta_data(repo_metadata: dict = None, file_path: str = None):
             toml.dump(meta, file)
 
 
-
 # create catalog-info.yaml file and replace the current file
+
 
 # create catalog-info.yaml file and replace the current file
 def create_catalog_info(
-        az_project_name: str,
-        directory: PurePath = None,
-        project_name: str = None,
-        project_properties: dict = None,
-        git_repo_url: str = None,
-        netsted: bool = False,
-
+    az_project_name: str,
+    directory: PurePath = None,
+    project_name: str = None,
+    project_properties: dict = None,
+    git_repo_url: str = None,
+    netsted: bool = False,
 ):
     """
     Create catalog info.
@@ -236,8 +239,10 @@ def create_catalog_info(
     if project_properties is None:
         project_properties = get_exist_project_props(directory=PurePath("."))
 
-    idp_properties = get_exist_project_props(directory=PurePath("."), key= "idp", )
-
+    idp_properties = get_exist_project_props(
+        directory=PurePath("."),
+        key="idp",
+    )
 
     if project_properties is not None:
         catalog_info = {
@@ -257,7 +262,7 @@ def create_catalog_info(
                     "backstage.io/techdocs-ref": "dir:.",
                     "dev.azure.com/project-repo": f"{az_project_name}/{project_name}",
                 },
-                "tags": idp_properties.get("tags",g_catalog_tags)
+                "tags": idp_properties.get("tags", g_catalog_tags),
             },
             "spec": idp_properties.get("spec", g_catalog_spec),
         }
@@ -269,14 +274,19 @@ def create_catalog_info(
         try:
             with open(path_catalog, "w") as file:
                 yaml.dump(catalog_info, file, default_flow_style=False)
-                print(f"{Fore.CYAN} catalog-info.yaml file created in {path_catalog}. {Fore.RESET}")
+                print(
+                    f"{Fore.CYAN} catalog-info.yaml file created in {path_catalog}. {Fore.RESET}"
+                )
         except:
             logging.warning("catalog-info.yaml file not found")
             print(
                 f"{Fore.YELLOW}  No such file or directory: {path_catalog} {Fore.RESET}"
             )
 
-def get_git_metadata_repo_url(directory: PurePath = None, remote_name: str = 'origin') -> str:
+
+def get_git_metadata_repo_url(
+    directory: PurePath = None, remote_name: str = "origin"
+) -> str:
     """
     Get git metadata repo url.
 
@@ -288,7 +298,7 @@ def get_git_metadata_repo_url(directory: PurePath = None, remote_name: str = 'or
         str: The remote repository URL
     """
     try:
-        repo_path = directory if directory else '.'
+        repo_path = directory if directory else "."
         repo = Repo(repo_path, search_parent_directories=True)
 
         # Get the specified remote
@@ -326,10 +336,14 @@ def get_relative_path_from_git_root(file_path: PurePath = None) -> str:
         print(f"Error getting relative path: {str(e)}")
         return ""
 
-def create_idp_doc_main(directory_code: Path, project_name: str, az_project_name: str,
-                        directory_docs_file: PurePath = PurePath("docs/catalog"),
-                        nested: bool = False,
-                         ):
+
+def create_idp_doc_main(
+    directory_code: Path,
+    project_name: str,
+    az_project_name: str,
+    directory_docs_file: PurePath = PurePath("docs/catalog"),
+    nested: bool = False,
+):
     """
     Create idp doc main.
 
@@ -343,5 +357,10 @@ def create_idp_doc_main(directory_code: Path, project_name: str, az_project_name
 
     remote_url = get_git_metadata_repo_url(directory=directory_code)
 
-    create_catalog_info(directory=directory_docs_file, project_name=project_name,
-                        git_repo_url=remote_url, netsted=nested, az_project_name=az_project_name)
+    create_catalog_info(
+        directory=directory_docs_file,
+        project_name=project_name,
+        git_repo_url=remote_url,
+        netsted=nested,
+        az_project_name=az_project_name,
+    )

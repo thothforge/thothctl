@@ -1,20 +1,20 @@
-from typing import Dict, Any, Callable, Union, Optional
-from langchain_ollama import OllamaLLM
-from langchain_aws import BedrockLLM
-from langchain_community.chat_models import ChatOpenAI, BedrockChat
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.schema import HumanMessage
-from langchain.prompts import PromptTemplate
-import boto3
+import asyncio
 import json
 from functools import partial
-import asyncio
+from typing import Any, Callable, Dict, Optional, Union
+
+import boto3
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.prompts import PromptTemplate
+from langchain_aws import BedrockLLM
+from langchain_community.chat_models import BedrockChat, ChatOpenAI
+from langchain_ollama import OllamaLLM
 
 
 def read_tfplan(file_path: str) -> Dict[str, Any]:
     """Read and parse a Terraform plan file."""
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             return json.load(f)
     except Exception as e:
         raise Exception(f"Error reading tfplan.json: {str(e)}")
@@ -58,53 +58,48 @@ def create_analysis_prompt() -> PromptTemplate:
     return PromptTemplate(input_variables=["plan_json"], template=template)
 
 
-def initialize_ollama_model(model_name: str = "llama3",
-                            temperature: float = 0.7,
-                            base_url: str = "http://localhost:11434") -> OllamaLLM:
+def initialize_ollama_model(
+    model_name: str = "llama3",
+    temperature: float = 0.7,
+    base_url: str = "http://localhost:11434",
+) -> OllamaLLM:
     """Initialize Ollama model."""
-    return OllamaLLM(
-        model=model_name,
-        temperature=temperature,
-        base_url=base_url
-    )
+    return OllamaLLM(model=model_name, temperature=temperature, base_url=base_url)
 
 
-def initialize_bedrock_model(model_name: str,
-                             temperature: float,
-                             region: str,
-                             profile: Optional[str] = None):
+def initialize_bedrock_model(
+    model_name: str, temperature: float, region: str, profile: Optional[str] = None
+):
     """Initialize a Bedrock model."""
     session = boto3.Session(profile_name=profile, region_name=region)
-    client = session.client('bedrock-runtime')
+    client = session.client("bedrock-runtime")
 
     model_map = {
         "claude": "anthropic.claude-v2",
         "claude-instant": "anthropic.claude-instant-v1",
         "titan": "amazon.titan-text-express-v1",
-        "jurassic": "ai21.j2-ultra-v1"
+        "jurassic": "ai21.j2-ultra-v1",
     }
 
     model_id = model_map.get(model_name.lower(), model_name)
 
     if "claude" in model_id.lower():
         return BedrockChat(
-            client=client,
-            model_id=model_id,
-            model_kwargs={"temperature": temperature}
+            client=client, model_id=model_id, model_kwargs={"temperature": temperature}
         )
     return BedrockLLM(
-        client=client,
-        model_id=model_id,
-        model_kwargs={"temperature": temperature}
+        client=client, model_id=model_id, model_kwargs={"temperature": temperature}
     )
 
 
-def initialize_model(model_type: str,
-                     model_name: str,
-                     temperature: float = 0.7,
-                     region: Optional[str] = None,
-                     profile: Optional[str] = None,
-                     base_url: str = "http://localhost:11434"):
+def initialize_model(
+    model_type: str,
+    model_name: str,
+    temperature: float = 0.7,
+    region: Optional[str] = None,
+    profile: Optional[str] = None,
+    base_url: str = "http://localhost:11434",
+):
     """Initialize the appropriate language model."""
     if model_type.lower() == "ollama":
         return initialize_ollama_model(model_name, temperature, base_url)
@@ -120,17 +115,13 @@ def initialize_model(model_type: str,
     raise ValueError(f"Unsupported model type: {model_type}")
 
 
-def analyze_risks(llm: Any,
-                  tfplan_path: str,
-                  stream: bool = False) -> Union[str, None]:
+def analyze_risks(llm: Any, tfplan_path: str, stream: bool = False) -> Union[str, None]:
     """Analyze risks in the Terraform plan."""
     try:
         plan_data = read_tfplan(tfplan_path)
         prompt = create_analysis_prompt()
 
-        formatted_prompt = prompt.format(
-            plan_json=json.dumps(plan_data, indent=2)
-        )
+        formatted_prompt = prompt.format(plan_json=json.dumps(plan_data, indent=2))
 
         if stream:
             callbacks = [StreamingStdOutCallbackHandler()]
@@ -150,9 +141,7 @@ async def analyze_risks_async(llm: Any, tfplan_path: str) -> str:
         plan_data = read_tfplan(tfplan_path)
         prompt = create_analysis_prompt()
 
-        formatted_prompt = prompt.format(
-            plan_json=json.dumps(plan_data, indent=2)
-        )
+        formatted_prompt = prompt.format(plan_json=json.dumps(plan_data, indent=2))
 
         response = await llm.agenerate([formatted_prompt])
         return response.generations[0][0].text
@@ -162,21 +151,16 @@ async def analyze_risks_async(llm: Any, tfplan_path: str) -> str:
 
 
 def create_analyzer(
-        model_type: str,
-        model_name: str,
-        temperature: float = 0.7,
-        region: Optional[str] = None,
-        profile: Optional[str] = None,
-        base_url: str = "http://localhost:11434"
+    model_type: str,
+    model_name: str,
+    temperature: float = 0.7,
+    region: Optional[str] = None,
+    profile: Optional[str] = None,
+    base_url: str = "http://localhost:11434",
 ) -> Callable:
     """Create a partially applied analyze_risks function with the specified model."""
     llm = initialize_model(
-        model_type,
-        model_name,
-        temperature,
-        region,
-        profile,
-        base_url
+        model_type, model_name, temperature, region, profile, base_url
     )
     return partial(analyze_risks, llm)
 
@@ -187,7 +171,7 @@ if __name__ == "__main__":
     analyze_with_ollama = create_analyzer(
         model_type="ollama",
         model_name="llama3.1",
-        base_url="http://localhost:11434"  # Default Ollama URL
+        base_url="http://localhost:11434",  # Default Ollama URL
     )
 
     # Create an analyzer using Bedrock
@@ -196,8 +180,8 @@ if __name__ == "__main__":
         model_name="meta.llama3-1-70b-instruct-v1:0",
         temperature=0.7,
         region="us-east-2",
-        profile="labvel-dev"
-     )
+        profile="labvel-dev",
+    )
 
     # Example tfplan path
     tfplan_path = "tfplan.json"
@@ -208,12 +192,11 @@ if __name__ == "__main__":
     print(results)
 
     # Streaming analysis
-    #print("\nStreaming analysis with Ollama:")
-    #analyze_with_ollama(tfplan_path, stream=True)
+    # print("\nStreaming analysis with Ollama:")
+    # analyze_with_ollama(tfplan_path, stream=True)
     print("Analyzing with Bedrock")
     results = analyze_with_bedrock(tfplan_path)
     print(results)
-
 
     # Using multiple analyzers
 
@@ -223,6 +206,5 @@ if __name__ == "__main__":
         result = await analyze_risks_async(llm, tfplan_path)
         print("\nAsync analysis result:")
         print(result)
-
 
     asyncio.run(async_analysis_example())

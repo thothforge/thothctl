@@ -1,6 +1,6 @@
 """Define Files contents for template."""
 # TODO UPGRADE to latest version to manage workspaces
-terragrunt_hcl_content= """
+terragrunt_hcl_content = """
 include "root" {
   path = find_in_parent_folders("root.hcl")
   expose = true

@@ -1,15 +1,18 @@
 import json
 import logging
-import xmltodict
 from dataclasses import dataclass
 from enum import Enum
-from  pathlib import Path
-from typing import List, Optional,Dict
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import xmltodict
+
 
 class ReportStatus(Enum):
     APPROVED = "APPROVED"
     SKIPPED = "SKIPPED"
     FAILED = "FAILED"
+
 
 @dataclass
 class ScanResult:
@@ -28,9 +31,12 @@ class ScanSummary:
     fails: int
     tests: int
 
+
 @dataclass
 class ReportSummary:
     results: List[ScanResult]
+
+
 class ReportScanner:
     def scan_report(self, report_path: str, report_type: str) -> Optional[ScanResult]:
         try:
@@ -45,7 +51,7 @@ class ReportScanner:
                     "checkov": self._scan_checkov_report,
                     "tfsec": self._scan_tfsec_report,
                     "trivy": self._scan_trivy_report,
-                    "terraform-compliance": self._scan_terraform_compliance_report
+                    "terraform-compliance": self._scan_terraform_compliance_report,
                 }
 
                 if report_type in scanner_map:
@@ -85,7 +91,7 @@ class ReportScanner:
                 failures=failures,
                 total_tests=tests,
                 status=status,
-                message=message
+                message=message,
             )
         except Exception as e:
             logging.error(f"Error scanning Terraform-Compliance report: {str(e)}")
@@ -104,7 +110,7 @@ class ReportScanner:
                 failures=failures,
                 total_tests=tests,
                 status=status,
-                message=message
+                message=message,
             )
         except Exception as e:
             logging.error(f"Error scanning Checkov report: {str(e)}")
@@ -114,8 +120,12 @@ class ReportScanner:
         try:
             testsuites = data.get("testsuites", {})
             if isinstance(testsuites.get("testsuite"), list):
-                failures = sum(int(suite.get("@failures", 0)) for suite in testsuites["testsuite"])
-                tests = sum(int(suite.get("@tests", 0)) for suite in testsuites["testsuite"])
+                failures = sum(
+                    int(suite.get("@failures", 0)) for suite in testsuites["testsuite"]
+                )
+                tests = sum(
+                    int(suite.get("@tests", 0)) for suite in testsuites["testsuite"]
+                )
             else:
                 failures = int(testsuites.get("testsuite", {}).get("@failures", 0))
                 tests = int(testsuites.get("testsuite", {}).get("@tests", 0))
@@ -128,7 +138,7 @@ class ReportScanner:
                 failures=failures,
                 total_tests=tests,
                 status=status,
-                message=message
+                message=message,
             )
         except Exception as e:
             logging.error(f"Error scanning TFSec report: {str(e)}")
@@ -144,8 +154,11 @@ class ReportScanner:
                 if "Vulnerabilities" in result:
                     vulnerabilities.extend(result["Vulnerabilities"])
                     total_tests += len(result["Vulnerabilities"])
-                    failures += sum(1 for v in result["Vulnerabilities"]
-                                  if v.get("Severity", "").upper() in ["HIGH", "CRITICAL"])
+                    failures += sum(
+                        1
+                        for v in result["Vulnerabilities"]
+                        if v.get("Severity", "").upper() in ["HIGH", "CRITICAL"]
+                    )
 
             status = self._determine_status(failures, total_tests)
             message = self._create_message(failures, total_tests, "Trivy")
@@ -155,7 +168,7 @@ class ReportScanner:
                 failures=failures,
                 total_tests=total_tests,
                 status=status,
-                message=message
+                message=message,
             )
         except Exception as e:
             logging.error(f"Error scanning Trivy report: {str(e)}")
@@ -174,7 +187,6 @@ class ReportScanner:
         elif failures == 0:
             return f"Approved {scan_type} scanning"
         return f"Failed {scan_type} scanning"
-
 
 
 class ReportProcessor:
@@ -229,7 +241,7 @@ class ReportProcessor:
                     name=file_path.name,
                     summary=scan_result.message,
                     fails=scan_result.failures,
-                    tests=scan_result.total_tests
+                    tests=scan_result.total_tests,
                 )
 
         except Exception as e:
@@ -248,5 +260,5 @@ class ReportProcessor:
             "Path": result.file_path,
             "summary": result.summary,
             "fails": result.fails,
-            "tests": result.tests
+            "tests": result.tests,
         }

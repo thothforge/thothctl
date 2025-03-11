@@ -2,10 +2,10 @@
 import logging
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 import os
 from colorama import Fore, init
-from typing import Optional
 
 from .files_content import (
     terraform_docs_content_modules,
@@ -15,7 +15,11 @@ from .files_content import (
 
 # Initialize colorama for cross-platform color support
 init(autoreset=True)
-def graph_dependencies(directory: Path | str, suffix: str = "resources") -> Optional[str]:
+
+
+def graph_dependencies(
+    directory: Path | str, suffix: str = "resources"
+) -> Optional[str]:
     """
     Create dependencies graph using terragrunt.
 
@@ -48,7 +52,6 @@ def graph_dependencies(directory: Path | str, suffix: str = "resources") -> Opti
                 break
             current_path = current_path.parent
 
-
         # Log directory information
         logging.info("Processing directory: %s", full_path)
         logging.info("Replace path: %s", replace_path)
@@ -56,10 +59,7 @@ def graph_dependencies(directory: Path | str, suffix: str = "resources") -> Opti
         print(f"{Fore.GREEN}Creating dependencies graph for {dir_name}{Fore.RESET}")
 
         # Construct the command as a list for better security and handling
-        command = [
-            'terragrunt', 'graph-dependencies',
-            '--terragrunt-non-interactive'
-        ]
+        command = ["terragrunt", "graph-dependencies", "--terragrunt-non-interactive"]
 
         # Execute the command using subprocess
         try:
@@ -69,7 +69,7 @@ def graph_dependencies(directory: Path | str, suffix: str = "resources") -> Opti
                 cwd=str(full_path),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
             )
 
             # Get the output and process it
@@ -80,18 +80,18 @@ def graph_dependencies(directory: Path | str, suffix: str = "resources") -> Opti
                 return None
 
             # Process the output through sed-like functionality in Python
-            processed_output = output.replace(str(replace_path), '')
-            processed_output = processed_output.replace(str(project_root), '')
+            processed_output = output.replace(str(replace_path), "")
+            processed_output = processed_output.replace(str(project_root), "")
 
             # Write to SVG file
-            svg_path = full_path / 'graph.svg'
+            svg_path = full_path / "graph.svg"
             try:
                 # Use dot command to generate SVG
                 dot_process = subprocess.Popen(
-                    ['dot', '-Tsvg'],
+                    ["dot", "-Tsvg"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    text=True
+                    text=True,
                 )
                 svg_content, dot_error = dot_process.communicate(input=processed_output)
 
@@ -157,7 +157,6 @@ def create_terraform_docs(directory, mood="resources", t_docs_path=None):
             fp.write(content_map[mood])
 
     direc = Path(directory).resolve()
-
 
     command = f"terraform-docs markdown . --config {file}"
     print(f"{Fore.CYAN}Running {command}{Fore.RESET}")
@@ -247,7 +246,9 @@ def recursive_documentation(directory, mood="resources", t_docs_path="None"):
                     + f"⚠️Find terragrunt.hcl file in {nested_dir} ...\n❇️ Creating Documentation ... "
                     + Fore.RESET
                 )
-                graph_dependencies(directory=nested_dir, )
+                graph_dependencies(
+                    directory=nested_dir,
+                )
                 create_terraform_docs(
                     directory=nested_dir, mood=mood, t_docs_path=t_docs_path
                 )
@@ -261,5 +262,3 @@ def recursive_documentation(directory, mood="resources", t_docs_path="None"):
                 )
 
                 create_terraform_docs(nested_dir, mood=mood, t_docs_path=t_docs_path)
-
-

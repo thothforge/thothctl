@@ -1,8 +1,11 @@
-import xml.etree.ElementTree as ET
 import re
-from colorama import Fore
+import subprocess
 from functools import lru_cache
 from pathlib import Path
+from xml.etree import ElementTree as ET
+
+from colorama import Fore
+
 
 def svg_to_dot(svg_file):
     # Parse SVG file
@@ -10,7 +13,12 @@ def svg_to_dot(svg_file):
     root = tree.getroot()
 
     # Initialize DOT output
-    dot_lines = ['digraph G {', '    // Graph attributes', '    node [shape=ellipse];', '']
+    dot_lines = [
+        "digraph G {",
+        "    // Graph attributes",
+        "    node [shape=ellipse];",
+        "",
+    ]
 
     # Dictionary to store nodes
     nodes = {}
@@ -24,7 +32,7 @@ def svg_to_dot(svg_file):
             if title is not None:
                 node_id = title.text
                 # Clean node ID for DOT format
-                clean_id = re.sub(r'[/\-]', '_', node_id)
+                clean_id = re.sub(r"[/\-]", "_", node_id)
                 nodes[node_id] = clean_id
                 dot_lines.append(f'    {clean_id} [label="{node_id}"];')
 
@@ -42,20 +50,20 @@ def svg_to_dot(svg_file):
                     edges.append((source, target))
 
     # Add edges to DOT
-    dot_lines.append('')
-    dot_lines.append('    // Edges')
+    dot_lines.append("")
+    dot_lines.append("    // Edges")
     for source, target in edges:
         if source in nodes and target in nodes:
-            dot_lines.append(f'    {nodes[source]} -> {nodes[target]};')
+            dot_lines.append(f"    {nodes[source]} -> {nodes[target]};")
 
     # Close the graph
-    dot_lines.append('}')
+    dot_lines.append("}")
 
-    return '\n'.join(dot_lines)
+    return "\n".join(dot_lines)
 
 
 def write_dot_file(dot_content, output_file):
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write(dot_content)
 
 
@@ -79,9 +87,6 @@ def convert_svg_to_dot(input_svg="graph.svg", output_dot="/tmp/output.dot"):
         return None
 
 
-import subprocess
-
-
 def print_dot_graph(dot_file="/tmp/output.dot"):
     """
     Print DOT file using graph-easy with proper error handling and output capture
@@ -92,22 +97,17 @@ def print_dot_graph(dot_file="/tmp/output.dot"):
         bool: True if successful, False otherwise
     """
 
-
     try:
         # Print original DOT content
         print(f"{Fore.BLUE}\nDependency Graph Visualization: ")
 
         # Run graph-easy with proper subprocess handling
         result = subprocess.run(
-            ['graph-easy', dot_file],
-            capture_output=True,
-            text=True,
-            check=True
+            ["graph-easy", dot_file], capture_output=True, text=True, check=True
         )
 
         # Print the graph output
         print(f"{Fore.LIGHTCYAN_EX}{result.stdout} {Fore.RESET}")
-
 
         return True
 
@@ -120,9 +120,6 @@ def print_dot_graph(dot_file="/tmp/output.dot"):
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return False
-
-
-
 
 
 @lru_cache(maxsize=32)

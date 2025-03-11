@@ -1,9 +1,11 @@
+import logging
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-import subprocess
-import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
+
 from colorama import init
+
 
 # Initialize colorama
 init(autoreset=True)
@@ -12,6 +14,7 @@ init(autoreset=True)
 @dataclass
 class TerragruntGraph:
     """Represents a Terragrunt dependency graph."""
+
     edges: List[Dict]
     objects: Dict[str, Dict]
 
@@ -44,7 +47,9 @@ class DependencyGraphManager:
             self.logger.info(f"Getting dependencies graph for {full_path.name}")
 
             cmd = f"cd {full_path} && {self.TERRAGRUNT_CMD} | {self.DOT_CMD}"
-            result = subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
+            result = subprocess.run(
+                cmd, shell=True, text=True, capture_output=True, check=True
+            )
 
             self.logger.debug(f"Graph JSON: {result.stdout}")
             return result.stdout
@@ -143,16 +148,22 @@ class DependencyGraphManager:
         except Exception as e:
             self.logger.error(f"Error making relative path: {e}")
             raise
+
+
 # Legacy wrapper functions for backward compatibility
 def graph_dependencies_to_json(directory: str) -> str:
     """Legacy wrapper for get_dependency_graph."""
     manager = DependencyGraphManager()
     return manager.get_dependency_graph(Path(directory))
 
-def create_terramate_stacks(json_graph: Dict, directory: str, optimized: bool = False) -> None:
+
+def create_terramate_stacks(
+    json_graph: Dict, directory: str, optimized: bool = False
+) -> None:
     """Legacy wrapper for create_stack."""
     manager = DependencyGraphManager()
     manager.create_stack(json_graph, Path(directory), optimized)
+
 
 def recursive_graph_dependencies_to_json(directory: str) -> None:
     """

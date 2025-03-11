@@ -1,9 +1,11 @@
+import importlib.util
+import logging
+from pathlib import Path
+from typing import Optional
+
 # src/thothctl/commands/init/cli.py
 import click
-from pathlib import Path
-import importlib.util
-from typing import Optional
-import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,7 @@ class InitCLI(click.MultiCommand):
 
         try:
             for item in commands_path.iterdir():
-                if item.name.endswith('.py') and not item.name.startswith('_'):
+                if item.name.endswith(".py") and not item.name.startswith("_"):
                     commands.append(item.stem)
         except Exception as e:
             logger.error(f"Error listing init commands: {e}")
@@ -41,7 +43,7 @@ class InitCLI(click.MultiCommand):
             spec.loader.exec_module(module)
 
             # Get the command
-            if not hasattr(module, 'cli'):
+            if not hasattr(module, "cli"):
                 logger.error(f"Command {cmd_name} has no 'cli' attribute")
                 return None
 
@@ -56,4 +58,3 @@ class InitCLI(click.MultiCommand):
 def cli():
     """Initialize and setup project configurations"""
     pass
-

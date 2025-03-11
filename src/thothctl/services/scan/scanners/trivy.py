@@ -1,8 +1,11 @@
 from pathlib import Path
 from typing import Dict, Optional
+
 from ....core.cli_ui import ScannerUI
 from .scanners import ScannerPort
-#from ....config.models import ScanResult, ScanStatus
+
+
+# from ....config.models import ScanResult, ScanStatus
 
 
 class TrivyScanner(ScannerPort):
@@ -13,7 +16,13 @@ class TrivyScanner(ScannerPort):
         self.report_filename = "trivy_report.txt"
         self.reports_path = "trivy"
 
-    def scan(self, directory: str, reports_dir: str, options: Optional[Dict] = None, tftoo: str=None) -> Dict[str, str]:
+    def scan(
+        self,
+        directory: str,
+        reports_dir: str,
+        options: Optional[Dict] = None,
+        tftoo: str = None,
+    ) -> Dict[str, str]:
         """
         Execute Trivy scan on specified directory.
 
@@ -36,14 +45,14 @@ class TrivyScanner(ScannerPort):
                 cmd=cmd,
                 reports_path=reports_path,
                 report_filename=self.report_filename,
-                additional_processors=self._get_custom_processors()
+                additional_processors=self._get_custom_processors(),
             )
 
         except Exception as e:
             self.ui.show_error(f"Trivy scan failed: {str(e)}")
             return {
                 #'status': ScanStatus.FAIL.value,
-                'error': str(e)
+                "error": str(e)
             }
 
     def _prepare_reports_directory(self, reports_dir: str) -> Path:
@@ -75,19 +84,19 @@ class TrivyScanner(ScannerPort):
 
         if options:
             # Add severity filter if specified
-            if 'severity' in options:
-                cmd.extend(['--severity', options['severity']])
+            if "severity" in options:
+                cmd.extend(["--severity", options["severity"]])
 
             # Add format option if specified
-            if 'format' in options:
-                cmd.extend(['--format', options['format']])
+            if "format" in options:
+                cmd.extend(["--format", options["format"]])
 
             # Add any additional arguments
-            if 'additional_args' in options:
-                if isinstance(options['additional_args'], list):
-                    cmd.extend(options['additional_args'])
-                elif isinstance(options['additional_args'], str):
-                    cmd.extend(options['additional_args'].split())
+            if "additional_args" in options:
+                if isinstance(options["additional_args"], list):
+                    cmd.extend(options["additional_args"])
+                elif isinstance(options["additional_args"], str):
+                    cmd.extend(options["additional_args"].split())
 
         return cmd
 
@@ -101,19 +110,16 @@ class TrivyScanner(ScannerPort):
 
         def process_vulnerability(content: str):
             """Process vulnerability information."""
-            if 'CRITICAL' in content or 'HIGH' in content:
+            if "CRITICAL" in content or "HIGH" in content:
                 self.ui.console.print(f"[red]{content}[/red]")
-            elif 'MEDIUM' in content:
+            elif "MEDIUM" in content:
                 self.ui.console.print(f"[yellow]{content}[/yellow]")
-            elif 'LOW' in content:
+            elif "LOW" in content:
                 self.ui.console.print(f"[blue]{content}[/blue]")
 
         def process_summary(content: str):
             """Process summary information."""
-            if 'Total:' in content:
+            if "Total:" in content:
                 self.ui.console.print(f"[cyan]{content}[/cyan]")
 
-        return {
-            'vulnerability': process_vulnerability,
-            'summary': process_summary
-        }
+        return {"vulnerability": process_vulnerability, "summary": process_summary}

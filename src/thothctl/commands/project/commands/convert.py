@@ -1,13 +1,11 @@
-import click
-from ....core.commands import ClickCommand
 from pathlib import Path
 
-from ....services.project.convert.project_converter import (
-        ProjectConversionConfig
-)
-from ....services.project.convert.conversion_service import (
-        ProjectConversionService
-)
+import click
+
+from ....core.commands import ClickCommand
+from ....services.project.convert.conversion_service import ProjectConversionService
+from ....services.project.convert.project_converter import ProjectConversionConfig
+
 
 class ConvertProjectCommand(ClickCommand):
     """Command to convert projects between different formats."""
@@ -15,29 +13,28 @@ class ConvertProjectCommand(ClickCommand):
     def __init__(self):
         super().__init__()
 
-
     def validate(self, **kwargs) -> bool:
         """Validate conversion parameters."""
         return True
 
     def execute(
-            self,
-            make_terramate_stacks: bool = False,
-            make_project: bool = False,
-            make_template: bool = False,
-            template_project_type: str = None,
-            **kwargs
+        self,
+        make_terramate_stacks: bool = False,
+        make_project: bool = False,
+        make_template: bool = False,
+        template_project_type: str = None,
+        **kwargs,
     ) -> None:
         """Execute project conversion."""
         try:
             ctx = click.get_current_context()
             config = ProjectConversionConfig(
-                code_directory=Path(ctx.obj.get('CODE_DIRECTORY')),
-                debug=ctx.obj.get('DEBUG'),
+                code_directory=Path(ctx.obj.get("CODE_DIRECTORY")),
+                debug=ctx.obj.get("DEBUG"),
                 project_type=template_project_type,
-                make_project= make_project,
-                make_template= make_template,
-                make_terramate=make_terramate_stacks
+                make_project=make_project,
+                make_template=make_template,
+                make_terramate=make_terramate_stacks,
             )
 
             ProjectConversionService().convert_project(config)
@@ -62,36 +59,30 @@ cli = ConvertProjectCommand.as_click_command(
         "--make-terramate-stacks",
         help="Create terramate stack for advance deployments",
         is_flag=True,
-        default=False
+        default=False,
     ),
     click.option(
         "-mpro",
         "--make-project",
         help="Create project from template",
         is_flag=True,
-        default=False
+        default=False,
     ),
     click.option(
         "-mtem",
         "--make-template",
         help="Create template from project",
         is_flag=True,
-        default=False
+        default=False,
     ),
     click.option(
-        '-tpt',
+        "-tpt",
         "--template-project-type",
         help="Project type according to Internal Developer Portal",
-        type=click.Choice(
-            ["terraform", "tofu", "cdkv2"],
-            case_sensitive=True
-        ),
-        default="terraform"
+        type=click.Choice(["terraform", "tofu", "cdkv2"], case_sensitive=True),
+        default="terraform",
     ),
     click.option(
-        "-br",
-        "--branch-name",
-        help="Branch name for terramate stacks",
-        default="main"
-    )
+        "-br", "--branch-name", help="Branch name for terramate stacks", default="main"
+    ),
 )

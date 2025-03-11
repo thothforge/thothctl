@@ -1,5 +1,4 @@
 # src/thothctl/core/__init__.py
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -31,6 +30,6 @@ class ThothCore:
         return self._src_path
 
     @classmethod
-    def get_instance(cls) -> 'ThothCore':
+    def get_instance(cls) -> "ThothCore":
         """Get singleton instance"""
         return cls()

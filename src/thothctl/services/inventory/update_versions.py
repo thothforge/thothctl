@@ -1,10 +1,10 @@
 """Module for managing version updates in terraform modules."""
-from dataclasses import dataclass
-from enum import Enum
 import json
 import logging
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 import inquirer
 from colorama import Fore, init
@@ -15,9 +15,11 @@ from rich.table import Table
 # Initialize colorama for cross-platform color support
 init(autoreset=True)
 
+
 @dataclass
 class VersionUpdate:
     """Data class to hold version update information."""
+
     name: str
     current_version: str
     new_version: str
@@ -27,6 +29,7 @@ class VersionUpdate:
 
 class UpdateAction(Enum):
     """Enum for update actions."""
+
     UPDATE = "update"
     RESTORE = "restore"
 
@@ -72,14 +75,20 @@ class VersionManager:
 
         self.console.print(table)
 
-    def process_updates(self, updates: List[dict], auto_approve: bool = False,
-                        action: str = UpdateAction.UPDATE.value) -> None:
+    def process_updates(
+        self,
+        updates: List[dict],
+        auto_approve: bool = False,
+        action: str = UpdateAction.UPDATE.value,
+    ) -> None:
         """Process version updates with user confirmation."""
         if not updates:
             print(f"{Fore.YELLOW}No updates available.{Fore.RESET}")
             return
 
-        if not auto_approve and not self._confirm_update():  # Removed the "main" parameter
+        if (
+            not auto_approve and not self._confirm_update()
+        ):  # Removed the "main" parameter
             print(f"{Fore.RED}❌ No changes to apply.{Fore.RESET}")
             return
 
@@ -100,37 +109,37 @@ class VersionManager:
         """Allow user to select specific modules to update."""
         choices = [
             {
-                'name': f"{update['name']} ({update['version'][0]} → {update['latest_version']})",
-                'value': update['name']
+                "name": f"{update['name']} ({update['version'][0]} → {update['latest_version']})",
+                "value": update["name"],
             }
-            for update in sorted(updates, key=lambda x: x['name'])
+            for update in sorted(updates, key=lambda x: x["name"])
         ]
 
         # Remove duplicates while preserving order
         seen = set()
         unique_choices = []
         for choice in choices:
-            if choice['name'] not in seen:
-                seen.add(choice['name'])
+            if choice["name"] not in seen:
+                seen.add(choice["name"])
                 unique_choices.append(choice)
 
         questions = [
             inquirer.Checkbox(
-                'selected_modules',
+                "selected_modules",
                 message="Select modules to update (use space to select, enter to confirm)",
-                choices=[(choice['name'], choice['value']) for choice in unique_choices],
+                choices=[
+                    (choice["name"], choice["value"]) for choice in unique_choices
+                ],
             ),
         ]
 
         answers = inquirer.prompt(questions)
 
-        if not answers or not answers['selected_modules']:
+        if not answers or not answers["selected_modules"]:
             print(f"{Fore.YELLOW}No modules selected.{Fore.RESET}")
             return []
 
-        return answers['selected_modules']
-
-
+        return answers["selected_modules"]
 
     def _apply_version_update(self, file_path: Path, search: str, replace: str) -> None:
         """Apply version update to file."""
@@ -141,8 +150,10 @@ class VersionManager:
 
             logging.debug(f"Version {search} changed to {replace} in {file_path}")
             self._format_terraform_file(file_path)
-            print(f"{Fore.GREEN}✔️ Version changed successfully. "
-                  f"Run plan and apply for checking changes.{Fore.RESET}\n")
+            print(
+                f"{Fore.GREEN}✔️ Version changed successfully. "
+                f"Run plan and apply for checking changes.{Fore.RESET}\n"
+            )
         except IOError as e:
             logging.error(f"Failed to update file {file_path}: {e}")
             raise
@@ -153,21 +164,22 @@ class VersionManager:
             inquirer.Confirm(
                 "confirm",
                 message="Do you want to proceed with the updates?",
-                default=True
+                default=True,
             )
         ]
 
         answers = inquirer.prompt(questions)
         return answers and answers["confirm"]
 
-
-    def _confirm_single_update(self, search: str, replace: str, file_path: Path) -> bool:
+    def _confirm_single_update(
+        self, search: str, replace: str, file_path: Path
+    ) -> bool:
         """Confirm single update with user."""
         questions = [
             inquirer.Confirm(
                 "confirm",
                 message=f"Update version from {search} to {replace} in {file_path}?",
-                default=True
+                default=True,
             )
         ]
 
@@ -180,24 +192,27 @@ class VersionManager:
             inquirer.Confirm(
                 "confirm",
                 message="Do you want to apply updates to all modules?",
-                default=False
-
+                default=False,
             )
         ]
 
         answers = inquirer.prompt(questions)
         return answers and answers["confirm"]
 
-    def _process_single_update(self, update: dict, auto_apply: bool, action: str) -> None:
+    def _process_single_update(
+        self, update: dict, auto_apply: bool, action: str
+    ) -> None:
         """Process a single version update."""
         file_path = Path(update["file"])
         search, replace = self._get_version_strings(update, action)
 
         if not auto_apply:
-            module_name = update['name']
-            current_version = update['version'][0]
-            new_version = update['latest_version']
-            print(f"\n{Fore.CYAN}Processing module: {module_name} ({current_version} → {new_version}){Fore.RESET}")
+            module_name = update["name"]
+            current_version = update["version"][0]
+            new_version = update["latest_version"]
+            print(
+                f"\n{Fore.CYAN}Processing module: {module_name} ({current_version} → {new_version}){Fore.RESET}"
+            )
             if not self._confirm_single_update(search, replace, file_path):
                 return
 
@@ -208,6 +223,7 @@ class VersionManager:
     def _format_terraform_file(file_path: Path) -> None:
         """Format terraform file."""
         import subprocess
+
         subprocess.run(["terraform", "fmt", str(file_path)], check=True)
 
     @staticmethod
@@ -216,8 +232,12 @@ class VersionManager:
         current_version = file_details["version"][0]
         new_version = file_details["latest_version"]
 
-        return (new_version, current_version) if action == UpdateAction.RESTORE.value \
-               else (current_version, new_version)
+        return (
+            (new_version, current_version)
+            if action == UpdateAction.RESTORE.value
+            else (current_version, new_version)
+        )
+
 
 def summary_inventory(
     inv,
@@ -261,8 +281,11 @@ def summary_inventory(
     return inv_summary, list_outdated
 
 
-def main_update_versions(inventory_file: str, auto_approve: bool = False,
-                        action: str = UpdateAction.UPDATE.value) -> None:
+def main_update_versions(
+    inventory_file: str,
+    auto_approve: bool = False,
+    action: str = UpdateAction.UPDATE.value,
+) -> None:
     """Main function to handle version updates."""
     manager = VersionManager(Path(inventory_file))
     inventory = manager.load_inventory()

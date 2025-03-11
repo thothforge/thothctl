@@ -1,19 +1,21 @@
 """Report generation service for inventory management."""
-import logging
-from pathlib import Path
-from typing import Dict, Any, Optional
-from datetime import datetime
 import json
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict
 
 import pdfkit
 from json2html import json2html
-from rich.console import Console
-from rich.table import Table
-from rich.align import Align
 from rich import box
+from rich.align import Align
+from rich.console import Console
 from rich.style import Style
+from rich.table import Table
+
 
 logger = logging.getLogger(__name__)
+
 
 class ReportService:
     """Service for generating inventory reports."""
@@ -29,7 +31,9 @@ class ReportService:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return self.reports_dir / f"{report_name}_{timestamp}.{extension}"
 
-    def create_html_report(self, inventory: Dict[str, Any], report_name: str = "InventoryIaC") -> Path:
+    def create_html_report(
+        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC"
+    ) -> Path:
         """Create HTML report from inventory data with custom styling."""
         try:
             # Define HTML template with proper string formatting
@@ -90,8 +94,7 @@ class ReportService:
 
             # Convert inventory to HTML
             html_content = json2html.convert(
-                json=inventory,
-                table_attributes='class="inventory-table"'
+                json=inventory, table_attributes='class="inventory-table"'
             )
 
             # Create report file
@@ -108,20 +111,22 @@ class ReportService:
             logger.error(f"Failed to create HTML report: {str(e)}")
             raise
 
-    def create_pdf_report(self, html_path: Path, report_name: str = "InventoryIaC") -> Path:
+    def create_pdf_report(
+        self, html_path: Path, report_name: str = "InventoryIaC"
+    ) -> Path:
         """Create PDF report from HTML file with custom options."""
         try:
             pdf_path = self._create_report_path(report_name, "pdf")
 
             options = {
-                'page-size': 'A4',
-                'margin-top': '20mm',
-                'margin-right': '20mm',
-                'margin-bottom': '20mm',
-                'margin-left': '20mm',
-                'encoding': 'UTF-8',
-                'no-outline': None,
-                'enable-local-file-access': None
+                "page-size": "A4",
+                "margin-top": "20mm",
+                "margin-right": "20mm",
+                "margin-bottom": "20mm",
+                "margin-left": "20mm",
+                "encoding": "UTF-8",
+                "no-outline": None,
+                "enable-local-file-access": None,
             }
 
             pdfkit.from_file(str(html_path), str(pdf_path), options=options)
@@ -132,7 +137,9 @@ class ReportService:
             logger.error(f"Failed to create PDF report: {str(e)}")
             raise
 
-    def create_json_report(self, inventory: Dict[str, Any], report_name: str = "InventoryIaC") -> Path:
+    def create_json_report(
+        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC"
+    ) -> Path:
         """Create formatted JSON report from inventory data."""
         try:
             report_path = self._create_report_path(report_name, "json")
@@ -157,11 +164,13 @@ class ReportService:
                 header_style="bold magenta",
                 title_style="bold blue",
                 show_lines=True,
-                expand=True
+                expand=True,
             )
-            table.add_column("Stack", style="dim", max_width= 40)
-            table.add_column("Components", style="dim", )
-
+            table.add_column("Stack", style="dim", max_width=40)
+            table.add_column(
+                "Components",
+                style="dim",
+            )
 
             # Process components
             for component_group in inventory.get("components", []):
@@ -175,7 +184,6 @@ class ReportService:
                 netsted_table.add_column("SourceUrl")
                 netsted_table.add_column("Status", justify="center")
 
-
                 for component in component_group.get("components", []):
                     current_version = component.get("version", ["Null"])
                     if isinstance(current_version, list):
@@ -186,7 +194,7 @@ class ReportService:
                         "Updated": Style(color="green", bold=True),
                         "Outdated": Style(color="red", bold=True),
                         "Unknown": Style(color="yellow", bold=True),
-                        "Null": Style(color="blue", bold=True)
+                        "Null": Style(color="blue", bold=True),
                     }.get(status, Style(color="white"))
 
                     netsted_table.add_row(
@@ -197,10 +205,10 @@ class ReportService:
                         str(component.get("latest_version", "Unknown")),
                         str(component.get("source_url", "Unknown")),
                         status,
-
                     )
                 table.add_row(
-                    Align(f'[blue]{component_group["path"]}[/blue]', vertical="middle"), netsted_table
+                    Align(f'[blue]{component_group["path"]}[/blue]', vertical="middle"),
+                    netsted_table,
                 )
 
             # Print the table
@@ -223,11 +231,7 @@ class ReportService:
                 for group in inventory.get("components", [])
             )
 
-            status_counts = {
-                "Updated": 0,
-                "Outdated": 0,
-                "Unknown": 0
-            }
+            status_counts = {"Updated": 0, "Outdated": 0, "Unknown": 0}
 
             for group in inventory.get("components", []):
                 for component in group.get("components", []):
@@ -238,27 +242,21 @@ class ReportService:
                 title="Summary",
                 box=box.ROUNDED,
                 show_header=False,
-                title_style="bold blue"
+                title_style="bold blue",
             )
 
             summary_table.add_column("Metric", style="cyan")
             summary_table.add_column("Value", style="magenta")
 
+            summary_table.add_row("Total Components", str(total_components))
             summary_table.add_row(
-                "Total Components",
-                str(total_components)
+                "Updated Components", f"[green]{status_counts['Updated']}[/green]"
             )
             summary_table.add_row(
-                "Updated Components",
-                f"[green]{status_counts['Updated']}[/green]"
+                "Outdated Components", f"[red]{status_counts['Outdated']}[/red]"
             )
             summary_table.add_row(
-                "Outdated Components",
-                f"[red]{status_counts['Outdated']}[/red]"
-            )
-            summary_table.add_row(
-                "Unknown Status",
-                f"[yellow]{status_counts['Unknown']}[/yellow]"
+                "Unknown Status", f"[yellow]{status_counts['Unknown']}[/yellow]"
             )
 
             self.console.print(Align.center(summary_table))

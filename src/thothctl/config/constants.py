@@ -6,6 +6,7 @@ These values are not meant to be changed during runtime.
 
 from typing import Final
 
+
 # API endpoints
 AZURE_DEVOPS_URL: Final = "https://dev.azure.com"
 

@@ -1,27 +1,32 @@
 """Define kind of scanning process using tools for modular deployments."""
 import logging
 import subprocess
+import time
+from enum import Enum
 from pathlib import Path, PurePath
+from typing import Dict, List, Optional
+
 import os
 from colorama import Fore
-from typing import Optional, Dict, List, Union
-from enum import Enum
-import time
+
 
 class ScanTool(Enum):
     """Supported scanning tools."""
+
     TRIVY = "trivy"
     TFSEC = "tfsec"
     CHECKOV = "checkov"
     TERRAFORM_COMPLIANCE = "terraform-compliance"
+
 
 # Constants
 SCAN_COMMANDS: Dict[str, List[str]] = {
     "trivy": ["trivy", "config"],
     "tfsec": ["tfsec"],
     "checkov": ["checkov", "-d"],
-    "terraform-compliance": ["terraform-compliance", "-p"]
+    "terraform-compliance": ["terraform-compliance", "-p"],
 }
+
 
 def get_report_path(directory: str, reports_dir: str, extension: str) -> PurePath:
     """Generate standardized report path."""
@@ -29,18 +34,17 @@ def get_report_path(directory: str, reports_dir: str, extension: str) -> PurePat
     report_name = f"report_{path.parent.name}_{path.name}".replace("/", "_")
     return PurePath(os.path.join(reports_dir, f"{report_name}.{extension}"))
 
-def run_scan_command(cmd: List[str], capture: bool = True) -> subprocess.CompletedProcess:
+
+def run_scan_command(
+    cmd: List[str], capture: bool = True
+) -> subprocess.CompletedProcess:
     """Execute scan command with proper error handling."""
     try:
-        return subprocess.run(
-            cmd,
-            capture_output=capture,
-            text=True,
-            check=True
-        )
+        return subprocess.run(cmd, capture_output=capture, text=True, check=True)
     except subprocess.CalledProcessError as e:
         logging.error(f"Scan failed: {e}")
         raise
+
 
 def trivy_scan(directory: str, reports_dir: str, options: Optional[str] = None) -> None:
     """Run trivy scan."""
@@ -54,8 +58,9 @@ def trivy_scan(directory: str, reports_dir: str, options: Optional[str] = None) 
     print(scan.stdout)
 
     reports_path = get_report_path(directory, reports_dir, "txt")
-    with open(reports_path, 'w') as f:
+    with open(reports_path, "w") as f:
         subprocess.run([*SCAN_COMMANDS["trivy"], directory], stdout=f, check=True)
+
 
 def tfsec_scan(directory: str, reports_dir: str, options: Optional[str] = None) -> None:
     """Run tfsec scan."""
@@ -69,10 +74,16 @@ def tfsec_scan(directory: str, reports_dir: str, options: Optional[str] = None) 
     print(scan.stdout)
 
     reports_path = get_report_path(directory, reports_dir, "xml")
-    with open(reports_path, 'w') as f:
+    with open(reports_path, "w") as f:
         subprocess.run([*cmd, "-f", "junit"], stdout=f, check=True)
 
-def checkov_scan(directory: str, reports_dir: str, options: Optional[str] = None, tftool: str = "tofu") -> None:
+
+def checkov_scan(
+    directory: str,
+    reports_dir: str,
+    options: Optional[str] = None,
+    tftool: str = "tofu",
+) -> None:
     """Run checkov scan."""
     print(Fore.GREEN + f"Running checkov scan in {directory}... " + Fore.RESET)
 
@@ -90,35 +101,32 @@ def checkov_scan(directory: str, reports_dir: str, options: Optional[str] = None
         subprocess.run(
             f"cd {directory} && {tftool} show -json tfplan > tfplan.json",
             shell=True,
-            check=True
+            check=True,
         )
         cmd.extend(["-f", str(tf_plan_json)])
 
     reports_path = get_report_path(directory, reports_dir, "xml")
-    with open(reports_path, 'w') as f:
+    with open(reports_path, "w") as f:
         cmd.extend(["-o", "junitxml"])
         subprocess.run(cmd, stdout=f, check=True)
 
+
 def terraform_compliance_scan(
-    directory: str,
-    reports_dir: str,
-    features_dir: str,
-    options: Optional[str] = None
+    directory: str, reports_dir: str, features_dir: str, options: Optional[str] = None
 ) -> None:
     """Run terraform compliance scan."""
-    print(Fore.GREEN + f"Running terraform-compliance scan in {directory}... " + Fore.RESET)
+    print(
+        Fore.GREEN
+        + f"Running terraform-compliance scan in {directory}... "
+        + Fore.RESET
+    )
 
     tf_plan = Path(os.path.join(directory, "tfplan.json"))
     if not tf_plan.exists():
         logging.error(f"tfplan.json not found in {directory}")
         raise FileNotFoundError(f"tfplan.json not found in {directory}")
 
-    cmd = [
-        *SCAN_COMMANDS["terraform-compliance"],
-        str(tf_plan),
-        "-f",
-        features_dir
-    ]
+    cmd = [*SCAN_COMMANDS["terraform-compliance"], str(tf_plan), "-f", features_dir]
 
     if options:
         cmd.append(options)
@@ -129,7 +137,10 @@ def terraform_compliance_scan(
     scan = run_scan_command(cmd)
     print(scan.stdout)
 
-def generate_reports(scan_results: Dict[str, subprocess.CompletedProcess]) -> Dict[str, str]:
+
+def generate_reports(
+    scan_results: Dict[str, subprocess.CompletedProcess],
+) -> Dict[str, str]:
     """
     Generate consolidated reports from scan results.
 
@@ -149,6 +160,7 @@ def generate_reports(scan_results: Dict[str, subprocess.CompletedProcess]) -> Di
 
     return reports
 
+
 def select_tools(tools: List[str]) -> List[ScanTool]:
     """
     Select and validate scanning tools.
@@ -165,9 +177,7 @@ def select_tools(tools: List[str]) -> List[ScanTool]:
             scan_tool = ScanTool(tool.lower())
             # Verify tool is installed
             subprocess.run(
-                [SCAN_COMMANDS[tool][0], "--version"],
-                capture_output=True,
-                check=True
+                [SCAN_COMMANDS[tool][0], "--version"], capture_output=True, check=True
             )
             selected_tools.append(scan_tool)
         except ValueError:
@@ -182,12 +192,13 @@ def select_tools(tools: List[str]) -> List[ScanTool]:
 
     return selected_tools
 
+
 def run_scans(
     directory: str,
     reports_dir: str,
     tools: List[str],
     features_dir: Optional[str] = None,
-    options: Optional[Dict[str, str]] = None
+    options: Optional[Dict[str, str]] = None,
 ) -> Dict[str, str]:
     """
     Run selected security scans on the specified directory.
@@ -212,19 +223,21 @@ def run_scans(
     for tool in selected_tools:
         try:
             if tool == ScanTool.TRIVY:
-                trivy_scan(directory, reports_dir, options.get('trivy'))
+                trivy_scan(directory, reports_dir, options.get("trivy"))
             elif tool == ScanTool.TFSEC:
-                tfsec_scan(directory, reports_dir, options.get('tfsec'))
+                tfsec_scan(directory, reports_dir, options.get("tfsec"))
             elif tool == ScanTool.CHECKOV:
-                checkov_scan(directory, reports_dir, options.get('checkov'))
+                checkov_scan(directory, reports_dir, options.get("checkov"))
             elif tool == ScanTool.TERRAFORM_COMPLIANCE:
                 if not features_dir:
-                    raise ValueError("features_dir is required for terraform-compliance")
+                    raise ValueError(
+                        "features_dir is required for terraform-compliance"
+                    )
                 terraform_compliance_scan(
                     directory,
                     reports_dir,
                     features_dir,
-                    options.get('terraform-compliance')
+                    options.get("terraform-compliance"),
                 )
 
             scan_results[tool.value] = "PASS"
@@ -234,7 +247,8 @@ def run_scans(
 
     return generate_reports(scan_results)
 
-def scan_root(directory, tool, reports_dir, features_dir: str = "", tftool= "tofu"):
+
+def scan_root(directory, tool, reports_dir, features_dir: str = "", tftool="tofu"):
     """
     Scan root path.
 
@@ -251,10 +265,13 @@ def scan_root(directory, tool, reports_dir, features_dir: str = "", tftool= "tof
             tool=tool,
             reports_dir=reports_dir,
             features_dir=features_dir,
-            tftool=tftool
+            tftool=tftool,
         )
 
-def select_tool(directory, tool, reports_dir, features_dir: str = "", options=None, tftool= "tofu"):
+
+def select_tool(
+    directory, tool, reports_dir, features_dir: str = "", options=None, tftool="tofu"
+):
     """
     Select tool according to the tool selected.
 
@@ -274,7 +291,7 @@ def select_tool(directory, tool, reports_dir, features_dir: str = "", options=No
     if tool == "tfsec":
         tfsec_scan(directory, reports_dir=reports_dir, options=options)
     elif tool == "checkov":
-        checkov_scan(directory, reports_dir=reports_dir, options=options, tftool= tftool)
+        checkov_scan(directory, reports_dir=reports_dir, options=options, tftool=tftool)
     elif tool == "terraform-compliance" and os.path.exists(
         PurePath(f"{directory}/tfplan")
     ):
@@ -284,6 +301,7 @@ def select_tool(directory, tool, reports_dir, features_dir: str = "", options=No
             reports_dir=reports_dir,
             options=options,
         )
+
 
 def create_html_reports(directory, mode="single"):
     """
@@ -314,8 +332,9 @@ def create_html_reports(directory, mode="single"):
             os.popen(c, "w")
 
 
-
-def recursive_scan(directory, tool, reports_dir, features_dir: str = "", options=None, tftool="tofu"):
+def recursive_scan(
+    directory, tool, reports_dir, features_dir: str = "", options=None, tftool="tofu"
+):
     """
     Recursive Scan according to the tool selected.
 
@@ -347,7 +366,7 @@ def recursive_scan(directory, tool, reports_dir, features_dir: str = "", options
         tool=tool,
         reports_dir=reports_dir,
         features_dir=features_dir,
-        tftool=tftool
+        tftool=tftool,
     )
 
     ls_dir = os.listdir(PurePath(directory))
@@ -358,7 +377,8 @@ def recursive_scan(directory, tool, reports_dir, features_dir: str = "", options
             logging.info(f"Finding a folder {ld}...")
             recursive_scan(nested_dir, tool, reports_dir, features_dir)
             if os.path.exists(PurePath(f"{nested_dir}/main.tf")) or os.path.exists(
-                    PurePath(f"{nested_dir}/tfplan.json")):
+                PurePath(f"{nested_dir}/tfplan.json")
+            ):
                 print(
                     f"⚠️{Fore.GREEN}Find terraform files in {nested_dir} ...\n❇️ Scanning ... "
                     + Fore.RESET
@@ -368,7 +388,7 @@ def recursive_scan(directory, tool, reports_dir, features_dir: str = "", options
                     tool=tool,
                     reports_dir=reports_dir,
                     options=options,
-                    tftool=tftool
+                    tftool=tftool,
                 )
 
     finish_time = time.perf_counter()

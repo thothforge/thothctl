@@ -44,8 +44,11 @@ def check_template_properties(directory) -> bool:
 
 # get project props
 
+
 # get project props
-def get_exist_project_props(directory=PurePath("."), key:str = "project_properties") -> dict:
+def get_exist_project_props(
+    directory=PurePath("."), key: str = "project_properties"
+) -> dict:
     """
     Get exist project properties.
 
@@ -55,11 +58,8 @@ def get_exist_project_props(directory=PurePath("."), key:str = "project_properti
     """
     project_properties = {}
     if not check_project_properties(directory=directory):
-        project_properties = load_iac_conf(directory=directory).get(
-            key, {}
-        )
+        project_properties = load_iac_conf(directory=directory).get(key, {})
     return project_properties
-
 
 
 def get_project_props(
@@ -96,8 +96,9 @@ def get_project_props(
                     "environment",
                     message="Default environment for example (dev, qa, prod) ",
                     # validate if contains spaces and simbols
-                    validate=lambda _, x: re.match(r"^(dev|qa|prod|prd|stg|sandbox|[a-z0-9]+)$", x)
-,
+                    validate=lambda _, x: re.match(
+                        r"^(dev|qa|prod|prd|stg|sandbox|[a-z0-9]+)$", x
+                    ),
                     default="dev",
                 ),
                 inquirer.Text(

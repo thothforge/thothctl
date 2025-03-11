@@ -1,6 +1,7 @@
 # adapters/teams_notifier.py
 import pymsteams
-from ....config.models import ScanResult, ReportStatus
+
+from ....config.models import ReportStatus, ScanResult
 
 
 class TeamsNotifier:
@@ -39,6 +40,6 @@ class TeamsNotifier:
         images = {
             ReportStatus.APPROVED: "https://support.content.office.net/en-us/media/773afccb-4687-4b9f-8a89-8b32f640b27d.png",
             ReportStatus.SKIPPED: "https://support.content.office.net/en-us/media/47588200-0bf0-46e9-977e-e668978f459c.png",
-            ReportStatus.FAILED: "https://support.content.office.net/en-us/media/6b8c0bff-7ddc-4bff-9101-8360f8c8a727.png"
+            ReportStatus.FAILED: "https://support.content.office.net/en-us/media/6b8c0bff-7ddc-4bff-9101-8360f8c8a727.png",
         }
         section.activityImage(images[status])

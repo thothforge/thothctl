@@ -1,22 +1,23 @@
 """Create and operate terramate stacks."""
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional
 import json
 import logging
 import subprocess
-import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List
+
 import git
+import os
 from colorama import Fore
 
 
 @dataclass
 class TerramateConfig:
     """Configuration for Terramate stack creation."""
+
     directory: Path
     optimized: bool = False
     default_branch: str = "master"
-
 
 
 class TerramateStackManager:
@@ -40,7 +41,7 @@ class TerramateStackManager:
                 current_path = Path(current_dir)
 
                 # Skip hidden directories
-                dirs[:] = [d for d in dirs if not d.startswith('.')]
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
 
                 # Check if current directory is a Terragrunt project
                 if self._is_terragrunt_project(current_path):
@@ -57,15 +58,19 @@ class TerramateStackManager:
 
                         # Create stack
                         self.create_stack(
-                            json_graph=graph,
-                            directory=current_path,
-                            optimized=False
+                            json_graph=graph, directory=current_path, optimized=False
                         )
-                        print(f"{Fore.GREEN}✅ Created Terramate stack in: {current_path}{Fore.RESET}")
+                        print(
+                            f"{Fore.GREEN}✅ Created Terramate stack in: {current_path}{Fore.RESET}"
+                        )
 
                     except Exception as e:
-                        self.logger.error(f"Failed to create stack in {current_path}: {e}")
-                        print(f"{Fore.RED}❌ Failed to create stack in: {current_path}{Fore.RESET}")
+                        self.logger.error(
+                            f"Failed to create stack in {current_path}: {e}"
+                        )
+                        print(
+                            f"{Fore.RED}❌ Failed to create stack in: {current_path}{Fore.RESET}"
+                        )
                         continue
 
         except Exception as e:
@@ -111,10 +116,14 @@ class TerramateStackManager:
             try:
                 # Execute terragrunt command
                 terragrunt_process = subprocess.run(
-                    ["terragrunt", "graph-dependencies", "--terragrunt-non-interactive"],
+                    [
+                        "terragrunt",
+                        "graph-dependencies",
+                        "--terragrunt-non-interactive",
+                    ],
                     capture_output=True,
                     text=True,
-                    check=True
+                    check=True,
                 )
 
                 # Process output through dot
@@ -123,7 +132,7 @@ class TerramateStackManager:
                     input=terragrunt_process.stdout,
                     capture_output=True,
                     text=True,
-                    check=True
+                    check=True,
                 )
 
                 return dot_process.stdout
@@ -140,7 +149,9 @@ class TerramateStackManager:
             self.logger.error(f"Unexpected error generating dependency graph: {e}")
             raise
 
-    def create_stack(self, json_graph: Dict, directory: Path, optimized: bool = False) -> None:
+    def create_stack(
+        self, json_graph: Dict, directory: Path, optimized: bool = False
+    ) -> None:
         """
         Create Terramate stack configuration.
 
@@ -223,10 +234,10 @@ class TerramateStackManager:
         Returns:
             str: Stack configuration content
         """
-        watch_content = '''
+        watch_content = """
             watch = [
                   "./terragrunt.hcl",
-               ]'''
+               ]"""
 
         # Format the after list with proper quotes around paths
         if after:
@@ -260,18 +271,21 @@ class TerramateStackManager:
             rel_path = os.path.relpath(target_abs, current_abs)
 
             # Convert Windows paths to Unix-style if needed
-            rel_path = rel_path.replace(os.sep, '/')
+            rel_path = rel_path.replace(os.sep, "/")
 
-            self.logger.debug(f"Relative path from {current_abs} to {target_abs}: {rel_path}")
+            self.logger.debug(
+                f"Relative path from {current_abs} to {target_abs}: {rel_path}"
+            )
             return rel_path
 
         except Exception as e:
             self.logger.error(f"Error calculating relative path: {e}")
             # Return original path if conversion fails
             return str(target_path)
+
     def _generate_main_content(self, default_branch: str) -> str:
         """Generate main Terramate configuration content."""
-        content = f'''
+        content = f"""
 terramate {{
   config {{
     git {{
@@ -283,7 +297,7 @@ terramate {{
         }}
   }}
 }}
-'''
+"""
         return content
 
     def _add_to_git(self, file_path: Path) -> None:
@@ -298,7 +312,6 @@ terramate {{
             self.logger.error(f"Failed to add file to git: {e}")
             raise
 
-
     def _create_stack_for_directory(self, directory: Path) -> None:
         """Create Terramate stack for specified directory."""
         print(
@@ -307,4 +320,3 @@ terramate {{
         )
         graph = json.loads(self.get_dependency_graph(directory))
         self.create_stack(graph, directory)
-

@@ -1,7 +1,8 @@
 # config/default_values.py
 """Default values used across the application."""
 
-from typing import Dict, List, Final
+from typing import Dict, Final, List
+
 
 DEFAULT_PROPERTIES_PARSE: Final[Dict[str, str]] = {
     "deployment_region": "#{deployment_region}#",
@@ -35,12 +36,12 @@ DEFAULT_CATALOG_TAGS: Final[List[str]] = [
     "aws",
     "cloud",
     "automation",
-    "template"
+    "template",
 ]
 
 DEFAULT_CATALOG_SPEC: Final[Dict[str, str]] = {
     "lifecycle": "production",
     "owner": "IaCPlatform",
     "system": "IaCPlatform",
-    "type": "template"
+    "type": "template",
 }

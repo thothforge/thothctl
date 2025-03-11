@@ -1,20 +1,21 @@
 """Data models for inventory management."""
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List
 
 
 class RegistryType(Enum):
     """Supported registry types."""
+
     TERRAFORM = "terraform"
     GITHUB = "github"
     UNKNOWN = "unknown"
 
+
 @dataclass
 class Component:
     """Individual component information."""
+
     type: str
     name: str
     version: List[str]
@@ -24,15 +25,19 @@ class Component:
     source_url: str = "Null"
     status: str = "Null"
 
+
 @dataclass
 class ComponentGroup:
     """Group of components with their path."""
+
     stack: str
     components: List[Component]
+
 
 @dataclass
 class Inventory:
     """Complete inventory information."""
+
     project_name: str
     components: List[ComponentGroup]
     version: int = 2
@@ -54,9 +59,11 @@ class Inventory:
                             "file": comp.file,
                             "latest_version": comp.latest_version,
                             "source_url": comp.source_url,
-                            "status": comp.status
-                        } for comp in group.components
-                    ]
-                } for group in self.components
-            ]
+                            "status": comp.status,
+                        }
+                        for comp in group.components
+                    ],
+                }
+                for group in self.components
+            ],
         }

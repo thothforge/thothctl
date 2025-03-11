@@ -1,18 +1,25 @@
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-import json
+
 from abc import ABC, abstractmethod
-import logging
 from colorama import Fore
-from .get_project_data import get_project_props, walk_folder_replace, check_project_properties
-from .set_project_parameters import set_project_conf
+
 from ....common.common import load_iac_conf
-from ..create_terramate.manage_terramate_stacks import TerramateConfig, TerramateStackManager
+from ..create_terramate.manage_terramate_stacks import TerramateConfig
+from .get_project_data import (
+    check_project_properties,
+    get_project_props,
+    walk_folder_replace,
+)
+from .set_project_parameters import set_project_conf
+
 
 @dataclass
 class ProjectConversionConfig:
     """Configuration for project conversion."""
+
     code_directory: Path
     debug: bool = False
     branch_name: str = "main"
@@ -48,7 +55,7 @@ class TerramateConverter(ProjectConverter):
             config = TerramateConfig(
                 directory=self.config.code_directory,
                 optimized=False,
-                default_branch=self.config.branch_name or "main"
+                default_branch=self.config.branch_name or "main",
             )
 
             # Create main configuration file
@@ -56,10 +63,14 @@ class TerramateConverter(ProjectConverter):
             self.stack_manager.create_main_file(config=config)
 
             # Process directories
-            print(f"👷{Fore.BLUE}Processing directories for Terramate stacks...{Fore.RESET}")
+            print(
+                f"👷{Fore.BLUE}Processing directories for Terramate stacks...{Fore.RESET}"
+            )
             self.stack_manager.process_directory_recursively(config.directory)
 
-            print(f"{Fore.GREEN}✅ Terramate conversion completed successfully!{Fore.RESET}")
+            print(
+                f"{Fore.GREEN}✅ Terramate conversion completed successfully!{Fore.RESET}"
+            )
 
         except Exception as e:
             self.logger.error(f"Terramate conversion failed: {e}")
@@ -90,14 +101,15 @@ class ProjectTemplateConverter(ProjectConverter):
 
     def _get_project_properties(self) -> dict:
         """Get project properties based on project type."""
-        project_props ={}
-        if self.config.project_type in ["terraform", "tofu"]  and check_project_properties(
-                    directory=self.config.code_directory,
-
-            ):
+        project_props = {}
+        if self.config.project_type in [
+            "terraform",
+            "tofu",
+        ] and check_project_properties(
+            directory=self.config.code_directory,
+        ):
             project_props = get_project_props(
-                cloud_provider="aws",
-                remote_bkd_cloud_provider="aws"
+                cloud_provider="aws", remote_bkd_cloud_provider="aws"
             )
             set_project_conf(project_properties=project_props)
 
@@ -106,8 +118,7 @@ class ProjectTemplateConverter(ProjectConverter):
     def _get_project_name(self) -> str:
         """Get project name from configuration file."""
         return load_iac_conf(
-            directory=self.config.code_directory,
-            file_name=".thothcf.toml"
+            directory=self.config.code_directory, file_name=".thothcf.toml"
         )["thothcf"]["project_id"]
 
     def _apply_project_configuration(self, project_props: dict) -> None:
@@ -119,11 +130,11 @@ class ProjectTemplateConverter(ProjectConverter):
         """Process directory for conversion."""
         action = "make_project"
         if self.config.make_template:
-            action =  "make_template"
+            action = "make_template"
 
         walk_folder_replace(
             directory=self.config.code_directory,
             action=action,
             project_properties=project_props,
-            project_name=project_name
+            project_name=project_name,
         )

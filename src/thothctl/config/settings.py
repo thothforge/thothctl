@@ -3,10 +3,10 @@
 Application settings that can be overridden by environment variables.
 """
 
-import os
-from pathlib import Path
-from typing import Dict, Any
 from dataclasses import dataclass
+from pathlib import Path
+
+import os
 
 
 @dataclass
@@ -23,5 +23,5 @@ class Settings:
         return cls(
             config_dir=Path(os.getenv("THOTH_CONFIG_DIR", str(cls.config_dir))),
             config_file=Path(os.getenv("THOTH_CONFIG_FILE", str(cls.config_file))),
-            log_level=os.getenv("THOTH_LOG_LEVEL", cls.log_level)
+            log_level=os.getenv("THOTH_LOG_LEVEL", cls.log_level),
         )

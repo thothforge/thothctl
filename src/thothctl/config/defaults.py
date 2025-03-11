@@ -1,11 +1,12 @@
 # config/defaults.py
 from dataclasses import dataclass, field
 from typing import Dict, List
+
 from .default_values import (
-    DEFAULT_PROPERTIES_PARSE,
-    DEFAULT_PROPERTIES,
+    DEFAULT_CATALOG_SPEC,
     DEFAULT_CATALOG_TAGS,
-    DEFAULT_CATALOG_SPEC
+    DEFAULT_PROPERTIES,
+    DEFAULT_PROPERTIES_PARSE,
 )
 
 
@@ -16,12 +17,8 @@ class ProjectDefaults:
     properties_parse: Dict[str, str] = field(
         default_factory=lambda: dict(DEFAULT_PROPERTIES_PARSE)
     )
-    properties: Dict[str, str] = field(
-        default_factory=lambda: dict(DEFAULT_PROPERTIES)
-    )
-    catalog_tags: List[str] = field(
-        default_factory=lambda: list(DEFAULT_CATALOG_TAGS)
-    )
+    properties: Dict[str, str] = field(default_factory=lambda: dict(DEFAULT_PROPERTIES))
+    catalog_tags: List[str] = field(default_factory=lambda: list(DEFAULT_CATALOG_TAGS))
     catalog_spec: Dict[str, str] = field(
         default_factory=lambda: dict(DEFAULT_CATALOG_SPEC)
     )

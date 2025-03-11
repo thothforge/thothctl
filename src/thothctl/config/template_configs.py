@@ -1,55 +1,34 @@
 # config/template_configs.py
 """Default template configurations."""
 
-from typing import Dict, List, Final
+from dataclasses import dataclass, field
+from typing import Dict, Final, List
+
+from .template_configs import CDK_CONFIG, TERRAFORM_CONFIG, TERRAGRUNT_CONFIG
+
 
 # Terraform configuration
 TERRAFORM_CONFIG: Final[Dict[str, List[str]]] = {
-    "required_files": [
-        "main.tf",
-        "variables.tf",
-        "outputs.tf"
-    ],
-    "optional_files": [
-        "README.md",
-        "terraform.tfvars"
-    ]
+    "required_files": ["main.tf", "variables.tf", "outputs.tf"],
+    "optional_files": ["README.md", "terraform.tfvars"],
 }
 
 # Terragrunt configuration
 TERRAGRUNT_CONFIG: Final[Dict[str, List[str]]] = {
-    "required_files": [
-        "terragrunt.hcl"
-    ],
-    "optional_files": [
-        "README.md"
-    ]
+    "required_files": ["terragrunt.hcl"],
+    "optional_files": ["README.md"],
 }
 
 # CDK configuration
 CDK_CONFIG: Final[Dict[str, List[str]]] = {
-    "required_files": [
-        "app.py",
-        "requirements.txt"
-    ],
-    "optional_files": [
-        "README.md",
-        "cdk.json"
-    ]
+    "required_files": ["app.py", "requirements.txt"],
+    "optional_files": ["README.md", "cdk.json"],
 }
 
 # config/templates.py
 """
 Template configurations and default values for different project types.
 """
-
-from dataclasses import dataclass, field
-from typing import Dict, List
-from .template_configs import (
-    TERRAFORM_CONFIG,
-    TERRAGRUNT_CONFIG,
-    CDK_CONFIG
-)
 
 
 @dataclass(frozen=True)
@@ -64,9 +43,7 @@ class TemplateConfig:
         default_factory=lambda: dict(TERRAGRUNT_CONFIG)
     )
 
-    cdk: Dict[str, List[str]] = field(
-        default_factory=lambda: dict(CDK_CONFIG)
-    )
+    cdk: Dict[str, List[str]] = field(default_factory=lambda: dict(CDK_CONFIG))
 
     def get_template_config(self, template_type: str) -> Dict[str, List[str]]:
         """
@@ -84,7 +61,7 @@ class TemplateConfig:
         template_configs = {
             "terraform": self.terraform,
             "terragrunt": self.terragrunt,
-            "cdk": self.cdk
+            "cdk": self.cdk,
         }
 
         if template_type not in template_configs:

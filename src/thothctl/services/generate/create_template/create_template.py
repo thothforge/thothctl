@@ -10,14 +10,14 @@ from .files_content import (
     common_hcl_content,
     common_tfvars_content,
     git_ignore,
-    thothcf_toml_content,
     iacpd_toml_module_content,
     main_tf_content,
     pre_commit_content,
     terragrunt_hcl_clean,
-    terragrunt_root_hcl_content,
     terragrunt_hcl_content,
+    terragrunt_root_hcl_content,
     tflint_hcl,
+    thothcf_toml_content,
     variables_tf_content,
 )
 from .project_templates import terraform_module_template, terraform_template

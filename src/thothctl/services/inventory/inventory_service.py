@@ -1,14 +1,15 @@
 """Inventory management service."""
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Generator, Optional
-import asyncio
+from typing import Any, Dict, Generator, List, Optional
+
 import hcl2
 
-from .models import Component, Inventory, ComponentGroup
-from .version_service import InventoryVersionManager
-from .update_versions import main_update_versions
+from .models import Component, ComponentGroup, Inventory
 from .report_service import ReportService
+from .update_versions import main_update_versions
+from .version_service import InventoryVersionManager
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class InventoryService:
     def __init__(
         self,
         version_service: Optional[InventoryVersionManager] = None,
-        report_service: Optional[ReportService] = None
+        report_service: Optional[ReportService] = None,
     ):
         """Initialize inventory service."""
         self.version_service = version_service or InventoryVersionManager()
@@ -36,22 +37,23 @@ class InventoryService:
         components = []
 
         if "module" in data.keys():
-
             for module in data["module"]:
                 for name, details in module.items():
                     component = Component(
                         type="module",
                         name=name,
-                        version=module[name].get("version",),# ["Null"]),  # Make sure these are lists
-                        source=module[name].get("source"),# ["Null"]),  # Make sure these are lists
-                        file=str(file_path.relative_to(Path.cwd()))
+                        version=module[name].get(
+                            "version",
+                        ),  # ["Null"]),  # Make sure these are lists
+                        source=module[name].get(
+                            "source"
+                        ),  # ["Null"]),  # Make sure these are lists
+                        file=str(file_path.relative_to(Path.cwd())),
                     )
                     components.append(component)
         else:
             logger.debug(f"No modules found in {file_path}")
         return components
-
-
 
     def _walk_directory(self, directory: Path) -> Generator[Path, None, None]:
         """Walk directory and yield .tf files."""
@@ -60,11 +62,11 @@ class InventoryService:
                 yield path
 
     async def create_inventory(
-            self,
-            source_directory: str = ".",
-            check_versions: bool = False,
-            report_type: str = "html",
-            reports_directory: str = "Reports"
+        self,
+        source_directory: str = ".",
+        check_versions: bool = False,
+        report_type: str = "html",
+        reports_directory: str = "Reports",
     ) -> Dict[str, Any]:
         """Create inventory from source directory."""
         source_path = Path(source_directory).resolve()
@@ -77,22 +79,17 @@ class InventoryService:
             if components:  # Only add if there are components
                 relative_dir = str(tf_file.parent.relative_to(source_path))
 
-                group = ComponentGroup(
-                    stack=f"./{relative_dir}",
-                    components=components
-                )
+                group = ComponentGroup(stack=f"./{relative_dir}", components=components)
                 component_groups.append(group)
 
         # Create inventory
         inventory = Inventory(
-            project_name=source_path.name,
-            components=component_groups
+            project_name=source_path.name, components=component_groups
         )
         inventory_dict = inventory.to_dict()
         # Check versions if requested
         if check_versions and inventory_dict:
-            inventory_dict = await  self.version_service.check_versions(inventory_dict)
-
+            inventory_dict = await self.version_service.check_versions(inventory_dict)
 
         # Generate reports
         if report_type in ("html", "all"):
@@ -107,6 +104,9 @@ class InventoryService:
 
         return inventory_dict
 
-    def update_inventory(self, inventory_path:  str, auto_approve: bool = False,
-                        action: str = "update"):
-        main_update_versions(inventory_file=inventory_path, auto_approve=auto_approve, action=action)
+    def update_inventory(
+        self, inventory_path: str, auto_approve: bool = False, action: str = "update"
+    ):
+        main_update_versions(
+            inventory_file=inventory_path, auto_approve=auto_approve, action=action
+        )
