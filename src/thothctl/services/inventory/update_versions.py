@@ -1,176 +1,272 @@
-"""Update versions."""
+"""Module for managing version updates in terraform modules."""
+from dataclasses import dataclass
+from enum import Enum
 import json
 import logging
+from pathlib import Path
+from typing import List, Tuple, Optional
 
 import inquirer
-import os
-from colorama import Fore
+from colorama import Fore, init
 from rich.console import Console
 from rich.table import Table
 
-from .create_inventory import summary_inventory
+
+# Initialize colorama for cross-platform color support
+init(autoreset=True)
+
+@dataclass
+class VersionUpdate:
+    """Data class to hold version update information."""
+    name: str
+    current_version: str
+    new_version: str
+    source: str
+    file_path: str
 
 
-def load_inventory(inventory_file: str):
-    """
-    Load inventory file.
-
-    :param inventory_file:
-    :return:
-    """
-    with open(inventory_file) as invent:
-        inv = json.loads(invent.read())
-        return inv
+class UpdateAction(Enum):
+    """Enum for update actions."""
+    UPDATE = "update"
+    RESTORE = "restore"
 
 
-def print_table(list_outdated: list):
-    """
-    Print table pretty.
+class VersionManager:
+    """Manages version updates for terraform modules."""
 
-    :param list_outdated:
-    :return:
-    """
-    console = Console()
-    table = Table(
-        title="Modules version to Update",
-        title_style="bold magenta",
-        show_header=True,
-        header_style="bold magenta",
-        show_lines=True,
-    )
-    table.add_column("Name", style="dim")
-    table.add_column("ActualVersion", style="dim")
-    table.add_column("NewVersion", style="dim")
-    table.add_column("Source", style="dim")
-    table.add_column("File", style="dim")
+    def __init__(self, inventory_file: Path):
+        """Initialize version manager."""
+        self.inventory_file = inventory_file
+        self.console = Console()
 
-    for out in list_outdated:
-        table.add_row(
-            out["name"],
-            f'[red]{out["version"][0]}[/red]',
-            f'[green]{out["latest_version"]}[/green]',
-            out["source"][0],
-            out["file"],
+    def load_inventory(self) -> dict:
+        """Load and parse inventory file."""
+        try:
+            return json.loads(self.inventory_file.read_text())
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            logging.error(f"Failed to load inventory file: {e}")
+            raise
+
+    def display_updates(self, updates: List[dict]) -> None:
+        """Display version updates in a formatted table."""
+        table = Table(
+            title="Modules version to Update",
+            title_style="bold magenta",
+            show_header=True,
+            header_style="bold magenta",
+            show_lines=True,
         )
 
-    console.print(table)
+        columns = ["Name", "ActualVersion", "NewVersion", "Source", "File"]
+        for column in columns:
+            table.add_column(column, style="dim")
+
+        for update in updates:
+            table.add_row(
+                update["name"],
+                f'[red]{update["version"][0]}[/red]',
+                f'[green]{update["latest_version"]}[/green]',
+                update["source"][0],
+                update["file"],
+            )
+
+        self.console.print(table)
+
+    def process_updates(self, updates: List[dict], auto_approve: bool = False,
+                        action: str = UpdateAction.UPDATE.value) -> None:
+        """Process version updates with user confirmation."""
+        if not updates:
+            print(f"{Fore.YELLOW}No updates available.{Fore.RESET}")
+            return
+
+        if not auto_approve and not self._confirm_update():  # Removed the "main" parameter
+            print(f"{Fore.RED}❌ No changes to apply.{Fore.RESET}")
+            return
+
+        auto_apply_all = self._confirm_apply_all()  # Separated into a new method
+
+        if auto_apply_all:
+            # Process all updates
+            for update in updates:
+                self._process_single_update(update, True, action)
+        else:
+            # Let user select specific modules
+            selected_modules = self._select_modules(updates)
+            for update in updates:
+                if update["name"] in selected_modules:
+                    self._process_single_update(update, False, action)
+
+    def _select_modules(self, updates: List[dict]) -> List[str]:
+        """Allow user to select specific modules to update."""
+        choices = [
+            {
+                'name': f"{update['name']} ({update['version'][0]} → {update['latest_version']})",
+                'value': update['name']
+            }
+            for update in sorted(updates, key=lambda x: x['name'])
+        ]
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_choices = []
+        for choice in choices:
+            if choice['name'] not in seen:
+                seen.add(choice['name'])
+                unique_choices.append(choice)
+
+        questions = [
+            inquirer.Checkbox(
+                'selected_modules',
+                message="Select modules to update (use space to select, enter to confirm)",
+                choices=[(choice['name'], choice['value']) for choice in unique_choices],
+            ),
+        ]
+
+        answers = inquirer.prompt(questions)
+
+        if not answers or not answers['selected_modules']:
+            print(f"{Fore.YELLOW}No modules selected.{Fore.RESET}")
+            return []
+
+        return answers['selected_modules']
 
 
-def update_versions(list_outdated: list, auto_approve=False, action="update"):
+
+    def _apply_version_update(self, file_path: Path, search: str, replace: str) -> None:
+        """Apply version update to file."""
+        try:
+            content = file_path.read_text()
+            updated_content = content.replace(search, replace)
+            file_path.write_text(updated_content)
+
+            logging.debug(f"Version {search} changed to {replace} in {file_path}")
+            self._format_terraform_file(file_path)
+            print(f"{Fore.GREEN}✔️ Version changed successfully. "
+                  f"Run plan and apply for checking changes.{Fore.RESET}\n")
+        except IOError as e:
+            logging.error(f"Failed to update file {file_path}: {e}")
+            raise
+
+    def _confirm_update(self) -> bool:
+        """Confirm update action with user."""
+        questions = [
+            inquirer.Confirm(
+                "confirm",
+                message="Do you want to proceed with the updates?",
+                default=True
+            )
+        ]
+
+        answers = inquirer.prompt(questions)
+        return answers and answers["confirm"]
+
+
+    def _confirm_single_update(self, search: str, replace: str, file_path: Path) -> bool:
+        """Confirm single update with user."""
+        questions = [
+            inquirer.Confirm(
+                "confirm",
+                message=f"Update version from {search} to {replace} in {file_path}?",
+                default=True
+            )
+        ]
+
+        answers = inquirer.prompt(questions)
+        return answers and answers["confirm"]
+
+    def _confirm_apply_all(self) -> bool:
+        """Confirm if updates should be applied to all modules."""
+        questions = [
+            inquirer.Confirm(
+                "confirm",
+                message="Do you want to apply updates to all modules?",
+                default=False
+
+            )
+        ]
+
+        answers = inquirer.prompt(questions)
+        return answers and answers["confirm"]
+
+    def _process_single_update(self, update: dict, auto_apply: bool, action: str) -> None:
+        """Process a single version update."""
+        file_path = Path(update["file"])
+        search, replace = self._get_version_strings(update, action)
+
+        if not auto_apply:
+            module_name = update['name']
+            current_version = update['version'][0]
+            new_version = update['latest_version']
+            print(f"\n{Fore.CYAN}Processing module: {module_name} ({current_version} → {new_version}){Fore.RESET}")
+            if not self._confirm_single_update(search, replace, file_path):
+                return
+
+        print(f"{Fore.GREEN}Applying update for {update['name']}...{Fore.RESET}")
+        self._apply_version_update(file_path, search, replace)
+
+    @staticmethod
+    def _format_terraform_file(file_path: Path) -> None:
+        """Format terraform file."""
+        import subprocess
+        subprocess.run(["terraform", "fmt", str(file_path)], check=True)
+
+    @staticmethod
+    def _get_version_strings(file_details: dict, action: str) -> Tuple[str, str]:
+        """Get version strings for update or restore."""
+        current_version = file_details["version"][0]
+        new_version = file_details["latest_version"]
+
+        return (new_version, current_version) if action == UpdateAction.RESTORE.value \
+               else (current_version, new_version)
+
+def summary_inventory(
+    inv,
+):
     """
-    Update versions.
+    Create summary inventory.
 
-    :param list_outdated:
-    :param auto_approve:
-    :param action:
+    :param inv:
     :return:
     """
-    if not auto_approve:
-        # use inquirer to  prompt the user
-        auto_approve = approve_update(action="main")
+    inv_summary = {}  # "ProjectName": project_name
+    outdated = 0
+    updated = 0
+    local = 0
+    list_outdated = []
+    st = None
+    for components in inv["components"]:
+        for c in components["components"]:
+            logging.debug(c)
+            local_version = c["version"]
 
-    if auto_approve:
-        auto_apply_all = approve_update(action="all_modules")
-        for out in list_outdated:
-            file_name = out["file"]
-            search, replace = get_version_strings(file_details=out, action=action)
+            if isinstance(local_version, list):
+                st = c.get("status", None)
+                if st == "Updated":
+                    updated += 1
+                elif st == "Outdated":
+                    outdated += 1
+                    list_outdated.append(c)
+            elif st is None and local_version == "Null":
+                local += 1
+    total = local + updated + outdated
+    inv_summary["TotalModules"] = total
+    inv_summary["LocalModules"] = local
+    inv_summary["RemoteModules"] = updated + outdated
+    inv_summary["Updated"] = updated
+    inv_summary["Outdated"] = outdated
+    print(inv_summary)
 
-            if auto_apply_all:
-                print(f"{Fore.GREEN} Autoplaying ... {Fore.RESET}")
-            else:
-                control_update = approve_update(
-                    search=search, replace=replace, file_name=file_name, action="single"
-                )
+    inv_summary["UpdateStatus"] = f"{str((updated / total) * 100)} %"
 
-                if not control_update:
-                    continue
-
-            if replace is not None:
-                with open(file_name, "r") as file:
-                    data = file.read()
-
-                data = replace_version(data, search, replace)
-
-                with open(file_name, "w") as file:
-                    file.write(data)
-
-                # Printing Text replaced
-                print(f"Version {search} changed to {replace} in {file_name}")
-                logging.info(f"Version {search} changed to {replace} in {file_name}")
-                os.system(f"terraform fmt {file_name}")
-                print(
-                    f"{Fore.GREEN}✔️ Version changed successfully. "
-                    f"Run plan and apply for checking changes.{Fore.RESET} \n"
-                )
-    else:
-        print(f"{Fore.RED}❌ No changes to apply.{Fore.RESET}")
+    return inv_summary, list_outdated
 
 
-def approve_update(search="", replace="", file_name="", action="main") -> bool:
-    """
-    Approve or update message.
+def main_update_versions(inventory_file: str, auto_approve: bool = False,
+                        action: str = UpdateAction.UPDATE.value) -> None:
+    """Main function to handle version updates."""
+    manager = VersionManager(Path(inventory_file))
+    inventory = manager.load_inventory()
+    _, updates = summary_inventory(inventory)
 
-    :param search:
-    :param replace:
-    :param file_name:
-    :param action:
-    :return:
-    """
-    message = f"{Fore.BLUE} ⚠️ Are you sure to continue with the update?"
-    if action == "single":
-        message = f"⚠️ Are you sure to continue with to change version {search}  to {replace} in {file_name}?"
-    elif action == "all_modules":
-        message = f"{Fore.BLUE}⚠️ Apply to all modules ? {Fore.RESET}"
-    # prompt user for approval
-    # use inquirer to  prompt the user
-    questions = [
-        inquirer.List("update", message=message, choices=["yes", "no"], default="yes"),
-    ]
-    answers = inquirer.prompt(questions)
-    control_update = answers["update"]
-    return control_update == "yes"
-
-
-def get_version_strings(file_details: dict, action="update"):
-    """
-    Get version in files.
-
-    :param file_details:
-    :param action:
-    :return:
-    """
-    # extract from config or details
-    search = file_details["version"][0]
-    replace = file_details["latest_version"]
-
-    if action == "restore":
-        search = file_details["latest_version"]
-        replace = file_details["version"][0]
-    return search, replace
-
-
-def replace_version(contents: str, search: str, replace: str) -> str:
-    """
-    Replace version.
-
-    :param contents:
-    :param search:
-    :param replace:
-    :return:
-    """
-    return contents.replace(search, replace)
-
-
-def main_update_versions(inventory_file, auto_approve: bool = False, action="update"):
-    """
-    Update versions.
-
-    :param inventory_file:
-    :param auto_approve:
-    :param action:
-    :return:
-    """
-    inventory = load_inventory(inventory_file=inventory_file)
-    checks = summary_inventory(inv=inventory)
-    print_table(list_outdated=checks[1])
-    update_versions(list_outdated=checks[1], auto_approve=auto_approve, action=action)
+    manager.display_updates(updates)
+    manager.process_updates(updates, auto_approve, action)

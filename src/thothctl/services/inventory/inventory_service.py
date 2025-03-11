@@ -7,6 +7,7 @@ import hcl2
 
 from .models import Component, Inventory, ComponentGroup
 from .version_service import InventoryVersionManager
+from .update_versions import main_update_versions
 from .report_service import ReportService
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,6 @@ class InventoryService:
             components = list(self._parse_hcl_file(tf_file))
 
             if components:  # Only add if there are components
-                #relative_path = str(tf_file.relative_to(source_path))
                 relative_dir = str(tf_file.parent.relative_to(source_path))
 
                 group = ComponentGroup(
@@ -91,16 +91,8 @@ class InventoryService:
         inventory_dict = inventory.to_dict()
         # Check versions if requested
         if check_versions and inventory_dict:
-            #print(components)
-            #async with self.version_service as version_checker:
-             #   version_checker.check_versions(inventory_dict)
             inventory_dict = await  self.version_service.check_versions(inventory_dict)
 
-                #tasks = [
-                #    version_checker.check_component_version(component)
-                #    for component in components
-                #]
-                #components = await asyncio.gather(*tasks)
 
         # Generate reports
         if report_type in ("html", "all"):
@@ -114,3 +106,7 @@ class InventoryService:
         self.report_service.print_inventory_console(inventory_dict)
 
         return inventory_dict
+
+    def update_inventory(self, inventory_path:  str, auto_approve: bool = False,
+                        action: str = "update"):
+        main_update_versions(inventory_file=inventory_path, auto_approve=auto_approve, action=action)

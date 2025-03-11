@@ -1,12 +1,13 @@
 import click
 from pathlib import Path
-import getpass
+from enum import Enum
 from typing import Optional
 from rich.console import Console
+from rich.panel import Panel
 import asyncio
 import logging
 from colorama import Fore
-
+import os
 from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
 from ....services.inventory.inventory_service import InventoryService
@@ -14,6 +15,13 @@ from ....services.inventory.inventory_service import InventoryService
 
 logger = logging.getLogger(__name__)
 console = Console()
+class InventoryAction(Enum):
+    CREATE = "create"
+    UPDATE = "update"
+    LIST = "list"
+    RESTORE = "restore"
+
+
 
 class IaCInvCommand(ClickCommand):
     """Command to initialize a new project"""
@@ -21,7 +29,12 @@ class IaCInvCommand(ClickCommand):
     def __init__(self):
         super().__init__()
         self.inventory_service = InventoryService()
-        self.ui = CliUI()
+        #self.ui = CliUI()
+        self.console = Console()
+
+    def clear_screen(self):
+        """Clear the console screen in a cross-platform way."""
+        os.system('cls' if os.name == 'nt' else 'clear')
 
     def validate(self, **kwargs) -> bool:
         """Validate project initialization parameters"""
@@ -32,28 +45,64 @@ class IaCInvCommand(ClickCommand):
             check_versions: bool,
             report_type: str,
             inventory_path: Optional[str],
+            inventory_action: str = "create",
+            auto_approve: bool = False,
             **kwargs
     ) -> None:
-        """Execute project initialization"""
-        ctx = click.get_current_context()
-        debug = ctx.obj.get('DEBUG')
-        code_directory = ctx.obj.get('CODE_DIRECTORY')
+        """
+        Execute project initialization
 
+        Args:
+            check_versions: Flag to check versions
+            report_type: Type of report to generate
+            inventory_path: Path to inventory
+            inventory_action: Action to perform (create/update/list/restore)
+            auto_approve: Flag for automatic approval
+        """
         try:
-            print(f"👷 {Fore.GREEN}Create and handling code inventory {Fore.RESET}")
-            asyncio.run(
-                self.create_inventory(
-                    source_dir=code_directory,
-                    check_versions=check_versions,
-                    report_type=report_type,
-                    reports_dir=inventory_path
+            ctx = click.get_current_context()
+            config = {
+                'debug': ctx.obj.get('DEBUG'),
+                'code_directory': ctx.obj.get('CODE_DIRECTORY')
+            }
+
+            action = InventoryAction(inventory_action.lower())
+            print(f"👷 {Fore.GREEN}{self._get_action_message(action)}{Fore.RESET}")
+
+            if action == InventoryAction.CREATE:
+                if inventory_path is None:
+                    asyncio.run(
+                        self.create_inventory(
+                            source_dir=config['code_directory'],
+                            check_versions=check_versions,
+                            report_type=report_type,
+                            reports_dir=inventory_path
+                        )
+                    )
+            elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
+                self.update_inventory(
+                    inventory_path=inventory_path,
+                    action=inventory_action,
+                    auto_approve=auto_approve
                 )
-            )
+            # LIST action doesn't require additional processing
 
         except click.Abort:
             click.echo("Inventory creation aborted.")
-        raise SystemExit(1)
+            raise SystemExit(1)
+        except ValueError as e:
+            click.echo(f"Invalid inventory action: {inventory_action}")
+            raise SystemExit(1)
 
+    def _get_action_message(self, action: InventoryAction) -> str:
+        """Get the appropriate message for each action"""
+        messages = {
+            InventoryAction.CREATE: "Create and handling code inventory",
+            InventoryAction.UPDATE: "Update IaC according to inventory",
+            InventoryAction.LIST: "List IaC inventory",
+            InventoryAction.RESTORE: "Restore IaC code according to inventory"
+        }
+        return messages.get(action, "Unknown action")
 
     async def create_inventory(
             self,
@@ -72,7 +121,7 @@ class IaCInvCommand(ClickCommand):
             reports_dir: Directory to store generated reports
         """
         try:
-            print(check_versions)
+
             with self.ui.status_spinner("Creating infrastructure inventory..."):
                 inventory = await self.inventory_service.create_inventory(
                     source_directory=source_dir,
@@ -93,6 +142,100 @@ class IaCInvCommand(ClickCommand):
             logger.exception("Inventory creation failed")
             raise click.Abort()
 
+    def update_inventory(self, inventory_path: str, auto_approve: bool = False,
+                         action: str = "update") -> None:
+        """
+        Update inventory from a given path.
+
+        Args:
+            inventory_path: Path to the inventory file
+            auto_approve: Whether to automatically approve changes
+            action: The type of update action to perform
+        """
+        try:
+            self.clear_screen()
+
+            # Show initial status
+            self.console.print(Panel(
+                "[bold blue]Starting inventory update process...[/bold blue]",
+                expand=False
+            ))
+
+            # Process the update
+            #with self.console.status("[bold green]Updating inventory...[/bold green]") as status:
+            self.inventory_service.update_inventory(
+                inventory_path,
+                auto_approve=auto_approve,
+                action=action
+            )
+
+                # Update status message during processing
+            #    status.update("[bold green]Validating changes...[/bold green]")
+
+            #self.clear_screen()
+
+            # Show success message
+            self.console.print(Panel(
+                "[bold green]✓ Inventory updated successfully![/bold green]\n\n", #"[blue]Summary of changes:[/blue]",
+
+                expand=False
+            ))
+
+            ## Display summary if available
+            # if hasattr(self, '_display_summary'):
+            #    self._display_summary_update(inventory_path)
+
+        except Exception as e:
+            self.clear_screen()
+
+            # Show error message in a panel
+            error_message = (
+                "[bold red]❌ Inventory Update Failed[/bold red]\n\n"
+                f"[red]Error: {str(e)}[/red]"
+            )
+            self.console.print(Panel(
+                error_message,
+                title="Error",
+                border_style="red",
+                expand=False
+            ))
+
+            # Log the full error for debugging
+            logging.exception("Inventory update failed")
+            raise click.Abort()
+
+        finally:
+            # Ensure the cursor is visible
+            self.console.show_cursor()
+
+    def _display_summary_update(self, inventory_path: str) -> None:
+        """
+        Display a summary of the inventory updates.
+
+        Args:
+            inventory_path: Path to the inventory file
+        """
+        try:
+            # Add your summary logic here
+            self.console.print("\n[blue]Detailed changes:[/blue]")
+            # Example summary table
+            from rich.table import Table
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Module")
+            table.add_column("Previous Version")
+            table.add_column("New Version")
+            table.add_column("Status")
+
+            # Add your rows here based on the actual changes
+            # table.add_row("module1", "1.0.0", "1.1.0", "✓")
+
+            self.console.print(table)
+
+        except Exception as e:
+            self.console.print(
+                "[yellow]Unable to display summary. "
+                f"Error: {str(e)}[/yellow]"
+            )
     def _display_summary(self, inventory: dict) -> None:
         """Display inventory summary."""
         total_components = len(inventory["components"])
@@ -101,13 +244,14 @@ class IaCInvCommand(ClickCommand):
             if comp.get("status") == "Outdated"
         )
 
-        self.ui.print_info(f"\nInventory Summary:")
+        self.ui.print_info("\nInventory Summary:")
         self.ui.print_info(f"Total Components: {total_components}")
 
         if "version_checks" in inventory:
             self.ui.print_info(
                 f"Outdated Components: {outdated_components}"
             )
+
 # Create the Click command
 cli = IaCInvCommand.as_click_command(
     help="Create a inventory about IaC modules composition for terraform/tofu projects"
@@ -120,10 +264,10 @@ cli = IaCInvCommand.as_click_command(
                  ),
     click.option('-ch', '--check-versions',
                  is_flag=True,
-                 default=False,
+                 default=True,
                  help='Check remote versions'),
     click.option("-updep",
-                 "--update-dependencies",
+                 "--update-dependencies-path",
                  help='Pass the inventory json file path for updating dependencies.',
                  is_flag=True,
                  default=False
@@ -135,11 +279,11 @@ cli = IaCInvCommand.as_click_command(
                  default=False
                  ),
 
-    click.option("-upact",
-                 "--update-action",
-                 default="update",
-                 type=click.Choice(['update', 'restore'], case_sensitive=True),
-                 help="Use with --update_action option to update or restore versions based on the inventory json file path for dependencies"),
+    click.option("-iact",
+                 "--inventory-action",
+                 default="create",
+                 type=click.Choice(['create','update', 'restore'], case_sensitive=True),
+                 help="Action for inventory tasks"),
 click.option(
     "--report-type",
     "-r",
