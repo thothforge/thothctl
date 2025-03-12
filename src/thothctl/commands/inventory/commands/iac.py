@@ -12,6 +12,7 @@ from rich.panel import Panel
 
 from ....core.commands import ClickCommand
 from ....services.inventory.inventory_service import InventoryService
+from ....core.cli_ui import CliUI
 
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,8 @@ class IaCInvCommand(ClickCommand):
     def __init__(self):
         super().__init__()
         self.inventory_service = InventoryService()
-        # self.ui = CliUI()
-        self.console = Console()
+        self.ui = CliUI()
+        #self.console = Console()
 
     def clear_screen(self):
         """Clear the console screen in a cross-platform way."""
@@ -72,7 +73,8 @@ class IaCInvCommand(ClickCommand):
             print(f"👷 {Fore.GREEN}{self._get_action_message(action)}{Fore.RESET}")
 
             if action == InventoryAction.CREATE:
-                if inventory_path is None:
+
+                    print("📦 Creating inventory...")
                     asyncio.run(
                         self.create_inventory(
                             source_dir=config["code_directory"],
@@ -99,7 +101,7 @@ class IaCInvCommand(ClickCommand):
     def _get_action_message(self, action: InventoryAction) -> str:
         """Get the appropriate message for each action"""
         messages = {
-            InventoryAction.CREATE: "Create and handling code inventory",
+            InventoryAction.CREATE: "📦 Creating inventory",
             InventoryAction.UPDATE: "Update IaC according to inventory",
             InventoryAction.LIST: "List IaC inventory",
             InventoryAction.RESTORE: "Restore IaC code according to inventory",
@@ -124,6 +126,7 @@ class IaCInvCommand(ClickCommand):
         """
         try:
             with self.ui.status_spinner("Creating infrastructure inventory..."):
+
                 inventory = await self.inventory_service.create_inventory(
                     source_directory=source_dir,
                     check_versions=check_versions,
@@ -158,12 +161,11 @@ class IaCInvCommand(ClickCommand):
             self.clear_screen()
 
             # Show initial status
-            self.console.print(
-                Panel(
+            self.ui.print_info(
                     "[bold blue]Starting inventory update process...[/bold blue]",
-                    expand=False,
-                )
+
             )
+
 
             # Process the update
             self.inventory_service.update_inventory(
@@ -171,12 +173,12 @@ class IaCInvCommand(ClickCommand):
             )
 
             # Show success message
-            self.console.print(
-                Panel(
+            #self.console.print(
+            self.ui.print_success(
                     "[bold green]✓ Inventory updated successfully![/bold green]\n\n",  # "[blue]Summary of changes:[/blue]",
-                    expand=False,
+
                 )
-            )
+
 
         except Exception as e:
             self.clear_screen()
@@ -186,9 +188,8 @@ class IaCInvCommand(ClickCommand):
                 "[bold red]❌ Inventory Update Failed[/bold red]\n\n"
                 f"[red]Error: {str(e)}[/red]"
             )
-            self.console.print(
-                Panel(error_message, title="Error", border_style="red", expand=False)
-            )
+            self.ui.print_error(error_message)
+
 
             # Log the full error for debugging
             logging.exception("Inventory update failed")
@@ -196,7 +197,7 @@ class IaCInvCommand(ClickCommand):
 
         finally:
             # Ensure the cursor is visible
-            self.console.show_cursor()
+            self.ui.console.show_cursor(True)
 
     def _display_summary_update(self, inventory_path: str) -> None:
         """
@@ -207,7 +208,7 @@ class IaCInvCommand(ClickCommand):
         """
         try:
             # Add your summary logic here
-            self.console.print("\n[blue]Detailed changes:[/blue]")
+            self.ui.print_info("\n[blue]Detailed changes:[/blue]")
             # Example summary table
             from rich.table import Table
 
@@ -220,10 +221,10 @@ class IaCInvCommand(ClickCommand):
             # Add your rows here based on the actual changes
             # table.add_row("module1", "1.0.0", "1.1.0", "✓")
 
-            self.console.print(table)
+            self.ui.console.print(table)
 
         except Exception as e:
-            self.console.print(
+            self.ui.console.print(
                 "[yellow]Unable to display summary. " f"Error: {str(e)}[/yellow]"
             )
 
@@ -256,7 +257,7 @@ cli = IaCInvCommand.as_click_command(
         "-ch",
         "--check-versions",
         is_flag=True,
-        default=True,
+        default=False,
         help="Check remote versions",
     ),
     click.option(

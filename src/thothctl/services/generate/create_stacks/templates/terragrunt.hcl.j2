@@ -1,0 +1,31 @@
+{%- for include_block in includes %}
+include "{{ include_block.name }}" {
+  path = find_in_parent_folders("{{ include_block.path }}")
+}
+
+{% endfor %}
+{%- for dep in dependencies %}
+dependency "{{ dep.name }}" {
+  config_path = "{{ dep.config_path }}"
+
+  mock_outputs = {
+    {%- for name, value in dep.mock_outputs.items() %}
+
+    {{ name }} = {{ value }}
+
+    {%- endfor %}
+
+  }
+
+  mock_outputs_merge_strategy_with_state = "shallow"
+}
+
+{% endfor %}
+inputs = {
+  {%- for var_name, output_ref in inputs.items() %}
+
+  {{ var_name }} = {{ output_ref }}
+
+  {%- endfor %}
+
+}
