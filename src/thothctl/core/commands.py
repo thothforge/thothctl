@@ -1,8 +1,7 @@
 import logging
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, List
 
-# src/thothctl/core/commands.py
 import click
 
 from abc import ABC, abstractmethod
@@ -43,6 +42,16 @@ class ClickCommand(ABC):
         """Hook for post-execution tasks"""
         pass
 
+    def get_completions(
+        self, ctx: click.Context, args: List[str], incomplete: str
+    ) -> List[tuple]:
+        """
+        Get autocomplete suggestions.
+        Override this method in subclasses to provide custom completions.
+        Returns a list of tuples (completion, description)
+        """
+        return []
+
     @classmethod
     def as_click_command(cls, **click_options: Any) -> Callable:
         """Convert to Click command"""
@@ -62,6 +71,14 @@ class ClickCommand(ABC):
                 except Exception as e:
                     cmd_instance.logger.error(str(e))
                     raise click.ClickException(str(e))
+
+            # Add shell completion support
+            def complete(
+                ctx: click.Context, args: List[str], incomplete: str
+            ) -> List[tuple]:
+                return cmd_instance.get_completions(ctx, args, incomplete)
+
+            wrapped_command.shell_complete = complete
 
             # Apply all options to the command
             command = wrapped_command

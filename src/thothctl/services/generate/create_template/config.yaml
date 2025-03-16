@@ -1,15 +1,15 @@
-
+project: test_gen
 modules:
   - name: network
     repository: git@github.com/org/terraform-aws-network.git
-    version: v1.2.0
+    #version: v1.2.0
     variables:
       vpc_cidr: "10.0.0.0/16"
       environment: "production"
 
   - name: database
-    repository: git@github.com/org/terraform-aws-rds.git
-    version: v2.1.0
+    #repository: git@github.com/org/terraform-aws-rds.git
+    #version: v2.1.0
     dependencies:
       - network
     variables:

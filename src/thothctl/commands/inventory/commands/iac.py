@@ -8,11 +8,10 @@ import click
 import os
 from colorama import Fore
 from rich.console import Console
-from rich.panel import Panel
 
+from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
 from ....services.inventory.inventory_service import InventoryService
-from ....core.cli_ui import CliUI
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ class IaCInvCommand(ClickCommand):
         super().__init__()
         self.inventory_service = InventoryService()
         self.ui = CliUI()
-        #self.console = Console()
+        # self.console = Console()
 
     def clear_screen(self):
         """Clear the console screen in a cross-platform way."""
@@ -73,16 +72,15 @@ class IaCInvCommand(ClickCommand):
             print(f"👷 {Fore.GREEN}{self._get_action_message(action)}{Fore.RESET}")
 
             if action == InventoryAction.CREATE:
-
-                    print("📦 Creating inventory...")
-                    asyncio.run(
-                        self.create_inventory(
-                            source_dir=config["code_directory"],
-                            check_versions=check_versions,
-                            report_type=report_type,
-                            reports_dir=inventory_path,
-                        )
+                print("📦 Creating inventory...")
+                asyncio.run(
+                    self.create_inventory(
+                        source_dir=config["code_directory"],
+                        check_versions=check_versions,
+                        report_type=report_type,
+                        reports_dir=inventory_path,
                     )
+                )
             elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
                 self.update_inventory(
                     inventory_path=inventory_path,
@@ -126,7 +124,6 @@ class IaCInvCommand(ClickCommand):
         """
         try:
             with self.ui.status_spinner("Creating infrastructure inventory..."):
-
                 inventory = await self.inventory_service.create_inventory(
                     source_directory=source_dir,
                     check_versions=check_versions,
@@ -162,10 +159,8 @@ class IaCInvCommand(ClickCommand):
 
             # Show initial status
             self.ui.print_info(
-                    "[bold blue]Starting inventory update process...[/bold blue]",
-
+                "[bold blue]Starting inventory update process...[/bold blue]",
             )
-
 
             # Process the update
             self.inventory_service.update_inventory(
@@ -173,12 +168,10 @@ class IaCInvCommand(ClickCommand):
             )
 
             # Show success message
-            #self.console.print(
+            # self.console.print(
             self.ui.print_success(
-                    "[bold green]✓ Inventory updated successfully![/bold green]\n\n",  # "[blue]Summary of changes:[/blue]",
-
-                )
-
+                "[bold green]✓ Inventory updated successfully![/bold green]\n\n",  # "[blue]Summary of changes:[/blue]",
+            )
 
         except Exception as e:
             self.clear_screen()
@@ -189,7 +182,6 @@ class IaCInvCommand(ClickCommand):
                 f"[red]Error: {str(e)}[/red]"
             )
             self.ui.print_error(error_message)
-
 
             # Log the full error for debugging
             logging.exception("Inventory update failed")

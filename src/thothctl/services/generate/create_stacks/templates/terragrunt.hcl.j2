@@ -10,7 +10,6 @@ dependency "{{ dep.name }}" {
 
   mock_outputs = {
     {%- for name, value in dep.mock_outputs.items() %}
-
     {{ name }} = {{ value }}
 
     {%- endfor %}
@@ -23,7 +22,6 @@ dependency "{{ dep.name }}" {
 {% endfor %}
 inputs = {
   {%- for var_name, output_ref in inputs.items() %}
-
   {{ var_name }} = {{ output_ref }}
 
   {%- endfor %}
