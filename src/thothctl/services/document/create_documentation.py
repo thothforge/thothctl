@@ -211,7 +211,7 @@ def single_documentation(directory, mood="local_resource", t_docs_path: str = "N
     elif os.path.exists(f"{directory}/main.tf") and mood == "local_module":
         print(
             Fore.GREEN
-            + f"⚠️Find main.tf file in {directory} ...\n❇️ Creating Documentation ... "
+            + f"⚠️Find main.tf file in {directory} ...\n[❇️] Creating Documentation ... "
             + Fore.RESET
         )
 
