@@ -35,7 +35,7 @@ content = [
     "catalog-info.yaml",
     "mkdocs.yaml"
 ]
-type= "child_folder"
+type= "child"
 [[project_structure.folders]]
 name = "docs"
 mandatory = true
@@ -57,7 +57,7 @@ type= "root"
 [[project_structure.folders]]
 name = "complete"
 mandatory = true
-type= "child_folder"
+type= "child"
 content = [
     "main.tf",
     "outputs.tf",

@@ -4,7 +4,7 @@ root_files = [
     ".gitignore",
     ".pre-commit-config.yaml",
     "README.md",
-    "terragrunt.hcl"
+    "root.hcl"
 ]
 ignore_folders = [
     ".git",
