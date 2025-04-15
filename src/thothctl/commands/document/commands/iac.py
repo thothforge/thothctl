@@ -2,9 +2,7 @@ import logging
 import click
 from typing import Any, List, Optional
 from pathlib import Path
-
 from ....core.cli_ui import CliUI
-
 from ....core.commands import ClickCommand
 from ....services.document.iac_documentation import create_terraform_docs
 
@@ -34,12 +32,12 @@ class DocumentIaCCommand(ClickCommand):
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
-        if 'type' not in kwargs:
+        if 'framework' not in kwargs:
             self.logger.error("IaC type must be specified")
             return False
 
-        if kwargs['type'] not in self.supported_iac_types:
-            self.logger.error(f"Unsupported IaC type. Must be one of: {', '.join(self.supported_iac_types)}")
+        if kwargs['framework'] not in self.supported_iac_types:
+            self.logger.error(f"Unsupported IaC framework. Must be one of: {', '.join(self.supported_iac_types)}")
             return False
 
 
@@ -48,7 +46,7 @@ class DocumentIaCCommand(ClickCommand):
     def execute(self, **kwargs) -> Any:
         """Execute the documentation generation"""
         ctx = click.get_current_context()
-        iac_type = kwargs['type']
+        iac_type = kwargs['framework']
         path = ctx.obj.get("CODE_DIRECTORY")
 
         self.logger.debug(f"Generating documentation for {iac_type} code in {path}")
@@ -61,7 +59,8 @@ class DocumentIaCCommand(ClickCommand):
                 mood= kwargs.get('mood', 'resources'),
                 t_docs_path= kwargs.get('config_file', None),
                 recursive= kwargs.get('recursive', False),
-                exclude= kwargs.get('exclude', None)
+                exclude= kwargs.get('exclude', None),
+                framework=kwargs.get("framework", "terraform-terragrunt")
                                          )
 
             self.logger.debug("Documentation generated successfully")
@@ -75,7 +74,8 @@ class DocumentIaCCommand(ClickCommand):
         mood: str = "resources",
         t_docs_path: Optional[str] = None,
         recursive: bool = False,
-        exclude: List[str] = None) -> None:
+        exclude: List[str] = None,
+        framework: str = "terraform-terragrunt") -> None:
         """Internal method to generate the documentation"""
         try:
             with self.ui.status_spinner("Creating Documentation..."):
@@ -83,7 +83,8 @@ class DocumentIaCCommand(ClickCommand):
                 mood= mood,
                 t_docs_path= t_docs_path,
                 recursive= recursive,
-                exclude= exclude)
+                exclude= exclude,
+                framework = framework)
                 self.ui.print_success("Documentation generated successfully!")
 
         except Exception as e:
@@ -94,12 +95,12 @@ class DocumentIaCCommand(ClickCommand):
 cli = DocumentIaCCommand.as_click_command(
     help="Generate documentation for Infrastructure as Code"
 )(
-    click.option(
-        '--type',
+    click.option('-f',
+        '--framework',
         type=click.Choice(['terraform', 'terragrunt', 'terraform-terragrunt'],
                           case_sensitive=False),
         required=True,
-        help='Type of IaC to document',
+        help='Type of IaC framework to document',
         shell_complete=True,
         default='terraform-terragrunt'
     ),
@@ -122,6 +123,7 @@ cli = DocumentIaCCommand.as_click_command(
 click.option(
     '--exclude',
     multiple=True,
+    default=['.terraform', '.git', ".terragrunt-cache"],
     help='Patterns to exclude from recursive generation'
 ),
     click.option(

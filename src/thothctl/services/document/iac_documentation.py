@@ -3,9 +3,12 @@ from pathlib import Path
 from typing import Optional, Protocol, List
 import logging
 import subprocess
+import os
 from colorama import Fore, init
 from .files_content import terraform_docs_content_modules, terraform_docs_content_resources
 from .iac_grunt_graph import graph_dependencies,graph_dependencies_recursive
+from .iac_grunt_info import TerragruntInfoGenerator
+from .files_scan import FileScanner
 
 @dataclass
 class TerraformDocsConfig:
@@ -15,6 +18,7 @@ class TerraformDocsConfig:
     config_file: Optional[Path] = None
     recursive: bool = False
     exclude_patterns: List[str] = None
+    framework: str = "terraform-terragrunt"
 
 
 @dataclass
@@ -100,6 +104,7 @@ class TerraformDocsGenerator:
                     processed_dirs.append(config.directory)
 
                 else:
+                    logging.debug(f"Failed to generate documentation for: {config.directory}")
                     skipped_dirs.append(config.directory)
 
             return DocsResult(
@@ -122,45 +127,45 @@ class TerraformDocsGenerator:
     ) -> None:
         """Recursively generate documentation for all Terraform directories."""
         try:
-            # Convert to absolute path for consistent comparison
-            abs_dir = directory.resolve()
+            # Process all directories recursively using os.walk
+            for current_dir, dirs, files in os.walk(directory):
+                current_path = Path(current_dir).resolve()
 
-            # Skip if already processed
-            if abs_dir in self.processed_directories:
-                return
+                # Skip if already processed
+                if current_path in self.processed_directories:
+                    continue
 
-            # Add to processed set
-            self.processed_directories.add(abs_dir)
+                # Add to processed set
+                self.processed_directories.add(current_path)
 
-            # Check if directory should be excluded
-            if any(pattern in str(abs_dir) for pattern in exclude_patterns):
-                self.logger.debug(f"Skipping excluded directory: {abs_dir}")
-                skipped_dirs.append(abs_dir)
-                return
+                # Filter out directories to skip
+                dirs[:] = [d for d in dirs
+                           if not d.startswith('.')
+                           and d not in exclude_patterns
+                           and not any(pattern in d for pattern in exclude_patterns)]
 
-            # Check for Terraform files
-            has_terraform = any(abs_dir.glob("*.tf"))
+                # Check if directory should be excluded
+                if any(pattern in str(current_path) for pattern in exclude_patterns):
+                    self.logger.debug(f"Skipping excluded directory: {current_path}")
+                    skipped_dirs.append(current_path)
+                    continue
 
-            if has_terraform:
-                self.logger.debug(f"Generating documentation for: {abs_dir}")
-                success = self._generate_for_directory(abs_dir, config_file)
-                if success:
-                    processed_dirs.append(abs_dir)
-                else:
-                    skipped_dirs.append(abs_dir)
+                # Check for Terraform files in current directory
+                has_terraform = False
+                for ext in ["*.tf", "*.hcl"]:
+                    if list(current_path.glob(ext)):
+                        has_terraform = True
+                        break
 
-            # Recursively process subdirectories
-            for subdir in abs_dir.iterdir():
-                if (subdir.is_dir() and
-                        not subdir.name.startswith('.') and
-                        not subdir.name in ['modules', '.terraform']):  # Skip common directories to ignore
-                    self._generate_recursive(
-                        subdir,
-                        config_file,
-                        processed_dirs,
-                        skipped_dirs,
-                        exclude_patterns
-                    )
+                if has_terraform:
+                    self.logger.debug(f"Generating documentation for: {current_path}")
+                    success = self._generate_for_directory(current_path, config_file)
+                    if success:
+                        processed_dirs.append(current_path)
+                        self.logger.debug(f"Successfully processed: {current_path}")
+                    else:
+                        skipped_dirs.append(current_path)
+                        self.logger.warning(f"Failed to process: {current_path}")
 
         except Exception as e:
             self.logger.error(f"Error processing directory {directory}: {e}")
@@ -169,50 +174,81 @@ class TerraformDocsGenerator:
     def _generate_for_directory(self, directory: Path, config_file: Path) -> bool:
         """Generate documentation for a single directory."""
         try:
-            if not self._validate_directory(directory):
-                return False
-            readme_path = directory / "README.md"
-            # Check if README.md exists and contains the required markers
-            if not self._ensure_readme_markers(readme_path):
-                self.logger.error(f"README.md in {directory} doesn't have required terraform-docs markers")
-                return False
-            command = [
-                "terraform-docs",
-                "markdown",
-                ".",
-                "--config",
-                str(config_file)
-            ]
+            if  self._validate_directory(directory):
+               # return False
+                readme_path = directory / "README.md"
+                # Check if README.md exists and contains the required markers
+                if not self._ensure_readme_markers(readme_path):
+                    self.logger.error(f"README.md in {directory} doesn't have required terraform-docs markers")
+                    return False
+                command = [
+                    "terraform-docs",
+                    "markdown",
+                    ".",
+                    "--config",
+                    str(config_file)
+                ]
 
-            self.logger.debug(f"Generating documentation for: {directory}")
-            stdout, stderr, return_code = self.executor.execute(command, directory)
+                self.logger.debug(f"Generating documentation for: {directory}")
+                stdout, stderr, return_code = self.executor.execute(command, directory)
 
-            if return_code == 0:
-                print(f"{Fore.GREEN}❇️  Generated documentation for {directory.name}{Fore.RESET}")
-                return True
-            else:
-                self.logger.error(f"terraform-docs failed for {directory}: {stderr}")
-                return False
+                if return_code == 0:
+                    print(f"{Fore.GREEN}❇️  Generated documentation for {directory.name}{Fore.RESET}")
+                    return True
+                else:
+                    self.logger.error(f"terraform-docs failed for {directory}: {stderr}")
+                    return False
 
         except Exception as e:
             self.logger.error(f"Error generating docs for {directory}: {e}")
             return False
 
-    def _validate_directory(self, directory: Path) -> bool:
-        """Validate that the directory contains Terraform files."""
+    def _validate_directory(self, directory: Path) -> tuple[bool, str]:
+        """
+            Validate directory based on presence of Terraform (.tf) and/or Terragrunt (.hcl) files.
+
+            Valid configurations:
+            1. Has both .tf and .hcl files (Complete configuration)
+            2. Has only .tf files (Terraform-only configuration)
+            3. Has only .hcl files (Terragrunt-only configuration)
+
+            Invalid configurations:
+            1. No .tf and no .hcl files (Empty configuration)
+
+            Args:
+                directory (Path): Directory to check
+            Returns:
+                tuple[bool, str]: (is_valid, reason)
+            """
         try:
-            terraform_files = list(directory.glob("*.tf"))
-            if not terraform_files:
-                self.logger.debug(f"No Terraform files found in {directory}")
-                return False
-            terragrunt_files = list(directory.glob("*.hcl"))
-            if not terragrunt_files:
-                self.logger.debug(f"No Terragrunt files found in {directory}")
-                return False
-            return True
+            has_tf = has_hcl = False
+
+            # Single directory scan for efficiency
+            for file in directory.iterdir():
+                if file.is_file():
+                    if file.suffix == '.tf':
+                        has_tf = True
+                    elif file.suffix == '.hcl':
+                        has_hcl = True
+                    if has_tf and has_hcl:  # Found both types
+                        return True, "Complete configuration (Terraform + Terragrunt)"
+
+            # Evaluate what was found
+            if has_tf:
+                self.logger.debug(f"Found Terraform-only configuration in {directory}")
+                return True, "Terraform-only configuration"
+            elif has_hcl:
+                self.logger.debug(f"Found Terragrunt-only configuration in {directory}")
+                return True, "Terragrunt-only configuration"
+            else:
+                self.logger.debug(f"No valid configuration files found in {directory}")
+                return False, "No configuration files found"
+
         except Exception as e:
-            self.logger.error(f"Failed to validate directory: {e}")
-            return False
+            error_msg = f"Error validating directory {directory}: {str(e)}"
+            self.logger.error(error_msg)
+            return False, error_msg
+
 
     def _ensure_readme_markers(self, readme_path: Path) -> bool:
         """
@@ -283,7 +319,8 @@ def create_terraform_docs(
         mood: str = "resources",
         t_docs_path: Optional[str] = None,
         recursive: bool = False,
-        exclude: List[str] = None
+        exclude: List[str] = None,
+        framework: str = "terraform-terragrunt"
 ) -> bool:
     """Backward-compatible function for generating Terraform documentation."""
     logger = logging.getLogger("TerraformDocs")
@@ -292,26 +329,55 @@ def create_terraform_docs(
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
     logger.addHandler(handler)
-    # Example with all options
-    result = graph_dependencies(
-        directory=Path(directory).absolute(),
-        suffix="resources",
-        #project_root=Path("/path/to/project/root"),
-        #replace_path=Path("/path/to/replace")
-    )
 
-    if result and result.success:
-        print(f"Graph generated successfully at: {result.path}")
-        # Access other result properties if needed
-        if result.content:
-            print("Graph content available")
-            # Example with basic recursive usage
-    graph_dependencies_recursive(
-        directory=Path(directory).absolute(),
-        suffix="stacks",
-        exclude_patterns=['.terraform', '.git', ".terragrunt-cache"],
+    # Initialize the file scanner
+    file_scanner = FileScanner(
+        exclude_patterns=exclude,
         max_workers=4
     )
+    if framework.lower() in ["terraform-terragrunt", "terragrunt" ]:
+        result = graph_dependencies(
+            directory=Path(directory).absolute(),
+            suffix="resources",
+        )
+
+        if result and result.success:
+            print(f"Graph generated successfully at: {result.path}")
+            # Access other result properties if needed
+            if result.content:
+                logging.debug("Graph content available")
+                # Example with basic recursive usage
+        graph_dependencies_recursive(
+            directory=Path(directory).absolute(),
+            suffix="stacks",
+            exclude_patterns=exclude,
+            max_workers=4
+        )
+        if framework.lower() == 'terragrunt':
+            terragrunt_info_generator = TerragruntInfoGenerator(logger)
+            # Generate .info.md files for terragrunt
+            def process_terragrunt_file(file_path: Path) -> bool:
+                if file_path.name == 'terragrunt.hcl':
+                    return terragrunt_info_generator.generate_info_file(file_path)
+                return False
+
+            # Scan and process terragrunt files
+            stats = file_scanner.scan_and_process(
+                directory=Path(directory),
+                pattern="terragrunt.hcl",
+                recursive=True,
+                processor=process_terragrunt_file
+            )
+            if result:  # If terraform docs generation was successful
+                print(f"{Fore.GREEN} ✨  Documentation generated successfully{Fore.RESET}")
+                print(f"{Fore.GREEN} ✨  Generated .info.md files: {stats['processed']} {Fore.RESET}")
+                if stats['failed'] > 0:
+                    print(f"{Fore.YELLOW}Failed to generate some .info.md files: {stats['failed']}{Fore.RESET}")
+
+            else:
+                print(f"{Fore.RED}Failed to generate documentation{Fore.RESET}")
+
+
     generator = TerraformDocsGenerator(
         executor=SubprocessExecutor(),
         logger=logger,
@@ -323,17 +389,20 @@ def create_terraform_docs(
         mood=mood,
         config_file=Path(t_docs_path).absolute() if t_docs_path else None,
         recursive=recursive,
-        exclude_patterns=exclude or []
+        exclude_patterns=exclude or [],
+        framework= framework
     )
 
-    result = generator.generate(config)
+    result_docs = generator.generate(config)
 
-    if result.success:
+    if result_docs.success:
         print(f"{Fore.GREEN} ✨  Documentation generated successfully{Fore.RESET}")
-        print(f"{Fore.GREEN} ✨  Processed directories: {len(result.processed_dirs)} {Fore.RESET}")
-        if result.skipped_dirs:
-            print(f"Skipped directories: {len(result.skipped_dirs)}")
+        print(f"{Fore.GREEN} ✨  Processed directories: {len(result_docs.processed_dirs)} {Fore.RESET}")
+        if result_docs.skipped_dirs:
+            print(f"{Fore.YELLOW} ✨ Skipped directories: {len(result_docs.skipped_dirs)}")
     else:
-        print(f"{Fore.RED}Failed to generate documentation: {result.error}{Fore.RESET}")
+        print(f"{Fore.RED}Failed to generate documentation: {result_docs.error}{Fore.RESET}")
 
-    return result.success
+    return result_docs.success
+
+

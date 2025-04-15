@@ -521,16 +521,7 @@ main_tf_content = """
 /*
 * # Module for #{resource_name}# deployment
 *
-* Terraform stack to provision a custom #{resource_name}# using the following Terraform modules and resources:
-*
-* ## Modules & Resources
-*
-* ### Module <module_name>
-*
-* **Source Module info:**
-* - **Name**    : **<module_name>**
-* - **Version** : "<module_version>"
-* - **Link**    :  [URL](<module_url>)
+* Terraform stack to provision a custom #{resource_name}#
 *
 */
 """
@@ -617,7 +608,7 @@ condition = "^[a-zA-Z0-9_.-]{3,255}$"
 description = "Backend profile for s3 remote state"
 """
 
-iacpd_toml_module_content = """
+thothcf_toml_module_content = """
 # Define template input parameters
 [template_input_parameters.module_name]
 template_value = "#{ModuleName}#"

@@ -3,7 +3,7 @@ import importlib.util
 from functools import wraps
 from pathlib import Path
 from typing import Optional
-
+from importlib.metadata import version
 import click
 
 
@@ -16,6 +16,7 @@ def global_options(f):
         help="Configuration file path",
         default=".",
     )
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         return f(*args, **kwargs)
@@ -63,6 +64,10 @@ class ThothCLI(click.MultiCommand):
 
 
 @click.command(cls=ThothCLI)
+@click.version_option(version=version('thothctl'),
+    prog_name='thothctl',
+    message='%(prog)s version %(version)s',
+    help='Show the version and exit.')
 @global_options
 @click.pass_context
 def cli(ctx, debug, code_directory):
