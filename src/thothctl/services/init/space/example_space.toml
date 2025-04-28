@@ -1,0 +1,30 @@
+# ThothForge Space Configuration
+
+[space]
+name = "example-space"
+description = "Example space for development and testing"
+version_control = "azure_repos"
+ci_system = "azure-pipelines"
+created_at = "2025-04-28T02:33:21"
+updated_at = "2025-04-28T02:33:21"
+
+# Registry configurations
+[[registries]]
+name = "terraform-registry"
+url = "https://registry.terraform.io"
+type = "terraform"
+auth_required = false
+default = true
+
+[[registries]]
+name = "internal-registry"
+url = "https://terraform.internal.example.com"
+type = "terraform"
+auth_required = true
+default = false
+
+# Endpoints for various services
+[endpoints]
+backstage = "https://backstage.example.com"
+documentation = "https://docs.example.com"
+monitoring = "https://grafana.example.com"

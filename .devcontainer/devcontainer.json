@@ -1,0 +1,27 @@
+{
+    "name": "ThothForge Infrastructure Development",
+    "dockerFile": "Dockerfile",
+    "remoteUser": "vscode",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "hashicorp.terraform",
+                "ms-python.python",
+                "ms-azuretools.vscode-docker",
+                "redhat.vscode-yaml",
+                "timonwong.shellcheck",
+                "github.copilot",
+                "eamodio.gitlens"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    },
+    "mounts": [
+        "source=${localEnv:HOME}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached"
+    ],
+    "remoteEnv": {
+        "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
+    }
+}

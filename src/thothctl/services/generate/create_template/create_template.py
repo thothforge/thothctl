@@ -10,7 +10,7 @@ from .files_content import (
     common_hcl_content,
     common_tfvars_content,
     git_ignore,
-    iacpd_toml_module_content,
+    thothcf_toml_module_content,
     main_tf_content,
     pre_commit_content,
     terragrunt_hcl_clean,
@@ -35,10 +35,10 @@ def init_thothcf_content(project_type="terraform"):
     if project_type == "terraform":
         template = thothcf_toml_content
     elif project_type == "terraform_module":
-        template = iacpd_toml_module_content
+        template = thothcf_toml_module_content
     else:
         logging.error(f"Project type {project_type} not supported")
-        raise BaseException(f"Project type {project_type} not supported")
+        raise ValueError(f"Project type {project_type} not supported")
     return template
 
 
