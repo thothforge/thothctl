@@ -1,0 +1,73 @@
+# Define project structure
+[project_structure]
+root_files = [
+    ".gitignore",
+    ".pre-commit-config.yaml",
+    "README.md",
+    "root.hcl"
+]
+ignore_folders = [
+    ".git",
+    ".terraform",
+    "Reports",
+    ".terragrunt-cache"
+]
+
+[[project_structure.folders]]
+name = "common"
+mandatory = true
+content = [
+    "common.hcl",
+    "common.tfvars",
+    "variables.tf"
+]
+type = "root"
+[[project_structure.folders]]
+name = "docs"
+mandatory = true
+type = "root"
+[[project_structure.folders]]
+name = "modules"
+mandatory = true
+content = [
+    "variables.tf",
+    "main.tf",
+    "outputs.tf",
+    "README.md"
+]
+type = "root"
+[[project_structure.folders]]
+name = "resources"
+mandatory = true
+content = [
+    "README.md",
+    "terragrunt.hcl",
+    "graph.svg",
+]
+type = "root"
+[[project_structure.folders]]
+name = "test"
+mandatory = false
+type = "root"
+# Set rule for root file
+
+
+# idp properties metadata catalog
+[idp]
+tags=[
+  "devops",
+  "devsecops",
+  "iac",
+  "terraform",
+  "terragrunt",
+  "module",
+  "aws",
+  "cloud",
+  "automation",
+  "template"
+]
+[idp.spec]
+lifecycle= "production"
+owner= "IaCPlatform"
+system= "IaCPlatform"
+type= "template"

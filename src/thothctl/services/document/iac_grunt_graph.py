@@ -400,7 +400,7 @@ def find_terragrunt_files(
         Path objects for directories containing terragrunt.hcl
     """
     if exclude_patterns is None:
-        exclude_patterns = ['.terraform', '.git', 'node_modules']
+        exclude_patterns = ['.terraform', '.git', '.terragrunt-cache']
 
     try:
         for item in start_path.rglob('terragrunt.hcl'):

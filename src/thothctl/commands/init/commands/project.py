@@ -1,6 +1,6 @@
 import getpass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import click
 
@@ -56,6 +56,56 @@ class ProjectInitCommand(ClickCommand):
                 pat=pat,
             )
 
+    def get_completions(
+            self, ctx: click.Context, args: List[str], incomplete: str
+    ) -> List[tuple]:
+        """
+        Provide context-aware autocompletion
+        """
+        # Define subcommands and their options
+        completions = {
+            'create': {
+                '--project-name': ['basic', 'advanced', 'custom'],
+                '--project-type': ['python3.8', 'python3.9', 'python3.10'],
+                '--region': ['us-east-1', 'us-west-2', 'eu-west-1']
+            },
+            'delete': {
+                '--force': ['true', 'false'],
+                '--backup': ['true', 'false']
+            }
+        }
+
+        # If no args provided, suggest subcommands
+        if not args:
+            return [(cmd, f"Command to {cmd} project")
+                    for cmd in completions.keys()
+                    if cmd.startswith(incomplete)]
+
+        # Get current subcommand
+        subcommand = next((arg for arg in args if arg in completions), None)
+        if not subcommand:
+            return []
+
+        # If incomplete starts with '-', suggest options for current subcommand
+        if incomplete.startswith('-'):
+            return [
+                (opt, f"Option for {opt.lstrip('-')}")
+                for opt in completions[subcommand].keys()
+                if opt.startswith(incomplete)
+            ]
+
+        # If we have a current option, suggest its values
+        current_option = next((arg for arg in reversed(args)
+                               if arg in completions[subcommand]), None)
+        if current_option:
+            values = completions[subcommand][current_option]
+            return [
+                (val, f"Value for {current_option}")
+                for val in values
+                if val.startswith(incomplete)
+            ]
+
+        return []
     @staticmethod
     def _should_setup_azure_repos(
         vcs_service: str, reuse: bool, az_org_name: Optional[str]

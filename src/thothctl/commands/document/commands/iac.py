@@ -59,7 +59,7 @@ class DocumentIaCCommand(ClickCommand):
                 mood= kwargs.get('mood', 'resources'),
                 t_docs_path= kwargs.get('config_file', None),
                 recursive= kwargs.get('recursive', False),
-                exclude= kwargs.get('exclude', None),
+                exclude= kwargs.get('exclude', ['.terraform', '.git', '.terragrunt-cache']),
                 framework=kwargs.get("framework", "terraform-terragrunt")
                                          )
 

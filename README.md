@@ -57,47 +57,56 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
 
 ```bash
 $ thothctl -h
+thothctl --help
+Usage: thothctl [OPTIONS] COMMAND [ARGS]...
 
-usage: thothctl [-h] [-d DIRECTORY_CODE] [-v] [-bv] [-os {Linux/Debian}] [-sw] [-l] {init,scan,doc,transform,validate,hand-wk,automate,inventory} ...
+  ThothForge CLI - The Internal Developer Platform CLI
 
-Accelerate DevSecOps IaC projects implementation and developer tasks.
-
-options:
-  -h, --help            show this help message and exit
-  -d DIRECTORY_CODE, --directory_code DIRECTORY_CODE
-                        Root path for code project (default: .)
-  -v, --version         Get Version
-  -bv, --bootstrap_env  Install base tools for you environment.
-  -os {Linux/Debian}, --operation_system {Linux/Debian}
-                        Install base tools for you environment, (default: Linux/Debian). Use with --bootstrap_env Allowed values: 'Linux/Debian'
-  -sw, --sync_terraform_workspaces
-                        Synchronize terraform workspaces for dependencies tree base on terragrunt + terraform framework
-  -l, --verbose         Enable debug Mode
+Options:
+  --version                  Show the version and exit.
+  --debug                    Enable debug mode
+  -d, --code-directory PATH  Configuration file path
+  --help                     Show this message and exit.
 
 Commands:
-  Command and functionalities
-
-  {init,scan,doc,transform,validate,hand-wk,automate,inventory}
-                        thothctl Commands
-    init                Initialize project, provide project name,example: thothctl init -pj <project-name>
-    scan                Scan code using tools example: thothctl scan -t checkov
-    doc                 Create and document IaC using terraform-docsexample: thothctl doc -d . -dm local_module
-    transform           Transform your code to use terramate and terragrunt together or singleexample: thothctl -d . -l transform -j -y $main_branch
-    validate            Check project structure based on default framework or custom framework. For example: thothctl validate -cp -d -cm hard
-    hand-wk             Handling workspaces operations for example, check if already exists the backend configuration, synchronize for modules and resources according to IaC Framework, example: thothctl hand-wk -sw
-    automate            Automate tasks for example adding resources folders based on your configurations, Create code component template based on project structure define into .thothcf.tomlexample: thothctl add -cn test -ct     
-                        resource -cph ./resources/myresource
-    inventory           Transform your code to use terramate and terragrunt together or singleexample: thothctl inventory -ci -if all -check
-
-Thanks for using thothctl!
+  check      Initialize and setup project configurations
+  document   Initialize and setup project configurations
+  generate   Generate IaC from rules, use cases, and components
+  init       Initialize and setup project configurations
+  inventory  Create Inventory for the iac composition.
+  list       List Projects manage by thothctl locally
+  project    Convert, clean up and manage the current project
+  remove     Remove Projects manage by thothctl
+  scan       Scan infrastructure code for security issues.
 
 
 ```
 
+
+## Third Party Tools
+
+### [OpenTofu](https://opentofu.org/)
+OpenTofu is a fork of Terraform that is open-source, community-driven, and managed by the Linux Foundation.
+
+### [Backstage](https://backstage.io/)
+An open source framework for building developer portals.
+
+### [Terragrunt](https://terragrunt.gruntwork.io/)
+Terragrunt is a flexible orchestration tool that allows Infrastructure as Code to scale. 
+
+### [Terraform-docs](https://terraform-docs.io/)
+Generate Terraform modules documentation in various formats.
+
+### [Checkov](https://www.checkov.io/)
+Checkov scans cloud infrastructure configurations to find misconfigurations before they're deployed.
+
+### [Trivy](https://trivy.dev/latest/)
+Use Trivy to find vulnerabilities (CVE) & misconfigurations (IaC) across code repositories, binary artifacts, container images, Kubernetes clusters, and more. All in one tool! 
+
 # Requirements
  - Linux Environment or Windows environment
 
-> This documentation uses wsl with ubuntu 20.04 but you can use other superior version
+> This documentation uses wsl with ubuntu 24.04 but you can use other superior version
 
 ## OS Packages
 
@@ -144,36 +153,11 @@ There are many dependencies for thothctl functions, these dependencies are autom
 pip install --upgrade thothctl
 ```
 
-## Extras
-### Enable autocomplete
-Argcomplete provides easy, extensible command line tab completion of arguments for your Python application.
-
-It makes two assumptions:
-
-* You’re using bash or zsh as your shell
-
-* You’re using argparse to manage your command line arguments/options
-
-Argcomplete is particularly useful if your program has lots of options or subparsers, and if your program can dynamically suggest completions for your argument/option values (for example, if the user is browsing resources over the network).
-Run: 
-```bash
-activate-global-python-argcomplete
-```
-and to make sure that bash knows about this script, you use
-```bash
-
-echo 'eval "$(register-python-argcomplete thothctl)"' >> ~/.bashrc
-source ~/.bashrc
-
-```
-
-## OpenTofu
-
-## Backstage
-
-## Terragrunt
-
 ## Version control Systems (Azure DevOps, Github, Gitlab)
 
-# RoadMap
+# RoadMap 🧗‍♂
 
+ - Add Autocomplete to Commands and subcommands
+ - Integrate MCP to improve compatibility and interoperability with AI LLM
+ - Improve Inventory capabilities
+ - Create Stacks and Infrastructure composition engine
