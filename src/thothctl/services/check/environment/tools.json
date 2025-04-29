@@ -13,11 +13,11 @@
   },
   {
     "name": "terragrunt",
-    "version": "0.68.7"
+    "version": "0.77.22"
   },
   {
     "name": "thothctl",
-    "version": "2.9.3"
+    "version": "0.1.0"
   },
   {
     "name": "pre-commit",
