@@ -42,7 +42,7 @@ authors = [
 
 description = "A CLI for Developer Control Plane. Accelerate your cloud deployments."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.8"
 
 [tool.hatch.metadata]
