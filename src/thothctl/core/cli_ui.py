@@ -129,7 +129,7 @@ class ScannerUI:
                     self.logger.warning("WATCHDOG: No activity for 60 seconds")
                     
                     # After 120 seconds of inactivity, kill the process
-                    if current_time - last_activity_time > 120:
+                    if current_time - last_activity_time > 600:
                         self.logger.error("WATCHDOG: No activity for 120 seconds, killing process")
                         self.show_error("Process appears to be stuck - no activity for 120 seconds")
                         
