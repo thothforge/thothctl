@@ -32,17 +32,15 @@ dependencies = [
     "pytest-cov>=5.0.0",
     "psutil",
     "requests"
-
 ]
 
 authors = [
     { name = "Alejandro Velez", email = "velez94@pm.me" },
 ]
 
-
-description = "A CLI for Developer Control Plane. Accelerate your cloud deployments."
+description = "A CLI for Developer Control Plane. Accelerate your cloud IaC deployments."
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 requires-python = ">=3.8"
 
 [tool.hatch.metadata]
@@ -50,7 +48,7 @@ allow-direct-references = true
 
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache 2 License",
+    "License :: OSI Approved :: Apache Software License",  # Corrected classifier
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

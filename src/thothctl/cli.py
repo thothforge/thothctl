@@ -71,7 +71,7 @@ class ThothCLI(click.MultiCommand):
 @global_options
 @click.pass_context
 def cli(ctx, debug, code_directory):
-    """ThothForge CLI - The Internal Developer Platform CLI"""
+    """ThothForge CLI - The Open Source Internal Developer Platform CLI"""
     """Thoth CLI tool"""
     ctx.ensure_object(dict)
     ctx.obj["DEBUG"] = debug

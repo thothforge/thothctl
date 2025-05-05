@@ -30,6 +30,7 @@ class ProjectInitCommand(ClickCommand):
         reuse: bool = False,
         r_list: bool = False,
         project_type: str = "terraform",
+        space: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Execute project initialization"""
@@ -41,7 +42,7 @@ class ProjectInitCommand(ClickCommand):
 
         # Setup configuration if requested
         if setup_conf:
-            self.project_service.setup_project_config(project_name)
+            self.project_service.setup_project_config(project_name, space=space)
 
         # Setup Azure repos if conditions are met
         if self._should_setup_azure_repos(
@@ -54,6 +55,7 @@ class ProjectInitCommand(ClickCommand):
                 az_org_name=az_org_name,
                 r_list=r_list,
                 pat=pat,
+                space=space,
             )
 
     def get_completions(
@@ -170,7 +172,7 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
     click.option(
         "-reuse",
         "--reuse",
-        help="Reuse templates, pattern, PoC, projects and more from your IDP catalog",
+        help="Reuse templates, pattern, PoC, projects and more from your IDP catalog, use with az-org, gh-org or gitlab",
         is_flag=True,
         default=False,
     ),
@@ -179,5 +181,11 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
     ),
     click.option(
         "-r-list", help="List all available templates", is_flag=True, default=False
+    ),
+    click.option(
+        "-s",
+        "--space",
+        help="Space name for the project (used for loading credentials and configurations)",
+        default=None,
     ),
 )

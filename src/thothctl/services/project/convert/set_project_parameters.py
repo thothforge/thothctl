@@ -2,6 +2,7 @@
 import logging
 import re
 from pathlib import Path, PurePath
+from typing import Optional
 
 import inquirer
 import os.path
@@ -95,6 +96,7 @@ def create_project_conf(
     directory: PurePath = None,
     repo_metadata: dict = None,
     project_name: str = None,
+    space: Optional[str] = None,
 ):
     """
     Create project configuration file.
@@ -104,6 +106,7 @@ def create_project_conf(
     :param template_input_parameters:
     :param directory:
     :param repo_metadata:
+    :param space: Space name for the project
     :return:
     """
     file_path = os.path.join(directory, ".thothcf.toml")
@@ -129,7 +132,13 @@ def create_project_conf(
         properties = {"project_properties": project_properties}
         file.write("\n\n")
         toml.dump(properties, file)
-        toml.dump({"thothcf": {"project_id": project_name}}, file)
+        
+        # Add space to thothcf configuration if provided
+        thothcf_config = {"project_id": project_name}
+        if space:
+            thothcf_config["space"] = space
+        
+        toml.dump({"thothcf": thothcf_config}, file)
 
         if mode == "w" and template_input_parameters is None:
             template_input_parameters = {
@@ -148,6 +157,7 @@ def create_project_conf(
             directory=PurePath.joinpath(directory, "docs/catalog/"),
             project_properties=project_properties,
             project_name=project_name,
+            space=space,
         )
 
 
@@ -157,6 +167,7 @@ def set_project_conf(
     template_input_parameters: dict = None,
     directory=PurePath("."),
     repo_metadata: dict = None,
+    space: Optional[str] = None,
 ):
     """
     Set project configuration.
@@ -166,6 +177,7 @@ def set_project_conf(
     :param template_input_parameters:
     :param directory:
     :param repo_metadata:
+    :param space: Space name for the project
     :return:
     """
     if project_properties is None:
@@ -181,6 +193,7 @@ def set_project_conf(
         directory=directory,
         repo_metadata=repo_metadata,
         project_name=project_name,
+        space=space,
     )
 
 
@@ -211,12 +224,13 @@ def set_meta_data(repo_metadata: dict = None, file_path: str = None):
 
 # create catalog-info.yaml file and replace the current file
 def create_catalog_info(
-    az_project_name: str,
+    az_project_name: str = None,
     directory: PurePath = None,
     project_name: str = None,
     project_properties: dict = None,
     git_repo_url: str = None,
     netsted: bool = False,
+    space: Optional[str] = None,
 ):
     """
     Create catalog info.
@@ -227,6 +241,7 @@ def create_catalog_info(
     :param project_properties:
     :param project_name:
     :param directory:
+    :param space: Space name for the project
     :return:
     """
     if git_repo_url is None:
@@ -266,6 +281,11 @@ def create_catalog_info(
             },
             "spec": idp_properties.get("spec", g_catalog_spec),
         }
+        
+        # Add space to catalog info if provided
+        if space:
+            catalog_info["metadata"]["space"] = space
+            
         # Create all necessary directories in the path
         path_catalog = f"{directory}/"
         os.makedirs(path_catalog, exist_ok=True)
@@ -343,6 +363,7 @@ def create_idp_doc_main(
     az_project_name: str,
     directory_docs_file: PurePath = PurePath("docs/catalog"),
     nested: bool = False,
+    space: Optional[str] = None,
 ):
     """
     Create idp doc main.
@@ -352,6 +373,7 @@ def create_idp_doc_main(
     :param project_name:
     :param directory_docs_file:
     :param directory_code:
+    :param space: Space name for the project
     :return:
     """
 
@@ -363,4 +385,5 @@ def create_idp_doc_main(
         git_repo_url=remote_url,
         netsted=nested,
         az_project_name=az_project_name,
+        space=space,
     )

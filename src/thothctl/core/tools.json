@@ -1,20 +1,19 @@
-"""Set version tools."""
-version_tools = """[
+[
   {
     "name": "terraform",
-    "version": "1.8.5"
+    "version": "1.9.2"
   },
   {
     "name": "tofu",
-    "version": "1.8.4"
+    "version": "1.9.1"
   },
   {
     "name": "terragrunt",
-    "version": "0.68.7"
+    "version": "0.77.22"
   },
   {
     "name": "thothctl",
-    "version": "2.14.0"
+    "version": "0.1.0"
   },
   {
     "name": "pre-commit",
@@ -54,8 +53,7 @@ version_tools = """[
     "command": "cz version"
   },
   {
-  
     "name": "pipx",
     "version": "1.4.3"
-    }
-]"""
+  }
+]

@@ -1,33 +1,21 @@
-"""Command to initialize a new space for the Internal Developer Platform."""
-import click
-import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional, List
+
+import click
 
 from ....core.commands import ClickCommand
-from ....services.init.space.space_service import SpaceService
+from ....services.init.space.space import SpaceService
 
 
 class SpaceInitCommand(ClickCommand):
-    """Command to initialize a new space for the Internal Developer Platform."""
+    """Command to initialize a new space"""
 
     def __init__(self):
         super().__init__()
         self.space_service = SpaceService(self.logger)
 
     def validate(self, space_name: str, **kwargs) -> bool:
-        """Validate space initialization parameters.
-        
-        Args:
-            space_name: Name of the space
-            **kwargs: Additional parameters
-            
-        Returns:
-            True if validation passes
-            
-        Raises:
-            ValueError: If validation fails
-        """
+        """Validate space initialization parameters"""
         if not space_name or not space_name.strip():
             raise ValueError("Space name is required and cannot be empty")
         return True
@@ -35,136 +23,116 @@ class SpaceInitCommand(ClickCommand):
     def execute(
         self,
         space_name: str,
-        version_control_system_service: str = SpaceService.DEFAULT_VCS_SERVICE,
-        ci: str = SpaceService.DEFAULT_CI_SYSTEM,
-        description: str = "",
+        description: Optional[str] = None,
+        vcs_provider: str = "azure_repos",
         terraform_registry: str = "https://registry.terraform.io",
+        terraform_auth: str = "none",
+        orchestration_tool: str = "terragrunt",
         **kwargs,
     ) -> None:
-        """Execute space initialization.
-        
-        Args:
-            space_name: Name of the space
-            version_control_system_service: Version control system to use
-            ci: CI/CD system to use
-            description: Description of the space
-            terraform_registry: URL of the Terraform registry
-            **kwargs: Additional parameters
-        """
+        """Execute space initialization"""
         space_name = space_name.strip()
         
-        # Check if space already exists
-        if self.space_service.get_space(space_name):
-            if click.confirm(f"Space '{space_name}' already exists. Do you want to overwrite it?", default=False):
-                self.logger.info(f"Overwriting existing space: {space_name}")
-                force = True
-            else:
-                self.logger.info("Space creation cancelled.")
-                return
-        else:
-            force = False
-        
         # Initialize space
-        space_config = self.space_service.initialize_space(
+        self.space_service.initialize_space(
             space_name=space_name,
-            vcs=version_control_system_service,
-            ci=ci,
             description=description,
+            vcs_provider=vcs_provider,
             terraform_registry=terraform_registry,
-            force=force
+            terraform_auth=terraform_auth,
+            orchestration_tool=orchestration_tool
         )
-        
-        # Display success message
-        config_path = self.space_service.config_manager._get_space_config_path(space_name)
-        click.echo(f"Space '{space_name}' created successfully!")
-        click.echo(f"Configuration file: {config_path}")
-        
-        # Display next steps
-        click.echo("\nNext steps:")
-        click.echo("  1. Create a project in this space:")
-        click.echo(f"     thothctl init project -sn {space_name} -pn my-project")
-        click.echo("  2. Set up your development environment:")
-        click.echo(f"     thothctl init env -sn {space_name}")
 
     def get_completions(
-        self, ctx: click.Context, args: List[str], incomplete: str
+            self, ctx: click.Context, args: List[str], incomplete: str
     ) -> List[tuple]:
         """
-        Provide context-aware autocompletion.
-        
-        Args:
-            ctx: Click context
-            args: Command arguments
-            incomplete: Current incomplete argument
-            
-        Returns:
-            List of completion tuples (completion, description)
+        Provide context-aware autocompletion
         """
+        # Define subcommands and their options
         completions = {
-            '--version-control-system-service': [
-                ('azure_repos', 'Azure DevOps Repos'),
-                ('github', 'GitHub'),
-                ('gitlab', 'GitLab'),
-                ('bitbucket', 'Bitbucket')
-            ],
-            '--ci': [
-                ('github-actions', 'GitHub Actions'),
-                ('gitlab-ci', 'GitLab CI'),
-                ('azure-pipelines', 'Azure Pipelines'),
-                ('jenkins', 'Jenkins'),
-                ('none', 'No CI/CD')
-            ],
-            '--terraform-registry': [
-                ('https://registry.terraform.io', 'Public Terraform Registry'),
-                ('https://terraform.internal.example.com', 'Example Internal Registry')
-            ],
-            '--space-name': []  # No specific completions for space name
+            'create': {
+                '--space-name': ['development', 'staging', 'production'],
+                '--description': ['Development environment', 'Staging environment', 'Production environment'],
+                '--vcs-provider': ['azure_repos', 'github', 'gitlab'],
+                '--terraform-auth': ['none', 'token', 'env_var'],
+                '--orchestration-tool': ['terragrunt', 'terramate', 'none']
+            }
         }
-        
-        # Check if we're completing an option
-        for param in ctx.command.params:
-            if param.opts[0].startswith(incomplete) or param.opts[1].startswith(incomplete):
-                return [(opt, param.help) for opt in param.opts]
-        
-        # Check if we're completing an option value
-        for arg in args:
-            if arg in completions and incomplete:
-                return [
-                    (value, desc) 
-                    for value, desc in completions[arg] 
-                    if value.startswith(incomplete)
-                ]
-        
+
+        # If no args provided, suggest subcommands
+        if not args:
+            return [(cmd, f"Command to {cmd} space")
+                    for cmd in completions.keys()
+                    if cmd.startswith(incomplete)]
+
+        # Get current subcommand
+        subcommand = next((arg for arg in args if arg in completions), None)
+        if not subcommand:
+            return []
+
+        # If incomplete starts with '-', suggest options for current subcommand
+        if incomplete.startswith('-'):
+            return [
+                (opt, f"Option for {opt.lstrip('-')}")
+                for opt in completions[subcommand].keys()
+                if opt.startswith(incomplete)
+            ]
+
+        # If we have a current option, suggest its values
+        current_option = next((arg for arg in reversed(args)
+                               if arg in completions[subcommand]), None)
+        if current_option:
+            values = completions[subcommand][current_option]
+            return [
+                (val, f"Value for {current_option}")
+                for val in values
+                if val.startswith(incomplete)
+            ]
+
         return []
 
 
-# Create the Click command using the ClickCommand class
-cli = SpaceInitCommand.as_click_command(name="space", help="Initialize space for your IDP")(
-    click.option("-sn", "--space-name", help="The space name", required=True),
+# Create the Click command
+cli = SpaceInitCommand.as_click_command(help="Initialize a new space")(
     click.option(
-        "-vcss",
-        "--version-control-system-service",
-        default="azure_repos",
-        type=click.Choice(["azure_repos", "github", "gitlab", "bitbucket"], case_sensitive=True),
-        help="The Version Control System Service for your IDP",
+        "-s",
+        "--space-name",
+        prompt="Space name",
+        help="Name of the space",
+        required=True,
     ),
     click.option(
-        "--ci",
-        type=click.Choice(
-            ["github-actions", "gitlab-ci", "azure-pipelines", "jenkins", "none"],
-            case_sensitive=False,
-        ),
-        default="none",
-        help="CI/CD tool to configure",
-    ),
-    click.option(
+        "-d",
         "--description",
         help="Description of the space",
-        default="",
+        default=None,
     ),
     click.option(
+        "-vcs",
+        "--vcs-provider",
+        help="Version Control System provider",
+        type=click.Choice(["azure_repos", "github", "gitlab"], case_sensitive=True),
+        default="azure_repos",
+    ),
+    click.option(
+        "-tr",
         "--terraform-registry",
-        help="URL of the Terraform registry",
+        help="Terraform registry URL",
         default="https://registry.terraform.io",
+    ),
+    click.option(
+        "-ta",
+        "--terraform-auth",
+        help="Terraform registry authentication method",
+        type=click.Choice(["none", "token", "env_var"], case_sensitive=True),
+        default="none",
+    ),
+    click.option(
+        "-ot",
+        "--orchestration-tool",
+        help="Default orchestration tool for the space",
+        type=click.Choice(["terragrunt", "terramate", "none"], case_sensitive=True),
+        default="terragrunt",
     ),
 )

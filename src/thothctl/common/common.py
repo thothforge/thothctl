@@ -257,17 +257,117 @@ def list_projects(file_name=config_file_name):
         return None
 
 
-def print_list_projects():
+def list_spaces():
+    """
+    List spaces in spaces.toml file.
+
+    :return: List of space names
+    """
+    config_path = PurePath(f"{Path.home()}/.thothcf/spaces.toml")
+
+    if os.path.exists(config_path):
+        with open(config_path, mode="rt", encoding="utf-8") as fp:
+            config = toml.load(fp)
+
+        if "spaces" in config:
+            return list(config["spaces"].keys())
+    
+    return []
+
+
+def get_project_space(project_name):
+    """
+    Get the space associated with a project.
+
+    :param project_name: Name of the project
+    :return: Space name or None if not associated with a space
+    """
+    config_path = PurePath(f"{Path.home()}/.thothcf/", config_file_name)
+
+    if os.path.exists(config_path):
+        with open(config_path, mode="rt", encoding="utf-8") as fp:
+            config = toml.load(fp)
+
+        if project_name in config and "thothcf" in config[project_name]:
+            return config[project_name]["thothcf"].get("space")
+    
+    return None
+
+
+def get_projects_in_space(space_name):
+    """
+    Get all projects in a specific space.
+
+    :param space_name: Name of the space
+    :return: List of project names in the space
+    """
+    projects = []
+    config_path = PurePath(f"{Path.home()}/.thothcf/", config_file_name)
+
+    if os.path.exists(config_path):
+        with open(config_path, mode="rt", encoding="utf-8") as fp:
+            config = toml.load(fp)
+
+        for project_name, project_data in config.items():
+            if isinstance(project_data, dict) and "thothcf" in project_data:
+                if project_data["thothcf"].get("space") == space_name:
+                    projects.append(project_name)
+    
+    return projects
+
+
+def print_list_projects(show_space=True):
     """
     Print list projects.
 
+    :param show_space: Whether to show space information
     :return:
     """
-
     table = Table(title="Project List", title_style="bold magenta", show_lines=True)
     table.add_column("ProjectName", justify="left", style="cyan", no_wrap=True)
-    for p in list_projects():
-        table.add_row(f"☑️ {Fore.CYAN} {p} {Fore.RESET}")
+    
+    if show_space:
+        table.add_column("Space", justify="left", style="green", no_wrap=True)
+    
+    projects = list_projects()
+    if not projects:
+        console = Console()
+        console.print("[yellow]No projects found[/yellow]")
+        return
+        
+    for p in projects:
+        if show_space:
+            space = get_project_space(p)
+            space_display = f"{Fore.GREEN}{space}{Fore.RESET}" if space else "-"
+            table.add_row(f"☑️ {Fore.CYAN} {p} {Fore.RESET}", space_display)
+        else:
+            table.add_row(f"☑️ {Fore.CYAN} {p} {Fore.RESET}")
+
+    console = Console()
+    console.print(table)
+
+
+def print_list_spaces():
+    """
+    Print list of spaces.
+
+    :return:
+    """
+    table = Table(title="Space List", title_style="bold magenta", show_lines=True)
+    table.add_column("SpaceName", justify="left", style="green", no_wrap=True)
+    table.add_column("Projects", justify="left", style="cyan", no_wrap=True)
+    
+    spaces = list_spaces()
+    if not spaces:
+        console = Console()
+        console.print("[yellow]No spaces found[/yellow]")
+        return
+        
+    for space in spaces:
+        projects = get_projects_in_space(space)
+        project_count = len(projects)
+        project_display = f"{project_count} project{'s' if project_count != 1 else ''}"
+        table.add_row(f"🌐 {Fore.GREEN} {space} {Fore.RESET}", f"{Fore.CYAN}{project_display}{Fore.RESET}")
 
     console = Console()
     console.print(table)

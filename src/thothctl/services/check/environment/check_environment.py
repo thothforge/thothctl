@@ -4,7 +4,7 @@ import json
 import os
 from colorama import Fore
 
-from .version_tools import version_tools
+from ....core.version_tools import version_tools
 
 
 def is_tool(tool):

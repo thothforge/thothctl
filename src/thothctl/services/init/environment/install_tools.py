@@ -1,4 +1,5 @@
 """Install tool required for development using custom framework and opensource tools."""
+import logging
 import sys
 
 import inquirer
@@ -386,7 +387,7 @@ def bootstrap_env(so):
             install_trivy(version=versions["trivy"])
             install_snyk()
         else:
-            print(names, selected_tools)
+            logging.debug(f"{names} vs {selected_tools}")
             install_selected_tools(
                 names=names, selected_tools=selected_tools, versions=versions
             )

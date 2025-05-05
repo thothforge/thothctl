@@ -1,6 +1,8 @@
 [![Publish Python Package](https://github.com/thothforge/thothctl/actions/workflows/python-publish.yml/badge.svg)](https://github.com/thothforge/thothctl/actions/workflows/python-publish.yml)
 # Thoth Framework
 
+![ThothCTL MCP](./docs/img/framework/thothctl_mcp.png)
+
 Thoth Framework is a framework to create and manage the [Internal Developer Platform](https://internaldeveloperplatform.org/what-is-an-internal-developer-platform/) tasks for infrastructure, devops, devsecops, software developers, and platform engineering teams aligned with the business objectives:
 
 1. [x] Minimize mistakes.
@@ -57,8 +59,7 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
 # Getting Started
 
 ```bash
-$ thothctl -h
-thothctl --help
+$ thothctl --help
 Usage: thothctl [OPTIONS] COMMAND [ARGS]...
 
   ThothForge CLI - The Internal Developer Platform CLI
@@ -75,11 +76,11 @@ Commands:
   generate   Generate IaC from rules, use cases, and components
   init       Initialize and setup project configurations
   inventory  Create Inventory for the iac composition.
-  list       List Projects manage by thothctl locally
+  list       List Projects and Spaces managed by thothctl locally
+  mcp        Model Context Protocol (MCP) server for ThothCTL
   project    Convert, clean up and manage the current project
   remove     Remove Projects manage by thothctl
   scan       Scan infrastructure code for security issues.
-
 
 ```
 

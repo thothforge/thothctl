@@ -1,7 +1,7 @@
 import logging
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Final
+from typing import Final, Optional
 
 import os
 
@@ -34,7 +34,7 @@ class ProjectService:
         if not reuse:
             create_project(project_name=project_name, project_type=project_type)
 
-    def setup_project_config(self, project_name: str) -> None:
+    def setup_project_config(self, project_name: str, space: Optional[str] = None) -> None:
         """Setup project configuration"""
         project_props = get_project_props(
             project_name=project_name,
@@ -44,6 +44,7 @@ class ProjectService:
         set_project_conf(
             project_name=project_name,
             project_properties=project_props,
+            space=space,
         )
 
     def setup_azure_repos(
@@ -53,6 +54,7 @@ class ProjectService:
         az_org_name: str,
         r_list: bool,
         pat: str,
+        space: Optional[str] = None,
     ) -> None:
         """Setup Azure Repos configuration"""
         org_url = f"{self.AZURE_DEVOPS_URL}/{az_org_name}/"
@@ -84,6 +86,7 @@ class ProjectService:
                 project_name=project_name,
                 directory=Path("."),
                 repo_metadata=repo_meta,
+                space=space,
             )
 
     @staticmethod

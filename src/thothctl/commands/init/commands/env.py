@@ -12,10 +12,8 @@ from ....services.init.environment.install_tools import bootstrap_env
 class EnvInitCommand(ClickCommand):
     """Command to initialize a new project"""
 
-    def validate(self, project_name: str, **kwargs) -> bool:
+    def validate(self, **kwargs) -> bool:
         """Validate project initialization parameters"""
-        if not project_name or not project_name.strip():
-            raise ValueError("Project name is required and cannot be empty")
         return True
 
     def execute(self, operation_system: str, **kwargs) -> None:
