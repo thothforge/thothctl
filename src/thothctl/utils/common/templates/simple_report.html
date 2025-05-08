@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .summary {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .summary h2 {
+            margin-top: 0;
+            color: #444;
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .result-card {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .result-card h3 {
+            margin-top: 0;
+            color: #444;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        .stat {
+            text-align: center;
+            flex: 1;
+        }
+        .stat .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .stat .label {
+            font-size: 12px;
+            color: #666;
+        }
+        .passed { color: #4caf50; }
+        .failed { color: #f44336; }
+        .error { color: #ff9800; }
+        .skipped { color: #2196f3; }
+        .total { color: #9c27b0; }
+    </style>
+</head>
+<body>
+    <h1>Scan Results</h1>
+    
+    <div class="summary">
+        <h2>Summary</h2>
+        <div class="stats">
+            <div class="stat">
+                <div class="value total">{{ results|sum(attribute='total') }}</div>
+                <div class="label">Total Tests</div>
+            </div>
+            <div class="stat">
+                <div class="value passed">{{ results|sum(attribute='passed') }}</div>
+                <div class="label">Passed</div>
+            </div>
+            <div class="stat">
+                <div class="value failed">{{ results|sum(attribute='failures') }}</div>
+                <div class="label">Failed</div>
+            </div>
+            <div class="stat">
+                <div class="value error">{{ results|sum(attribute='errors') }}</div>
+                <div class="label">Errors</div>
+            </div>
+            <div class="stat">
+                <div class="value skipped">{{ results|sum(attribute='skipped') }}</div>
+                <div class="label">Skipped</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="results">
+        {% for result in results %}
+        <div class="result-card">
+            <h3>{{ result.name }}</h3>
+            <div class="stats">
+                <div class="stat">
+                    <div class="value total">{{ result.total }}</div>
+                    <div class="label">Total</div>
+                </div>
+                <div class="stat">
+                    <div class="value passed">{{ result.passed }}</div>
+                    <div class="label">Passed</div>
+                </div>
+                <div class="stat">
+                    <div class="value failed">{{ result.failures }}</div>
+                    <div class="label">Failed</div>
+                </div>
+                <div class="stat">
+                    <div class="value error">{{ result.errors }}</div>
+                    <div class="label">Errors</div>
+                </div>
+                <div class="stat">
+                    <div class="value skipped">{{ result.skipped }}</div>
+                    <div class="label">Skipped</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detailed Scan Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1, h2, h3, h4 {
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .file-section {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .suite-section {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .suite-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .suite-stats {
+            display: flex;
+            gap: 15px;
+        }
+        .stat {
+            font-size: 14px;
+        }
+        .test-case {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+        }
+        .test-case.passed {
+            background-color: #e8f5e9;
+        }
+        .test-case.failed {
+            background-color: #ffebee;
+        }
+        .test-case.error {
+            background-color: #fff3e0;
+        }
+        .test-case.skipped {
+            background-color: #e3f2fd;
+        }
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+        }
+        .test-message {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+            white-space: pre-wrap;
+        }
+        .passed-text { color: #4caf50; }
+        .failed-text { color: #f44336; }
+        .error-text { color: #ff9800; }
+        .skipped-text { color: #2196f3; }
+        .toggle-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #555;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+    <script>
+        function toggleSuite(id) {
+            const cases = document.getElementById(id);
+            cases.classList.toggle('hidden');
+            
+            const button = document.querySelector(`button[data-target="${id}"]`);
+            if (cases.classList.contains('hidden')) {
+                button.textContent = '▶';
+            } else {
+                button.textContent = '▼';
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Detailed Scan Results</h1>
+        
+        {% for result in results %}
+        <div class="file-section">
+            <h2>{{ result.name }}</h2>
+            
+            {% for suite in result.suites %}
+            <div class="suite-section">
+                <div class="suite-header">
+                    <div>
+                        <button class="toggle-button" data-target="suite-{{ loop.index }}-{{ loop.parent.loop.index }}" onclick="toggleSuite('suite-{{ loop.index }}-{{ loop.parent.loop.index }}')">▼</button>
+                        <h3 style="display: inline;">{{ suite.name }}</h3>
+                    </div>
+                    <div class="suite-stats">
+                        <div class="stat">Total: {{ suite.tests }}</div>
+                        <div class="stat passed-text">Passed: {{ suite.tests - suite.failures - suite.errors - suite.skipped }}</div>
+                        <div class="stat failed-text">Failed: {{ suite.failures }}</div>
+                        <div class="stat error-text">Errors: {{ suite.errors }}</div>
+                        <div class="stat skipped-text">Skipped: {{ suite.skipped }}</div>
+                        <div class="stat">Time: {{ "%.2f"|format(suite.time) }}s</div>
+                    </div>
+                </div>
+                
+                <div id="suite-{{ loop.index }}-{{ loop.parent.loop.index }}">
+                    {% for case in suite.cases %}
+                    <div class="test-case {{ case.result }}">
+                        <div class="test-header">
+                            <div>{{ case.name }}</div>
+                            <div>
+                                {% if case.result == 'passed' %}
+                                <span class="passed-text">Passed</span>
+                                {% elif case.result == 'failed' %}
+                                <span class="failed-text">Failed</span>
+                                {% elif case.result == 'error' %}
+                                <span class="error-text">Error</span>
+                                {% elif case.result == 'skipped' %}
+                                <span class="skipped-text">Skipped</span>
+                                {% endif %}
+                                ({{ "%.2f"|format(case.time) }}s)
+                            </div>
+                        </div>
+                        {% if case.message %}
+                        <div class="test-message">{{ case.message }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

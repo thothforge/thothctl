@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Results Index</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1, h2, h3, h4 {
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .summary {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .summary h2 {
+            margin-top: 0;
+            color: #444;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            text-align: center;
+            flex: 1;
+            min-width: 100px;
+            margin: 10px;
+        }
+        .stat .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .stat .label {
+            font-size: 12px;
+            color: #666;
+        }
+        .passed { color: #4caf50; }
+        .failed { color: #f44336; }
+        .error { color: #ff9800; }
+        .skipped { color: #2196f3; }
+        .total { color: #9c27b0; }
+        
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .report-card {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .report-card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #444;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .report-card a {
+            color: #2196f3;
+            text-decoration: none;
+        }
+        
+        .report-card a:hover {
+            text-decoration: underline;
+        }
+        
+        .report-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        
+        .report-stat {
+            text-align: center;
+            flex: 1;
+        }
+        
+        .report-stat .value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .report-stat .label {
+            font-size: 10px;
+            color: #666;
+        }
+        
+        .filters {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-group label {
+            font-weight: bold;
+        }
+        
+        .search-box {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .filter-button {
+            padding: 8px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .filter-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+    <script>
+        function filterReports() {
+            const searchText = document.getElementById('search-box').value.toLowerCase();
+            const showWithFailures = document.getElementById('show-failures').checked;
+            const showWithErrors = document.getElementById('show-errors').checked;
+            const showWithSkipped = document.getElementById('show-skipped').checked;
+            const showPassing = document.getElementById('show-passing').checked;
+            
+            const reports = document.querySelectorAll('.report-card');
+            
+            reports.forEach(report => {
+                const reportName = report.querySelector('h3').textContent.toLowerCase();
+                const textMatch = reportName.includes(searchText);
+                
+                const failures = parseInt(report.dataset.failures || 0);
+                const errors = parseInt(report.dataset.errors || 0);
+                const skipped = parseInt(report.dataset.skipped || 0);
+                
+                const hasFailures = failures > 0;
+                const hasErrors = errors > 0;
+                const hasSkipped = skipped > 0;
+                const isPassing = !hasFailures && !hasErrors;
+                
+                const statusMatch = 
+                    (hasFailures && showWithFailures) || 
+                    (hasErrors && showWithErrors) || 
+                    (hasSkipped && showWithSkipped) ||
+                    (isPassing && showPassing);
+                
+                report.style.display = textMatch && statusMatch ? 'block' : 'none';
+            });
+        }
+        
+        function resetFilters() {
+            document.getElementById('search-box').value = '';
+            document.getElementById('show-failures').checked = true;
+            document.getElementById('show-errors').checked = true;
+            document.getElementById('show-skipped').checked = true;
+            document.getElementById('show-passing').checked = true;
+            filterReports();
+        }
+        
+        // Initialize filters when the page loads
+        window.onload = function() {
+            filterReports();
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Scan Results Index</h1>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label for="search-box">Search:</label>
+                <input type="text" id="search-box" class="search-box" placeholder="Search by report name..." oninput="filterReports()">
+            </div>
+            
+            <div class="filter-group">
+                <label>Show reports with:</label>
+                <input type="checkbox" id="show-failures" checked onchange="filterReports()">
+                <label for="show-failures" class="failed">Failures</label>
+                
+                <input type="checkbox" id="show-errors" checked onchange="filterReports()">
+                <label for="show-errors" class="error">Errors</label>
+                
+                <input type="checkbox" id="show-skipped" checked onchange="filterReports()">
+                <label for="show-skipped" class="skipped">Skipped</label>
+                
+                <input type="checkbox" id="show-passing" checked onchange="filterReports()">
+                <label for="show-passing" class="passed">Passing</label>
+            </div>
+            
+            <button class="filter-button" onclick="resetFilters()">Reset Filters</button>
+        </div>
+        
+        <div class="summary">
+            <h2>Summary</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="value total">{{ reports|sum(attribute='total_tests') }}</div>
+                    <div class="label">Total Tests</div>
+                </div>
+                <div class="stat">
+                    <div class="value passed">{{ reports|sum(attribute='passed') }}</div>
+                    <div class="label">Passed</div>
+                </div>
+                <div class="stat">
+                    <div class="value failed">{{ reports|sum(attribute='failures') }}</div>
+                    <div class="label">Failed</div>
+                </div>
+                <div class="stat">
+                    <div class="value error">{{ reports|sum(attribute='errors') }}</div>
+                    <div class="label">Errors</div>
+                </div>
+                <div class="stat">
+                    <div class="value skipped">{{ reports|sum(attribute='skipped') }}</div>
+                    <div class="label">Skipped</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="reports-grid">
+            {% for report in reports %}
+            <div class="report-card" 
+                 data-failures="{{ report.failures }}" 
+                 data-errors="{{ report.errors }}" 
+                 data-skipped="{{ report.skipped }}">
+                <h3>{{ report.name }}</h3>
+                <a href="{{ report.path }}">View Detailed Report</a>
+                <div class="report-stats">
+                    <div class="report-stat">
+                        <div class="value total">{{ report.total_tests }}</div>
+                        <div class="label">Total</div>
+                    </div>
+                    <div class="report-stat">
+                        <div class="value passed">{{ report.passed }}</div>
+                        <div class="label">Passed</div>
+                    </div>
+                    <div class="report-stat">
+                        <div class="value failed">{{ report.failures }}</div>
+                        <div class="label">Failed</div>
+                    </div>
+                    <div class="report-stat">
+                        <div class="value error">{{ report.errors }}</div>
+                        <div class="label">Errors</div>
+                    </div>
+                    <div class="report-stat">
+                        <div class="value skipped">{{ report.skipped }}</div>
+                        <div class="label">Skipped</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

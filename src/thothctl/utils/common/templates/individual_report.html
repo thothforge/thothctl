@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_name }} - Scan Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1, h2, h3, h4 {
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .summary {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .summary h2 {
+            margin-top: 0;
+            color: #444;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            text-align: center;
+            flex: 1;
+            min-width: 100px;
+            margin: 10px;
+        }
+        .stat .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .stat .label {
+            font-size: 12px;
+            color: #666;
+        }
+        .passed { color: #4caf50; }
+        .failed { color: #f44336; }
+        .error { color: #ff9800; }
+        .skipped { color: #2196f3; }
+        .total { color: #9c27b0; }
+        
+        .suite {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .suite-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .suite-stats {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .test-case {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+        }
+        .test-case.passed {
+            background-color: #e8f5e9;
+        }
+        .test-case.failed {
+            background-color: #ffebee;
+        }
+        .test-case.error {
+            background-color: #fff3e0;
+        }
+        .test-case.skipped {
+            background-color: #e3f2fd;
+        }
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+        }
+        .test-message {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .toggle-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #555;
+        }
+        .hidden {
+            display: none;
+        }
+        .filters {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .filter-group label {
+            font-weight: bold;
+        }
+        .search-box {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .filter-button {
+            padding: 8px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .filter-button:hover {
+            background-color: #45a049;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #2196f3;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .failed-checks-summary {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-left: 5px solid #f44336;
+        }
+        .failed-checks-summary h2 {
+            color: #f44336;
+            margin-top: 0;
+        }
+        .failed-check {
+            background-color: #ffebee;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 3px;
+            border-left: 3px solid #f44336;
+        }
+        .failed-check-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ffcdd2;
+            padding-bottom: 10px;
+        }
+        .failed-check-id {
+            font-weight: bold;
+            color: #f44336;
+        }
+        .failed-check-name {
+            font-weight: bold;
+        }
+        .failed-check-details {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .failed-check-resource {
+            margin-bottom: 5px;
+        }
+        .failed-check-file {
+            margin-bottom: 5px;
+            font-family: monospace;
+            background-color: #f8f8f8;
+            padding: 3px;
+            border-radius: 3px;
+        }
+        .failed-check-guideline {
+            margin-top: 10px;
+        }
+        .failed-check-guideline a {
+            color: #2196f3;
+            text-decoration: none;
+        }
+        .failed-check-guideline a:hover {
+            text-decoration: underline;
+        }
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            background-color: #f1f1f1;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab-button.active {
+            background-color: #fff;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 0 5px 5px 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+    <script>
+        function toggleSuite(id) {
+            const cases = document.getElementById(id);
+            cases.classList.toggle('hidden');
+            
+            const button = document.querySelector(`button[data-target="${id}"]`);
+            if (cases.classList.contains('hidden')) {
+                button.textContent = '▶';
+            } else {
+                button.textContent = '▼';
+            }
+        }
+        
+        function filterResults() {
+            const searchText = document.getElementById('search-box').value.toLowerCase();
+            const showPassed = document.getElementById('show-passed').checked;
+            const showFailed = document.getElementById('show-failed').checked;
+            const showError = document.getElementById('show-error').checked;
+            const showSkipped = document.getElementById('show-skipped').checked;
+            
+            // Filter suites
+            const suites = document.querySelectorAll('.suite');
+            suites.forEach(suite => {
+                let suiteVisible = false;
+                
+                // Filter test cases within the suite
+                const cases = suite.querySelectorAll('.test-case');
+                cases.forEach(testCase => {
+                    const testName = testCase.querySelector('.test-header').textContent.toLowerCase();
+                    const testMessage = testCase.querySelector('.test-message')?.textContent.toLowerCase() || '';
+                    const textMatch = testName.includes(searchText) || testMessage.includes(searchText);
+                    
+                    const isPassed = testCase.classList.contains('passed');
+                    const isFailed = testCase.classList.contains('failed');
+                    const isError = testCase.classList.contains('error');
+                    const isSkipped = testCase.classList.contains('skipped');
+                    
+                    const statusMatch = 
+                        (isPassed && showPassed) || 
+                        (isFailed && showFailed) || 
+                        (isError && showError) || 
+                        (isSkipped && showSkipped);
+                    
+                    const isVisible = textMatch && statusMatch;
+                    testCase.style.display = isVisible ? 'block' : 'none';
+                    
+                    if (isVisible) {
+                        suiteVisible = true;
+                    }
+                });
+                
+                // Show/hide the entire suite based on whether any test cases are visible
+                suite.style.display = suiteVisible ? 'block' : 'none';
+            });
+        }
+        
+        function resetFilters() {
+            document.getElementById('search-box').value = '';
+            document.getElementById('show-passed').checked = true;
+            document.getElementById('show-failed').checked = true;
+            document.getElementById('show-error').checked = true;
+            document.getElementById('show-skipped').checked = true;
+            filterResults();
+        }
+        
+        function showTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show the selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate the selected tab button
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+        }
+        
+        // Initialize when the page loads
+        window.onload = function() {
+            filterResults();
+            showTab('failed-checks');  // Show failed checks tab by default
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Index</a>
+        
+        <h1>{{ report_name }} - Scan Results</h1>
+        
+        <div class="summary">
+            <h2>Summary</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="value total">{{ total_tests }}</div>
+                    <div class="label">Total Tests</div>
+                </div>
+                <div class="stat">
+                    <div class="value passed">{{ total_passed }}</div>
+                    <div class="label">Passed</div>
+                </div>
+                <div class="stat">
+                    <div class="value failed">{{ total_failures }}</div>
+                    <div class="label">Failed</div>
+                </div>
+                <div class="stat">
+                    <div class="value error">{{ total_errors }}</div>
+                    <div class="label">Errors</div>
+                </div>
+                <div class="stat">
+                    <div class="value skipped">{{ total_skipped }}</div>
+                    <div class="label">Skipped</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab Navigation -->
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button" data-tab="all-checks" onclick="showTab('all-checks')">All Checks</button>
+                <button class="tab-button active" data-tab="failed-checks" onclick="showTab('failed-checks')">Failed Checks Only</button>
+            </div>
+            
+            <!-- Failed Checks Tab -->
+            <div id="failed-checks" class="tab-content active">
+                <h2>Failed Checks ({{ total_failures }})</h2>
+                
+                {% if failed_checks|length == 0 %}
+                <div class="summary" style="background-color: #e8f5e9; border-left: 5px solid #4caf50;">
+                    <h3 style="color: #4caf50;">All checks passed! 🎉</h3>
+                    <p>No failed checks were found in this scan.</p>
+                </div>
+                {% else %}
+                    {% for check in failed_checks %}
+                    <div class="failed-check">
+                        <div class="failed-check-header">
+                            <div class="failed-check-id">{{ check.check_id }}</div>
+                            <div class="failed-check-name">{{ check.check_description }}</div>
+                        </div>
+                        <div class="failed-check-details">
+                            <div class="failed-check-resource"><strong>Resource:</strong> {{ check.failure_details.resource }}</div>
+                            <div class="failed-check-file"><strong>File:</strong> {{ check.failure_details.file }}</div>
+                            <div class="failed-check-guideline"><strong>Guideline:</strong> <a href="{{ check.failure_details.guideline }}" target="_blank">{{ check.failure_details.guideline }}</a></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            
+            <!-- All Checks Tab -->
+            <div id="all-checks" class="tab-content">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="search-box">Search:</label>
+                        <input type="text" id="search-box" class="search-box" placeholder="Search by name or message..." oninput="filterResults()">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Status:</label>
+                        <input type="checkbox" id="show-passed" checked onchange="filterResults()">
+                        <label for="show-passed" class="passed">Passed</label>
+                        
+                        <input type="checkbox" id="show-failed" checked onchange="filterResults()">
+                        <label for="show-failed" class="failed">Failed</label>
+                        
+                        <input type="checkbox" id="show-error" checked onchange="filterResults()">
+                        <label for="show-error" class="error">Error</label>
+                        
+                        <input type="checkbox" id="show-skipped" checked onchange="filterResults()">
+                        <label for="show-skipped" class="skipped">Skipped</label>
+                    </div>
+                    
+                    <button class="filter-button" onclick="resetFilters()">Reset Filters</button>
+                </div>
+                
+                {% for suite in suites %}
+                <div class="suite">
+                    <div class="suite-header">
+                        <div>
+                            <button class="toggle-button" data-target="suite-{{ loop.index }}" onclick="toggleSuite('suite-{{ loop.index }}')">▼</button>
+                            <h3 style="display: inline;">{{ suite.name }}</h3>
+                        </div>
+                        <div class="suite-stats">
+                            <div class="stat">Total: {{ suite.tests }}</div>
+                            <div class="stat passed">Passed: {{ suite.tests - suite.failures - suite.errors - suite.skipped }}</div>
+                            <div class="stat failed">Failed: {{ suite.failures }}</div>
+                            <div class="stat error">Errors: {{ suite.errors }}</div>
+                            <div class="stat skipped">Skipped: {{ suite.skipped }}</div>
+                            <div class="stat">Time: {{ "%.2f"|format(suite.time) }}s</div>
+                        </div>
+                    </div>
+                    
+                    <div id="suite-{{ loop.index }}">
+                        {% for case in suite.cases %}
+                        <div class="test-case {{ case.result }}">
+                            <div class="test-header">
+                                <div>{{ case.check_id }}: {{ case.check_description }}</div>
+                                <div>
+                                    {% if case.result == 'passed' %}
+                                    <span class="passed">Passed</span>
+                                    {% elif case.result == 'failed' %}
+                                    <span class="failed">Failed</span>
+                                    {% elif case.result == 'error' %}
+                                    <span class="error">Error</span>
+                                    {% elif case.result == 'skipped' %}
+                                    <span class="skipped">Skipped</span>
+                                    {% endif %}
+                                    ({{ "%.2f"|format(case.time) }}s)
+                                </div>
+                            </div>
+                            {% if case.message %}
+                            <div class="test-message">{{ case.message }}</div>
+                            {% endif %}
+                            {% if case.result == 'failed' %}
+                            <div class="failed-check-details">
+                                <div class="failed-check-resource"><strong>Resource:</strong> {{ case.failure_details.resource }}</div>
+                                <div class="failed-check-file"><strong>File:</strong> {{ case.failure_details.file }}</div>
+                                <div class="failed-check-guideline"><strong>Guideline:</strong> <a href="{{ case.failure_details.guideline }}" target="_blank">{{ case.failure_details.guideline }}</a></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
