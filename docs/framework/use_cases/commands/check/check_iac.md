@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `thothctl check iac` command validates Infrastructure as Code (IaC) artifacts against predefined rules and best practices. This command helps ensure that your infrastructure code follows project conventions, contains required files, and adheres to structural requirements.
+The `thothctl check iac` command validates Infrastructure as Code (IaC) artifacts against predefined rules and best practices. This command helps ensure that your infrastructure code follows project conventions, contains required files, and adheres to structural requirements. It also provides dependency visualization with risk assessment to help identify high-risk components in your infrastructure.
 
 ## Command Options
 
@@ -13,14 +13,18 @@ Usage: thothctl check iac [OPTIONS]
 
 Options:
   --mode [soft|hard]              Validation mode  [default: soft]
-  -deps, --dependencies TEXT      View a dependency graph in asccii pretty
-                                  shell output
-  --recursive [local|recursive]   Validate your terraform plan recursively or
-                                  in one directory
-  --outmd                         Output markdown file path
-  -type, --check_type [tfplan|module|project]
-                                  Check module or project structure format, or
-                                  check tfplan  [default: project]
+  -deps, --dependencies           View a dependency graph with risk assessment
+                                  in ASCII pretty shell output
+  --recursive                     Search for tfplan files recursively in
+                                  subdirectories
+  --outmd TEXT                    Output markdown file path
+                                  [default: tfplan_check_results.md]
+  --tftool [terraform|tofu]       Terraform tool to use (terraform or tofu)
+                                  [default: tofu]
+  -type, --check_type [tfplan|module|project|deps]
+                                  Check module or project structure format, check
+                                  tfplan, or visualize dependencies
+                                  [default: project]
   --help                          Show this message and exit.
 ```
 
@@ -49,6 +53,16 @@ thothctl check iac --check_type tfplan
 ```
 
 This validates a Terraform plan file against best practices and security rules.
+
+### Visualize Dependencies with Risk Assessment
+
+```bash
+thothctl check iac --check_type deps
+# or
+thothctl check iac -deps
+```
+
+This visualizes the dependencies between infrastructure components and provides a risk assessment for each component.
 
 ## Validation Modes
 
@@ -123,28 +137,81 @@ When checking Terraform plans (`--check_type tfplan`), the command validates:
 The `--recursive` option allows you to validate multiple directories:
 
 ```bash
-thothctl check iac --recursive recursive
+thothctl check iac --recursive
 ```
 
-- **local**: Only checks the current directory
-- **recursive**: Checks all subdirectories that contain IaC files
+This checks all subdirectories that contain IaC files.
 
-## Dependency Visualization
+## Dependency Visualization with Risk Assessment
 
-The `--dependencies` flag enables visualization of dependencies between resources:
+The dependency visualization feature (`-deps` or `--check_type deps`) provides a comprehensive view of your infrastructure components and their dependencies, along with a risk assessment for each component:
 
 ```bash
-thothctl check iac --dependencies
+thothctl check iac -deps
 ```
 
-This generates an ASCII representation of the dependency graph between resources.
+### Risk Assessment Factors
+
+The risk assessment considers multiple factors:
+
+1. **Changes Frequency**: How often the component changes (based on git history)
+2. **Dependencies Count**: Number of incoming and outgoing dependencies
+3. **Complexity**: Based on number of files and lines of code
+4. **Criticality**: How many other components depend on this one
+5. **Recent Changes**: Recent modifications to the component
+
+### Risk Levels
+
+Components are color-coded based on their risk level:
+
+- **Green (0-25%)**: Low risk - Minimal risk of issues if changed
+- **Yellow (26-50%)**: Medium risk - Changes should be reviewed carefully
+- **Orange (51-75%)**: High risk - Significant risk, careful testing needed
+- **Red (76-100%)**: Critical risk - Very high risk, changes may cause cascading issues
+
+### Example Output
+
+```
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ 🔄 Enhanced Dependency Visualization 🔄                                                                                                                                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+Infrastructure Modules
+├── stacks/infra/databases/aurora (72.5% risk)
+│   ├── stacks/networking (45.2% risk)
+│   ├── stacks/infra/baselines (28.7% risk)
+│   │   └── stacks/networking (45.2% risk)
+│   └── stacks/infra/containers (63.1% risk)
+│       ├── stacks/networking (45.2% risk)
+│       └── stacks/infra/baselines (28.7% risk)
+└── stacks/services/addons (85.3% risk)
+    ├── stacks/infra/containers (63.1% risk)
+    ├── stacks/infra/streaming/msk (54.8% risk)
+    │   ├── stacks/networking (45.2% risk)
+    │   ├── stacks/infra/containers (63.1% risk)
+    │   └── stacks/infra/baselines (28.7% risk)
+    ├── stacks/infra/baselines (28.7% risk)
+    ├── stacks/networking (45.2% risk)
+    └── stacks/infra/application (67.9% risk)
+        ├── stacks/networking (45.2% risk)
+        ├── stacks/infra/baselines (28.7% risk)
+        └── stacks/infra/containers (63.1% risk)
+
+✅ Found 24 modules with 17 dependencies
+
+Risk Level Legend:
+Risk Level           Description
+Low Risk (0-25%)     Minimal risk of issues if changed
+Medium Risk (26-50%) Moderate risk, changes should be reviewed
+High Risk (51-75%)   Significant risk, careful testing needed
+Critical Risk (76-100%) Very high risk, changes may cause cascading issues
+```
 
 ## Output Options
 
 The `--outmd` flag generates a Markdown report of the validation results:
 
 ```bash
-thothctl check iac --outmd
+thothctl check iac --check_type tfplan --outmd report.md
 ```
 
 This creates a detailed report that can be included in documentation or shared with team members.
@@ -166,13 +233,19 @@ thothctl check iac --check_type module --mode hard
 ### Recursive Terraform Plan Check with Markdown Output
 
 ```bash
-thothctl check iac --check_type tfplan --recursive recursive --outmd
+thothctl check iac --check_type tfplan --recursive --outmd report.md
 ```
 
-### Check Project Structure with Dependencies
+### Visualize Dependencies with Risk Assessment
 
 ```bash
-thothctl check iac --dependencies
+thothctl check iac -deps
+```
+
+### Check Dependencies for a Specific Directory
+
+```bash
+thothctl -d /path/to/project check iac --check_type deps
 ```
 
 ## Validation Process
@@ -180,16 +253,18 @@ thothctl check iac --dependencies
 1. **Configuration Loading**: The command first loads the project configuration from `.thothcf.toml` or uses default rules
 2. **Structure Analysis**: It analyzes the current directory structure
 3. **Rule Comparison**: It compares the actual structure against the defined rules
-4. **Report Generation**: It generates a report of any discrepancies
-5. **Exit Code**: In hard mode, it exits with a non-zero code if validation fails
+4. **Risk Assessment**: For dependency visualization, it calculates risk percentages for each component
+5. **Report Generation**: It generates a report of any discrepancies or visualizes dependencies with risk assessment
+6. **Exit Code**: In hard mode, it exits with a non-zero code if validation fails
 
 ## Best Practices
 
 1. **Version Control**: Include the `.thothcf.toml` file in version control to ensure consistent validation across the team
 2. **CI/CD Integration**: Add the check command to your CI/CD pipeline to validate infrastructure code before deployment
 3. **Hard Mode**: Use hard mode in CI/CD pipelines to enforce structure requirements
-4. **Custom Rules**: Define custom rules in `.thothcf.toml` to match your project's specific requirements
-5. **Regular Validation**: Run validation regularly during development to catch issues early
+4. **Risk Assessment**: Use the dependency visualization with risk assessment to identify high-risk components before making changes
+5. **Custom Rules**: Define custom rules in `.thothcf.toml` to match your project's specific requirements
+6. **Regular Validation**: Run validation regularly during development to catch issues early
 
 ## Troubleshooting
 
@@ -220,15 +295,24 @@ Error: [Errno 13] Permission denied: '/path/to/directory'
 
 **Solution**: Ensure you have read permissions for all directories being validated.
 
+#### Terragrunt Not Found
+
+```
+Error running terragrunt dag graph: [Errno 2] No such file or directory: 'terragrunt'
+```
+
+**Solution**: Install Terragrunt or ensure it's in your PATH.
+
 ### Debugging
 
 For more detailed logs, run ThothCTL with the `--debug` flag:
 
 ```bash
-thothctl --debug check iac
+thothctl --debug check iac -deps
 ```
 
 ## Related Commands
 
 - [thothctl init project](../init/init_project.md): Initialize a new project with the correct structure
 - [thothctl scan](../scan/scan.md): Scan infrastructure code for security issues
+- [thothctl inventory](../inventory/inventory.md): Create an inventory of infrastructure components
