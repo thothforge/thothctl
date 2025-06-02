@@ -84,6 +84,23 @@ Commands:
 
 ```
 
+## Enabling Command Autocompletion
+
+ThothCTL supports command autocompletion to make it easier to use. To enable it:
+
+```bash
+# Install the package
+pip install thothctl
+
+# Run the autocomplete setup script
+thothctl-register-autocomplete
+
+# Follow the instructions to add the autocomplete configuration to your shell
+```
+
+After setting up autocomplete, you can use the Tab key to complete commands, options, and arguments.
+
+For example, you can type `thothctl i<TAB>` and it will expand to `thothctl init`.
 
 ## Third Party Tools
 

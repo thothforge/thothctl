@@ -73,6 +73,7 @@ core-metadata-version = "2.1"
 
 [project.scripts]
 thothctl = "thothctl.cli:cli" #"src.thothctl:main"
+thothctl-register-autocomplete = "thothctl.autocomplete:main"
 
 ## Tools
 [tool.commitizen]

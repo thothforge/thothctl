@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Optional
 from importlib.metadata import version
 import click
+import os
+import sys
 
 
 def global_options(f):
