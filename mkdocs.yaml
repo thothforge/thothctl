@@ -28,13 +28,7 @@ nav:
   - Changelog: CHANGELOG.md
 
 theme:
-  name: readthedocs
-  highlightjs: true
-  hljs_languages:
-    - yaml
-    - python
-    - bash
-    - toml
+  name: flatly
 
 markdown_extensions:
   - admonition

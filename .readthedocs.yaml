@@ -10,10 +10,6 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.10"
-  jobs:
-    pre_install:
-      # Downgrade markdown to be compatible with mkdocs-techdocs-core
-      - pip install "markdown<3.4,>=3.2"
 
 # Build documentation in the docs/ directory with MkDocs
 mkdocs:
