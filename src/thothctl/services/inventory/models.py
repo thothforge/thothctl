@@ -1,7 +1,7 @@
 """Data models for inventory management."""
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class RegistryType(Enum):
@@ -10,6 +10,13 @@ class RegistryType(Enum):
     TERRAFORM = "terraform"
     GITHUB = "github"
     UNKNOWN = "unknown"
+
+
+class ProjectType(Enum):
+    """Supported project types."""
+    
+    TERRAFORM = "terraform"
+    TERRAGRUNT = "terragrunt"
 
 
 @dataclass
@@ -41,12 +48,14 @@ class Inventory:
     project_name: str
     components: List[ComponentGroup]
     version: int = 2
+    project_type: str = "terraform"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert inventory to dictionary format."""
         return {
             "version": self.version,
             "projectName": self.project_name,
+            "projectType": self.project_type,
             "components": [
                 {
                     "path": group.stack,

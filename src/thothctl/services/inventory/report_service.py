@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pdfkit
 from json2html import json2html
@@ -23,16 +23,23 @@ class ReportService:
     def __init__(self, reports_directory: str = "Reports"):
         """Initialize report service."""
         self.reports_dir = Path(reports_directory)
-        self.reports_dir.mkdir(exist_ok=True)
+        self.reports_dir.mkdir(exist_ok=True, parents=True)
         self.console = Console()
 
-    def _create_report_path(self, report_name: str, extension: str) -> Path:
+    def _create_report_path(self, report_name: str, extension: str, reports_directory: Optional[str] = None) -> Path:
         """Create report file path with timestamp."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return self.reports_dir / f"{report_name}_{timestamp}.{extension}"
+        
+        if reports_directory:
+            reports_dir = Path(reports_directory)
+            reports_dir.mkdir(exist_ok=True, parents=True)
+        else:
+            reports_dir = self.reports_dir
+            
+        return reports_dir / f"{report_name}_{timestamp}.{extension}"
 
     def create_html_report(
-        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC"
+        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
         """Create HTML report from inventory data with custom styling."""
         try:
@@ -83,10 +90,21 @@ class ReportService:
                         text-align: center;
                         margin-bottom: 30px;
                     }}
+                    .project-info {{
+                        background-color: #e7f3fe;
+                        border-left: 6px solid #2196F3;
+                        padding: 10px;
+                        margin-bottom: 20px;
+                    }}
                 </style>
             </head>
             <body>
                 <h1>Infrastructure Inventory Report</h1>
+                <div class="project-info">
+                    <p><strong>Project Name:</strong> {project_name}</p>
+                    <p><strong>Project Type:</strong> {project_type}</p>
+                    <p><strong>Generated:</strong> {timestamp}</p>
+                </div>
                 {content}
             </body>
             </html>
@@ -98,11 +116,16 @@ class ReportService:
             )
 
             # Create report file
-            report_path = self._create_report_path(report_name, "html")
+            report_path = self._create_report_path(report_name, "html", reports_directory)
 
             # Write the report with proper formatting
             with open(report_path, "w", encoding="utf-8") as f:
-                f.write(html_template.format(content=html_content))
+                f.write(html_template.format(
+                    content=html_content,
+                    project_name=inventory.get("projectName", "Unknown"),
+                    project_type=inventory.get("projectType", "Terraform"),
+                    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
 
             logger.info(f"HTML report created at: {report_path}")
             return report_path
@@ -112,11 +135,11 @@ class ReportService:
             raise
 
     def create_pdf_report(
-        self, html_path: Path, report_name: str = "InventoryIaC"
+        self, html_path: Path, report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
         """Create PDF report from HTML file with custom options."""
         try:
-            pdf_path = self._create_report_path(report_name, "pdf")
+            pdf_path = self._create_report_path(report_name, "pdf", reports_directory)
 
             options = {
                 "page-size": "A4",
@@ -138,11 +161,11 @@ class ReportService:
             raise
 
     def create_json_report(
-        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC"
+        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
         """Create formatted JSON report from inventory data."""
         try:
-            report_path = self._create_report_path(report_name, "json")
+            report_path = self._create_report_path(report_name, "json", reports_directory)
 
             with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(inventory, f, indent=2, default=str, ensure_ascii=False)
@@ -157,9 +180,13 @@ class ReportService:
     def print_inventory_console(self, inventory: Dict[str, Any]) -> None:
         """Print inventory to console using rich table with updated format."""
         try:
+            # Create project info panel
+            project_name = inventory.get("projectName", "Unknown")
+            project_type = inventory.get("projectType", "Terraform")
+            
             # Create main table
             table = Table(
-                title="Infrastructure Inventory Report",
+                title=f"Infrastructure Inventory Report - {project_name} ({project_type})",
                 box=box.ROUNDED,
                 header_style="bold magenta",
                 title_style="bold blue",
@@ -248,6 +275,7 @@ class ReportService:
             summary_table.add_column("Metric", style="cyan")
             summary_table.add_column("Value", style="magenta")
 
+            summary_table.add_row("Project Type", inventory.get("projectType", "Terraform"))
             summary_table.add_row("Total Components", str(total_components))
             summary_table.add_row(
                 "Updated Components", f"[green]{status_counts['Updated']}[/green]"

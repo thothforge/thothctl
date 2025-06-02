@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional
 
 import click
 
@@ -72,13 +72,30 @@ class ClickCommand(ABC):
                     cmd_instance.logger.error(str(e))
                     raise click.ClickException(str(e))
 
-            # Add shell completion support
-            def complete(
-                ctx: click.Context, args: List[str], incomplete: str
-            ) -> List[tuple]:
-                return cmd_instance.get_completions(ctx, args, incomplete)
+            # Fix for Click's shell completion
+            def shell_complete(ctx: click.Context, incomplete: str) -> List[Any]:
+                """
+                Get shell completions for the command.
+                This method signature must match what Click expects for shell_complete.
+                """
+                try:
+                    # Extract args from the context
+                    args = ctx.protected_args + ctx.args
+                    
+                    # Get completions from the command instance
+                    completions = cmd_instance.get_completions(ctx, args, incomplete)
+                    
+                    # Return completions in the format Click expects
+                    # This is compatible with both older and newer Click versions
+                    return [
+                        (completion, description) for completion, description in completions
+                    ]
+                except Exception as e:
+                    cmd_instance.logger.error(f"Completion error: {str(e)}")
+                    return []
 
-            wrapped_command.shell_complete = complete
+            # Assign the shell_complete method to the command
+            wrapped_command.shell_complete = shell_complete
 
             # Apply all options to the command
             command = wrapped_command

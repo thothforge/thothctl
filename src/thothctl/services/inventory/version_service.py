@@ -1,6 +1,7 @@
 """Module for checking and comparing versions of Terraform modules."""
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional, Tuple
@@ -18,6 +19,7 @@ class RegistryType(Enum):
 
     TERRAFORM = "terraform"
     GITHUB = "github"
+    TERRAGRUNT = "terragrunt"
     UNKNOWN = "unknown"
 
 
@@ -82,19 +84,30 @@ class VersionChecker:
     @staticmethod
     def _clean_resource_path(resource: str) -> str:
         """Clean resource path by removing protocol prefix."""
+        # Handle tfr:/// format (Terraform Registry)
+        if resource.startswith("tfr:///"):
+            return resource.replace("tfr:///", "")
+            
         return resource.split("//")[0] if "//" in resource else resource
 
     def _determine_registry_type(self, source: str) -> RegistryType:
         """Determine registry type from source URL."""
         if "github.com" in source:
             return RegistryType.GITHUB
-        elif "terraform-aws-modules" in source:
+        elif "terraform-aws-modules" in source or source.startswith("tfr:///"):
             return RegistryType.TERRAFORM
+        elif "terragrunt" in source:
+            return RegistryType.TERRAGRUNT
         return RegistryType.UNKNOWN
 
     async def _build_source_url(self, resource: str) -> str:
         """Build appropriate registry URL for the resource."""
         registry_type = self._determine_registry_type(resource)
+        
+        # Handle tfr:/// format
+        if resource.startswith("tfr:///"):
+            resource = resource.replace("tfr:///", "")
+            
         base_url = self.REGISTRY_URLS.get(
             registry_type, self.REGISTRY_URLS[RegistryType.TERRAFORM]
         )
@@ -165,12 +178,26 @@ class InventoryVersionManager:
         """Extract version information from component."""
         try:
             version = component.get("version", "None")
+            
+            # If version is null but we have a source, try to extract version from source
             if version == "Null" and "source" in component:
                 resource = component["source"][0]
+                
+                # Check for terragrunt tfr:/// format with ?version=
+                if resource.startswith("tfr:///") and "?version=" in resource:
+                    version_match = re.search(r"\?version=([0-9\.]+)", resource)
+                    if version_match:
+                        version = [version_match.group(1)]
+                        component["version"] = version
+                        logger.info(f"Extracted version {version} from tfr:/// source")
+                        return {"version": version}
+                
+                # Check for ref= in source
                 if "ref=" in resource:
                     version = [resource.split("ref=")[1]]
                     component["version"] = version
                     logger.info(f"Extracted version {version} from ref")
+                    
             return {"version": version}
         except Exception as e:
             logger.error(f"Failed to get component version: {str(e)}")
@@ -216,7 +243,12 @@ class InventoryVersionManager:
             if not resource:
                 self._set_null_values(component)
                 return
-
+                
+            # Handle terragrunt tfr:/// format
+            if resource.startswith("tfr:///"):
+                # Extract the module path without version
+                resource = re.sub(r"\?version=[0-9\.]+", "", resource)
+            
             version, source_url = await checker.get_public_version(resource)
 
             component.update(

@@ -1,6 +1,7 @@
 """Module for managing version updates in terraform modules."""
 import json
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -41,11 +42,14 @@ class VersionManager:
         """Initialize version manager."""
         self.inventory_file = inventory_file
         self.console = Console()
+        self.project_type = "terraform"  # Default to terraform
 
     def load_inventory(self) -> dict:
         """Load and parse inventory file."""
         try:
-            return json.loads(self.inventory_file.read_text())
+            inventory = json.loads(self.inventory_file.read_text())
+            self.project_type = inventory.get("projectType", "terraform")
+            return inventory
         except (json.JSONDecodeError, FileNotFoundError) as e:
             logging.error(f"Failed to load inventory file: {e}")
             raise
@@ -53,7 +57,7 @@ class VersionManager:
     def display_updates(self, updates: List[dict]) -> None:
         """Display version updates in a formatted table."""
         table = Table(
-            title="Modules version to Update",
+            title=f"Modules version to Update ({self.project_type})",
             title_style="bold magenta",
             show_header=True,
             header_style="bold magenta",
@@ -145,11 +149,32 @@ class VersionManager:
         """Apply version update to file."""
         try:
             content = file_path.read_text()
-            updated_content = content.replace(search, replace)
+            
+            # Handle terragrunt.hcl files differently
+            if self.project_type == "terragrunt" and file_path.name == "terragrunt.hcl":
+                # For terragrunt, we need to update the version in the source attribute
+                if "tfr:///" in content:
+                    # Handle tfr:/// format
+                    updated_content = re.sub(
+                        rf'source = "tfr:///[^"]+"',
+                        lambda m: m.group(0).replace(search, replace),
+                        content
+                    )
+                else:
+                    # Handle other formats
+                    updated_content = content.replace(search, replace)
+            else:
+                # Standard terraform file update
+                updated_content = content.replace(search, replace)
+                
             file_path.write_text(updated_content)
 
             logging.debug(f"Version {search} changed to {replace} in {file_path}")
-            self._format_terraform_file(file_path)
+            
+            # Format the file if it's a terraform file
+            if file_path.suffix == ".tf":
+                self._format_terraform_file(file_path)
+                
             print(
                 f"{Fore.GREEN}✔️ Version changed successfully. "
                 f"Run plan and apply for checking changes.{Fore.RESET}\n"
@@ -226,17 +251,28 @@ class VersionManager:
 
         subprocess.run(["terraform", "fmt", str(file_path)], check=True)
 
-    @staticmethod
-    def _get_version_strings(file_details: dict, action: str) -> Tuple[str, str]:
+    def _get_version_strings(self, file_details: dict, action: str) -> Tuple[str, str]:
         """Get version strings for update or restore."""
         current_version = file_details["version"][0]
         new_version = file_details["latest_version"]
-
-        return (
-            (new_version, current_version)
-            if action == UpdateAction.RESTORE.value
-            else (current_version, new_version)
-        )
+        
+        # For terragrunt files, we need to handle the version differently
+        if self.project_type == "terragrunt" and "tfr:///" in file_details["source"][0]:
+            current_pattern = f"?version={current_version}"
+            new_pattern = f"?version={new_version}"
+            
+            return (
+                (new_pattern, current_pattern)
+                if action == UpdateAction.RESTORE.value
+                else (current_pattern, new_pattern)
+            )
+        else:
+            # Standard terraform version handling
+            return (
+                (new_version, current_version)
+                if action == UpdateAction.RESTORE.value
+                else (current_version, new_version)
+            )
 
 
 def summary_inventory(

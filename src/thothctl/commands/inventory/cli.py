@@ -1,9 +1,9 @@
 import importlib.util
 import logging
+import sys
 from pathlib import Path
 from typing import Optional
 
-# src/thothctl/commands/init/cli.py
 import click
 
 
@@ -20,7 +20,7 @@ class InventoryCLI(click.MultiCommand):
                 if item.name.endswith(".py") and not item.name.startswith("_"):
                     commands.append(item.stem)
         except Exception as e:
-            logger.error(f"Error listing init commands: {e}")
+            logger.error(f"Error listing inventory commands: {e}")
             return []
 
         commands.sort()
@@ -35,12 +35,26 @@ class InventoryCLI(click.MultiCommand):
 
             # Import the module
             module_name = f"thothctl.commands.inventory.commands.{cmd_name}"
-            spec = importlib.util.spec_from_file_location(module_name, str(module_path))
-            if spec is None or spec.loader is None:
-                return None
+            
+            # Try to import using importlib.util first
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, str(module_path))
+                if spec is None or spec.loader is None:
+                    return None
 
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+            except Exception as import_error:
+                logger.error(f"Error importing module {module_name} using spec_from_file_location: {str(import_error)}")
+                
+                # Fallback to direct import
+                try:
+                    if module_name not in sys.modules:
+                        __import__(module_name)
+                    module = sys.modules[module_name]
+                except Exception as direct_import_error:
+                    logger.error(f"Error importing module {module_name} directly: {str(direct_import_error)}")
+                    return None
 
             # Get the command
             if not hasattr(module, "cli"):
@@ -50,8 +64,15 @@ class InventoryCLI(click.MultiCommand):
             return module.cli
 
         except Exception as e:
-            logger.error(f"Error loading init subcommand {cmd_name}: {str(e)}")
+            logger.error(f"Error loading inventory subcommand {cmd_name}: {str(e)}")
             return None
+
+    def shell_complete(self, ctx: click.Context, incomplete: str):
+        """
+        Support shell completion for subcommands.
+        """
+        commands = self.list_commands(ctx)
+        return [(cmd, None) for cmd in commands if cmd.startswith(incomplete)]
 
 
 @click.group(cls=InventoryCLI)

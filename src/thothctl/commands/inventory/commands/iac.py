@@ -49,6 +49,7 @@ class IaCInvCommand(ClickCommand):
         inventory_path: Optional[str],
         inventory_action: str = "create",
         auto_approve: bool = False,
+        framework_type: str = "auto",
         **kwargs,
     ) -> None:
         """
@@ -79,6 +80,7 @@ class IaCInvCommand(ClickCommand):
                         check_versions=check_versions,
                         report_type=report_type,
                         reports_dir=inventory_path,
+                        framework_type=framework_type,
                     )
                 )
             elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
@@ -112,6 +114,7 @@ class IaCInvCommand(ClickCommand):
         check_versions: bool = False,
         report_type: str = "html",
         reports_dir: Optional[str] = None,
+        framework_type: str = "auto",
     ) -> None:
         """
         Create infrastructure inventory from source directory.
@@ -129,6 +132,7 @@ class IaCInvCommand(ClickCommand):
                     check_versions=check_versions,
                     report_type=report_type,
                     reports_directory=reports_dir,
+                    framework_type=framework_type,
                 )
 
             self.ui.print_success("Infrastructure inventory created successfully!")
@@ -229,6 +233,25 @@ class IaCInvCommand(ClickCommand):
 
         self.ui.print_info("\nInventory Summary:")
         self.ui.print_info(f"Total Components: {total_components}")
+        self.ui.print_info(f"Project Type: {inventory.get('projectType', 'Terraform')}")
+        
+        # Display framework-specific information
+        project_type = inventory.get('projectType', 'terraform')
+        if 'terragrunt' in project_type:
+            terragrunt_modules = sum(
+                1 for comp in inventory["components"] 
+                for c in comp.get("components", []) 
+                if c.get("type") == "terragrunt_module"
+            )
+            self.ui.print_info(f"Terragrunt Modules: {terragrunt_modules}")
+            
+        if 'terraform' in project_type:
+            terraform_modules = sum(
+                1 for comp in inventory["components"] 
+                for c in comp.get("components", []) 
+                if c.get("type") == "module"
+            )
+            self.ui.print_info(f"Terraform Modules: {terraform_modules}")
 
         if "version_checks" in inventory:
             self.ui.print_info(f"Outdated Components: {outdated_components}")
@@ -236,7 +259,7 @@ class IaCInvCommand(ClickCommand):
 
 # Create the Click command
 cli = IaCInvCommand.as_click_command(
-    help="Create a inventory about IaC modules composition for terraform/tofu projects"
+    help="Create a inventory about IaC modules composition for terraform/tofu/terragrunt projects"
 )(
     click.option(
         "-iph",
@@ -279,5 +302,12 @@ cli = IaCInvCommand.as_click_command(
         type=click.Choice(["html", "json", "all"], case_sensitive=False),
         default="html",
         help="Type of report to generate",
+    ),
+    click.option(
+        "--framework-type",
+        "-ft",
+        type=click.Choice(["auto", "terraform", "terragrunt", "terraform-terragrunt"], case_sensitive=False),
+        default="auto",
+        help="Framework type to analyze (auto for automatic detection)",
     ),
 )
