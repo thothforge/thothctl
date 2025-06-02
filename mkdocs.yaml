@@ -1,13 +1,59 @@
-site_name: 'thothctl'
+site_name: 'ThothCTL'
+site_description: 'ThothForge CLI - The Internal Developer Platform CLI'
+site_author: 'ThothForge Team'
+site_url: 'https://thothctl.readthedocs.io/'
 
 nav:
   - Home: index.md
   - Quick Start: quick_start.md
-  - The Builders Journey: framework/builder_journey.md
-  - Template Engine:  template_engine/template_engine.md
+  - Framework:
+    - Overview: framework/thoth_framework.md
+    - Concepts: framework/concepts.md
+    - Space Configuration: framework/space_configuration.md
+    - Use Cases:
+      - Overview: framework/use_cases/README.md
+      - Space Management: framework/use_cases/space_management.md
+      - Commands:
+        - Init: framework/use_cases/commands/init/index.md
+        - Check: framework/use_cases/check_command.md
+        - Inventory: framework/use_cases/inventory_command.md
+      - Generate:
+        - Components: framework/use_cases/generate_components.md
+        - Stacks: framework/use_cases/generate_stacks.md
+      - Tasks:
+        - Create Template: framework/use_cases/tasks/create_template.md
+  - Template Engine: template_engine/template_engine.md
   - IaC DevSecOps: iac_devsecops_use_case.md
+  - MCP Integration: mcp.md
   - Changelog: CHANGELOG.md
 
-
 theme:
-  name: mkdocs
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - yaml
+    - python
+    - bash
+    - toml
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra:
+  version:
+    provider: mike
+
+repo_url: https://github.com/thothforge/thothctl
+repo_name: thothforge/thothctl
+edit_uri: edit/main/docs/
+
+copyright: 'Copyright &copy; ThothForge'
+
+# Required for Read the Docs
+docs_dir: 'docs'
