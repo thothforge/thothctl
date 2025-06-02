@@ -6,6 +6,8 @@ import click
 
 from ....core.commands import ClickCommand
 from ....services.init.project.project import ProjectService
+from ....core.cli_ui import CliUI
+from ....common.common import get_space_vcs_provider
 
 
 class ProjectInitCommand(ClickCommand):
@@ -14,10 +16,12 @@ class ProjectInitCommand(ClickCommand):
     def __init__(self):
         super().__init__()
         self.project_service = ProjectService(self.logger)
+        self.ui = CliUI()
 
     def validate(self, project_name: str, **kwargs) -> bool:
         """Validate project initialization parameters"""
         if not project_name or not project_name.strip():
+            self.ui.print_error("Project name is required and cannot be empty")
             raise ValueError("Project name is required and cannot be empty")
         return True
 
@@ -27,6 +31,7 @@ class ProjectInitCommand(ClickCommand):
         setup_conf: bool,
         version_control_system_service: str = ProjectService.DEFAULT_VCS_SERVICE,
         az_org_name: Optional[str] = None,
+        github_username: Optional[str] = None,
         reuse: bool = False,
         r_list: bool = False,
         project_type: str = "terraform",
@@ -37,26 +42,46 @@ class ProjectInitCommand(ClickCommand):
         project_name = project_name.strip()
         project_path = Path(f"./{project_name}")
 
+        self.ui.print_info(f"🚀 Initializing project: {project_name}")
+        
+        # If space is provided, show info and get VCS provider
+        vcs_provider = version_control_system_service
+        if space:
+            self.ui.print_info(f"🌌 Using space: {space}")
+            # Try to get VCS provider from space
+            space_vcs_provider = get_space_vcs_provider(space)
+            if space_vcs_provider:
+                vcs_provider = space_vcs_provider
+                self.ui.print_info(f"🔗 Using VCS provider from space: {vcs_provider}")
+
         # Initialize project
-        self.project_service.initialize_project(project_name, project_type, reuse=reuse)
+        with self.ui.status_spinner("🔧 Creating project structure..."):
+            self.project_service.initialize_project(project_name, project_type, reuse=reuse)
 
         # Setup configuration if requested
         if setup_conf:
-            self.project_service.setup_project_config(project_name, space=space)
+            with self.ui.status_spinner("📝 Setting up project configuration..."):
+                self.project_service.setup_project_config(project_name, space=space)
 
-        # Setup Azure repos if conditions are met
-        if self._should_setup_azure_repos(
-            version_control_system_service, reuse, az_org_name
-        ):
-            pat = self._get_azure_pat()
-            self.project_service.setup_azure_repos(
+        # Setup version control if reuse is enabled
+        if reuse:
+            # Pass the appropriate parameters based on VCS provider
+            vcs_params = {}
+            if vcs_provider == "azure_repos":
+                vcs_params["az_org_name"] = az_org_name
+            elif vcs_provider == "github":
+                vcs_params["github_username"] = github_username
+                
+            self.project_service.setup_version_control(
                 project_name=project_name,
                 project_path=project_path,
-                az_org_name=az_org_name,
+                vcs_provider=vcs_provider,
                 r_list=r_list,
-                pat=pat,
                 space=space,
+                **vcs_params
             )
+            
+        self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
     def get_completions(
             self, ctx: click.Context, args: List[str], incomplete: str
@@ -108,24 +133,6 @@ class ProjectInitCommand(ClickCommand):
             ]
 
         return []
-    @staticmethod
-    def _should_setup_azure_repos(
-        vcs_service: str, reuse: bool, az_org_name: Optional[str]
-    ) -> bool:
-        """Check if Azure Repos setup should be performed"""
-        return all(
-            [
-                vcs_service == ProjectService.DEFAULT_VCS_SERVICE,
-                reuse,
-                az_org_name is not None,
-            ]
-        )
-
-    @staticmethod
-    def _get_azure_pat() -> str:
-        """Securely get Azure Personal Access Token"""
-        print("Pass your Personal Access Token")
-        return getpass.getpass()
 
 
 # Create the Click command
@@ -166,21 +173,31 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         "-vcss",
         "--version-control-systems-service",
         default="azure_repos",
-        type=click.Choice(["azure_repos"], case_sensitive=True),
+        type=click.Choice(["azure_repos", "github", "gitlab"], case_sensitive=True),
         help="The Version Control System Service for you IDP",
     ),
     click.option(
         "-reuse",
         "--reuse",
-        help="Reuse templates, pattern, PoC, projects and more from your IDP catalog, use with az-org, gh-org or gitlab",
+        help="Reuse templates, pattern, PoC, projects and more from your IDP catalog",
         is_flag=True,
         default=False,
     ),
     click.option(
-        "-az-org", "--az-org-name", help="Azure organization name", default=None
+        "-az-org", "--az-org-name", 
+        help="Azure organization name (for Azure Repos)", 
+        default=None
     ),
     click.option(
-        "-r-list", help="List all available templates", is_flag=True, default=False
+        "-gh-user", "--github-username", 
+        help="GitHub username or organization (for GitHub)", 
+        default=None
+    ),
+    click.option(
+        "-r-list", 
+        help="List all available templates", 
+        is_flag=True, 
+        default=False
     ),
     click.option(
         "-s",

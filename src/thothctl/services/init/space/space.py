@@ -1,11 +1,15 @@
 """Space service for managing spaces."""
+import getpass
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import toml
 from colorama import Fore
+
+from ....core.cli_ui import CliUI
+from ....utils.crypto import save_credentials
 
 
 class SpaceService:
@@ -13,6 +17,7 @@ class SpaceService:
 
     def __init__(self, logger=None):
         self.logger = logger or logging.getLogger(__name__)
+        self.ui = CliUI()
 
     def initialize_space(
         self, 
@@ -34,28 +39,42 @@ class SpaceService:
         :param orchestration_tool: Default orchestration tool (terragrunt, terramate, none)
         :return: None
         """
-        self.logger.info(f"Initializing space: {space_name}")
+        self.ui.print_info(f"🚀 Initializing space: {space_name}")
         
         # Create space configuration
-        self._create_space_config(
-            space_name=space_name, 
-            description=description,
-            vcs_provider=vcs_provider,
-            terraform_registry=terraform_registry,
-            terraform_auth=terraform_auth,
-            orchestration_tool=orchestration_tool
-        )
+        with self.ui.status_spinner("🔧 Creating space configuration..."):
+            self._create_space_config(
+                space_name=space_name, 
+                description=description,
+                vcs_provider=vcs_provider,
+                terraform_registry=terraform_registry,
+                terraform_auth=terraform_auth,
+                orchestration_tool=orchestration_tool
+            )
         
         # Create space directory structure
-        self._create_space_directory(
-            space_name=space_name,
-            vcs_provider=vcs_provider,
-            terraform_registry=terraform_registry,
-            terraform_auth=terraform_auth,
-            orchestration_tool=orchestration_tool
-        )
+        with self.ui.status_spinner("📁 Setting up space directory structure..."):
+            self._create_space_directory(
+                space_name=space_name,
+                vcs_provider=vcs_provider,
+                terraform_registry=terraform_registry,
+                terraform_auth=terraform_auth,
+                orchestration_tool=orchestration_tool
+            )
+            
+        # Setup credentials if needed
+        if vcs_provider == "azure_repos":
+            self._setup_azure_repos_credentials(space_name)
+        elif vcs_provider == "github":
+            self._setup_github_credentials(space_name)
+        elif vcs_provider == "gitlab":
+            self._setup_gitlab_credentials(space_name)
+            
+        # Setup Terraform credentials if needed
+        if terraform_auth != "none":
+            self._setup_terraform_credentials(space_name, terraform_auth)
         
-        self.logger.info(f"Space {space_name} initialized successfully")
+        self.ui.print_success(f"🎉 Space '{space_name}' initialized successfully!")
 
     def _create_space_config(
         self, 
@@ -117,7 +136,7 @@ class SpaceService:
         with open(config_path, mode="wt", encoding="utf-8") as fp:
             toml.dump(config, fp)
             
-        print(f"{Fore.GREEN}Space '{space_name}' configuration created{Fore.RESET}")
+        self.ui.print_success(f"🔧 Space '{space_name}' configuration created")
 
     def _create_space_directory(
         self, 
@@ -190,7 +209,7 @@ class SpaceService:
         self._create_terraform_config(space_dir.joinpath("terraform"), terraform_registry, terraform_auth)
         self._create_orchestration_config(space_dir.joinpath("orchestration"), orchestration_tool)
             
-        print(f"{Fore.GREEN}Space '{space_name}' directory structure created at {space_dir}{Fore.RESET}")
+        self.ui.print_info(f"📁 Space '{space_name}' directory structure created at {space_dir}")
 
     def _create_vcs_config(self, vcs_dir: Path, provider: str) -> None:
         """
@@ -213,6 +232,8 @@ class SpaceService:
         
         with open(vcs_dir.joinpath(f"{provider}.toml"), mode="wt", encoding="utf-8") as fp:
             toml.dump(config, fp)
+            
+        self.ui.print_info(f"🔗 Created {provider} VCS configuration")
 
     def _create_terraform_config(self, terraform_dir: Path, registry_url: str, auth_method: str) -> None:
         """
@@ -244,6 +265,8 @@ class SpaceService:
         
         with open(terraform_dir.joinpath("registry.toml"), mode="wt", encoding="utf-8") as fp:
             toml.dump(config, fp)
+            
+        self.ui.print_info(f"🏗️ Created Terraform registry configuration")
 
     def _create_orchestration_config(self, orchestration_dir: Path, tool: str) -> None:
         """
@@ -276,6 +299,8 @@ class SpaceService:
             with open(orchestration_dir.joinpath("terragrunt.toml"), mode="wt", encoding="utf-8") as fp:
                 toml.dump(config, fp)
                 
+            self.ui.print_info(f"🔄 Created Terragrunt orchestration configuration")
+                
         elif tool == "terramate":
             config = {
                 "terramate": {
@@ -290,6 +315,188 @@ class SpaceService:
             
             with open(orchestration_dir.joinpath("terramate.toml"), mode="wt", encoding="utf-8") as fp:
                 toml.dump(config, fp)
+                
+            self.ui.print_info(f"🔄 Created Terramate orchestration configuration")
+
+    def _setup_azure_repos_credentials(self, space_name: str) -> None:
+        """
+        Setup Azure Repos credentials for the space.
+        
+        :param space_name: Name of the space
+        :return: None
+        """
+        self.ui.print_info("🔐 Setting up Azure DevOps credentials")
+        
+        # Ask for organization name
+        org_name = input("Enter Azure DevOps organization name: ")
+        
+        # Ask for PAT securely
+        self.ui.print_info("You'll need a Personal Access Token (PAT) with appropriate permissions")
+        pat = getpass.getpass("Enter your Azure DevOps Personal Access Token: ")
+        
+        # Create credentials dictionary
+        credentials = {
+            "type": "azure_repos",
+            "organization": org_name,
+            "pat": pat
+        }
+        
+        # Ask for encryption password
+        encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
+        
+        # Save encrypted credentials
+        try:
+            save_credentials(
+                space_name=space_name,
+                credentials=credentials,
+                credential_type="vcs",
+                password=encryption_password
+            )
+            self.ui.print_success("🔒 Azure DevOps credentials saved securely")
+        except Exception as e:
+            self.logger.error(f"Failed to save credentials: {e}")
+            self.ui.print_error(f"Failed to save credentials: {e}")
+
+    def _setup_github_credentials(self, space_name: str) -> None:
+        """
+        Setup GitHub credentials for the space.
+        
+        :param space_name: Name of the space
+        :return: None
+        """
+        self.ui.print_info("🔐 Setting up GitHub credentials")
+        
+        # Ask for GitHub username
+        username = input("Enter GitHub username: ")
+        
+        # Ask for token securely
+        self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
+        token = getpass.getpass("Enter your GitHub Personal Access Token: ")
+        
+        # Create credentials dictionary
+        credentials = {
+            "type": "github",
+            "username": username,
+            "token": token
+        }
+        
+        # Ask for encryption password
+        encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
+        
+        # Save encrypted credentials
+        try:
+            save_credentials(
+                space_name=space_name,
+                credentials=credentials,
+                credential_type="vcs",
+                password=encryption_password
+            )
+            self.ui.print_success("🔒 GitHub credentials saved securely")
+        except Exception as e:
+            self.logger.error(f"Failed to save credentials: {e}")
+            self.ui.print_error(f"Failed to save credentials: {e}")
+
+    def _setup_gitlab_credentials(self, space_name: str) -> None:
+        """
+        Setup GitLab credentials for the space.
+        
+        :param space_name: Name of the space
+        :return: None
+        """
+        self.ui.print_info("🔐 Setting up GitLab credentials")
+        
+        # Ask for GitLab username
+        username = input("Enter GitLab username: ")
+        
+        # Ask for token securely
+        self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
+        token = getpass.getpass("Enter your GitLab Personal Access Token: ")
+        
+        # Create credentials dictionary
+        credentials = {
+            "type": "gitlab",
+            "username": username,
+            "token": token
+        }
+        
+        # Ask for encryption password
+        encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
+        
+        # Save encrypted credentials
+        try:
+            save_credentials(
+                space_name=space_name,
+                credentials=credentials,
+                credential_type="vcs",
+                password=encryption_password
+            )
+            self.ui.print_success("🔒 GitLab credentials saved securely")
+        except Exception as e:
+            self.logger.error(f"Failed to save credentials: {e}")
+            self.ui.print_error(f"Failed to save credentials: {e}")
+
+    def _setup_terraform_credentials(self, space_name: str, auth_method: str) -> None:
+        """
+        Setup Terraform registry credentials for the space.
+        
+        :param space_name: Name of the space
+        :param auth_method: Authentication method (token, env_var)
+        :return: None
+        """
+        if auth_method == "token":
+            self.ui.print_info("🔐 Setting up Terraform registry token")
+            
+            # Ask for token securely
+            token = getpass.getpass("Enter your Terraform registry token: ")
+            
+            # Create credentials dictionary
+            credentials = {
+                "type": "terraform",
+                "auth_method": "token",
+                "token": token
+            }
+            
+            # Ask for encryption password
+            encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
+            
+            # Save encrypted credentials
+            try:
+                save_credentials(
+                    space_name=space_name,
+                    credentials=credentials,
+                    credential_type="terraform",
+                    password=encryption_password
+                )
+                self.ui.print_success("🔒 Terraform registry credentials saved securely")
+            except Exception as e:
+                self.logger.error(f"Failed to save credentials: {e}")
+                self.ui.print_error(f"Failed to save credentials: {e}")
+        elif auth_method == "env_var":
+            self.ui.print_info("🔐 Setting up Terraform registry environment variable")
+            
+            # Ask for environment variable name
+            env_var = input("Enter the environment variable name for Terraform token [TF_TOKEN]: ") or "TF_TOKEN"
+            
+            # Create credentials dictionary
+            credentials = {
+                "type": "terraform",
+                "auth_method": "env_var",
+                "env_var": env_var
+            }
+            
+            # Save credentials (no need for encryption as it's just an env var name)
+            try:
+                save_credentials(
+                    space_name=space_name,
+                    credentials=credentials,
+                    credential_type="terraform",
+                    password="env_var_only"  # Simple password as it's not sensitive
+                )
+                self.ui.print_success(f"🔒 Terraform registry environment variable set to {env_var}")
+                self.ui.print_info(f"Remember to set the {env_var} environment variable with your token")
+            except Exception as e:
+                self.logger.error(f"Failed to save credentials: {e}")
+                self.ui.print_error(f"Failed to save credentials: {e}")
 
     @staticmethod
     def _get_current_timestamp() -> str:

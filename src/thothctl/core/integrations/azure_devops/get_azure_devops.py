@@ -8,7 +8,7 @@ from azure.devops.connection import Connection
 from colorama import Fore
 from msrest.authentication import BasicAuthentication
 
-from .pattern_names import allowed_patterns_names, allowed_patterns_names_end
+from ..pattern_names  import allowed_pattern_prefixes, allowed_pattern_suffixes
 
 
 def create_connection(personal_access_token, organization_url):
@@ -105,8 +105,8 @@ def clone_repo(
     repositories = get_repos_patterns(
         project_name=project_name,
         git_client=git_client,
-        allowed_pattern_names=allowed_patterns_names,
-        allowed_pattern_names_end=allowed_patterns_names_end,
+        allowed_pattern_names=allowed_pattern_prefixes,
+        allowed_pattern_names_end=allowed_pattern_suffixes,
     )
     repository_names = [r["Name"] for r in repositories]
     questions = [
@@ -195,8 +195,8 @@ def get_pattern_from_azure(pat, org_url, action="list", directory="lab"):
             get_repos_patterns(
                 project_name=project_name,
                 git_client=git_client,
-                allowed_pattern_names=allowed_patterns_names,
-                allowed_pattern_names_end=allowed_patterns_names_end,
+                allowed_pattern_names=allowed_pattern_prefixes,
+                allowed_pattern_names_end=allowed_pattern_suffixes,
             )
         elif action == "reuse":
             repo_meta = clone_repo(

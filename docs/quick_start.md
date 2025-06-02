@@ -4,74 +4,70 @@
 
 For getting the use cases you can run `thothctl -h`
 ```commandline
-$ thothctl -h
-usage: thothctl [-h] [-d DIRECTORY_CODE] [-v] [-sw] [-l] {init,scan,doc,transform,validate,hand-wk,automate,inventory} ...
+$ thothctl --help
+Usage: thothctl [OPTIONS] COMMAND [ARGS]...
 
-Accelerate DevSecOps IaC projects implementation and developer tasks.
+  ThothForge CLI - The Open Source Internal Developer Platform CLI
 
-options:
-  -h, --help            show this help message and exit
-  -d DIRECTORY_CODE, --directory_code DIRECTORY_CODE
-                        Root path for code project (default: .)
-  -v, --version         Get Version
-  -sw, --sync_terraform_workspaces
-                        Synchronize terraform workspaces for dependencies tree base on terragrunt + terraform framework
-  -l, --verbose         Enable debug Mode
+Options:
+  --version                  Show the version and exit.
+  --debug                    Enable debug mode
+  -d, --code-directory PATH  Configuration file path
+  --help                     Show this message and exit.
 
 Commands:
-  Command and functionalities
-
-  {init,scan,doc,transform,validate,hand-wk,automate,inventory}
-                        thothctl Commands
-    init                Initialize project, provide project name,example: thothctl init -pj <project-name>
-    scan                Scan code using tools example: thothctl scan -t checkov
-    doc                 Create and document IaC using terraform-docsexample: thothctl doc -d . -dm local_module
-    transform           Transform your code to use terramate and terragrunt together or singleexample: thothctl -d . -l transform -j -y
-                        $main_branch
-    validate            Check project structure based on default framework or custom framework. For example: thothctl validate -cp -d -cm hard
-    hand-wk             Handling workspaces operations for example, check if already exists the backend configuration, synchronize for modules and
-                        resources according to IaC Framework, example: thothctl hand-wk -sw
-    automate            Automate tasks for example adding resources folders based on your configurations, Create code component template based on
-                        project structure define into .thothcf.tomlexample: thothctl add -cn test -ct resource -cph ./resources/myresource
-    inventory           Transform your code to use terramate and terragrunt together or singleexample: thothctl inventory -ci -if all -check
-
-Thanks for using thothctl!
+  check      Initialize and setup project configurations
+  document   Initialize and setup project configurations
+  generate   Generate IaC from rules, use cases, and components
+  init       Initialize and setup project configurations
+  inventory  Create Inventory for the iac composition.
+  list       List Projects and Spaces managed by thothctl locally
+  mcp        Model Context Protocol (MCP) server for ThothCTL
+  project    Convert, clean up and manage the current project
+  remove     Remove Projects manage by thothctl
+  scan       Scan infrastructure code for security issues.
 ```
+## Initialize a space
 
+Run init command to get the options
+```commandline
+thothctl init space --help
+Usage: thothctl init space [OPTIONS]
 
+  Initialize a new space
+
+Options:
+  -ot, --orchestration-tool [terragrunt|terramate|none]
+                                  Default orchestration tool for the space
+  -ta, --terraform-auth [none|token|env_var]
+                                  Terraform registry authentication method
+  -tr, --terraform-registry TEXT  Terraform registry URL
+  -vcs, --vcs-provider [azure_repos|github|gitlab]
+                                  Version Control System provider
+  -d, --description TEXT          Description of the space
+  -s, --space-name TEXT           Name of the space  [required]
+  --help                          Show this message and exit.
+```
+Run for example:
+
+```bash
+$ thothctl init space -vcs github -d "Default local github testing" -s lab-github
+ℹ️ 🌌 Creating new space: lab-github
+ℹ️ 🚀 Initializing space: lab-github
+✅ 🔧 Space 'lab-github' configuration created
+ℹ️ 🔗 Created github VCS configuration
+ℹ️ 🏗️ Created Terraform registry configuration
+ℹ️ 🔄 Created Terragrunt orchestration configuration
+ℹ️ 📁 Space 'lab-github' directory structure created at /home/labvel/.thothcf/spaces/lab-github
+✅ 🎉 Space 'lab-github' initialized successfully!
+✅ ✨ Space 'lab-github' is ready to use!
+ℹ️ 💡 You can now create projects in this space with:
+ℹ️    thothctl init project --project-name <name> --space lab-github
+```
 ## Initialize a new project
 
 Initialize project based on templates, custom framework or void template.
 
-```commandline
-
-$ thothctl init -h
-
-usage: thothctl init [-h] -pj PROJECT_NAME [-pjt PROJECT_TYPE] [-sp] [-reuse] [-azp AZ_PROJECT_NAME] [-org_name ORG_NAME] [-r_action {reuse,clone}]
-
-Initialize project from idp, default template or custom values
-
-options:
-  -h, --help            show this help message and exit
-
-Init project and handling projects and templates options and flags:
-  -pj PROJECT_NAME, --project_name PROJECT_NAME
-                        Initialize project, provide project name
-  -pjt PROJECT_TYPE, --project_type PROJECT_TYPE
-                        Provide project type according to Internal Developer Portal and frameworks
-  -sp, --setup_conf     Setup .thothcf.toml for thothctl configuration file
-
-Interact with the internal developer platform options and flags:
-  -reuse, --reuse_patterns
-                        Reuse pattern from external repository. Use with init option
-  -azp AZ_PROJECT_NAME, --az_project_name AZ_PROJECT_NAME
-                        Reuse pattern from external repository, Use with init option
-  -org_name ORG_NAME, --org_name ORG_NAME
-                        Organization tool for azure DevOps, Use with init option
-  -r_action {reuse,clone}, --remote_actions {reuse,clone}
-                        Action for clone or list repositories or patterns. Values: reuse, clone, (default: reuse) Use with init option
-
-```
 
 > Just support Azure DevOps Integration - We're working for more integrations 
 ### Init command summary options

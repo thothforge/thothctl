@@ -2,6 +2,7 @@
 import hashlib
 import logging
 from pathlib import Path, PurePath
+from typing import Optional, Dict, Any
 
 import os
 import toml
@@ -129,7 +130,7 @@ def create_info_project(project_name: str, file_name=config_file_name, content=N
         if project_name in config:
             raise ValueError(
                 f'💥 Project  "{project_name}" already exists. \n '
-                f"Run 👉 {Fore.CYAN} thothctl remove -pj {project_name} 👈🏼 {Fore.RED}if you want to reuse the project name."
+                f"Run 👉 {Fore.CYAN} thothctl remove project -pj {project_name} 👈🏼 {Fore.RED}if you want to reuse the project name."
             )
 
         else:
@@ -294,10 +295,47 @@ def get_project_space(project_name):
     return None
 
 
+def get_space_details():
+    """
+    Get details for all spaces.
+
+    :return: Dictionary with space details
+    """
+    config_path = PurePath(f"{Path.home()}/.thothcf/spaces.toml")
+    space_details = {}
+
+    if os.path.exists(config_path):
+        with open(config_path, mode="rt", encoding="utf-8") as fp:
+            config = toml.load(fp)
+
+        if "spaces" in config:
+            for space_name, space_data in config["spaces"].items():
+                space_details[space_name] = space_data
+    
+    return space_details
+
+
+def get_space_vcs_provider(space_name: str) -> Optional[str]:
+    """
+    Get the VCS provider for a space.
+    
+    :param space_name: Name of the space
+    :return: VCS provider name or None if not found
+    """
+    if not space_name:
+        return None
+        
+    space_details = get_space_details()
+    if space_name in space_details:
+        return space_details[space_name].get("version_control", {}).get("provider")
+    
+    return None
+
+
 def get_projects_in_space(space_name):
     """
     Get all projects in a specific space.
-
+    
     :param space_name: Name of the space
     :return: List of project names in the space
     """
@@ -312,6 +350,7 @@ def get_projects_in_space(space_name):
             if isinstance(project_data, dict) and "thothcf" in project_data:
                 if project_data["thothcf"].get("space") == space_name:
                     projects.append(project_name)
+    
     
     return projects
 
@@ -353,21 +392,35 @@ def print_list_spaces():
 
     :return:
     """
-    table = Table(title="Space List", title_style="bold magenta", show_lines=True)
+    table = Table(title="🌌 Space List", title_style="bold magenta", show_lines=True)
     table.add_column("SpaceName", justify="left", style="green", no_wrap=True)
     table.add_column("Projects", justify="left", style="cyan", no_wrap=True)
+    table.add_column("Description", justify="left", style="yellow", no_wrap=True)
     
     spaces = list_spaces()
     if not spaces:
         console = Console()
-        console.print("[yellow]No spaces found[/yellow]")
+        console.print("[yellow]🔍 No spaces found. Create one with 'thothctl init space'[/yellow]")
         return
+    
+    # Get space descriptions if available
+    space_details = get_space_details()
         
     for space in spaces:
         projects = get_projects_in_space(space)
         project_count = len(projects)
         project_display = f"{project_count} project{'s' if project_count != 1 else ''}"
-        table.add_row(f"🌐 {Fore.GREEN} {space} {Fore.RESET}", f"{Fore.CYAN}{project_display}{Fore.RESET}")
+        
+        # Get description if available
+        description = "No description"
+        if space in space_details and "description" in space_details[space]:
+            description = space_details[space]["description"]
+        
+        table.add_row(
+            f"🌐 {Fore.GREEN}{space}{Fore.RESET}", 
+            f"{Fore.CYAN}{project_display}{Fore.RESET}",
+            f"{Fore.YELLOW}{description}{Fore.RESET}"
+        )
 
     console = Console()
     console.print(table)

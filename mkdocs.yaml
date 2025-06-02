@@ -10,19 +10,20 @@ nav:
     - Overview: framework/thoth_framework.md
     - Concepts: framework/concepts.md
     - Space Configuration: framework/space_configuration.md
-    - Use Cases:
-      - Overview: framework/use_cases/README.md
-      - Space Management: framework/use_cases/space_management.md
-      - Commands:
-        - Init: framework/use_cases/commands/init/index.md
-        - Check: framework/use_cases/check_command.md
-        - Inventory: framework/use_cases/inventory_command.md
-      - Generate:
-        - Components: framework/use_cases/generate_components.md
-        - Stacks: framework/use_cases/generate_stacks.md
-      - Tasks:
-        - Create Template: framework/use_cases/tasks/create_template.md
-  - Template Engine: template_engine/template_engine.md
+  - Use Cases:
+    - Overview: framework/use_cases/README.md
+    - Space Management: framework/use_cases/space_management.md
+    - Template Engine: template_engine/template_engine.md
+
+  - Commands:
+    - Init: framework/use_cases/commands/init/index.md
+    - Check: framework/use_cases/check_command.md
+    - Inventory: framework/use_cases/inventory_command.md
+    - Generate:
+      - Components: framework/use_cases/generate_components.md
+      - Stacks: framework/use_cases/generate_stacks.md
+    - Tasks:
+      - Create Template: framework/use_cases/tasks/create_template.md
   - IaC DevSecOps: iac_devsecops_use_case.md
   - MCP Integration: mcp.md
   - Changelog: CHANGELOG.md

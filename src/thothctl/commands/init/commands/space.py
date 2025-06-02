@@ -5,6 +5,7 @@ import click
 
 from ....core.commands import ClickCommand
 from ....services.init.space.space import SpaceService
+from ....core.cli_ui import CliUI
 
 
 class SpaceInitCommand(ClickCommand):
@@ -13,10 +14,12 @@ class SpaceInitCommand(ClickCommand):
     def __init__(self):
         super().__init__()
         self.space_service = SpaceService(self.logger)
+        self.ui = CliUI()
 
     def validate(self, space_name: str, **kwargs) -> bool:
         """Validate space initialization parameters"""
         if not space_name or not space_name.strip():
+            self.ui.print_error("Space name is required and cannot be empty")
             raise ValueError("Space name is required and cannot be empty")
         return True
 
@@ -33,6 +36,8 @@ class SpaceInitCommand(ClickCommand):
         """Execute space initialization"""
         space_name = space_name.strip()
         
+        self.ui.print_info(f"🌌 Creating new space: {space_name}")
+        
         # Initialize space
         self.space_service.initialize_space(
             space_name=space_name,
@@ -42,6 +47,10 @@ class SpaceInitCommand(ClickCommand):
             terraform_auth=terraform_auth,
             orchestration_tool=orchestration_tool
         )
+        
+        self.ui.print_success(f"✨ Space '{space_name}' is ready to use!")
+        self.ui.print_info(f"💡 You can now create projects in this space with:")
+        self.ui.print_info(f"   thothctl init project --project-name <name> --space {space_name}")
 
     def get_completions(
             self, ctx: click.Context, args: List[str], incomplete: str

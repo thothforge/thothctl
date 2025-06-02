@@ -22,7 +22,7 @@ ThothCTL supports several template types:
 4. **Custom Templates**: User-defined templates for specific organizational needs
 
 ## Template Structure
-
+https://github.com/velez94/terragrunt_ecs_blueprint.git
 A template in ThothCTL is defined as a hierarchical structure of directories and files:
 
 ```python
