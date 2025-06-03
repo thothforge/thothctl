@@ -13,9 +13,30 @@ nav:
   - Commands:
     - Init: 
       - Overview: framework/commands/init/init.md
+    - List:
+      - Overview: framework/commands/list/list_overview.md
+      - Listing Projects: framework/commands/list/list_projects.md
+      - Listing Spaces: framework/commands/list/list_spaces.md
+    - Project:
+      - Overview: framework/commands/project/project_overview.md
+      - Project Conversion: framework/commands/project/project_convert.md
+      - Project Cleanup: framework/commands/project/project_cleanup.md
+      - Use Cases: framework/commands/project/use_cases.md
+    - Remove:
+      - Overview: framework/commands/remove/remove_overview.md
+      - Removing Projects: framework/commands/remove/remove_project.md
+      - Removing Spaces: framework/commands/remove/remove_space.md
     - Check: 
       - Overview: framework/commands/check/check_overview.md
       - IaC Check: framework/commands/check/check_iac.md
+    - Scan:
+      - Overview: framework/commands/scan/scan_overview.md
+      - IaC Scanning: framework/commands/scan/scan_iac.md
+      - Use Cases: framework/commands/scan/use_cases.md
+    - Document:
+      - Overview: framework/commands/document/document_overview.md
+      - IaC Documentation: framework/commands/document/document_iac.md
+      - Use Cases: framework/commands/document/use_cases.md
     - Inventory:
       - Overview: framework/commands/inventory/inventory_overview.md
       - IaC Inventory: framework/commands/inventory/inventory_iac.md
