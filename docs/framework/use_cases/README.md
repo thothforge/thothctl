@@ -4,10 +4,10 @@ This directory contains documentation for various use cases of the ThothCTL fram
 
 ## Available Use Cases
 
-### [Generate Components](generate_components.md)
+### [Generate Components](../commands/generate/generate_components.md)
 Create infrastructure components according to project rules and conventions.
 
-### [Generate Stacks](generate_stacks.md)
+### [Generate Stacks](../commands/generate/generate_stacks.md)
 Generate infrastructure stacks based on configuration files or command-line parameters.
 
 ### [Space Management](space_management.md)
@@ -63,4 +63,4 @@ ThothCTL is designed to be extensible. You can:
 3. Create custom commands by extending the ThothCTL framework
 4. Integrate with other tools in your development workflow
 
-For more information on extending ThothCTL, see the [Developer Guide](../developer_guide.md).
+For more information on extending ThothCTL, see the [Developer Guide](check_command.md).

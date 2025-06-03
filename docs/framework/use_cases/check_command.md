@@ -26,7 +26,7 @@ This command can validate:
 - Module structure against best practices
 - Terraform plans for security and compliance
 
-[Detailed documentation for check iac](commands/check/check_iac.md)
+[Detailed documentation for check iac](../commands/check/check_iac.md)
 
 ### check project
 
@@ -217,5 +217,5 @@ thothctl --debug check iac
 
 ## Related Commands
 
-- [thothctl init project](commands/init/init_project.md): Initialize a new project with the correct structure
-- [thothctl scan](commands/scan/scan.md): Scan infrastructure code for security issues
+- [thothctl init project](../commands/init/init.md): Initialize a new project with the correct structure
+- [thothctl scan](../commands/check/check_iac.md): Scan infrastructure code for security issues

@@ -15,6 +15,7 @@ thothctl inventory iac [OPTIONS]
 ```
 
 Options:
+- `-ft, --framework-type [auto|terraform|terragrunt|terraform-terragrunt]`: Framework type to analyze (default: auto)
 - `-iph, --inventory-path PATH`: Path for saving inventory reports (default: ./Reports/Inventory)
 - `-ch, --check-versions`: Check remote versions
 - `-updep, --update-dependencies-path`: Pass the inventory json file path for updating dependencies
@@ -22,7 +23,7 @@ Options:
 - `-iact, --inventory-action [create|update|restore]`: Action for inventory tasks (default: create)
 - `--report-type, -r [html|json|all]`: Type of report to generate (default: html)
 
-[Detailed documentation for inventory iac](commands/inventory/inventory_iac.md)
+[Detailed documentation for inventory iac](../commands/inventory/inventory_iac.md)
 
 ## Basic Usage
 
@@ -55,6 +56,42 @@ thothctl inventory iac --report-type all
 ```
 
 This creates an inventory and generates both HTML and JSON reports.
+
+## Framework Type Options
+
+The command supports different IaC frameworks:
+
+### Auto-detect Framework (Default)
+
+```bash
+thothctl inventory iac --framework-type auto
+```
+
+This automatically detects the framework type based on the files in your project.
+
+### Terraform Framework
+
+```bash
+thothctl inventory iac --framework-type terraform
+```
+
+This analyzes only Terraform files (`.tf`) in your project.
+
+### Terragrunt Framework
+
+```bash
+thothctl inventory iac --framework-type terragrunt
+```
+
+This analyzes only Terragrunt files (`terragrunt.hcl`) in your project, excluding `.terragrunt-cache` directories.
+
+### Mixed Terraform-Terragrunt Framework
+
+```bash
+thothctl inventory iac --framework-type terraform-terragrunt
+```
+
+This analyzes both Terraform and Terragrunt files in your project.
 
 ## Inventory Actions
 
@@ -91,7 +128,7 @@ The command generates detailed reports about your infrastructure components:
 ### HTML Report
 
 The HTML report includes:
-- Project overview
+- Project overview and framework type
 - Module list with versions and sources
 - Dependency graph visualization
 - Version status (latest vs. current)
@@ -102,27 +139,26 @@ The HTML report includes:
 The JSON report contains structured data about your infrastructure:
 ```json
 {
-  "project_name": "my-project",
+  "version": 2,
+  "projectName": "my-project",
+  "projectType": "terragrunt",
   "components": [
     {
-      "stack": "./modules",
+      "path": "./modules",
       "components": [
         {
-          "type": "module",
+          "type": "terragrunt_module",
           "name": "vpc",
-          "version": "3.14.0",
-          "source": "terraform-aws-modules/vpc/aws",
-          "file": "modules/main.tf",
-          "status": "Latest"
+          "version": ["3.14.0"],
+          "source": ["terraform-aws-modules/vpc/aws"],
+          "file": "modules/terragrunt.hcl",
+          "latest_version": "5.19.0",
+          "source_url": "https://registry.terraform.io/v1/modules/terraform-aws-modules/vpc/aws",
+          "status": "Outdated"
         }
       ]
     }
-  ],
-  "version_checks": {
-    "total": 5,
-    "latest": 3,
-    "outdated": 2
-  }
+  ]
 }
 ```
 
@@ -145,7 +181,7 @@ Identify outdated modules and update them:
 thothctl inventory iac --check-versions --report-type json
 
 # Then update modules to latest versions
-thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inventory/inventory.json
+thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inventory/InventoryIaC_20250602_121227.json
 ```
 
 ### Documentation
@@ -172,6 +208,12 @@ thothctl inventory iac --report-type all --inventory-path ./backups/$(date +%Y-%
 thothctl inventory iac
 ```
 
+### Terragrunt Project Inventory
+
+```bash
+thothctl inventory iac --framework-type terragrunt
+```
+
 ### Comprehensive Inventory with Version Checking
 
 ```bash
@@ -185,7 +227,7 @@ thothctl inventory iac --check-versions --report-type all --inventory-path ./doc
 thothctl inventory iac --check-versions --report-type json
 
 # Then update modules to latest versions
-thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inventory/inventory.json
+thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inventory/InventoryIaC_20250602_121227.json
 ```
 
 ### Restore Infrastructure from Backup
@@ -201,6 +243,7 @@ thothctl inventory iac --inventory-action restore --inventory-path ./backups/202
 3. **Multiple Report Types**: Use `--report-type all` to generate both HTML and JSON reports
 4. **Backup Inventories**: Store inventories in a version-controlled location
 5. **CI/CD Integration**: Add inventory creation to your CI/CD pipeline
+6. **Framework Specification**: Explicitly specify the framework type for more accurate results
 
 ## Troubleshooting
 
@@ -212,7 +255,7 @@ thothctl inventory iac --inventory-action restore --inventory-path ./backups/202
 Warning: No components found in the specified directory.
 ```
 
-**Solution**: Ensure you're running the command in a directory containing Terraform (`.tf`) files.
+**Solution**: Ensure you're running the command in a directory containing Terraform (`.tf`) or Terragrunt (`terragrunt.hcl`) files.
 
 #### Version Checking Failures
 
@@ -240,5 +283,5 @@ thothctl --debug inventory iac
 
 ## Related Commands
 
-- [thothctl check iac](commands/check/check_iac.md): Check IaC components against best practices
-- [thothctl scan](commands/scan/scan.md): Scan infrastructure code for security issues
+- [thothctl check iac](../commands/check/check_iac.md): Check IaC components against best practices
+- [thothctl scan](../commands/check/check_iac.md): Scan infrastructure code for security issues

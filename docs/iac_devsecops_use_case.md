@@ -119,7 +119,7 @@ $ thothctl -d . scan -t checkov -b -m Teams -w $webhook
 
 Finally, in your teams channel you will get the notification for modules or resources that have miss configurations.
 
-![Notifications in Teams](./docs/catalog/docs/img/notification_img.png)
+![Notifications in Teams](./img/notification_img.png)
 
 ## Create Documentation
 

@@ -7,42 +7,95 @@ nav:
   - Home: index.md
   - Quick Start: quick_start.md
   - Framework:
-    - Overview: framework/thoth_framework.md
+    - Overview: index.md
     - Concepts: framework/concepts.md
     - Space Configuration: framework/space_configuration.md
+  - Commands:
+    - Init: 
+      - Overview: framework/commands/init/init.md
+    - Check: 
+      - Overview: framework/commands/check/check_overview.md
+      - IaC Check: framework/commands/check/check_iac.md
+    - Inventory:
+      - Overview: framework/commands/inventory/inventory_overview.md
+      - IaC Inventory: framework/commands/inventory/inventory_iac.md
+      - Framework Support:
+        - Terraform: framework/commands/inventory/frameworks/terraform.md
+        - Terragrunt: framework/commands/inventory/frameworks/terragrunt.md
+    - Generate:
+      - Components: framework/commands/generate/generate_components.md
+      - Stacks: framework/commands/generate/generate_stacks.md
   - Use Cases:
     - Overview: framework/use_cases/README.md
     - Space Management: framework/use_cases/space_management.md
+    - Check Command: framework/use_cases/check_command.md
+    - Inventory Command: framework/use_cases/inventory_command.md
     - Template Engine: template_engine/template_engine.md
-
-  - Commands:
-    - Init: framework/use_cases/commands/init/index.md
-    - Check: framework/use_cases/check_command.md
-    - Inventory: framework/use_cases/inventory_command.md
-    - Generate:
-      - Components: framework/use_cases/generate_components.md
-      - Stacks: framework/use_cases/generate_stacks.md
     - Tasks:
       - Create Template: framework/use_cases/tasks/create_template.md
   - IaC DevSecOps: iac_devsecops_use_case.md
   - MCP Integration: mcp.md
-  - Changelog: CHANGELOG.md
 
 theme:
-  name: flatly
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - toc.integrate
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
 
 markdown_extensions:
   - admonition
   - tables
   - toc:
       permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tasklist:
+      custom_checkbox: true
 
 plugins:
   - search
+  # Removed mkdocstrings and git-revision-date-localized plugins
+  # to avoid dependency issues
 
 extra:
   version:
     provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/thothforge/thothctl
+
+extra_css:
+  - stylesheets/extra.css
 
 repo_url: https://github.com/thothforge/thothctl
 repo_name: thothforge/thothctl

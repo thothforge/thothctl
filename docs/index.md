@@ -2,11 +2,11 @@
 
 Thoth Framework is a framework to create and manage the [Internal Developer Platform](https://internaldeveloperplatform.org/what-is-an-internal-developer-platform/) tasks for infrastructure, devops, devsecops, software developers, and platform engineering teams aligned with the business objectives:
 
-1. [x] Minimize mistakes.
-2. [x] Increase velocity
-3. [x] Improve products
-4. [x] Enforce compliance
-5. [x] Reduce lock-in
+1. ✔️ Minimize mistakes.
+2. ✔️ Increase velocity
+3. ✔️ Improve products
+4. ✔️ Enforce compliance
+5. ✔️ Reduce lock-in
 
 ## Mapping Mechanisms 
 | Business Objective | Mechanism          | Implementation |
