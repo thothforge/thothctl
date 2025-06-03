@@ -1,6 +1,6 @@
 import getpass
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import click
 
@@ -56,7 +56,7 @@ class ProjectInitCommand(ClickCommand):
 
         # Initialize project
         with self.ui.status_spinner("🔧 Creating project structure..."):
-            self.project_service.initialize_project(project_name, project_type, reuse=reuse)
+            self.project_service.initialize_project(project_name, project_type, reuse=reuse, space=space)
 
         # Setup configuration if requested
         if setup_conf:
@@ -85,7 +85,7 @@ class ProjectInitCommand(ClickCommand):
 
     def get_completions(
             self, ctx: click.Context, args: List[str], incomplete: str
-    ) -> List[tuple]:
+    ) -> List[Any]:
         """
         Provide context-aware autocompletion
         """
@@ -93,7 +93,7 @@ class ProjectInitCommand(ClickCommand):
         completions = {
             'create': {
                 '--project-name': ['basic', 'advanced', 'custom'],
-                '--project-type': ['python3.8', 'python3.9', 'python3.10'],
+                '--project-type': ['python3.8', 'python3.9', 'python3.10', 'terraform', 'tofu', 'cdkv2', 'terraform_module', 'terragrunt_project', 'custom'],
                 '--region': ['us-east-1', 'us-west-2', 'eu-west-1']
             },
             'delete': {
@@ -102,11 +102,20 @@ class ProjectInitCommand(ClickCommand):
             }
         }
 
+        # Create a CompletionItem class if it doesn't exist in this version of Click
+        class CompletionItem:
+            def __init__(self, value, help=None):
+                self.value = value
+                self.help = help
+                self.type = "plain"
+
         # If no args provided, suggest subcommands
         if not args:
-            return [(cmd, f"Command to {cmd} project")
-                    for cmd in completions.keys()
-                    if cmd.startswith(incomplete)]
+            return [
+                CompletionItem(cmd, help=f"Command to {cmd} project")
+                for cmd in completions.keys()
+                if cmd.startswith(incomplete)
+            ]
 
         # Get current subcommand
         subcommand = next((arg for arg in args if arg in completions), None)
@@ -116,7 +125,7 @@ class ProjectInitCommand(ClickCommand):
         # If incomplete starts with '-', suggest options for current subcommand
         if incomplete.startswith('-'):
             return [
-                (opt, f"Option for {opt.lstrip('-')}")
+                CompletionItem(opt, help=f"Option for {opt.lstrip('-')}")
                 for opt in completions[subcommand].keys()
                 if opt.startswith(incomplete)
             ]
@@ -127,7 +136,7 @@ class ProjectInitCommand(ClickCommand):
         if current_option:
             values = completions[subcommand][current_option]
             return [
-                (val, f"Value for {current_option}")
+                CompletionItem(val, help=f"Value for {current_option}")
                 for val in values
                 if val.startswith(incomplete)
             ]

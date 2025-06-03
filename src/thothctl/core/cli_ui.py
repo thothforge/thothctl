@@ -279,3 +279,12 @@ class CliUI:
     def print_info(self, message: str) -> None:
         """Print info message."""
         self.console.print(f"ℹ️ {message}", style="blue")
+    def confirm(self, message: str) -> bool:
+        """
+        Ask for user confirmation.
+        
+        :param message: Message to display
+        :return: True if confirmed, False otherwise
+        """
+        response = input(f"{message} (y/n): ")
+        return response.lower() in ('y', 'yes')

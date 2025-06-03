@@ -28,6 +28,10 @@ class InitCLI(click.MultiCommand):
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:
+            # Handle shell completion separately to avoid errors
+            if cmd_name == "shell_completion":
+                return None
+                
             module_path = Path(__file__).parent / "commands" / f"{cmd_name}.py"
 
             if not module_path.exists():

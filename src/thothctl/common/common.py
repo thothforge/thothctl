@@ -109,18 +109,26 @@ def check_info_project(
 
 
 # create project info in toml file for creating an array of tables
-def create_info_project(project_name: str, file_name=config_file_name, content=None):
+def create_info_project(project_name: str, file_name=config_file_name, content=None, space: Optional[str] = None):
     """
     Create project info in toml file for creating an array of tables.
 
-    :param content:
-    :param project_name:
-    :param file_name:
-
-    :return:
+    :param content: Project content
+    :param project_name: Name of the project
+    :param file_name: Config file name
+    :param space: Space name for the project
+    :return: Project configuration
     """
     if content is None:
         content = {"template_files": []}
+        
+    # Add thothcf section with space if provided
+    if "thothcf" not in content:
+        content["thothcf"] = {"project_id": project_name}
+        
+    if space:
+        content["thothcf"]["space"] = space
+        
     config_path = PurePath(f"{Path.home()}/.thothcf/", file_name)
 
     if os.path.exists(config_path):
@@ -139,7 +147,7 @@ def create_info_project(project_name: str, file_name=config_file_name, content=N
             return config[project_name]
     else:
         create_iac_conf()
-        create_info_project(project_name, content=content)
+        create_info_project(project_name, content=content, space=space)
         return None
 
 
@@ -377,10 +385,10 @@ def print_list_projects(show_space=True):
     for p in projects:
         if show_space:
             space = get_project_space(p)
-            space_display = f"{Fore.GREEN}{space}{Fore.RESET}" if space else "-"
-            table.add_row(f"☑️ {Fore.CYAN} {p} {Fore.RESET}", space_display)
+            space_display = space if space else "-"
+            table.add_row(f"☑️  {p}", space_display)
         else:
-            table.add_row(f"☑️ {Fore.CYAN} {p} {Fore.RESET}")
+            table.add_row(f"☑️  {p}")
 
     console = Console()
     console.print(table)
@@ -417,9 +425,9 @@ def print_list_spaces():
             description = space_details[space]["description"]
         
         table.add_row(
-            f"🌐 {Fore.GREEN}{space}{Fore.RESET}", 
-            f"{Fore.CYAN}{project_display}{Fore.RESET}",
-            f"{Fore.YELLOW}{description}{Fore.RESET}"
+            f"🌐 {space}", 
+            f"{project_count} projects",
+            f"{description}"
         )
 
     console = Console()

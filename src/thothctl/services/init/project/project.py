@@ -29,11 +29,11 @@ class ProjectService:
         self.ui = CliUI()
 
     def initialize_project(
-        self, project_name: str, project_type: str = "terraform", reuse=False
+        self, project_name: str, project_type: str = "terraform", reuse=False, space: Optional[str] = None
     ) -> None:
         """Initialize the basic project structure"""
         self.logger.info(f"Initializing project: {project_name}")
-        create_info_project(project_name=project_name)
+        create_info_project(project_name=project_name, space=space)
         self.logger.info(f"Project {project_name} initialized successfully")
 
         if not reuse:
@@ -201,7 +201,7 @@ class ProjectService:
         if space:
             try:
                 # Use the get_credentials_with_password function to avoid multiple password prompts
-                from ....utils.crypto import get_credentials_with_password
+                from ....utils.crypto import get_credentials_with_password, save_credentials
                 
                 try:
                     # Get credentials and password in one call
@@ -221,6 +221,42 @@ class ProjectService:
                         self.logger.warning(f"Space '{space}' has non-GitHub VCS credentials")
                 except (FileNotFoundError, ValueError) as e:
                     self.logger.warning(f"Failed to load credentials from space '{space}': {e}")
+                    
+                    # If credentials don't exist, offer to create them
+                    if isinstance(e, FileNotFoundError) and "not found" in str(e):
+                        self.ui.print_info(f"No GitHub credentials found for space '{space}'")
+                        if self.ui.confirm("Would you like to set up GitHub credentials for this space?"):
+                            # Ask for GitHub username
+                            if not github_username:
+                                github_username = input("Enter GitHub username or organization name: ")
+                            
+                            # Ask for token securely
+                            self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
+                            token = getpass.getpass("Enter your GitHub Personal Access Token: ")
+                            
+                            # Create credentials dictionary
+                            credentials = {
+                                "type": "github",
+                                "username": github_username,
+                                "token": token
+                            }
+                            
+                            # Ask for encryption password
+                            encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
+                            
+                            # Save encrypted credentials
+                            try:
+                                save_credentials(
+                                    space_name=space,
+                                    credentials=credentials,
+                                    credential_type="vcs",
+                                    password=encryption_password
+                                )
+                                self.ui.print_success("🔒 GitHub credentials saved securely for future use")
+                            except Exception as e:
+                                self.logger.error(f"Failed to save credentials: {e}")
+                                self.ui.print_error(f"Failed to save credentials: {e}")
+                    
             except Exception as e:
                 self.logger.warning(f"Error accessing credentials: {e}")
         
