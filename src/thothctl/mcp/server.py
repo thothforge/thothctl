@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 import subprocess
 
-from ..common.common import list_projects
+from ..common.common import list_projects, list_spaces, get_project_space, get_projects_in_space, get_space_details
 from ..version import __version__
 
 # Configure logging
@@ -69,11 +69,19 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         """
         tools = [
             {
-                "name": "thothctl_init",
+                "name": "thothctl_init_project",
                 "description": "Initialize and setup project configurations",
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "project_name": {
+                            "type": "string",
+                            "description": "Name of the project to initialize"
+                        },
+                        "space": {
+                            "type": "string",
+                            "description": "Space name for the project (used for loading credentials and configurations)"
+                        },
                         "code_directory": {
                             "type": "string",
                             "description": "Configuration file path"
@@ -82,12 +90,52 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                             "type": "boolean",
                             "description": "Enable debug mode"
                         }
+                    },
+                    "required": ["project_name"]
+                }
+            },
+            {
+                "name": "thothctl_init_space",
+                "description": "Initialize and setup space configurations",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of the space to initialize"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Description of the space"
+                        },
+                        "vcs_provider": {
+                            "type": "string",
+                            "description": "Version control system provider (github, gitlab, azure)"
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
+                    },
+                    "required": ["space_name"]
+                }
+            },
+            {
+                "name": "thothctl_list_projects",
+                "description": "List projects managed by thothctl locally",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
                     }
                 }
             },
             {
-                "name": "thothctl_list",
-                "description": "List Projects managed by thothctl locally",
+                "name": "thothctl_list_spaces",
+                "description": "List spaces managed by thothctl locally",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -201,8 +249,8 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                 }
             },
             {
-                "name": "thothctl_remove",
-                "description": "Remove Projects managed by thothctl",
+                "name": "thothctl_remove_project",
+                "description": "Remove a project managed by thothctl",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -219,11 +267,55 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                 }
             },
             {
+                "name": "thothctl_remove_space",
+                "description": "Remove a space managed by thothctl",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of the space to remove"
+                        },
+                        "remove_projects": {
+                            "type": "boolean",
+                            "description": "Whether to remove all projects in the space"
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
+                    },
+                    "required": ["space_name"]
+                }
+            },
+            {
                 "name": "thothctl_get_projects",
                 "description": "Get list of projects managed by thothctl",
                 "parameters": {
                     "type": "object",
                     "properties": {}
+                }
+            },
+            {
+                "name": "thothctl_get_spaces",
+                "description": "Get list of spaces managed by thothctl",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "thothctl_get_projects_in_space",
+                "description": "Get list of projects in a specific space",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of the space"
+                        }
+                    },
+                    "required": ["space_name"]
                 }
             },
             {
@@ -257,21 +349,32 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             self._handle_get_projects()
             return
         
+        if tool_name == "thothctl_get_spaces":
+            self._handle_get_spaces()
+            return
+            
+        if tool_name == "thothctl_get_projects_in_space":
+            self._handle_get_projects_in_space(parameters)
+            return
+        
         if tool_name == "thothctl_version":
             self._handle_get_version()
             return
         
         # Map tool name to thothctl command
         command_map = {
-            "thothctl_init": "init",
-            "thothctl_list": "list",
-            "thothctl_scan": "scan",
-            "thothctl_inventory": "inventory",
-            "thothctl_generate": "generate",
-            "thothctl_document": "document",
-            "thothctl_check": "check",
-            "thothctl_project": "project",
-            "thothctl_remove": "remove"
+            "thothctl_init_project": ["init", "project"],
+            "thothctl_init_space": ["init", "space"],
+            "thothctl_list_projects": ["list", "projects"],
+            "thothctl_list_spaces": ["list", "spaces"],
+            "thothctl_scan": ["scan"],
+            "thothctl_inventory": ["inventory"],
+            "thothctl_generate": ["generate"],
+            "thothctl_document": ["document"],
+            "thothctl_check": ["check"],
+            "thothctl_project": ["project"],
+            "thothctl_remove_project": ["remove", "project"],
+            "thothctl_remove_space": ["remove", "space"]
         }
         
         if tool_name not in command_map:
@@ -280,7 +383,7 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             return
         
         # Build the command
-        cmd = ["thothctl", command_map[tool_name]]
+        cmd = ["thothctl"] + command_map[tool_name]
         
         # Add parameters
         if "code_directory" in parameters:
@@ -289,8 +392,30 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         if parameters.get("debug", False):
             cmd.append("--debug")
             
-        if "project_name" in parameters and tool_name == "thothctl_remove":
-            cmd.extend(["-pj", parameters["project_name"]])
+        # Handle specific command parameters
+        if tool_name == "thothctl_init_project":
+            if "project_name" in parameters:
+                cmd.extend(["-pj", parameters["project_name"]])
+            if "space" in parameters:
+                cmd.extend(["-s", parameters["space"]])
+                
+        elif tool_name == "thothctl_init_space":
+            if "space_name" in parameters:
+                cmd.extend(["--space-name", parameters["space_name"]])
+            if "description" in parameters:
+                cmd.extend(["--description", parameters["description"]])
+            if "vcs_provider" in parameters:
+                cmd.extend(["--vcs-provider", parameters["vcs_provider"]])
+                
+        elif tool_name == "thothctl_remove_project":
+            if "project_name" in parameters:
+                cmd.extend(["-pj", parameters["project_name"]])
+                
+        elif tool_name == "thothctl_remove_space":
+            if "space_name" in parameters:
+                cmd.extend(["--space-name", parameters["space_name"]])
+            if parameters.get("remove_projects", False):
+                cmd.append("--remove-projects")
         
         # Execute the command
         try:
@@ -315,14 +440,79 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         try:
             projects = list_projects()
             
+            # Add space information to each project
+            project_data = []
+            if projects:
+                for project_name in projects:
+                    space = get_project_space(project_name)
+                    project_info = {
+                        "name": project_name,
+                        "space": space
+                    }
+                    project_data.append(project_info)
+            
             response = {
-                "projects": projects if projects else []
+                "projects": project_data if projects else []
             }
             
             self._set_headers()
             self.wfile.write(json.dumps(response).encode())
         except Exception as e:
             logger.error(f"Error getting projects: {e}")
+            self._set_headers(500)
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
+    
+    def _handle_get_spaces(self) -> None:
+        """Handle request to get list of spaces."""
+        try:
+            spaces = list_spaces()
+            space_details = get_space_details()
+            
+            # Prepare space data with additional information
+            space_data = []
+            for space_name in spaces:
+                space_info = {
+                    "name": space_name,
+                    "projects": get_projects_in_space(space_name),
+                    "details": space_details.get(space_name, {})
+                }
+                space_data.append(space_info)
+            
+            response = {
+                "spaces": space_data if spaces else []
+            }
+            
+            self._set_headers()
+            self.wfile.write(json.dumps(response).encode())
+        except Exception as e:
+            logger.error(f"Error getting spaces: {e}")
+            self._set_headers(500)
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
+    
+    def _handle_get_projects_in_space(self, parameters: Dict[str, Any]) -> None:
+        """Handle request to get list of projects in a space.
+        
+        Args:
+            parameters: Request parameters
+        """
+        space_name = parameters.get("space_name")
+        if not space_name:
+            self._set_headers(400)
+            self.wfile.write(json.dumps({"error": "Space name is required"}).encode())
+            return
+            
+        try:
+            projects = get_projects_in_space(space_name)
+            
+            response = {
+                "space": space_name,
+                "projects": projects if projects else []
+            }
+            
+            self._set_headers()
+            self.wfile.write(json.dumps(response).encode())
+        except Exception as e:
+            logger.error(f"Error getting projects in space: {e}")
             self._set_headers(500)
             self.wfile.write(json.dumps({"error": str(e)}).encode())
     

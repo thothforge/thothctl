@@ -28,16 +28,30 @@ q mcp add thothctl http://localhost:8080
 
 The MCP server exposes the following ThothCTL commands as tools:
 
-- `thothctl_init` - Initialize and setup project configurations
-- `thothctl_list` - List Projects managed by thothctl locally
+### Project Management
+- `thothctl_init_project` - Initialize and setup project configurations
+- `thothctl_remove_project` - Remove a project managed by thothctl
+- `thothctl_get_projects` - Get list of projects managed by thothctl
+
+### Space Management
+- `thothctl_init_space` - Initialize and setup space configurations
+- `thothctl_remove_space` - Remove a space managed by thothctl
+- `thothctl_get_spaces` - Get list of spaces managed by thothctl
+- `thothctl_get_projects_in_space` - Get list of projects in a specific space
+
+### Listing
+- `thothctl_list_projects` - List projects managed by thothctl locally
+- `thothctl_list_spaces` - List spaces managed by thothctl locally
+
+### Infrastructure Management
 - `thothctl_scan` - Scan infrastructure code for security issues
 - `thothctl_inventory` - Create Inventory for the iac composition
 - `thothctl_generate` - Generate IaC from rules, use cases, and components
 - `thothctl_document` - Initialize and setup project documentation
 - `thothctl_check` - Check infrastructure code for compliance
 - `thothctl_project` - Convert, clean up and manage the current project
-- `thothctl_remove` - Remove Projects managed by thothctl
-- `thothctl_get_projects` - Get list of projects managed by thothctl
+
+### Utility
 - `thothctl_version` - Get ThothCTL version
 
 ## Architecture
@@ -48,6 +62,15 @@ The MCP server follows the HTTP-based MCP protocol:
 2. The server responds with a list of available tools and their parameters
 3. The LLM executes a tool via a POST to `/execute` with the tool name and parameters
 4. The server executes the corresponding ThothCTL command and returns the results
+
+## Space Management
+
+The space management features allow you to:
+
+- Create logical groupings of projects
+- Share credentials and configurations across projects in the same space
+- Maintain consistent version control, terraform, and orchestration settings
+- Simplify management of related projects
 
 ## Security Considerations
 
