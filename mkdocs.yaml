@@ -46,6 +46,8 @@ nav:
     - Generate:
       - Components: framework/commands/generate/generate_components.md
       - Stacks: framework/commands/generate/generate_stacks.md
+    - MCP:
+      - Overview: framework/commands/mcp/mcp.md
   - Use Cases:
     - Overview: framework/use_cases/README.md
     - Space Management: framework/use_cases/space_management.md

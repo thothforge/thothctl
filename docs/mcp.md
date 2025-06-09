@@ -1,40 +1,60 @@
 # ThothCTL MCP Integration
 
-ThothCTL now supports the Model Context Protocol (MCP), allowing AI assistants like Amazon Q to interact with ThothCTL functionality directly.
+![ThothCTL MCP](./img/framework/thothctl_mcp.png)
+
+ThothCTL supports the Model Context Protocol (MCP), allowing AI assistants like Amazon Q to interact with ThothCTL functionality directly. This integration enhances developer productivity by enabling natural language interactions with your Internal Developer Platform.
 
 ## What is MCP?
 
 Model Context Protocol (MCP) is an open protocol that standardizes how applications provide context to Large Language Models (LLMs). MCP enables communication between the system and locally running MCP servers that provide additional tools and resources to extend LLM capabilities.
 
-## Setting Up MCP Server
+## MCP Commands
+
+ThothCTL provides several MCP-related commands:
+
+```bash
+thothctl mcp [OPTIONS] COMMAND [ARGS]...
+```
+
+Available commands:
+
+- `server` - Start the MCP server for ThothCTL
+- `register` - Register the MCP server with Amazon Q
+- `status` - Check the status of the MCP server
+
+For detailed documentation on each command, see the [MCP Command Documentation](./framework/commands/mcp/mcp.md).
 
 ### Starting the MCP Server
 
 To start the ThothCTL MCP server:
 
 ```bash
-thothctl mcp --port 8080
+thothctl mcp server -p 8080
 ```
 
 This will start the MCP server on port 8080 (default).
 
-### Using the Convenience Script
-
-Alternatively, you can use the provided convenience script:
-
-```bash
-./scripts/run_mcp_server.sh 8080
-```
-
-## Registering with Amazon Q
+### Registering with Amazon Q
 
 To use ThothCTL with Amazon Q, you need to register the MCP server with the Q CLI:
 
 ```bash
- q chat "List all ThothCTL projects using the MCP integration"
+q mcp add thothctl http://localhost:8080
 ```
 
-Once registered, you can interact with ThothCTL through Amazon Q using natural language.
+Once registered, you can interact with ThothCTL through Amazon Q using natural language:
+
+```bash
+q chat "List all ThothCTL projects using the MCP integration"
+```
+
+### Checking Server Status
+
+To check if the MCP server is running:
+
+```bash
+thothctl mcp status
+```
 
 ## Example Interactions
 
@@ -44,21 +64,36 @@ With the MCP server running and registered with Amazon Q, you can use natural la
 - "Scan my infrastructure code for security issues"
 - "Generate IaC for my project"
 - "Create an inventory of my infrastructure components"
+- "Initialize a new project with ThothCTL"
 
 ## Available Tools
 
 The MCP server exposes the following ThothCTL commands as tools:
 
-- `thothctl_init` - Initialize and setup project configurations
-- `thothctl_list` - List Projects managed by thothctl locally
+### Project Management
+- `thothctl_init_project` - Initialize and setup project configurations
+- `thothctl_remove_project` - Remove a project managed by thothctl
+- `thothctl_get_projects` - Get list of projects managed by thothctl
+
+### Space Management
+- `thothctl_init_space` - Initialize and setup space configurations
+- `thothctl_remove_space` - Remove a space managed by thothctl
+- `thothctl_get_spaces` - Get list of spaces managed by thothctl
+- `thothctl_get_projects_in_space` - Get list of projects in a specific space
+
+### Listing
+- `thothctl_list_projects` - List projects managed by thothctl locally
+- `thothctl_list_spaces` - List spaces managed by thothctl locally
+
+### Infrastructure Management
 - `thothctl_scan` - Scan infrastructure code for security issues
 - `thothctl_inventory` - Create Inventory for the iac composition
 - `thothctl_generate` - Generate IaC from rules, use cases, and components
 - `thothctl_document` - Initialize and setup project documentation
 - `thothctl_check` - Check infrastructure code for compliance
 - `thothctl_project` - Convert, clean up and manage the current project
-- `thothctl_remove` - Remove Projects managed by thothctl
-- `thothctl_get_projects` - Get list of projects managed by thothctl
+
+### Utility
 - `thothctl_version` - Get ThothCTL version
 
 ## Architecture
@@ -70,6 +105,23 @@ The MCP server follows the HTTP-based MCP protocol:
 3. The LLM executes a tool via a POST to `/execute` with the tool name and parameters
 4. The server executes the corresponding ThothCTL command and returns the results
 
+## Space Management
+
+The space management features allow you to:
+
+- Create logical groupings of projects
+- Share credentials and configurations across projects in the same space
+- Maintain consistent version control, terraform, and orchestration settings
+- Simplify management of related projects
+
 ## Security Considerations
 
 The MCP server is designed to run locally and should not be exposed to the public internet. It does not implement authentication or encryption, as it's intended for local use only.
+
+## Benefits of MCP Integration
+
+- **Increased Developer Productivity**: Interact with ThothCTL using natural language
+- **Simplified Workflows**: Combine multiple ThothCTL commands in a single request
+- **Contextual Awareness**: AI assistants can understand the context of your projects
+- **Reduced Learning Curve**: New team members can use ThothCTL without memorizing commands
+- **Enhanced Collaboration**: Share complex ThothCTL workflows through natural language descriptions
