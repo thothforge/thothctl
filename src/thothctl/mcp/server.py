@@ -328,7 +328,25 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             }
         ]
         
-        return tools
+        # Fix the tool names to match what's expected by the command mapping
+        fixed_tools = []
+        for tool in tools:
+            if tool["name"] == "thothctl_init_project":
+                tool_copy = tool.copy()
+                tool_copy["name"] = "thothctl_init"
+                fixed_tools.append(tool_copy)
+            elif tool["name"] == "thothctl_list_projects":
+                tool_copy = tool.copy()
+                tool_copy["name"] = "thothctl_list"
+                fixed_tools.append(tool_copy)
+            elif tool["name"] == "thothctl_remove_project":
+                tool_copy = tool.copy()
+                tool_copy["name"] = "thothctl_remove"
+                fixed_tools.append(tool_copy)
+            else:
+                fixed_tools.append(tool)
+        
+        return fixed_tools
     
     def _handle_execute_request(self, request: Dict[str, Any]) -> None:
         """Handle request to execute a tool.
@@ -363,8 +381,10 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         
         # Map tool name to thothctl command
         command_map = {
+            "thothctl_init": ["init", "project"],
             "thothctl_init_project": ["init", "project"],
             "thothctl_init_space": ["init", "space"],
+            "thothctl_list": ["list", "projects"],
             "thothctl_list_projects": ["list", "projects"],
             "thothctl_list_spaces": ["list", "spaces"],
             "thothctl_scan": ["scan"],
@@ -373,6 +393,7 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             "thothctl_document": ["document"],
             "thothctl_check": ["check"],
             "thothctl_project": ["project"],
+            "thothctl_remove": ["remove", "project"],
             "thothctl_remove_project": ["remove", "project"],
             "thothctl_remove_space": ["remove", "space"]
         }
@@ -393,7 +414,7 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             cmd.append("--debug")
             
         # Handle specific command parameters
-        if tool_name == "thothctl_init_project":
+        if tool_name in ["thothctl_init", "thothctl_init_project"]:
             if "project_name" in parameters:
                 cmd.extend(["-pj", parameters["project_name"]])
             if "space" in parameters:
@@ -407,7 +428,7 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             if "vcs_provider" in parameters:
                 cmd.extend(["--vcs-provider", parameters["vcs_provider"]])
                 
-        elif tool_name == "thothctl_remove_project":
+        elif tool_name in ["thothctl_remove", "thothctl_remove_project"]:
             if "project_name" in parameters:
                 cmd.extend(["-pj", parameters["project_name"]])
                 
