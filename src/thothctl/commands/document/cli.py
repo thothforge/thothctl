@@ -54,5 +54,5 @@ class DocumentCLI(click.MultiCommand):
 
 @click.group(cls=DocumentCLI)
 def cli():
-    """Initialize and setup project configurations"""
+    """Create Documentation for your projects"""
     pass

@@ -39,7 +39,7 @@ This will start the MCP server on port 8080 (default).
 To use ThothCTL with Amazon Q, you need to register the MCP server with the Q CLI:
 
 ```bash
-q mcp add thothctl http://localhost:8080
+q mcp add --name thothctl --command "thothctl mcp server"
 ```
 
 Once registered, you can interact with ThothCTL through Amazon Q using natural language:
@@ -55,6 +55,65 @@ To check if the MCP server is running:
 ```bash
 thothctl mcp status
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+#### MCP Server Fails to Load
+
+If you encounter an error like:
+
+```
+✗ thothctl has failed to load after 0.02 s
+ - No such file or directory (os error 2)
+ - run with Q_LOG_LEVEL=trace and see $TMPDIR/qchat for detail
+```
+
+This typically means one of the following:
+
+1. **ThothCTL is not in your PATH**: Ensure that ThothCTL is properly installed and available in your system PATH.
+   ```bash
+   # Verify ThothCTL is in your PATH
+   which thothctl
+   
+   # If not found, add it to your PATH or reinstall
+   pip install --user thothctl
+   ```
+
+2. **MCP Server is not running**: Start the MCP server before using it with Amazon Q.
+   ```bash
+   # Start the MCP server in a separate terminal
+   thothctl mcp server
+   ```
+
+3. **MCP configuration file is missing or corrupted**: Amazon Q Developer CLI stores MCP server configurations in JSON files.
+   
+   **Configuration file locations**:
+   - Global Configuration: `~/.aws/amazonq/mcp.json` - Applies to all workspaces
+   - Workspace Configuration: `.amazonq/mcp.json` - Specific to the current workspace
+   
+   The MCP configuration file should have this structure:
+   ```json
+   {
+     "mcpServers": {
+       "thothctl": {
+         "command": "thothctl",
+         "args": ["mcp", "server"],
+         "env": {},
+         "timeout": 60000
+       }
+     }
+   }
+   ```
+
+   To recreate the configuration:
+   ```bash
+   q mcp remove thothctl
+   q mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
+   ```
+
+For more detailed troubleshooting, see the [MCP Command Documentation](./framework/commands/mcp/mcp.md#troubleshooting).
 
 ## Example Interactions
 
