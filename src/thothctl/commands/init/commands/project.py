@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional, List, Any
 
 import click
+from click.shell_completion import CompletionItem
 
 from ....core.commands import ClickCommand
 from ....services.init.project.project import ProjectService
@@ -48,15 +49,14 @@ class ProjectInitCommand(ClickCommand):
         vcs_provider = version_control_system_service
         if space:
             self.ui.print_info(f"🌌 Using space: {space}")
-            # Try to get VCS provider from space
-            space_vcs_provider = get_space_vcs_provider(space)
-            if space_vcs_provider:
-                vcs_provider = space_vcs_provider
-                self.ui.print_info(f"🔗 Using VCS provider from space: {vcs_provider}")
-
+            space_vcs = get_space_vcs_provider(space)
+            if space_vcs:
+                vcs_provider = space_vcs
+                self.ui.print_info(f"🔄 Using VCS provider from space: {vcs_provider}")
+        
         # Initialize project
-        with self.ui.status_spinner("🔧 Creating project structure..."):
-            self.project_service.initialize_project(project_name, project_type, reuse=reuse, space=space)
+        with self.ui.status_spinner("🏗️ Creating project structure..."):
+            self.project_service.initialize_project(project_name, project_type=project_type, reuse=reuse, space=space)
 
         # Setup configuration if requested
         if setup_conf:
@@ -67,25 +67,17 @@ class ProjectInitCommand(ClickCommand):
         if reuse:
             # Pass the appropriate parameters based on VCS provider
             vcs_params = {}
-            if vcs_provider == "azure_repos":
+            if vcs_provider == "azure_repos" and az_org_name:
                 vcs_params["az_org_name"] = az_org_name
-            elif vcs_provider == "github":
+            elif vcs_provider == "github" and github_username:
                 vcs_params["github_username"] = github_username
-                
-            self.project_service.setup_version_control(
-                project_name=project_name,
-                project_path=project_path,
-                vcs_provider=vcs_provider,
-                r_list=r_list,
-                space=space,
-                **vcs_params
-            )
             
+            with self.ui.status_spinner("🔄 Setting up version control..."):
+                self.project_service.setup_azure_repos(project_name, **vcs_params)
+        
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
-    def get_completions(
-            self, ctx: click.Context, args: List[str], incomplete: str
-    ) -> List[Any]:
+    def get_completions(self, ctx: click.Context, args: List[str], incomplete: str) -> List[click.shell_completion.CompletionItem]:
         """
         Provide context-aware autocompletion
         """
@@ -101,13 +93,6 @@ class ProjectInitCommand(ClickCommand):
                 '--backup': ['true', 'false']
             }
         }
-
-        # Create a CompletionItem class if it doesn't exist in this version of Click
-        class CompletionItem:
-            def __init__(self, value, help=None):
-                self.value = value
-                self.help = help
-                self.type = "plain"
 
         # If no args provided, suggest subcommands
         if not args:
@@ -147,15 +132,16 @@ class ProjectInitCommand(ClickCommand):
 # Create the Click command
 cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
     click.option(
-        "-pj",
+        "-p",
         "--project-name",
         prompt="Project name",
         help="Name of the project",
         required=True,
     ),
     click.option(
-        "-t",
+        "-pt",
         "--project-type",
+        default="terraform",
         type=click.Choice(
             [
                 "terraform",
@@ -165,18 +151,16 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
                 "terragrunt_project",
                 "custom",
             ],
-            case_sensitive=False,
+            case_sensitive=True,
         ),
-        default="terraform",
-        show_default=True,
         help="Type of project to create",
     ),
     click.option(
-        "-sp",
-        "--setup_conf",
-        help="Setup .thothcf.toml for thothctl configuration file",
+        "-sc",
+        "--setup-conf",
         is_flag=True,
-        default=False,
+        default=True,
+        help="Setup project configuration",
     ),
     click.option(
         "-vcss",
@@ -193,17 +177,20 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         default=False,
     ),
     click.option(
-        "-az-org", "--az-org-name", 
+        "-az-org", 
+        "--az-org-name", 
         help="Azure organization name (for Azure Repos)", 
         default=None
     ),
     click.option(
-        "-gh-user", "--github-username", 
+        "-gh-user", 
+        "--github-username", 
         help="GitHub username or organization (for GitHub)", 
         default=None
     ),
     click.option(
-        "-r-list", 
+        "-r-list",
+        "--r-list",
         help="List all available templates", 
         is_flag=True, 
         default=False

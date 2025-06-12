@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 import click
+from click.shell_completion import CompletionItem
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,14 @@ class CheckCLI(click.MultiCommand):
 
         commands.sort()
         return commands
+
+    def shell_complete(self, ctx: click.Context, incomplete: str):
+        """
+        Support shell completion for subcommands.
+        """
+        commands = self.list_commands(ctx)
+        return [CompletionItem(cmd) for cmd in commands if cmd.startswith(incomplete)]
+
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:

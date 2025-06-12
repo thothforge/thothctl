@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional, List
 
 import click
+from click.shell_completion import CompletionItem
 
 from ....core.commands import ClickCommand
 from ....services.init.space.space import SpaceService
@@ -54,10 +55,13 @@ class SpaceInitCommand(ClickCommand):
 
     def get_completions(
             self, ctx: click.Context, args: List[str], incomplete: str
-    ) -> List[tuple]:
+    ) -> List[click.shell_completion.CompletionItem]:
         """
         Provide context-aware autocompletion
         """
+        # Import CompletionItem here to avoid circular imports
+        from click.shell_completion import CompletionItem
+        
         # Define subcommands and their options
         completions = {
             'create': {
@@ -71,7 +75,7 @@ class SpaceInitCommand(ClickCommand):
 
         # If no args provided, suggest subcommands
         if not args:
-            return [(cmd, f"Command to {cmd} space")
+            return [CompletionItem(cmd, help=f"Command to {cmd} space")
                     for cmd in completions.keys()
                     if cmd.startswith(incomplete)]
 
@@ -83,7 +87,7 @@ class SpaceInitCommand(ClickCommand):
         # If incomplete starts with '-', suggest options for current subcommand
         if incomplete.startswith('-'):
             return [
-                (opt, f"Option for {opt.lstrip('-')}")
+                CompletionItem(opt, help=f"Option for {opt.lstrip('-')}")
                 for opt in completions[subcommand].keys()
                 if opt.startswith(incomplete)
             ]
@@ -94,7 +98,7 @@ class SpaceInitCommand(ClickCommand):
         if current_option:
             values = completions[subcommand][current_option]
             return [
-                (val, f"Value for {current_option}")
+                CompletionItem(val, help=f"Value for {current_option}")
                 for val in values
                 if val.startswith(incomplete)
             ]

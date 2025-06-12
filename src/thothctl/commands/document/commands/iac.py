@@ -1,5 +1,6 @@
 import logging
 import click
+from click.shell_completion import CompletionItem
 from typing import Any, List, Optional
 from pathlib import Path
 from ....core.cli_ui import CliUI
@@ -18,13 +19,14 @@ class DocumentIaCCommand(ClickCommand):
         self.supported_iac_types = ['terraform', 'terragrunt',
                                     'terraform-terragrunt']  # 'cloudformation', 'ansible', 'kubernetes']
 
-    def get_completions(self, ctx: click.Context, args: List[str], incomplete: str) -> List[tuple]:
+    def get_completions(self, ctx: click.Context, args: List[str], incomplete: str) -> List[click.shell_completion.CompletionItem]:
         """Provide autocompletion for IaC types and paths"""
         # If completing the IaC type
         if '--type' in args:
             return [
-                (iac_type, f"Document {iac_type} infrastructure code")
+                CompletionItem(iac_type, help=f"Document {iac_type} infrastructure code")
                 for iac_type in self.supported_iac_types
+                
                 if iac_type.startswith(incomplete)
             ]
 
