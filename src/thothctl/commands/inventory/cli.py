@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import click
+from click.shell_completion import CompletionItem
 
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ class InventoryCLI(click.MultiCommand):
         Support shell completion for subcommands.
         """
         commands = self.list_commands(ctx)
-        return [(cmd, None) for cmd in commands if cmd.startswith(incomplete)]
+        return [click.shell_completion.CompletionItem(cmd) for cmd in commands if cmd.startswith(incomplete)]
 
 
 @click.group(cls=InventoryCLI)
