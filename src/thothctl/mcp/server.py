@@ -10,6 +10,10 @@ import subprocess
 
 from ..common.common import list_projects, list_spaces, get_project_space, get_projects_in_space, get_space_details
 from ..version import __version__
+from ..core.cli_ui import CliUI
+
+# Initialize CLI UI
+ui = CliUI()
 
 # Configure logging
 logging.basicConfig(
@@ -441,7 +445,16 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         # Execute the command
         try:
             logger.info(f"Executing command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            ui.print_info(f"Executing command: {' '.join(cmd)}")
+            
+            with ui.status_spinner("Executing command..."):
+                result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                ui.print_success("Command executed successfully")
+            else:
+                ui.print_error(f"Command failed with exit code {result.returncode}")
+                ui.print_error(result.stderr)
             
             response = {
                 "stdout": result.stdout,
@@ -453,24 +466,28 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
         except Exception as e:
             logger.error(f"Error executing command: {e}")
+            ui.print_error(f"Error executing command: {str(e)}")
             self._set_headers(500)
             self.wfile.write(json.dumps({"error": str(e)}).encode())
     
     def _handle_get_projects(self) -> None:
         """Handle request to get list of projects."""
         try:
-            projects = list_projects()
+            with ui.status_spinner("Getting projects..."):
+                projects = list_projects()
+                
+                # Add space information to each project
+                project_data = []
+                if projects:
+                    for project_name in projects:
+                        space = get_project_space(project_name)
+                        project_info = {
+                            "name": project_name,
+                            "space": space
+                        }
+                        project_data.append(project_info)
             
-            # Add space information to each project
-            project_data = []
-            if projects:
-                for project_name in projects:
-                    space = get_project_space(project_name)
-                    project_info = {
-                        "name": project_name,
-                        "space": space
-                    }
-                    project_data.append(project_info)
+            ui.print_success(f"Found {len(project_data)} projects")
             
             response = {
                 "projects": project_data if projects else []
@@ -480,24 +497,28 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
         except Exception as e:
             logger.error(f"Error getting projects: {e}")
+            ui.print_error(f"Error getting projects: {str(e)}")
             self._set_headers(500)
             self.wfile.write(json.dumps({"error": str(e)}).encode())
     
     def _handle_get_spaces(self) -> None:
         """Handle request to get list of spaces."""
         try:
-            spaces = list_spaces()
-            space_details = get_space_details()
+            with ui.status_spinner("Getting spaces..."):
+                spaces = list_spaces()
+                space_details = get_space_details()
+                
+                # Prepare space data with additional information
+                space_data = []
+                for space_name in spaces:
+                    space_info = {
+                        "name": space_name,
+                        "projects": get_projects_in_space(space_name),
+                        "details": space_details.get(space_name, {})
+                    }
+                    space_data.append(space_info)
             
-            # Prepare space data with additional information
-            space_data = []
-            for space_name in spaces:
-                space_info = {
-                    "name": space_name,
-                    "projects": get_projects_in_space(space_name),
-                    "details": space_details.get(space_name, {})
-                }
-                space_data.append(space_info)
+            ui.print_success(f"Found {len(space_data)} spaces")
             
             response = {
                 "spaces": space_data if spaces else []
@@ -507,6 +528,7 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
         except Exception as e:
             logger.error(f"Error getting spaces: {e}")
+            ui.print_error(f"Error getting spaces: {str(e)}")
             self._set_headers(500)
             self.wfile.write(json.dumps({"error": str(e)}).encode())
     
@@ -518,12 +540,16 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         """
         space_name = parameters.get("space_name")
         if not space_name:
+            ui.print_error("Space name is required")
             self._set_headers(400)
             self.wfile.write(json.dumps({"error": "Space name is required"}).encode())
             return
             
         try:
-            projects = get_projects_in_space(space_name)
+            with ui.status_spinner(f"Getting projects in space {space_name}..."):
+                projects = get_projects_in_space(space_name)
+            
+            ui.print_success(f"Found {len(projects)} projects in space {space_name}")
             
             response = {
                 "space": space_name,
@@ -534,12 +560,15 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
         except Exception as e:
             logger.error(f"Error getting projects in space: {e}")
+            ui.print_error(f"Error getting projects in space: {str(e)}")
             self._set_headers(500)
             self.wfile.write(json.dumps({"error": str(e)}).encode())
     
     def _handle_get_version(self) -> None:
         """Handle request to get ThothCTL version."""
         try:
+            ui.print_info(f"ThothCTL version: {__version__}")
+            
             response = {
                 "version": __version__
             }
@@ -548,6 +577,7 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
         except Exception as e:
             logger.error(f"Error getting version: {e}")
+            ui.print_error(f"Error getting version: {str(e)}")
             self._set_headers(500)
             self.wfile.write(json.dumps({"error": str(e)}).encode())
 
@@ -560,10 +590,11 @@ def run_server(port: int = DEFAULT_PORT) -> None:
     """
     server_address = ("", port)
     httpd = HTTPServer(server_address, ThothCTLMCPHandler)
-    logger.info(f"Starting ThothCTL MCP server on port {port}")
-    logger.info(f"ThothCTL version: {__version__}")
+    ui.print_info(f"Starting ThothCTL MCP server on port {port}")
+    ui.print_info(f"ThothCTL version: {__version__}")
     try:
+        ui.print_success(f"Server is ready at http://localhost:{port}")
         httpd.serve_forever()
     except KeyboardInterrupt:
-        logger.info("Stopping server...")
+        ui.print_info("Stopping server...")
         httpd.server_close()

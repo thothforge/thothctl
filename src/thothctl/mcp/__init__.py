@@ -1,5 +1,15 @@
-"""MCP Server for ThothCTL."""
+"""MCP Server for ThothCTL.
 
-from .server import run_server
+This module is deprecated. Please use thothctl.services.mcp instead.
+"""
 
-__all__ = ["run_server"]
+import warnings
+from ..services.mcp import run_server, serve
+
+warnings.warn(
+    "The thothctl.mcp module is deprecated. Please use thothctl.services.mcp instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+__all__ = ["run_server", "serve"]

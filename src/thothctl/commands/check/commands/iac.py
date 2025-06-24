@@ -321,16 +321,49 @@ class CheckIaCCommand(ClickCommand):
 
             self.console.print(tree)
 
-        # Display resource types
+        # Display resource types with change information
         if summary["resource_types"]:
-            self.console.print("\n[bold]Resource Types:[/bold]")
+            self.console.print("\n[bold]Resource Types with Change Information:[/bold]")
 
             resource_table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
             resource_table.add_column("Resource Type")
             resource_table.add_column("Count")
+            resource_table.add_column("Change Type")  # New column
 
+            # Create a mapping of resource types to their change types
+            resource_change_types = {}
+            
+            for result in results:
+                # Process create actions
+                for resource in result["changes"]["create"]:
+                    resource_type = resource.get("type", "unknown")
+                    resource_change_types[resource_type] = "Create"
+                    
+                # Process update actions
+                for resource in result["changes"]["update"]:
+                    resource_type = resource.get("type", "unknown")
+                    resource_change_types[resource_type] = "Update"
+                    
+                # Process delete actions
+                for resource in result["changes"]["delete"]:
+                    resource_type = resource.get("type", "unknown")
+                    resource_change_types[resource_type] = "Delete"
+
+            # Add rows to the table with change type information
             for resource_type, count in sorted(summary["resource_types"].items()):
-                resource_table.add_row(resource_type, str(count))
+                change_type = resource_change_types.get(resource_type, "No Change")
+                
+                # Color-code the change type
+                if change_type == "Create":
+                    formatted_change = f"[green]{change_type}[/green]"
+                elif change_type == "Update":
+                    formatted_change = f"[yellow]{change_type}[/yellow]"
+                elif change_type == "Delete":
+                    formatted_change = f"[red]{change_type}[/red]"
+                else:
+                    formatted_change = f"[blue]{change_type}[/blue]"
+                    
+                resource_table.add_row(resource_type, str(count), formatted_change)
 
             self.console.print(resource_table)
 
@@ -391,14 +424,34 @@ class CheckIaCCommand(ClickCommand):
                         f.write(f"- `{resource['address']}` ({resource['provider']})\n")
                 f.write("\n")
 
-            # Resource types section
+            # Resource types section with change information
             if summary["resource_types"]:
-                f.write("## Resource Types\n\n")
-                f.write("| Resource Type | Count |\n")
-                f.write("|--------------|-------|\n")
+                f.write("## Resource Types with Change Information\n\n")
+                f.write("| Resource Type | Count | Change Type |\n")
+                f.write("|--------------|-------|-------------|\n")
+
+                # Create a mapping of resource types to their change types
+                resource_change_types = {}
+                
+                for result in results:
+                    # Process create actions
+                    for resource in result["changes"]["create"]:
+                        resource_type = resource.get("type", "unknown")
+                        resource_change_types[resource_type] = "Create"
+                        
+                    # Process update actions
+                    for resource in result["changes"]["update"]:
+                        resource_type = resource.get("type", "unknown")
+                        resource_change_types[resource_type] = "Update"
+                        
+                    # Process delete actions
+                    for resource in result["changes"]["delete"]:
+                        resource_type = resource.get("type", "unknown")
+                        resource_change_types[resource_type] = "Delete"
 
                 for resource_type, count in sorted(summary["resource_types"].items()):
-                    f.write(f"| {resource_type} | {count} |\n")
+                    change_type = resource_change_types.get(resource_type, "No Change")
+                    f.write(f"| {resource_type} | {count} | {change_type} |\n")
 
                 f.write("\n")
 
