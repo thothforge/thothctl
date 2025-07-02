@@ -227,6 +227,31 @@ class InventoryVersionManager:
             logger.error(f"Failed to check versions: {str(e)}")
             return inventory
 
+    def _is_local_module(self, source: str) -> bool:
+        """
+        Check if a module source is a local path.
+        
+        Args:
+            source: The source string from the module
+            
+        Returns:
+            True if the source is a local path, False otherwise
+        """
+        if not source or source == "Null":
+            return False
+            
+        # Check for local paths
+        return (source.startswith("./") or 
+                source.startswith("../") or 
+                source.startswith("/") or
+                # Check for relative paths with multiple levels
+                source.startswith("../../") or
+                source.startswith("../../../") or
+                source.startswith("../../../../") or
+                source.startswith("../../../../../") or
+                # Check for absolute paths without protocol
+                (not source.startswith("http") and not source.startswith("git") and "/" in source and not source.count("/") == 2))
+
     async def _process_component(
         self, checker: VersionChecker, component: Dict[str, Any]
     ) -> None:
@@ -241,6 +266,12 @@ class InventoryVersionManager:
 
             resource = component.get("source", [None])[0]
             if not resource:
+                self._set_null_values(component)
+                return
+            
+            # Skip version checking for local modules
+            if self._is_local_module(resource):
+                logger.debug(f"Skipping version check for local module: {resource}")
                 self._set_null_values(component)
                 return
                 

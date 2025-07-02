@@ -90,11 +90,66 @@ class ReportService:
                         text-align: center;
                         margin-bottom: 30px;
                     }}
+                    h2 {{
+                        color: #333;
+                        margin-top: 30px;
+                        margin-bottom: 15px;
+                        border-bottom: 2px solid #4CAF50;
+                        padding-bottom: 5px;
+                    }}
                     .project-info {{
                         background-color: #e7f3fe;
                         border-left: 6px solid #2196F3;
                         padding: 10px;
                         margin-bottom: 20px;
+                    }}
+                    .summary-table {{
+                        width: 50%;
+                        margin: 20px auto;
+                        border-collapse: collapse;
+                        background-color: white;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }}
+                    .summary-table th {{
+                        background-color: #2196F3;
+                        color: white;
+                        padding: 12px;
+                        text-align: left;
+                        font-weight: bold;
+                    }}
+                    .summary-table td {{
+                        padding: 12px;
+                        border-bottom: 1px solid #ddd;
+                    }}
+                    .summary-table tr:last-child td {{
+                        border-bottom: none;
+                    }}
+                    .summary-table .metric {{
+                        font-weight: bold;
+                        color: #333;
+                        width: 60%;
+                    }}
+                    .summary-table .value {{
+                        text-align: right;
+                        font-weight: bold;
+                    }}
+                    .value-updated {{
+                        color: #4CAF50;
+                    }}
+                    .value-outdated {{
+                        color: #f44336;
+                    }}
+                    .value-unknown {{
+                        color: #ff9800;
+                    }}
+                    .value-local {{
+                        color: #2196F3;
+                    }}
+                    .summary-container {{
+                        text-align: center;
+                        margin: 30px 0;
                     }}
                 </style>
             </head>
@@ -105,10 +160,20 @@ class ReportService:
                     <p><strong>Project Type:</strong> {project_type}</p>
                     <p><strong>Generated:</strong> {timestamp}</p>
                 </div>
+                
+                <div class="summary-container">
+                    <h2>Summary</h2>
+                    {summary_table}
+                </div>
+                
+                <h2>Detailed Inventory</h2>
                 {content}
             </body>
             </html>
             """
+
+            # Generate summary statistics
+            summary_html = self._generate_summary_html(inventory)
 
             # Convert inventory to HTML
             html_content = json2html.convert(
@@ -122,6 +187,7 @@ class ReportService:
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(html_template.format(
                     content=html_content,
+                    summary_table=summary_html,
                     project_name=inventory.get("projectName", "Unknown"),
                     project_type=inventory.get("projectType", "Terraform"),
                     timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -250,6 +316,131 @@ class ReportService:
             logger.error(f"Failed to print inventory to console: {str(e)}")
             self.console.print(f"[red]Error displaying inventory: {str(e)}[/red]")
 
+    def _generate_summary_html(self, inventory: Dict[str, Any]) -> str:
+        """Generate HTML summary table from inventory data."""
+        try:
+            # Calculate summary statistics using the same logic as CLI
+            total_components = len(inventory.get("components", []))
+            
+            # Count components by status (for version checking)
+            outdated_components = 0
+            updated_components = 0
+            unknown_components = 0
+            
+            # Count local modules based on source, not status
+            local_components = 0
+            
+            for component_group in inventory.get("components", []):
+                for component in component_group.get("components", []):
+                    # Count by version status
+                    status = component.get("status", "Unknown")
+                    if status == "Outdated":
+                        outdated_components += 1
+                    elif status == "Updated":
+                        updated_components += 1
+                    elif status == "Unknown" or status == "Null":
+                        unknown_components += 1
+                    
+                    # Count local modules by source
+                    source = component.get("source", [""])[0] if component.get("source") else ""
+                    if self._is_local_source(source):
+                        local_components += 1
+
+            # Count framework-specific modules
+            project_type = inventory.get('projectType', 'terraform').lower()
+            terragrunt_modules = 0
+            terraform_modules = 0
+            
+            for component_group in inventory.get("components", []):
+                for component in component_group.get("components", []):
+                    comp_type = component.get("type", "").lower()
+                    if "terragrunt" in comp_type:
+                        terragrunt_modules += 1
+                    elif "module" in comp_type:
+                        terraform_modules += 1
+
+            # Generate HTML table
+            summary_html = f"""
+            <table class="summary-table">
+                <tr>
+                    <td class="metric">Project Type</td>
+                    <td class="value">{inventory.get("projectType", "Terraform")}</td>
+                </tr>
+                <tr>
+                    <td class="metric">Total Components</td>
+                    <td class="value">{total_components}</td>
+                </tr>
+                <tr>
+                    <td class="metric">Updated Components</td>
+                    <td class="value value-updated">{updated_components}</td>
+                </tr>
+                <tr>
+                    <td class="metric">Outdated Components</td>
+                    <td class="value value-outdated">{outdated_components}</td>
+                </tr>
+                <tr>
+                    <td class="metric">Unknown Status</td>
+                    <td class="value value-unknown">{unknown_components}</td>
+                </tr>
+            """
+            
+            # Add local modules count if any exist
+            if local_components > 0:
+                summary_html += f"""
+                <tr>
+                    <td class="metric">Local Modules</td>
+                    <td class="value value-local">{local_components}</td>
+                </tr>
+                """
+            
+            # Add terragrunt stacks count for terraform-terragrunt projects
+            if project_type == 'terraform-terragrunt':
+                terragrunt_stacks_count = inventory.get('terragrunt_stacks_count', 0)
+                summary_html += f"""
+                <tr>
+                    <td class="metric">Terragrunt Stacks</td>
+                    <td class="value">{terragrunt_stacks_count}</td>
+                </tr>
+                """
+            
+            # Add framework-specific rows if applicable
+            if 'terragrunt' in project_type and terragrunt_modules > 0:
+                summary_html += f"""
+                <tr>
+                    <td class="metric">Terragrunt Modules</td>
+                    <td class="value">{terragrunt_modules}</td>
+                </tr>
+                """
+            
+            if 'terraform' in project_type and terraform_modules > 0:
+                summary_html += f"""
+                <tr>
+                    <td class="metric">Terraform Modules</td>
+                    <td class="value">{terraform_modules}</td>
+                </tr>
+                """
+            
+            summary_html += "</table>"
+            
+            return summary_html
+
+        except Exception as e:
+            logger.error(f"Failed to generate summary HTML: {str(e)}")
+            return f"<p>Error generating summary: {str(e)}</p>"
+
+    def _is_local_source(self, source: str) -> bool:
+        """Check if a source is a local path."""
+        if not source or source == "Null":
+            return False
+            
+        return (source.startswith("./") or 
+                source.startswith("../") or 
+                source.startswith("/") or
+                source.startswith("../../") or
+                source.startswith("../../../") or
+                source.startswith("../../../../") or
+                (not source.startswith("http") and not source.startswith("git") and "/" in source and not source.count("/") == 2))
+
     def _print_summary(self, inventory: Dict[str, Any]) -> None:
         """Print inventory summary statistics."""
         try:
@@ -258,12 +449,24 @@ class ReportService:
                 for group in inventory.get("components", [])
             )
 
+            # Count by version status
             status_counts = {"Updated": 0, "Outdated": 0, "Unknown": 0}
+            
+            # Count local modules by source
+            local_modules = 0
 
             for group in inventory.get("components", []):
                 for component in group.get("components", []):
+                    # Count by version status
                     status = component.get("status", "Unknown")
+                    if status == "Null":
+                        status = "Unknown"
                     status_counts[status] = status_counts.get(status, 0) + 1
+                    
+                    # Count local modules by source
+                    source = component.get("source", [""])[0] if component.get("source") else ""
+                    if self._is_local_source(source):
+                        local_modules += 1
 
             summary_table = Table(
                 title="Summary",
@@ -286,6 +489,18 @@ class ReportService:
             summary_table.add_row(
                 "Unknown Status", f"[yellow]{status_counts['Unknown']}[/yellow]"
             )
+
+            # Add local modules count if any exist
+            if local_modules > 0:
+                summary_table.add_row(
+                    "Local Modules", f"[blue]{local_modules}[/blue]"
+                )
+
+            # Add terragrunt stacks count for terraform-terragrunt projects
+            project_type = inventory.get('projectType', 'terraform').lower()
+            if project_type == 'terraform-terragrunt':
+                terragrunt_stacks_count = inventory.get('terragrunt_stacks_count', 0)
+                summary_table.add_row("Terragrunt Stacks", str(terragrunt_stacks_count))
 
             self.console.print(Align.center(summary_table))
             self.console.print()

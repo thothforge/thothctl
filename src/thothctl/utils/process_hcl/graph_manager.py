@@ -23,7 +23,7 @@ class DependencyGraphManager:
     """Manages dependency graph operations."""
 
     # Constants
-    TERRAGRUNT_CMD = "terragrunt graph-dependencies --terragrunt-non-interactive"
+    TERRAGRUNT_CMD = "terragrunt dag graph --non-interactive"
     DOT_CMD = "dot -Tdot_json"
 
     def __init__(self):

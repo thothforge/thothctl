@@ -50,6 +50,7 @@ class IaCInvCommand(ClickCommand):
         inventory_action: str = "create",
         auto_approve: bool = False,
         framework_type: str = "auto",
+        complete: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -61,6 +62,8 @@ class IaCInvCommand(ClickCommand):
             inventory_path: Path to inventory
             inventory_action: Action to perform (create/update/list/restore)
             auto_approve: Flag for automatic approval
+            framework_type: Framework type to analyze
+            complete: Flag to exclude .terraform and .terragrunt-cache folders
         """
         try:
             ctx = click.get_current_context()
@@ -81,6 +84,7 @@ class IaCInvCommand(ClickCommand):
                         report_type=report_type,
                         reports_dir=inventory_path,
                         framework_type=framework_type,
+                        complete=complete,
                     )
                 )
             elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
@@ -115,6 +119,7 @@ class IaCInvCommand(ClickCommand):
         report_type: str = "html",
         reports_dir: Optional[str] = None,
         framework_type: str = "auto",
+        complete: bool = False,
     ) -> None:
         """
         Create infrastructure inventory from source directory.
@@ -124,6 +129,8 @@ class IaCInvCommand(ClickCommand):
             check_versions: Whether to check for latest versions
             report_type: Type of report to generate (html, json, or all)
             reports_dir: Directory to store generated reports
+            framework_type: Framework type to analyze
+            complete: Flag to exclude .terraform and .terragrunt-cache folders
         """
         try:
             with self.ui.status_spinner("Creating infrastructure inventory..."):
@@ -133,6 +140,7 @@ class IaCInvCommand(ClickCommand):
                     report_type=report_type,
                     reports_directory=reports_dir,
                     framework_type=framework_type,
+                    complete=complete,
                 )
 
             self.ui.print_success("Infrastructure inventory created successfully!")
@@ -231,12 +239,26 @@ class IaCInvCommand(ClickCommand):
             1 for comp in inventory["components"] if comp.get("status") == "Outdated"
         )
 
+        # Count local modules based on source, not status
+        local_modules = 0
+        for comp_group in inventory["components"]:
+            for component in comp_group.get("components", []):
+                source = component.get("source", [""])[0] if component.get("source") else ""
+                if self._is_local_source(source):
+                    local_modules += 1
+
         self.ui.print_info("\nInventory Summary:")
         self.ui.print_info(f"Total Components: {total_components}")
         self.ui.print_info(f"Project Type: {inventory.get('projectType', 'Terraform')}")
         
         # Display framework-specific information
         project_type = inventory.get('projectType', 'terraform')
+        
+        # Show terragrunt stacks count for terraform-terragrunt projects
+        if project_type == 'terraform-terragrunt':
+            terragrunt_stacks_count = inventory.get('terragrunt_stacks_count', 0)
+            self.ui.print_info(f"Terragrunt Stacks: {terragrunt_stacks_count}")
+        
         if 'terragrunt' in project_type:
             terragrunt_modules = sum(
                 1 for comp in inventory["components"] 
@@ -253,8 +275,25 @@ class IaCInvCommand(ClickCommand):
             )
             self.ui.print_info(f"Terraform Modules: {terraform_modules}")
 
+        # Show local modules count
+        if local_modules > 0:
+            self.ui.print_info(f"Local Modules: {local_modules}")
+
         if "version_checks" in inventory:
             self.ui.print_info(f"Outdated Components: {outdated_components}")
+
+    def _is_local_source(self, source: str) -> bool:
+        """Check if a source is a local path."""
+        if not source or source == "Null":
+            return False
+            
+        return (source.startswith("./") or 
+                source.startswith("../") or 
+                source.startswith("/") or
+                source.startswith("../../") or
+                source.startswith("../../../") or
+                source.startswith("../../../../") or
+                (not source.startswith("http") and not source.startswith("git") and "/" in source and not source.count("/") == 2))
 
 
 # Create the Click command
@@ -309,5 +348,11 @@ cli = IaCInvCommand.as_click_command(
         type=click.Choice(["auto", "terraform", "terragrunt", "terraform-terragrunt"], case_sensitive=False),
         default="auto",
         help="Framework type to analyze (auto for automatic detection)",
+    ),
+    click.option(
+        "--complete",
+        is_flag=True,
+        default=False,
+        help="Include .terraform and .terragrunt-cache folders in analysis (complete analysis)",
     ),
 )
