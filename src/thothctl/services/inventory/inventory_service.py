@@ -241,6 +241,7 @@ class InventoryService:
         complete: bool = False,
         check_providers: bool = False,
         provider_tool: str = "tofu",
+        project_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create inventory from source directory."""
         source_path = Path(source_directory).resolve()
@@ -248,6 +249,16 @@ class InventoryService:
         processed_dirs: Set[str] = set()
         terragrunt_stacks: List[str] = []  # Track terragrunt stacks
         unique_providers: Dict[str, Provider] = {}  # Track unique providers by name+version+source
+
+        # Use provided project name or get from directory
+        if not project_name:
+            # Check for root.hcl file to determine project name
+            root_hcl = source_path / "root.hcl"
+            if root_hcl.exists():
+                project_name = source_path.name
+            else:
+                # Use directory name as fallback
+                project_name = source_path.name
 
         # Detect project type
         if framework_type == "auto":
@@ -310,7 +321,7 @@ class InventoryService:
 
         # Create inventory
         inventory = Inventory(
-            project_name=source_path.name, 
+            project_name=project_name, 
             components=component_groups,
             project_type=project_type
         )
@@ -429,6 +440,28 @@ class InventoryService:
             # Parse the output and set the stack path as the module for root-level providers
             providers = self._parse_providers_output(result.stdout, stack_name)
             
+            # Clean up module paths to show just the module name
+            for provider in providers:
+                # If the module is a full path, extract just the module name
+                if provider.module and (provider.module.startswith('/') or '/' in provider.module):
+                    # Extract the basename from the path for the component
+                    if not provider.component:
+                        provider.component = os.path.basename(provider.module)
+                    provider.module = "Root"
+                elif provider.module and "module." in provider.module:
+                    # If it's a module reference, extract just the module name without the path
+                    module_name = provider.module.split('.')[-1] if '.' in provider.module else provider.module
+                    # Set the component to the module name if component is empty
+                    if not provider.component:
+                        provider.component = module_name
+                elif not provider.module:
+                    # If module is empty, set it to "Root"
+                    provider.module = "Root"
+                    
+                # If component is still empty, use the module name
+                if not provider.component and provider.module != "Root":
+                    provider.component = provider.module
+            
             logger.info(f"Found {len(providers)} providers in {stack_path}")
             for provider in providers:
                 logger.info(f"  Provider: {provider.name}, Version: {provider.version}, Source: {provider.source}, Module: {provider.module}")
@@ -453,7 +486,7 @@ class InventoryService:
             List of Provider objects
         """
         providers = []
-        current_module = stack_path
+        current_module = ""
         current_component = ""
         
         # Example output:
@@ -493,7 +526,7 @@ class InventoryService:
                         current_indent = indent
                     else:
                         current_indent = 0
-                        current_module = stack_path
+                        current_module = ""
             
             # Check if this is a module header
             module_match = re.search(module_pattern, line)
@@ -528,6 +561,22 @@ class InventoryService:
                 if module_stack:
                     module_name = ".".join(module_stack)
                 
+                # Extract just the module name without the full path
+                component_name = current_component
+                if not module_name and stack_path:
+                    # Extract just the last part of the path as the component
+                    component_name = os.path.basename(stack_path)
+                    # Use "Root" as the module name for root-level providers
+                    module_name = "Root"
+                elif module_name:
+                    # If we have a module name but no component, use the module name as the component
+                    if not component_name:
+                        # Extract just the module name without the "module." prefix
+                        if "module." in module_name:
+                            component_name = module_name.split('.')[-1]
+                        else:
+                            component_name = module_name
+                
                 # Try to extract component information from the line itself
                 # Some provider outputs might include the resource directly in the line
                 inline_component_match = re.search(r'for\s+(resource|data)\s+"([^"]+)"\s+"([^"]+)"', line)
@@ -535,8 +584,6 @@ class InventoryService:
                     resource_type = inline_component_match.group(2)
                     resource_name = inline_component_match.group(3)
                     component_name = f"{resource_type}.{resource_name}"
-                else:
-                    component_name = current_component
                 
                 providers.append(Provider(
                     name=name,

@@ -53,6 +53,7 @@ class IaCInvCommand(ClickCommand):
         complete: bool = False,
         check_providers: bool = False,
         provider_tool: str = "tofu",
+        project_name: Optional[str] = None,
         **kwargs,
     ) -> None:
         """
@@ -68,6 +69,7 @@ class IaCInvCommand(ClickCommand):
             complete: Flag to exclude .terraform and .terragrunt-cache folders
             check_providers: Flag to check provider information
             provider_tool: Tool to use for checking providers
+            project_name: Custom project name for the inventory report
         """
         try:
             ctx = click.get_current_context()
@@ -91,6 +93,7 @@ class IaCInvCommand(ClickCommand):
                         complete=complete,
                         check_providers=check_providers,
                         provider_tool=provider_tool,
+                        project_name=project_name,
                     )
                 )
             elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
@@ -128,6 +131,7 @@ class IaCInvCommand(ClickCommand):
         complete: bool = False,
         check_providers: bool = False,
         provider_tool: str = "tofu",
+        project_name: Optional[str] = None,
     ) -> None:
         """
         Create infrastructure inventory from source directory.
@@ -141,6 +145,7 @@ class IaCInvCommand(ClickCommand):
             complete: Flag to include .terraform and .terragrunt-cache folders
             check_providers: Flag to check provider information
             provider_tool: Tool to use for checking providers
+            project_name: Custom project name to use in the report
         """
         try:
             with self.ui.status_spinner("Creating infrastructure inventory..."):
@@ -153,6 +158,7 @@ class IaCInvCommand(ClickCommand):
                     complete=complete,
                     check_providers=check_providers,
                     provider_tool=provider_tool,
+                    project_name=project_name,
                 )
 
             self.ui.print_success("Infrastructure inventory created successfully!")
@@ -253,12 +259,16 @@ class IaCInvCommand(ClickCommand):
 
         # Count local modules based on source, not status
         local_modules = 0
-        total_providers = 0
-        for comp_group in inventory["components"]:
-            # Count providers
-            total_providers += len(comp_group.get("providers", []))
+        
+        # Use unique providers count if available, otherwise count all providers
+        total_providers = inventory.get("unique_providers_count", 0)
+        if total_providers == 0:
+            # Fall back to counting all providers if unique count not available
+            for comp_group in inventory["components"]:
+                total_providers += len(comp_group.get("providers", []))
             
-            # Count local modules
+        # Count local modules
+        for comp_group in inventory["components"]:
             for component in comp_group.get("components", []):
                 source = component.get("source", [""])[0] if component.get("source") else ""
                 if self._is_local_source(source):
@@ -387,5 +397,11 @@ cli = IaCInvCommand.as_click_command(
         type=click.Choice(["tofu", "terraform"], case_sensitive=False),
         default="tofu",
         help="Tool to use for checking providers (default: tofu)",
+    ),
+    click.option(
+        "--project-name",
+        "-pj",
+        help="Specify a custom project name for the inventory report",
+        default=None,
     ),
 )

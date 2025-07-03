@@ -98,16 +98,6 @@ class Inventory:
     version: int = 2
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "project_name": self.project_name,
-            "components": [component_group.to_dict() for component_group in self.components],
-            "projectType": self.project_type,
-            "version": self.version,
-        }
-    project_type: str = "terraform"
-
-    def to_dict(self) -> Dict[str, Any]:
         """Convert inventory to dictionary format."""
         return {
             "version": self.version,

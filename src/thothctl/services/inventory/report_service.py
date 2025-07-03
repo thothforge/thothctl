@@ -92,11 +92,14 @@ class ReportService:
                         margin-bottom: 30px;
                         background-color: white;
                         box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                        table-layout: fixed;
                     }}
                     .components-table th, .components-table td {{
                         border: 1px solid #ddd;
                         padding: 8px;
                         text-align: left;
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
                     }}
                     .components-table th {{
                         background-color: #2196F3;
@@ -104,6 +107,35 @@ class ReportService:
                     }}
                     .components-table tr:nth-child(even) {{
                         background-color: #f9f9f9;
+                    }}
+                    /* Column width adjustments */
+                    .components-table th:nth-child(1), .components-table td:nth-child(1) {{
+                        width: 15%;  /* Name column */
+                    }}
+                    .components-table th:nth-child(2), .components-table td:nth-child(2) {{
+                        width: 10%;  /* Version column */
+                    }}
+                    .components-table th:nth-child(3), .components-table td:nth-child(3) {{
+                        width: 25%;  /* Source column */
+                    }}
+                    .components-table th:nth-child(4), .components-table td:nth-child(4) {{
+                        width: 20%;  /* Module column */
+                    }}
+                    .components-table th:nth-child(5), .components-table td:nth-child(5) {{
+                        width: 30%;  /* Component column */
+                    }}
+                    /* Module column specific styling */
+                    .module-cell {{
+                        font-family: monospace;
+                        white-space: normal;
+                        word-break: break-word;
+                        max-width: 200px;
+                    }}
+                    /* Component column specific styling */
+                    .component-cell {{
+                        font-family: monospace;
+                        white-space: normal;
+                        word-break: break-word;
                     }}
                     h1 {{
                         color: #333;
@@ -277,8 +309,8 @@ class ReportService:
                             <td>{provider.get("name", "Unknown")}</td>
                             <td>{provider.get("version", "Unknown")}</td>
                             <td>{provider.get("source", "Unknown")}</td>
-                            <td>{module_name}</td>
-                            <td>{provider.get("component", "")}</td>
+                            <td class="module-cell">{module_name}</td>
+                            <td class="component-cell">{provider.get("component", "")}</td>
                         </tr>
                         """
                     
@@ -295,7 +327,7 @@ class ReportService:
                 f.write(html_template.format(
                     content=components_html,
                     summary_table=summary_html,
-                    project_name=inventory.get("project_name", "Unknown"),
+                    project_name=inventory.get("projectName", inventory.get("project_name", "Unknown")),
                     project_type=inventory.get("projectType", "Terraform"),
                     timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 ))
