@@ -24,6 +24,10 @@ Most inventory commands support the following options:
 - **--inventory-path PATH**: Specifies where to save inventory reports
 - **--check-versions**: Checks if modules are using the latest available versions
 - **--report-type [html|json|all]**: Specifies the type of report to generate
+- **--project-name, -pj TEXT**: Specifies a custom project name for the inventory report
+- **--check-providers**: Checks and reports provider information for each stack
+- **--provider-tool [tofu|terraform]**: Specifies the tool to use for checking providers
+- **--complete**: Includes .terraform and .terragrunt-cache folders in analysis
 
 ## Framework Types
 
@@ -89,6 +93,26 @@ thothctl inventory iac --inventory-action restore --inventory-path ./path/to/inv
 
 This action restores your IaC files to the state recorded in the inventory.
 
+## Provider Analysis
+
+The inventory commands can analyze provider information in your IaC files:
+
+```bash
+thothctl inventory iac --check-providers
+```
+
+This analyzes which providers are used by which components in your infrastructure. You can specify which tool to use for provider analysis:
+
+```bash
+thothctl inventory iac --check-providers --provider-tool terraform
+```
+
+The provider analysis includes:
+- Provider name and version
+- Source registry
+- Module using the provider
+- Component using the provider
+
 ## Use Cases
 
 ### Infrastructure Auditing
@@ -96,7 +120,7 @@ This action restores your IaC files to the state recorded in the inventory.
 Create an inventory to audit your infrastructure components:
 
 ```bash
-thothctl inventory iac --check-versions --report-type all
+thothctl inventory iac --check-versions --check-providers --report-type all
 ```
 
 ### Version Management
@@ -116,7 +140,15 @@ thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inve
 Generate documentation about your infrastructure:
 
 ```bash
-thothctl inventory iac --report-type html
+thothctl inventory iac --report-type html --project-name "Production Infrastructure"
+```
+
+### Provider Analysis
+
+Analyze which providers are used in your infrastructure:
+
+```bash
+thothctl inventory iac --check-providers
 ```
 
 ### Disaster Recovery
@@ -136,6 +168,7 @@ The inventory commands generate detailed reports about your infrastructure compo
 The HTML report includes:
 - Project overview and framework type
 - Module list with versions and sources
+- Provider information (when using --check-providers)
 - Dependency graph visualization
 - Version status (latest vs. current)
 - File locations
@@ -167,10 +200,12 @@ The inventory command supports various Terragrunt source formats:
 
 1. **Regular Inventories**: Create inventories regularly to track changes over time
 2. **Version Checking**: Use `--check-versions` to identify outdated modules
-3. **Multiple Report Types**: Use `--report-type all` to generate both HTML and JSON reports
-4. **Backup Inventories**: Store inventories in a version-controlled location
-5. **CI/CD Integration**: Add inventory creation to your CI/CD pipeline
-6. **Framework Specification**: Explicitly specify the framework type for more accurate results
+3. **Provider Analysis**: Use `--check-providers` to understand provider dependencies
+4. **Multiple Report Types**: Use `--report-type all` to generate both HTML and JSON reports
+5. **Custom Project Names**: Use `--project-name` for clear identification in reports
+6. **Backup Inventories**: Store inventories in a version-controlled location
+7. **CI/CD Integration**: Add inventory creation to your CI/CD pipeline
+8. **Framework Specification**: Explicitly specify the framework type for more accurate results
 
 ## Extending Inventory Commands
 

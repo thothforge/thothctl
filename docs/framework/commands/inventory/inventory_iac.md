@@ -27,6 +27,12 @@ Options:
   -ch, --check-versions           Check remote versions
   -iph, --inventory-path PATH     Path for saving inventory reports  [default:
                                   ./Reports/Inventory]
+  --complete                      Include .terraform and .terragrunt-cache folders
+                                  in analysis (complete analysis)
+  --check-providers               Check and report provider information for each stack
+  --provider-tool [tofu|terraform]
+                                  Tool to use for checking providers (default: tofu)
+  --project-name, -pj TEXT        Specify a custom project name for the inventory report
   --help                          Show this message and exit.
 ```
 
@@ -69,6 +75,30 @@ thothctl inventory iac --inventory-path ./my-inventory
 ```
 
 This creates an inventory and saves the reports in the specified directory.
+
+### Specify a Custom Project Name
+
+```bash
+thothctl inventory iac --project-name "My Infrastructure Project"
+```
+
+This creates an inventory with a custom project name in the reports.
+
+### Check Provider Information
+
+```bash
+thothctl inventory iac --check-providers
+```
+
+This creates an inventory that includes provider information for each stack, showing which providers are used by which components.
+
+### Complete Analysis
+
+```bash
+thothctl inventory iac --complete
+```
+
+This creates an inventory that includes files in `.terraform` and `.terragrunt-cache` folders (normally excluded).
 
 ## Framework Type Options
 
@@ -142,6 +172,26 @@ When using the `update` or `restore` actions, you can use the `--auto-approve` f
 thothctl inventory iac --inventory-action update --inventory-path ./path/to/inventory.json --auto-approve
 ```
 
+## Provider Analysis
+
+The command can analyze provider information in your IaC files:
+
+```bash
+thothctl inventory iac --check-providers
+```
+
+This analyzes which providers are used by which components in your infrastructure. You can specify which tool to use for provider analysis:
+
+```bash
+thothctl inventory iac --check-providers --provider-tool terraform
+```
+
+The provider analysis includes:
+- Provider name and version
+- Source registry
+- Module using the provider
+- Component using the provider
+
 ## Inventory Reports
 
 The command generates detailed reports about your infrastructure components:
@@ -151,6 +201,7 @@ The command generates detailed reports about your infrastructure components:
 The HTML report includes:
 - Project overview and framework type
 - Module list with versions and sources
+- Provider information (when using --check-providers)
 - Dependency graph visualization
 - Version status (latest vs. current)
 - File locations
@@ -177,9 +228,19 @@ The JSON report contains structured data about your infrastructure:
           "source_url": "https://registry.terraform.io/v1/modules/terraform-aws-modules/vpc/aws",
           "status": "Outdated"
         }
+      ],
+      "providers": [
+        {
+          "name": "aws",
+          "version": "5.0.0",
+          "source": "registry.terraform.io/hashicorp/aws",
+          "module": "Root",
+          "component": "vpc"
+        }
       ]
     }
-  ]
+  ],
+  "unique_providers_count": 1
 }
 ```
 
@@ -196,6 +257,13 @@ The inventory tracks the following information for each component:
 - **Source URL**: The URL to the source repository or registry
 - **Status**: Version status (Updated, Outdated, Unknown)
 
+For providers (when using --check-providers):
+- **Name**: The provider name (aws, google, etc.)
+- **Version**: The provider version
+- **Source**: The provider source registry
+- **Module**: The module using the provider
+- **Component**: The specific component using the provider
+
 ## Use Cases
 
 ### Infrastructure Auditing
@@ -203,7 +271,7 @@ The inventory tracks the following information for each component:
 Create an inventory to audit your infrastructure components:
 
 ```bash
-thothctl inventory iac --check-versions --report-type all
+thothctl inventory iac --check-versions --check-providers --report-type all
 ```
 
 ### Version Management
@@ -223,7 +291,15 @@ thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inve
 Generate documentation about your infrastructure:
 
 ```bash
-thothctl inventory iac --report-type html
+thothctl inventory iac --report-type html --project-name "Production Infrastructure"
+```
+
+### Provider Analysis
+
+Analyze which providers are used in your infrastructure:
+
+```bash
+thothctl inventory iac --check-providers
 ```
 
 ### Disaster Recovery
@@ -248,10 +324,10 @@ thothctl inventory iac
 thothctl inventory iac --framework-type terragrunt
 ```
 
-### Comprehensive Inventory with Version Checking
+### Comprehensive Inventory with Version and Provider Checking
 
 ```bash
-thothctl inventory iac --check-versions --report-type all --inventory-path ./docs/inventory
+thothctl inventory iac --check-versions --check-providers --report-type all --inventory-path ./docs/inventory
 ```
 
 ### Update Infrastructure to Latest Versions
@@ -274,10 +350,12 @@ thothctl inventory iac --inventory-action restore --inventory-path ./backups/202
 
 1. **Regular Inventories**: Create inventories regularly to track changes over time
 2. **Version Checking**: Use `--check-versions` to identify outdated modules
-3. **Multiple Report Types**: Use `--report-type all` to generate both HTML and JSON reports
-4. **Backup Inventories**: Store inventories in a version-controlled location
-5. **CI/CD Integration**: Add inventory creation to your CI/CD pipeline
-6. **Framework Specification**: Explicitly specify the framework type for more accurate results
+3. **Provider Analysis**: Use `--check-providers` to understand provider dependencies
+4. **Multiple Report Types**: Use `--report-type all` to generate both HTML and JSON reports
+5. **Custom Project Names**: Use `--project-name` for clear identification in reports
+6. **Backup Inventories**: Store inventories in a version-controlled location
+7. **CI/CD Integration**: Add inventory creation to your CI/CD pipeline
+8. **Framework Specification**: Explicitly specify the framework type for more accurate results
 
 ## Terragrunt Support
 
@@ -317,6 +395,14 @@ Error: Failed to check versions for module xyz
 ```
 
 **Solution**: Ensure you have internet connectivity and the module source is accessible.
+
+#### Provider Analysis Failures
+
+```
+Error: Failed to get providers for stack xyz
+```
+
+**Solution**: Ensure the specified provider tool (tofu or terraform) is installed and accessible in your PATH.
 
 #### Report Generation Failures
 
