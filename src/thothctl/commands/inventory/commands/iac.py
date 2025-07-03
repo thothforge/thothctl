@@ -51,6 +51,8 @@ class IaCInvCommand(ClickCommand):
         auto_approve: bool = False,
         framework_type: str = "auto",
         complete: bool = False,
+        check_providers: bool = False,
+        provider_tool: str = "tofu",
         **kwargs,
     ) -> None:
         """
@@ -64,6 +66,8 @@ class IaCInvCommand(ClickCommand):
             auto_approve: Flag for automatic approval
             framework_type: Framework type to analyze
             complete: Flag to exclude .terraform and .terragrunt-cache folders
+            check_providers: Flag to check provider information
+            provider_tool: Tool to use for checking providers
         """
         try:
             ctx = click.get_current_context()
@@ -85,6 +89,8 @@ class IaCInvCommand(ClickCommand):
                         reports_dir=inventory_path,
                         framework_type=framework_type,
                         complete=complete,
+                        check_providers=check_providers,
+                        provider_tool=provider_tool,
                     )
                 )
             elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
@@ -120,6 +126,8 @@ class IaCInvCommand(ClickCommand):
         reports_dir: Optional[str] = None,
         framework_type: str = "auto",
         complete: bool = False,
+        check_providers: bool = False,
+        provider_tool: str = "tofu",
     ) -> None:
         """
         Create infrastructure inventory from source directory.
@@ -130,7 +138,9 @@ class IaCInvCommand(ClickCommand):
             report_type: Type of report to generate (html, json, or all)
             reports_dir: Directory to store generated reports
             framework_type: Framework type to analyze
-            complete: Flag to exclude .terraform and .terragrunt-cache folders
+            complete: Flag to include .terraform and .terragrunt-cache folders
+            check_providers: Flag to check provider information
+            provider_tool: Tool to use for checking providers
         """
         try:
             with self.ui.status_spinner("Creating infrastructure inventory..."):
@@ -141,6 +151,8 @@ class IaCInvCommand(ClickCommand):
                     reports_directory=reports_dir,
                     framework_type=framework_type,
                     complete=complete,
+                    check_providers=check_providers,
+                    provider_tool=provider_tool,
                 )
 
             self.ui.print_success("Infrastructure inventory created successfully!")
@@ -241,7 +253,12 @@ class IaCInvCommand(ClickCommand):
 
         # Count local modules based on source, not status
         local_modules = 0
+        total_providers = 0
         for comp_group in inventory["components"]:
+            # Count providers
+            total_providers += len(comp_group.get("providers", []))
+            
+            # Count local modules
             for component in comp_group.get("components", []):
                 source = component.get("source", [""])[0] if component.get("source") else ""
                 if self._is_local_source(source):
@@ -278,6 +295,10 @@ class IaCInvCommand(ClickCommand):
         # Show local modules count
         if local_modules > 0:
             self.ui.print_info(f"Local Modules: {local_modules}")
+            
+        # Show providers count
+        if total_providers > 0:
+            self.ui.print_info(f"Providers: {total_providers}")
 
         if "version_checks" in inventory:
             self.ui.print_info(f"Outdated Components: {outdated_components}")
@@ -354,5 +375,17 @@ cli = IaCInvCommand.as_click_command(
         is_flag=True,
         default=False,
         help="Include .terraform and .terragrunt-cache folders in analysis (complete analysis)",
+    ),
+    click.option(
+        "--check-providers",
+        is_flag=True,
+        default=False,
+        help="Check and report provider information for each stack",
+    ),
+    click.option(
+        "--provider-tool",
+        type=click.Choice(["tofu", "terraform"], case_sensitive=False),
+        default="tofu",
+        help="Tool to use for checking providers (default: tofu)",
     ),
 )

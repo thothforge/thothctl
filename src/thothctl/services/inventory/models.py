@@ -20,6 +20,27 @@ class ProjectType(Enum):
 
 
 @dataclass
+class Provider:
+    """Provider information."""
+    
+    name: str
+    version: str
+    source: str = "Null"
+    module: str = ""  # Empty string for providers at the root level
+    component: str = ""  # The specific component using this provider
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "name": self.name,
+            "version": self.version,
+            "source": self.source,
+            "module": self.module,
+            "component": self.component,
+        }
+
+
+@dataclass
 class Component:
     """Individual component information."""
 
@@ -31,6 +52,19 @@ class Component:
     latest_version: str = "Null"
     source_url: str = "Null"
     status: str = "Null"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "type": self.type,
+            "name": self.name,
+            "version": self.version,
+            "source": self.source,
+            "file": self.file,
+            "latest_version": self.latest_version,
+            "source_url": self.source_url,
+            "status": self.status,
+        }
 
 
 @dataclass
@@ -39,6 +73,19 @@ class ComponentGroup:
 
     stack: str
     components: List[Component]
+    providers: List[Provider] = None
+    
+    def __post_init__(self):
+        if self.providers is None:
+            self.providers = []
+            
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "stack": self.stack,
+            "components": [component.to_dict() for component in self.components],
+            "providers": [provider.to_dict() for provider in self.providers] if self.providers else [],
+        }
 
 
 @dataclass
@@ -47,7 +94,17 @@ class Inventory:
 
     project_name: str
     components: List[ComponentGroup]
+    project_type: str = "terraform"
     version: int = 2
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "project_name": self.project_name,
+            "components": [component_group.to_dict() for component_group in self.components],
+            "projectType": self.project_type,
+            "version": self.version,
+        }
     project_type: str = "terraform"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -58,7 +115,7 @@ class Inventory:
             "projectType": self.project_type,
             "components": [
                 {
-                    "path": group.stack,
+                    "stack": group.stack,
                     "components": [
                         {
                             "type": comp.type,
@@ -72,6 +129,16 @@ class Inventory:
                         }
                         for comp in group.components
                     ],
+                    "providers": [
+                        {
+                            "name": provider.name,
+                            "version": provider.version,
+                            "source": provider.source,
+                            "module": provider.module,
+                            "component": provider.component,
+                        }
+                        for provider in group.providers
+                    ] if group.providers else []
                 }
                 for group in self.components
             ],

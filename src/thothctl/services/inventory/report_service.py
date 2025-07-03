@@ -85,6 +85,26 @@ class ReportService:
                         color: orange;
                         font-weight: bold;
                     }}
+                    .components-table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                        margin-bottom: 30px;
+                        background-color: white;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                    }}
+                    .components-table th, .components-table td {{
+                        border: 1px solid #ddd;
+                        padding: 8px;
+                        text-align: left;
+                    }}
+                    .components-table th {{
+                        background-color: #2196F3;
+                        color: white;
+                    }}
+                    .components-table tr:nth-child(even) {{
+                        background-color: #f9f9f9;
+                    }}
                     h1 {{
                         color: #333;
                         text-align: center;
@@ -96,6 +116,11 @@ class ReportService:
                         margin-bottom: 15px;
                         border-bottom: 2px solid #4CAF50;
                         padding-bottom: 5px;
+                    }}
+                    h3 {{
+                        color: #2196F3;
+                        margin-top: 20px;
+                        margin-bottom: 10px;
                     }}
                     .project-info {{
                         background-color: #e7f3fe;
@@ -174,11 +199,93 @@ class ReportService:
 
             # Generate summary statistics
             summary_html = self._generate_summary_html(inventory)
-
-            # Convert inventory to HTML
-            html_content = json2html.convert(
-                json=inventory, table_attributes='class="inventory-table"'
-            )
+            
+            # Generate custom HTML for components and providers
+            components_html = ""
+            for component_group in inventory.get("components", []):
+                stack = component_group.get("stack", "Unknown")
+                components_html += f"<h2>Stack: {stack}</h2>"
+                
+                # Add components table
+                components = component_group.get("components", [])
+                if components:
+                    components_html += """
+                    <h3>Components</h3>
+                    <table class="components-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Name</th>
+                                <th>Version</th>
+                                <th>Source</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    """
+                    
+                    for component in components:
+                        source = component.get("source", ["Unknown"])[0] if component.get("source") else "Unknown"
+                        version = component.get("version", ["Unknown"])[0] if component.get("version") else "Unknown"
+                        status = component.get("status", "Unknown")
+                        status_class = f"status-{status.lower()}" if status != "Null" else ""
+                        
+                        components_html += f"""
+                        <tr>
+                            <td>{component.get("type", "Unknown")}</td>
+                            <td>{component.get("name", "Unknown")}</td>
+                            <td>{version}</td>
+                            <td>{source}</td>
+                            <td class="{status_class}">{status}</td>
+                        </tr>
+                        """
+                    
+                    components_html += """
+                        </tbody>
+                    </table>
+                    """
+                
+                # Add providers table if available
+                providers = component_group.get("providers", [])
+                if providers:
+                    components_html += """
+                    <h3>Providers</h3>
+                    <table class="components-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Version</th>
+                                <th>Source</th>
+                                <th>Module</th>
+                                <th>Component</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    """
+                    
+                    # Get the stack name for this component group
+                    stack_name = component_group.get("stack", "Unknown")
+                    
+                    for provider in providers:
+                        # Use the stack name if the module is empty or "Root"
+                        module_name = provider.get("module", "")
+                        if not module_name or module_name == "Root":
+                            module_name = stack_name
+                            
+                        components_html += f"""
+                        <tr>
+                            <td>{provider.get("name", "Unknown")}</td>
+                            <td>{provider.get("version", "Unknown")}</td>
+                            <td>{provider.get("source", "Unknown")}</td>
+                            <td>{module_name}</td>
+                            <td>{provider.get("component", "")}</td>
+                        </tr>
+                        """
+                    
+                    components_html += """
+                        </tbody>
+                    </table>
+                    """
 
             # Create report file
             report_path = self._create_report_path(report_name, "html", reports_directory)
@@ -186,9 +293,9 @@ class ReportService:
             # Write the report with proper formatting
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(html_template.format(
-                    content=html_content,
+                    content=components_html,
                     summary_table=summary_html,
-                    project_name=inventory.get("projectName", "Unknown"),
+                    project_name=inventory.get("project_name", "Unknown"),
                     project_type=inventory.get("projectType", "Terraform"),
                     timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 ))
@@ -267,16 +374,19 @@ class ReportService:
 
             # Process components
             for component_group in inventory.get("components", []):
-                # Add columns
-                netsted_table = Table(show_lines=True)
-                netsted_table.add_column("Type", style="cyan")
-                netsted_table.add_column("Name", style="blue")
-                netsted_table.add_column("Current Version", style="green")
-                netsted_table.add_column("Source", style="white", overflow="fold")
-                netsted_table.add_column("Latest Version", style="yellow")
-                netsted_table.add_column("SourceUrl")
-                netsted_table.add_column("Status", justify="center")
+                stack_path = component_group.get("stack", "Unknown")
+                
+                # Create components table
+                components_table = Table(show_lines=True)
+                components_table.add_column("Type", style="cyan")
+                components_table.add_column("Name", style="blue")
+                components_table.add_column("Current Version", style="green")
+                components_table.add_column("Source", style="white", overflow="fold")
+                components_table.add_column("Latest Version", style="yellow")
+                components_table.add_column("SourceUrl")
+                components_table.add_column("Status", justify="center")
 
+                # Add components to table
                 for component in component_group.get("components", []):
                     current_version = component.get("version", ["Null"])
                     if isinstance(current_version, list):
@@ -290,19 +400,64 @@ class ReportService:
                         "Null": Style(color="blue", bold=True),
                     }.get(status, Style(color="white"))
 
-                    netsted_table.add_row(
+                    source = component.get("source", ["Unknown"])
+                    if isinstance(source, list) and source:
+                        source = source[0]
+                    else:
+                        source = "Unknown"
+
+                    components_table.add_row(
                         component.get("type", "Unknown"),
                         component.get("name", "Unknown"),
                         str(current_version),
-                        str(component.get("source", ["Unknown"])[0]),
+                        str(source),
                         str(component.get("latest_version", "Unknown")),
                         str(component.get("source_url", "Unknown")),
                         status,
                     )
-                table.add_row(
-                    Align(f'[blue]{component_group["path"]}[/blue]', vertical="middle"),
-                    netsted_table,
-                )
+                
+                # Create providers table if available
+                providers = component_group.get("providers", [])
+                if providers:
+                    providers_table = Table(show_lines=True, title="Providers")
+                    providers_table.add_column("Name", style="cyan")
+                    providers_table.add_column("Version", style="green")
+                    providers_table.add_column("Source", style="white", overflow="fold")
+                    providers_table.add_column("Module", style="yellow", overflow="fold")
+                    providers_table.add_column("Component", style="magenta", overflow="fold")
+                    
+                    # Get the stack name for this component group
+                    stack_name = component_group.get("stack", "Unknown")
+                    
+                    for provider in providers:
+                        # Use the stack name if the module is empty or "Root"
+                        module_name = provider.get("module", "")
+                        if not module_name or module_name == "Root":
+                            module_name = stack_name
+                            
+                        providers_table.add_row(
+                            provider.get("name", "Unknown"),
+                            provider.get("version", "Unknown"),
+                            provider.get("source", "Unknown"),
+                            module_name,
+                            provider.get("component", ""),
+                        )
+                    
+                    # Add both tables to the main table
+                    grid = Table.grid()
+                    grid.add_row(components_table)
+                    grid.add_row(providers_table)
+                    
+                    table.add_row(
+                        Align(f'[blue]{stack_path}[/blue]', vertical="middle"),
+                        grid
+                    )
+                else:
+                    # Add only components table
+                    table.add_row(
+                        Align(f'[blue]{stack_path}[/blue]', vertical="middle"),
+                        components_table,
+                    )
 
             # Print the table
             self.console.print()
@@ -329,8 +484,12 @@ class ReportService:
             
             # Count local modules based on source, not status
             local_components = 0
+            total_providers = 0
             
             for component_group in inventory.get("components", []):
+                # Count providers
+                total_providers += len(component_group.get("providers", []))
+                
                 for component in component_group.get("components", []):
                     # Count by version status
                     status = component.get("status", "Unknown")
@@ -392,6 +551,15 @@ class ReportService:
                     <td class="value value-local">{local_components}</td>
                 </tr>
                 """
+                
+            # Add providers count if any exist
+            if total_providers > 0:
+                summary_html += f"""
+                <tr>
+                    <td class="metric">Providers</td>
+                    <td class="value">{total_providers}</td>
+                </tr>
+                """
             
             # Add terragrunt stacks count for terraform-terragrunt projects
             if project_type == 'terraform-terragrunt':
@@ -428,6 +596,53 @@ class ReportService:
             logger.error(f"Failed to generate summary HTML: {str(e)}")
             return f"<p>Error generating summary: {str(e)}</p>"
 
+    def _generate_providers_html(self, component_group: Dict[str, Any]) -> str:
+        """Generate HTML table for provider information."""
+        providers = component_group.get("providers", [])
+        if not providers:
+            return ""
+            
+        # Get the stack name for this component group
+        stack_name = component_group.get("stack", "Unknown")
+        
+        providers_html = f"""
+        <h3>Providers for {stack_name}</h3>
+        <table class="components-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Version</th>
+                    <th>Source</th>
+                    <th>Module</th>
+                    <th>Component</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        
+        for provider in providers:
+            # Use the stack name if the module is empty or "Root"
+            module_name = provider.get("module", "")
+            if not module_name or module_name == "Root":
+                module_name = stack_name
+                
+            providers_html += f"""
+            <tr>
+                <td>{provider.get('name', 'Unknown')}</td>
+                <td>{provider.get('version', 'Unknown')}</td>
+                <td>{provider.get('source', 'Unknown')}</td>
+                <td>{module_name}</td>
+                <td>{provider.get('component', '')}</td>
+            </tr>
+            """
+            
+        providers_html += """
+            </tbody>
+        </table>
+        """
+        
+        return providers_html
+
     def _is_local_source(self, source: str) -> bool:
         """Check if a source is a local path."""
         if not source or source == "Null":
@@ -452,10 +667,14 @@ class ReportService:
             # Count by version status
             status_counts = {"Updated": 0, "Outdated": 0, "Unknown": 0}
             
-            # Count local modules by source
+            # Count local modules by source and providers
             local_modules = 0
+            total_providers = 0
 
             for group in inventory.get("components", []):
+                # Count providers
+                total_providers += len(group.get("providers", []))
+                
                 for component in group.get("components", []):
                     # Count by version status
                     status = component.get("status", "Unknown")
@@ -494,6 +713,12 @@ class ReportService:
             if local_modules > 0:
                 summary_table.add_row(
                     "Local Modules", f"[blue]{local_modules}[/blue]"
+                )
+                
+            # Add providers count if any exist
+            if total_providers > 0:
+                summary_table.add_row(
+                    "Providers", str(total_providers)
                 )
 
             # Add terragrunt stacks count for terraform-terragrunt projects

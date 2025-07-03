@@ -1,3 +1,5 @@
+import re
+import subprocess
 """Inventory management service."""
 import logging
 import os
@@ -6,7 +8,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import hcl2
 
-from .models import Component, ComponentGroup, Inventory
+from .models import Component, ComponentGroup, Inventory, Provider
 from .report_service import ReportService
 from .terragrunt_parser import TerragruntParser
 from .update_versions import main_update_versions
@@ -196,7 +198,7 @@ class InventoryService:
         
         Args:
             source_path: Path to the source directory
-            complete: If True, exclude .terraform and .terragrunt-cache folders
+            complete: If True, include everything (complete analysis). If False, exclude cache folders.
             
         Returns:
             'terragrunt', 'terraform', or 'terraform-terragrunt'
@@ -237,6 +239,8 @@ class InventoryService:
         reports_directory: str = "Reports",
         framework_type: str = "auto",
         complete: bool = False,
+        check_providers: bool = False,
+        provider_tool: str = "tofu",
     ) -> Dict[str, Any]:
         """Create inventory from source directory."""
         source_path = Path(source_directory).resolve()
@@ -278,7 +282,24 @@ class InventoryService:
                     continue
                     
                 processed_dirs.add(relative_dir)
-                group = ComponentGroup(stack=f"./{relative_dir}", components=components)
+                stack_name = f"./{relative_dir}" if relative_dir else "./."
+                group = ComponentGroup(stack=stack_name, components=components)
+                
+                # Check providers if requested
+                if check_providers:
+                    # Get absolute path to the stack directory
+                    abs_stack_path = (source_path / relative_dir).resolve()
+                    providers = self._get_providers_for_stack(abs_stack_path, provider_tool)
+                    
+                    # Update the module field for each provider to use the stack name
+                    for provider in providers:
+                        if not provider.module or provider.module == abs_stack_path:
+                            provider.module = stack_name
+                    
+                    if providers:
+                        group.providers = providers
+                        logger.info(f"Added {len(providers)} providers to stack {stack_name}")
+                
                 component_groups.append(group)
 
         # Create inventory
@@ -332,3 +353,187 @@ class InventoryService:
         main_update_versions(
             inventory_file=inventory_path, auto_approve=auto_approve, action=action
         )
+        
+    def _get_providers_for_stack(self, stack_path: str, provider_tool: str = "tofu") -> List[Provider]:
+        """
+        Get provider information for a stack by running the provider tool.
+        
+        Args:
+            stack_path: Path to the stack directory
+            provider_tool: Tool to use for checking providers (tofu or terraform)
+            
+        Returns:
+            List of Provider objects
+        """
+        providers = []
+        
+        # Convert relative path to absolute
+        abs_stack_path = Path(stack_path).resolve()
+        
+        if not abs_stack_path.exists() or not abs_stack_path.is_dir():
+            logger.warning(f"Stack path does not exist or is not a directory: {stack_path}")
+            return providers
+            
+        # Check if the tool exists
+        try:
+            # Use 'which' on Unix/Linux or 'where' on Windows
+            subprocess.run(
+                ["which", provider_tool] if os.name != "nt" else ["where", provider_tool],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=5,  # Add a timeout to prevent hanging
+            )
+        except subprocess.CalledProcessError:
+            logger.warning(f"{provider_tool} command not found. Skipping provider check.")
+            return providers
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Timeout checking for {provider_tool} command. Skipping provider check.")
+            return providers
+            
+        # Run the providers command
+        try:
+            logger.info(f"Running {provider_tool} providers in {abs_stack_path}")
+            
+            # Skip the state check to avoid potential hangs
+            # This is a fix for the bug that causes hanging when both check_versions and check_providers are used
+            
+            # Now run the standard providers command
+            result = subprocess.run(
+                [provider_tool, "providers"],
+                cwd=abs_stack_path,
+                check=False,  # Don't raise exception on non-zero exit
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=30,  # Timeout after 30 seconds
+            )
+            
+            if result.returncode != 0:
+                logger.warning(f"Failed to get providers for {stack_path}: {result.stderr}")
+                return providers
+                
+            # Get the stack name from the path
+            stack_name = str(abs_stack_path)
+            
+            # Parse the output and set the stack path as the module for root-level providers
+            providers = self._parse_providers_output(result.stdout, stack_name)
+            
+            logger.info(f"Found {len(providers)} providers in {stack_path}")
+            for provider in providers:
+                logger.info(f"  Provider: {provider.name}, Version: {provider.version}, Source: {provider.source}, Module: {provider.module}")
+            return providers
+            
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Timeout while getting providers for {stack_path}")
+        except Exception as e:
+            logger.warning(f"Error getting providers for {stack_path}: {str(e)}")
+            
+        return providers
+        
+    def _parse_providers_output(self, output: str, stack_path: str = "") -> List[Provider]:
+        """
+        Parse the output of terraform/tofu providers command.
+        
+        Args:
+            output: Output of the providers command
+            stack_path: Path to the stack directory
+            
+        Returns:
+            List of Provider objects
+        """
+        providers = []
+        current_module = stack_path
+        current_component = ""
+        
+        # Example output:
+        # Providers required by configuration:
+        # .
+        # ├── provider[registry.opentofu.org/hashicorp/aws]
+        # ├── provider[registry.opentofu.org/hashicorp/random]
+        # └── module.vpc
+        #     └── provider[registry.opentofu.org/hashicorp/aws]
+        
+        # Regular expressions to match provider lines and module headers
+        provider_pattern = r'[├└]── provider\[(.*?)\](?:\s*(?:~>|>=|==|!=|<=|<|>)?\s*([\d\.]+))?'
+        module_pattern = r'[├└]── module\.([^:]+)'
+        
+        # Additional pattern to identify component information
+        # This will look for resource or data source declarations in the output
+        component_pattern = r'^\s*(?:resource|data)\s+"([^"]+)"\s+"([^"]+)"'
+        
+        # Track indentation to determine module hierarchy
+        current_indent = 0
+        module_stack = []
+        
+        for line in output.splitlines():
+            # Skip empty lines and headers
+            if not line.strip() or "Providers required by configuration" in line:
+                continue
+                
+            # Calculate indentation level
+            indent = len(line) - len(line.lstrip())
+            
+            # If we're going back up in the hierarchy
+            if indent < current_indent:
+                # Pop modules from the stack until we're at the right level
+                while module_stack and indent <= current_indent:
+                    module_stack.pop()
+                    if module_stack:
+                        current_indent = indent
+                    else:
+                        current_indent = 0
+                        current_module = stack_path
+            
+            # Check if this is a module header
+            module_match = re.search(module_pattern, line)
+            if module_match:
+                module_name = module_match.group(1)
+                current_module = f"module.{module_name}"
+                module_stack.append(current_module)
+                current_indent = indent
+                continue
+            
+            # Check if this is a component (resource or data source)
+            component_match = re.search(component_pattern, line)
+            if component_match:
+                resource_type = component_match.group(1)
+                resource_name = component_match.group(2)
+                current_component = f"{resource_type}.{resource_name}"
+                continue
+                
+            # Check if this is a provider line
+            provider_match = re.search(provider_pattern, line)
+            if provider_match:
+                source = provider_match.group(1)
+                name = source.split('/')[-1]  # Extract name from source
+                
+                # Version might be None if not specified in the output
+                version = provider_match.group(2) if provider_match.group(2) else "latest"
+                
+                # Use the current module (which could be the stack path for root-level providers)
+                module_name = current_module
+                
+                # If we're in a module hierarchy, use the full path
+                if module_stack:
+                    module_name = ".".join(module_stack)
+                
+                # Try to extract component information from the line itself
+                # Some provider outputs might include the resource directly in the line
+                inline_component_match = re.search(r'for\s+(resource|data)\s+"([^"]+)"\s+"([^"]+)"', line)
+                if inline_component_match:
+                    resource_type = inline_component_match.group(2)
+                    resource_name = inline_component_match.group(3)
+                    component_name = f"{resource_type}.{resource_name}"
+                else:
+                    component_name = current_component
+                
+                providers.append(Provider(
+                    name=name,
+                    version=version,
+                    source=source,
+                    module=module_name,
+                    component=component_name,
+                ))
+                
+        return providers
