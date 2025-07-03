@@ -484,12 +484,15 @@ class ReportService:
             
             # Count local modules based on source, not status
             local_components = 0
-            total_providers = 0
+            
+            # Use unique providers count if available, otherwise count all providers
+            total_providers = inventory.get("unique_providers_count", 0)
+            if total_providers == 0:
+                # Fall back to counting all providers if unique count not available
+                for component_group in inventory.get("components", []):
+                    total_providers += len(component_group.get("providers", []))
             
             for component_group in inventory.get("components", []):
-                # Count providers
-                total_providers += len(component_group.get("providers", []))
-                
                 for component in component_group.get("components", []):
                     # Count by version status
                     status = component.get("status", "Unknown")
@@ -669,12 +672,15 @@ class ReportService:
             
             # Count local modules by source and providers
             local_modules = 0
-            total_providers = 0
+            
+            # Use unique providers count if available, otherwise count all providers
+            total_providers = inventory.get("unique_providers_count", 0)
+            if total_providers == 0:
+                # Fall back to counting all providers if unique count not available
+                for group in inventory.get("components", []):
+                    total_providers += len(group.get("providers", []))
 
             for group in inventory.get("components", []):
-                # Count providers
-                total_providers += len(group.get("providers", []))
-                
                 for component in group.get("components", []):
                     # Count by version status
                     status = component.get("status", "Unknown")

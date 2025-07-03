@@ -247,6 +247,7 @@ class InventoryService:
         component_groups: List[ComponentGroup] = []
         processed_dirs: Set[str] = set()
         terragrunt_stacks: List[str] = []  # Track terragrunt stacks
+        unique_providers: Dict[str, Provider] = {}  # Track unique providers by name+version+source
 
         # Detect project type
         if framework_type == "auto":
@@ -295,6 +296,11 @@ class InventoryService:
                     for provider in providers:
                         if not provider.module or provider.module == abs_stack_path:
                             provider.module = stack_name
+                        
+                        # Track unique providers by name+version+source
+                        provider_key = f"{provider.name}|{provider.version}|{provider.source}"
+                        if provider_key not in unique_providers:
+                            unique_providers[provider_key] = provider
                     
                     if providers:
                         group.providers = providers
@@ -314,6 +320,10 @@ class InventoryService:
         if project_type == "terraform-terragrunt" and terragrunt_stacks:
             inventory_dict["terragrunt_stacks"] = terragrunt_stacks
             inventory_dict["terragrunt_stacks_count"] = len(terragrunt_stacks)
+        
+        # Add unique providers count to inventory dict
+        if check_providers:
+            inventory_dict["unique_providers_count"] = len(unique_providers)
         
         # Check versions if requested
         if check_versions and inventory_dict:
