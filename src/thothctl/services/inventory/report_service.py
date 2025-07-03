@@ -110,19 +110,25 @@ class ReportService:
                     }}
                     /* Column width adjustments */
                     .components-table th:nth-child(1), .components-table td:nth-child(1) {{
-                        width: 15%;  /* Name column */
+                        width: 10%;  /* Type column */
                     }}
                     .components-table th:nth-child(2), .components-table td:nth-child(2) {{
-                        width: 10%;  /* Version column */
+                        width: 10%;  /* Name column */
                     }}
                     .components-table th:nth-child(3), .components-table td:nth-child(3) {{
-                        width: 25%;  /* Source column */
+                        width: 10%;  /* Current Version column */
                     }}
                     .components-table th:nth-child(4), .components-table td:nth-child(4) {{
-                        width: 20%;  /* Module column */
+                        width: 20%;  /* Source column */
                     }}
                     .components-table th:nth-child(5), .components-table td:nth-child(5) {{
-                        width: 30%;  /* Component column */
+                        width: 10%;  /* Latest Version column */
+                    }}
+                    .components-table th:nth-child(6), .components-table td:nth-child(6) {{
+                        width: 20%;  /* Source URL column */
+                    }}
+                    .components-table th:nth-child(7), .components-table td:nth-child(7) {{
+                        width: 10%;  /* Status column */
                     }}
                     /* Module column specific styling */
                     .module-cell {{
@@ -248,8 +254,10 @@ class ReportService:
                             <tr>
                                 <th>Type</th>
                                 <th>Name</th>
-                                <th>Version</th>
+                                <th>Current Version</th>
                                 <th>Source</th>
+                                <th>Latest Version</th>
+                                <th>Source URL</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -261,6 +269,8 @@ class ReportService:
                         version = component.get("version", ["Unknown"])[0] if component.get("version") else "Unknown"
                         status = component.get("status", "Unknown")
                         status_class = f"status-{status.lower()}" if status != "Null" else ""
+                        latest_version = component.get("latest_version", "Unknown")
+                        source_url = component.get("source_url", "Unknown")
                         
                         components_html += f"""
                         <tr>
@@ -268,6 +278,8 @@ class ReportService:
                             <td>{component.get("name", "Unknown")}</td>
                             <td>{version}</td>
                             <td>{source}</td>
+                            <td>{latest_version}</td>
+                            <td>{source_url}</td>
                             <td class="{status_class}">{status}</td>
                         </tr>
                         """
