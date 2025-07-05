@@ -48,175 +48,285 @@ class ReportService:
             <!DOCTYPE html>
             <html>
             <head>
-                <style>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                                <style>
+                    :root {
+                        --primary-color: #3b82f6;
+                        --secondary-color: #1e40af;
+                        --success-color: #10b981;
+                        --warning-color: #f59e0b;
+                        --danger-color: #ef4444;
+                        --gray-50: #f9fafb;
+                        --gray-100: #f3f4f6;
+                        --gray-200: #e5e7eb;
+                        --gray-600: #4b5563;
+                        --gray-700: #374151;
+                        --gray-800: #1f2937;
+                        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+                        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+                    }
+                    
                     body {{
-                        font-family: Arial, sans-serif;
-                        margin: 20px;
-                        background-color: #f5f5f5;
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        margin: 0;
+                        padding: 2rem;
+                        background: linear-gradient(135deg, var({{--gray-50}}) 0%, #ffffff 100%);
+                        color: var({{--gray-800}});
+                        line-height: 1.6;
                     }}
-                    .inventory-table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-top: 20px;
-                        background-color: white;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                    
+                    .container {{
+                        max-width: 1400px;
+                        margin: 0 auto;
                     }}
-                    .inventory-table th, .inventory-table td {{
-                        border: 1px solid #ddd;
-                        padding: 12px;
-                        text-align: left;
-                    }}
-                    .inventory-table th {{
-                        background-color: #4CAF50;
-                        color: white;
-                    }}
-                    .inventory-table tr:nth-child(even) {{
-                        background-color: #f9f9f9;
-                    }}
-                    .status-updated {{
-                        color: green;
-                        font-weight: bold;
-                    }}
-                    .status-outdated {{
-                        color: red;
-                        font-weight: bold;
-                    }}
-                    .status-unknown {{
-                        color: orange;
-                        font-weight: bold;
-                    }}
-                    .components-table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-top: 10px;
-                        margin-bottom: 30px;
-                        background-color: white;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                        table-layout: fixed;
-                    }}
-                    .components-table th, .components-table td {{
-                        border: 1px solid #ddd;
-                        padding: 8px;
-                        text-align: left;
-                        word-wrap: break-word;
-                        overflow-wrap: break-word;
-                    }}
-                    .components-table th {{
-                        background-color: #2196F3;
-                        color: white;
-                    }}
-                    .components-table tr:nth-child(even) {{
-                        background-color: #f9f9f9;
-                    }}
-                    /* Column width adjustments */
-                    .components-table th:nth-child(1), .components-table td:nth-child(1) {{
-                        width: 10%;  /* Type column */
-                    }}
-                    .components-table th:nth-child(2), .components-table td:nth-child(2) {{
-                        width: 10%;  /* Name column */
-                    }}
-                    .components-table th:nth-child(3), .components-table td:nth-child(3) {{
-                        width: 10%;  /* Current Version column */
-                    }}
-                    .components-table th:nth-child(4), .components-table td:nth-child(4) {{
-                        width: 20%;  /* Source column */
-                    }}
-                    .components-table th:nth-child(5), .components-table td:nth-child(5) {{
-                        width: 10%;  /* Latest Version column */
-                    }}
-                    .components-table th:nth-child(6), .components-table td:nth-child(6) {{
-                        width: 20%;  /* Source URL column */
-                    }}
-                    .components-table th:nth-child(7), .components-table td:nth-child(7) {{
-                        width: 10%;  /* Status column */
-                    }}
-                    /* Module column specific styling */
-                    .module-cell {{
-                        font-family: monospace;
-                        white-space: normal;
-                        word-break: break-word;
-                        max-width: 200px;
-                    }}
-                    /* Component column specific styling */
-                    .component-cell {{
-                        font-family: monospace;
-                        white-space: normal;
-                        word-break: break-word;
-                    }}
+                    
                     h1 {{
-                        color: #333;
+                        color: var({{--gray-800}});
                         text-align: center;
-                        margin-bottom: 30px;
+                        margin-bottom: 2rem;
+                        font-size: 2.5rem;
+                        font-weight: 700;
+                        background: linear-gradient(135deg, var({{--primary-color}}), var({{--secondary-color}}));
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
                     }}
+                    
                     h2 {{
-                        color: #333;
-                        margin-top: 30px;
-                        margin-bottom: 15px;
-                        border-bottom: 2px solid #4CAF50;
-                        padding-bottom: 5px;
+                        color: var({{--gray-700}});
+                        margin-top: 3rem;
+                        margin-bottom: 1.5rem;
+                        font-size: 1.75rem;
+                        font-weight: 600;
+                        border-bottom: 3px solid var({{--primary-color}});
+                        padding-bottom: 0.5rem;
+                        display: flex;
+                        align-items: center;
+                        gap: 0.75rem;
                     }}
+                    
                     h3 {{
-                        color: #2196F3;
-                        margin-top: 20px;
-                        margin-bottom: 10px;
+                        color: var({{--primary-color}});
+                        margin-top: 2rem;
+                        margin-bottom: 1rem;
+                        font-size: 1.25rem;
+                        font-weight: 600;
                     }}
+                    
                     .project-info {{
-                        background-color: #e7f3fe;
-                        border-left: 6px solid #2196F3;
-                        padding: 10px;
-                        margin-bottom: 20px;
+                        background: linear-gradient(135deg, #ffffff, var({{--gray-50}}));
+                        border: 1px solid var({{--gray-200}});
+                        border-left: 4px solid var({{--primary-color}});
+                        border-radius: 0.75rem;
+                        padding: 2rem;
+                        margin-bottom: 2rem;
+                        box-shadow: var({{--shadow}});
                     }}
+                    
+                    .project-info p {{
+                        margin: 0.5rem 0;
+                        font-size: 1.1rem;
+                    }}
+                    
+                    .summary-container {{
+                        text-align: center;
+                        margin: 3rem 0;
+                    }}
+                    
                     .summary-table {{
-                        width: 50%;
-                        margin: 20px auto;
+                        width: 70%;
+                        margin: 2rem auto;
                         border-collapse: collapse;
-                        background-color: white;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                        border-radius: 8px;
+                        background: #ffffff;
+                        box-shadow: var({{--shadow-lg}});
+                        border-radius: 1rem;
                         overflow: hidden;
+                        border: 1px solid var({{--gray-200}});
                     }}
+                    
                     .summary-table th {{
-                        background-color: #2196F3;
+                        background: linear-gradient(135deg, var({{--primary-color}}), var({{--secondary-color}}));
                         color: white;
-                        padding: 12px;
+                        padding: 1.25rem;
                         text-align: left;
-                        font-weight: bold;
+                        font-weight: 600;
+                        font-size: 1rem;
                     }}
+                    
                     .summary-table td {{
-                        padding: 12px;
-                        border-bottom: 1px solid #ddd;
+                        padding: 1.25rem;
+                        border-bottom: 1px solid var({{--gray-100}});
+                        font-size: 1rem;
                     }}
+                    
                     .summary-table tr:last-child td {{
                         border-bottom: none;
                     }}
+                    
+                    .summary-table tr:nth-child(even) {{
+                        background-color: var({{--gray-50}});
+                    }}
+                    
                     .summary-table .metric {{
-                        font-weight: bold;
-                        color: #333;
+                        font-weight: 600;
+                        color: var({{--gray-700}});
                         width: 60%;
                     }}
+                    
                     .summary-table .value {{
                         text-align: right;
-                        font-weight: bold;
+                        font-weight: 700;
+                        font-size: 1.1rem;
                     }}
+                    
+                    .components-table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 1.5rem 0;
+                        background: #ffffff;
+                        box-shadow: var({{--shadow}});
+                        border-radius: 0.75rem;
+                        overflow: hidden;
+                        border: 1px solid var({{--gray-200}});
+                    }}
+                    
+                    .components-table th {{
+                        background: linear-gradient(135deg, var({{--gray-100}}), var({{--gray-200}}));
+                        color: var({{--gray-700}});
+                        padding: 1rem;
+                        text-align: left;
+                        font-weight: 600;
+                        font-size: 0.875rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        border-bottom: 2px solid var({{--gray-300}});
+                    }}
+                    
+                    .components-table td {{
+                        padding: 1rem;
+                        border-bottom: 1px solid var({{--gray-100}});
+                        vertical-align: top;
+                        font-size: 0.9rem;
+                    }}
+                    
+                    .components-table tbody tr:hover {{
+                        background-color: var({{--gray-50}});
+                        transform: scale(1.001);
+                        transition: all 0.2s ease;
+                    }}
+                    
+                    .components-table tbody tr:last-child td {{
+                        border-bottom: none;
+                    }}
+                    
+                    .status-updated {{
+                        color: var({{--success-color}});
+                        font-weight: 600;
+                        padding: 0.25rem 0.75rem;
+                        background: rgba(16, 185, 129, 0.1);
+                        border-radius: 9999px;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                    }}
+                    
+                    .status-current {{
+                        color: var({{--success-color}});
+                        font-weight: 600;
+                        padding: 0.25rem 0.75rem;
+                        background: rgba(16, 185, 129, 0.1);
+                        border-radius: 9999px;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                    }}
+                    
+                    .status-outdated {{
+                        color: var({{--danger-color}});
+                        font-weight: 600;
+                        padding: 0.25rem 0.75rem;
+                        background: rgba(239, 68, 68, 0.1);
+                        border-radius: 9999px;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                    }}
+                    
+                    .status-unknown {{
+                        color: var({{--warning-color}});
+                        font-weight: 600;
+                        padding: 0.25rem 0.75rem;
+                        background: rgba(245, 158, 11, 0.1);
+                        border-radius: 9999px;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                    }}
+                    
+                    .module-cell, .component-cell {{
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        background: var({{--gray-50}});
+                        padding: 0.25rem 0.5rem;
+                        border-radius: 0.25rem;
+                        font-size: 0.8rem;
+                        color: var({{--gray-700}});
+                        word-break: break-all;
+                    }}
+                    
                     .value-updated {{
-                        color: #4CAF50;
+                        color: var({{--success-color}});
+                        font-weight: 600;
                     }}
+                    
                     .value-outdated {{
-                        color: #f44336;
+                        color: var({{--danger-color}});
+                        font-weight: 600;
                     }}
+                    
                     .value-unknown {{
-                        color: #ff9800;
+                        color: var({{--warning-color}});
+                        font-weight: 600;
                     }}
+                    
                     .value-local {{
-                        color: #2196F3;
+                        color: var({{--primary-color}});
+                        font-weight: 600;
                     }}
-                    .summary-container {{
-                        text-align: center;
-                        margin: 30px 0;
+                    
+                    /* Responsive Design */
+                    @media (max-width: 768px) {{
+                        body {{
+                            padding: 1rem;
+                        }}
+                        
+                        h1 {{
+                            font-size: 2rem;
+                        }}
+                        
+                        .summary-table {{
+                            width: 95%;
+                        }}
+                        
+                        .components-table {{
+                            font-size: 0.8rem;
+                        }}
+                        
+                        .components-table th,
+                        .components-table td {{
+                            padding: 0.75rem 0.5rem;
+                        }}
+                    }}
+                    
+                    /* Print Styles */
+                    @media print {{
+                        body {{
+                            background: white;
+                        }}
+                        
+                        .components-table,
+                        .summary-table {{
+                            break-inside: avoid;
+                        }}
                     }}
                 </style>
             </head>
-            <body>
+            <body><div class="container">
                 <h1>Infrastructure Inventory Report</h1>
                 <div class="project-info">
                     <p><strong>Project Name:</strong> {project_name}</p>
@@ -231,7 +341,7 @@ class ReportService:
                 
                 <h2>Detailed Inventory</h2>
                 {content}
-            </body>
+            </div></body>
             </html>
             """
 
@@ -292,6 +402,9 @@ class ReportService:
                 # Add providers table if available
                 providers = component_group.get("providers", [])
                 if providers:
+                    # Check if provider version information is available
+                    has_version_info = inventory.get("provider_version_stats") is not None
+                    
                     components_html += """
                     <h3>Providers</h3>
                     <table class="components-table">
@@ -301,7 +414,14 @@ class ReportService:
                                 <th>Version</th>
                                 <th>Source</th>
                                 <th>Module</th>
-                                <th>Component</th>
+                                <th>Component</th>"""
+                    
+                    if has_version_info:
+                        components_html += """
+                                <th>Latest Version</th>
+                                <th>Status</th>"""
+                    
+                    components_html += """
                             </tr>
                         </thead>
                         <tbody>
@@ -316,15 +436,38 @@ class ReportService:
                         if not module_name or module_name == "Root":
                             module_name = stack_name
                             
-                        components_html += f"""
+                        # Prepare HTML row data
+                        row_html = f"""
                         <tr>
                             <td>{provider.get("name", "Unknown")}</td>
                             <td>{provider.get("version", "Unknown")}</td>
                             <td>{provider.get("source", "Unknown")}</td>
                             <td class="module-cell">{module_name}</td>
-                            <td class="component-cell">{provider.get("component", "")}</td>
+                            <td class="component-cell">{provider.get("component", "")}</td>"""
+                        
+                        # Add version information if available
+                        if has_version_info:
+                            latest_version = provider.get("latest_version", "Unknown")
+                            status = provider.get("status", "unknown")
+                            
+                            # Style the status
+                            status_class = ""
+                            if status == "outdated":
+                                status_class = "status-outdated"
+                            elif status == "current":
+                                status_class = "status-current"
+                            else:
+                                status_class = "status-unknown"
+                            
+                            row_html += f"""
+                            <td>{latest_version}</td>
+                            <td class="{status_class}">{status.title()}</td>"""
+                        
+                        row_html += """
                         </tr>
                         """
+                        
+                        components_html += row_html
                     
                     components_html += """
                         </tbody>
@@ -470,6 +613,12 @@ class ReportService:
                     providers_table.add_column("Module", style="yellow", overflow="fold")
                     providers_table.add_column("Component", style="magenta", overflow="fold")
                     
+                    # Check if provider version information is available
+                    has_version_info = inventory.get("provider_version_stats") is not None
+                    if has_version_info:
+                        providers_table.add_column("Latest Version", style="yellow")
+                        providers_table.add_column("Status", style="red", justify="center")
+                    
                     # Get the stack name for this component group
                     stack_name = component_group.get("stack", "Unknown")
                     
@@ -479,13 +628,31 @@ class ReportService:
                         if not module_name or module_name == "Root":
                             module_name = stack_name
                             
-                        providers_table.add_row(
+                        # Prepare row data
+                        row_data = [
                             provider.get("name", "Unknown"),
                             provider.get("version", "Unknown"),
                             provider.get("source", "Unknown"),
                             module_name,
                             provider.get("component", ""),
-                        )
+                        ]
+                        
+                        # Add version information if available
+                        if has_version_info:
+                            latest_version = provider.get("latest_version", "Unknown")
+                            status = provider.get("status", "unknown")
+                            
+                            # Style the status
+                            if status == "outdated":
+                                status_styled = "[red]Outdated[/red]"
+                            elif status == "current":
+                                status_styled = "[green]Current[/green]"
+                            else:
+                                status_styled = "[yellow]Unknown[/yellow]"
+                            
+                            row_data.extend([latest_version, status_styled])
+                        
+                        providers_table.add_row(*row_data)
                     
                     # Add both tables to the main table
                     grid = Table.grid()

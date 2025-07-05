@@ -60,7 +60,7 @@ class IaCInvCommand(ClickCommand):
         Execute project initialization
 
         Args:
-            check_versions: Flag to check versions
+            check_versions: Flag to check latest versions for modules and providers
             report_type: Type of report to generate
             inventory_path: Path to inventory
             inventory_action: Action to perform (create/update/list/restore)
@@ -92,6 +92,7 @@ class IaCInvCommand(ClickCommand):
                         framework_type=framework_type,
                         complete=complete,
                         check_providers=check_providers,
+                        check_provider_versions=check_versions,  # Use unified flag for provider versions too
                         provider_tool=provider_tool,
                         project_name=project_name,
                     )
@@ -130,6 +131,7 @@ class IaCInvCommand(ClickCommand):
         framework_type: str = "auto",
         complete: bool = False,
         check_providers: bool = False,
+        check_provider_versions: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
     ) -> None:
@@ -138,17 +140,21 @@ class IaCInvCommand(ClickCommand):
 
         Args:
             source_dir: Source directory containing Terraform files
-            check_versions: Whether to check for latest versions
+            check_versions: Whether to check for latest versions (modules and providers)
             report_type: Type of report to generate (html, json, or all)
             reports_dir: Directory to store generated reports
             framework_type: Framework type to analyze
             complete: Flag to include .terraform and .terragrunt-cache folders
             check_providers: Flag to check provider information
+            check_provider_versions: Flag to check provider versions against registries
             provider_tool: Tool to use for checking providers
             project_name: Custom project name to use in the report
         """
         try:
             with self.ui.status_spinner("Creating infrastructure inventory..."):
+                # When check_versions is enabled, automatically enable provider checking
+                effective_check_providers = check_providers or check_versions
+                
                 inventory = await self.inventory_service.create_inventory(
                     source_directory=source_dir,
                     check_versions=check_versions,
@@ -156,7 +162,8 @@ class IaCInvCommand(ClickCommand):
                     reports_directory=reports_dir,
                     framework_type=framework_type,
                     complete=complete,
-                    check_providers=check_providers,
+                    check_providers=effective_check_providers,
+                    check_provider_versions=check_versions,
                     provider_tool=provider_tool,
                     project_name=project_name,
                 )
@@ -339,11 +346,11 @@ cli = IaCInvCommand.as_click_command(
         default="./Reports/Inventory",
     ),
     click.option(
-        "-ch",
+        "-cv",
         "--check-versions",
         is_flag=True,
         default=False,
-        help="Check remote versions",
+        help="Check latest versions for modules and providers (includes provider version checking)",
     ),
     click.option(
         "-updep",
@@ -390,7 +397,7 @@ cli = IaCInvCommand.as_click_command(
         "--check-providers",
         is_flag=True,
         default=False,
-        help="Check and report provider information for each stack",
+        help="Check and report provider information for each stack (automatically enabled with --check-versions)",
     ),
     click.option(
         "--provider-tool",

@@ -12,7 +12,7 @@ from .models import Component, ComponentGroup, Inventory, Provider
 from .report_service import ReportService
 from .terragrunt_parser import TerragruntParser
 from .update_versions import main_update_versions
-from .version_service import InventoryVersionManager
+from .version_service import InventoryVersionManager, ProviderVersionManager
 
 
 logger = logging.getLogger(__name__)
@@ -25,10 +25,12 @@ class InventoryService:
         self,
         version_service: Optional[InventoryVersionManager] = None,
         report_service: Optional[ReportService] = None,
+        provider_version_service: Optional[ProviderVersionManager] = None,
     ):
         """Initialize inventory service."""
         self.version_service = version_service or InventoryVersionManager()
         self.report_service = report_service or ReportService()
+        self.provider_version_service = provider_version_service or ProviderVersionManager()
         self.terragrunt_parser = TerragruntParser()
         self.is_terragrunt_project = False
 
@@ -240,6 +242,7 @@ class InventoryService:
         framework_type: str = "auto",
         complete: bool = False,
         check_providers: bool = False,
+        check_provider_versions: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -339,6 +342,44 @@ class InventoryService:
         # Check versions if requested
         if check_versions and inventory_dict:
             inventory_dict = await self.version_service.check_versions(inventory_dict)
+            
+        # Check provider versions if requested
+        if check_provider_versions and check_providers and inventory_dict:
+            logger.info("Checking provider versions against registries...")
+            
+            # Collect all providers from all component groups
+            all_providers = []
+            for component_group in inventory_dict.get("components", []):
+                providers = component_group.get("providers", [])
+                all_providers.extend(providers)
+            
+            if all_providers:
+                # Check provider versions
+                updated_providers = await self.provider_version_service.check_provider_versions(all_providers)
+                
+                # Update the inventory with enhanced provider information
+                provider_index = 0
+                for component_group in inventory_dict.get("components", []):
+                    group_providers = component_group.get("providers", [])
+                    if group_providers:
+                        # Replace providers with updated versions
+                        updated_group_providers = updated_providers[provider_index:provider_index + len(group_providers)]
+                        component_group["providers"] = updated_group_providers
+                        provider_index += len(group_providers)
+                
+                # Add provider version statistics
+                outdated_providers = sum(1 for p in updated_providers if p.get("status") == "outdated")
+                current_providers = sum(1 for p in updated_providers if p.get("status") == "current")
+                unknown_providers = sum(1 for p in updated_providers if p.get("status") == "unknown")
+                
+                inventory_dict["provider_version_stats"] = {
+                    "total_providers": len(updated_providers),
+                    "outdated_providers": outdated_providers,
+                    "current_providers": current_providers,
+                    "unknown_providers": unknown_providers
+                }
+                
+                logger.info(f"Provider version check completed: {outdated_providers} outdated, {current_providers} current, {unknown_providers} unknown")
 
         # Generate reports
         reports_path = Path(reports_directory)

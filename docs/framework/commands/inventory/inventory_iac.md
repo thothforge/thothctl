@@ -2,7 +2,15 @@
 
 ## Overview
 
-The `thothctl inventory iac` command creates, updates, and manages an inventory of Infrastructure as Code (IaC) components in your project. This inventory tracks modules, their versions, sources, and dependencies, providing valuable insights into your infrastructure composition.
+The `thothctl inventory iac` command creates, updates, and manages an inventory of Infrastructure as Code (IaC) components in your project. This inventory tracks modules, their versions, sources, and dependencies, providing valuable insights into your infrastructure composition with **modern, professional HTML reports** and comprehensive provider version analysis.
+
+## Recent Improvements ✨
+
+- **🎯 Unified Version Checking**: Single `--check-versions` flag handles both module and provider version checking
+- **🎨 Modern HTML Reports**: Professional styling with Inter font, gradients, and responsive design
+- **📊 Enhanced Provider Analysis**: Comprehensive provider version tracking with status indicators
+- **🚀 Intelligent Automation**: Automatic provider checking when version checking is enabled
+- **📱 Responsive Design**: Reports work perfectly on desktop, tablet, and mobile devices
 
 ## Command Options
 
@@ -12,97 +20,141 @@ Usage: thothctl inventory iac [OPTIONS]
   Create a inventory about IaC modules composition for terraform/tofu/terragrunt projects
 
 Options:
+  -pj, --project-name TEXT        Specify a custom project name for the
+                                  inventory report
+  --provider-tool [tofu|terraform]
+                                  Tool to use for checking providers (default:
+                                  tofu)
+  --check-providers               Check and report provider information for
+                                  each stack (automatically enabled with
+                                  --check-versions)
+  --complete                      Include .terraform and .terragrunt-cache
+                                  folders in analysis (complete analysis)
   -ft, --framework-type [auto|terraform|terragrunt|terraform-terragrunt]
-                                  Framework type to analyze (auto for automatic
-                                  detection)  [default: auto]
+                                  Framework type to analyze (auto for
+                                  automatic detection)
   -r, --report-type [html|json|all]
-                                  Type of report to generate  [default: html]
+                                  Type of report to generate
   -iact, --inventory-action [create|update|restore]
-                                  Action for inventory tasks  [default: create]
+                                  Action for inventory tasks
   -auto, --auto-approve           Use with --update_dependencies option for
                                   auto approve updating dependencies.
   -updep, --update-dependencies-path
                                   Pass the inventory json file path for
                                   updating dependencies.
-  -ch, --check-versions           Check remote versions
-  -iph, --inventory-path PATH     Path for saving inventory reports  [default:
-                                  ./Reports/Inventory]
-  --complete                      Include .terraform and .terragrunt-cache folders
-                                  in analysis (complete analysis)
-  --check-providers               Check and report provider information for each stack
-  --provider-tool [tofu|terraform]
-                                  Tool to use for checking providers (default: tofu)
-  --project-name, -pj TEXT        Specify a custom project name for the inventory report
+  -cv, --check-versions           Check latest versions for modules and
+                                  providers (includes provider version
+                                  checking)
+  -iph, --inventory-path PATH     Path for saving inventory reports
   --help                          Show this message and exit.
 ```
 
 ## Basic Usage
 
-### Create an Inventory
+### Create a Basic Inventory
 
 ```bash
 thothctl inventory iac
 ```
 
-This creates an inventory of all IaC components in the current directory and generates an HTML report in the default location (`./Reports/Inventory`).
+This creates an inventory of all IaC components in the current directory and generates a **modern HTML report** in the default location (`./Reports/Inventory`).
 
-### Create an Inventory with Version Checking
+### Create an Inventory with Version Checking (Recommended) 🚀
 
 ```bash
 thothctl inventory iac --check-versions
 ```
 
-This creates an inventory and checks if the modules are using the latest available versions.
+This creates a comprehensive inventory that:
+- ✅ Checks latest versions for all modules
+- ✅ Automatically enables provider checking
+- ✅ Analyzes provider versions against registries
+- ✅ Shows "Latest Version" and "Status" columns
+- ✅ Generates modern, professional HTML reports
 
 ### Generate Different Report Types
 
 ```bash
+# HTML report with modern styling (default)
+thothctl inventory iac --report-type html
+
+# JSON report for automation
 thothctl inventory iac --report-type json
-```
 
-This creates an inventory and generates a JSON report.
-
-```bash
+# Both HTML and JSON reports
 thothctl inventory iac --report-type all
 ```
 
-This creates an inventory and generates both HTML and JSON reports.
-
-### Specify a Custom Output Directory
+### Specify Custom Output Directory and Project Name
 
 ```bash
-thothctl inventory iac --inventory-path ./my-inventory
+thothctl inventory iac \
+  --check-versions \
+  --inventory-path ./docs/infrastructure \
+  --project-name "Production Infrastructure"
 ```
 
-This creates an inventory and saves the reports in the specified directory.
+## Modern HTML Reports 🎨
 
-### Specify a Custom Project Name
+The new HTML reports feature:
+
+### **Professional Design**
+- **Inter Font Family**: Modern, readable typography
+- **Gradient Headers**: Professional blue gradient styling
+- **Responsive Layout**: Works on all devices and screen sizes
+- **Print Optimization**: Perfect for PDF generation and documentation
+
+### **Enhanced Data Visualization**
+- **Provider Version Columns**: "Latest Version" and "Status" columns for all providers
+- **Color-Coded Status Badges**: 
+  - 🟢 **Current**: Green badges for up-to-date components
+  - 🔴 **Outdated**: Red badges for components needing updates
+  - 🟡 **Unknown**: Yellow badges for components with unknown status
+- **Interactive Tables**: Hover effects and improved readability
+- **Module Information**: Comprehensive component and provider details
+
+### **Report Features**
+- **Project Information Header**: Clean project overview with metadata
+- **Summary Statistics**: Total components, outdated count, provider statistics
+- **Detailed Component Tables**: Organized by stack with full provider information
+- **Modern CSS Styling**: Professional appearance suitable for business use
+
+## Version Checking & Provider Analysis 📊
+
+### **Unified Version Checking**
+
+The `--check-versions` flag now provides comprehensive analysis:
 
 ```bash
-thothctl inventory iac --project-name "My Infrastructure Project"
+thothctl inventory iac --check-versions
 ```
 
-This creates an inventory with a custom project name in the reports.
+**What it does:**
+- ✅ Checks latest versions for all Terraform/Terragrunt modules
+- ✅ Automatically enables provider checking
+- ✅ Analyzes provider versions against registries
+- ✅ Shows version comparison (current vs. latest)
+- ✅ Provides status indicators (Current/Outdated/Unknown)
 
-### Check Provider Information
+### **Provider-Only Analysis**
+
+If you only want provider information without version checking:
 
 ```bash
 thothctl inventory iac --check-providers
 ```
 
-This creates an inventory that includes provider information for each stack, showing which providers are used by which components.
+### **Provider Version Information**
 
-### Complete Analysis
-
-```bash
-thothctl inventory iac --complete
-```
-
-This creates an inventory that includes files in `.terraform` and `.terragrunt-cache` folders (normally excluded).
+The reports now include comprehensive provider data:
+- **Provider Name**: aws, google, kubernetes, etc.
+- **Current Version**: Version currently in use
+- **Latest Version**: Most recent available version
+- **Source Registry**: Where the provider comes from
+- **Module Context**: Which module uses the provider
+- **Status**: Current, Outdated, or Unknown
 
 ## Framework Type Options
-
-The command supports different IaC frameworks:
 
 ### Auto-detect Framework (Default)
 
@@ -110,317 +162,345 @@ The command supports different IaC frameworks:
 thothctl inventory iac --framework-type auto
 ```
 
-This automatically detects the framework type based on the files in your project.
+Automatically detects the framework type based on project files.
 
 ### Terraform Framework
 
 ```bash
-thothctl inventory iac --framework-type terraform
+thothctl inventory iac --framework-type terraform --check-versions
 ```
 
-This analyzes only Terraform files (`.tf`) in your project.
+Analyzes Terraform files (`.tf`) with version checking.
 
 ### Terragrunt Framework
 
 ```bash
-thothctl inventory iac --framework-type terragrunt
+thothctl inventory iac --framework-type terragrunt --check-versions
 ```
 
-This analyzes only Terragrunt files (`terragrunt.hcl`) in your project, excluding `.terragrunt-cache` directories.
+Analyzes Terragrunt files (`terragrunt.hcl`) with comprehensive provider analysis.
 
 ### Mixed Terraform-Terragrunt Framework
 
 ```bash
-thothctl inventory iac --framework-type terraform-terragrunt
+thothctl inventory iac --framework-type terraform-terragrunt --check-versions
 ```
 
-This analyzes both Terraform and Terragrunt files in your project.
+Analyzes both Terraform and Terragrunt files with full version checking.
 
 ## Inventory Actions
-
-The command supports three main actions:
 
 ### 1. Create (Default)
 
 ```bash
-thothctl inventory iac --inventory-action create
+thothctl inventory iac --inventory-action create --check-versions
 ```
 
-This action scans your IaC files and creates a new inventory.
+Scans IaC files and creates a new inventory with version analysis.
 
 ### 2. Update
 
 ```bash
-thothctl inventory iac --inventory-action update --inventory-path ./path/to/inventory.json
+thothctl inventory iac \
+  --inventory-action update \
+  --inventory-path ./path/to/inventory.json \
+  --auto-approve
 ```
 
-This action updates your IaC files based on the inventory. It can be used to apply version updates or other changes.
+Updates IaC files based on the inventory.
 
 ### 3. Restore
 
 ```bash
-thothctl inventory iac --inventory-action restore --inventory-path ./path/to/inventory.json
+thothctl inventory iac \
+  --inventory-action restore \
+  --inventory-path ./path/to/inventory.json
 ```
 
-This action restores your IaC files to the state recorded in the inventory.
+Restores IaC files to the state recorded in the inventory.
 
-## Auto-Approve Updates
+## Advanced Usage Examples
 
-When using the `update` or `restore` actions, you can use the `--auto-approve` flag to skip confirmation prompts:
+### Comprehensive Infrastructure Audit
 
 ```bash
-thothctl inventory iac --inventory-action update --inventory-path ./path/to/inventory.json --auto-approve
+thothctl inventory iac \
+  --check-versions \
+  --report-type all \
+  --project-name "Production Infrastructure Audit" \
+  --inventory-path ./docs/audit
 ```
 
-## Provider Analysis
+**This generates:**
+- Modern HTML report with provider version analysis
+- JSON report for automation
+- Complete module and provider inventory
+- Version status for all components
 
-The command can analyze provider information in your IaC files:
+### Terragrunt Project Analysis
 
 ```bash
-thothctl inventory iac --check-providers
+thothctl inventory iac \
+  --framework-type terragrunt \
+  --check-versions \
+  --project-name "Terragrunt Infrastructure"
 ```
 
-This analyzes which providers are used by which components in your infrastructure. You can specify which tool to use for provider analysis:
+### CI/CD Integration
 
 ```bash
-thothctl inventory iac --check-providers --provider-tool terraform
+# In your CI/CD pipeline
+thothctl inventory iac \
+  --check-versions \
+  --report-type json \
+  --inventory-path ./reports/$(date +%Y-%m-%d)
 ```
 
-The provider analysis includes:
-- Provider name and version
-- Source registry
-- Module using the provider
-- Component using the provider
+### Complete Analysis with All Options
 
-## Inventory Reports
+```bash
+thothctl inventory iac \
+  --check-versions \
+  --complete \
+  --report-type all \
+  --project-name "Complete Infrastructure Analysis" \
+  --provider-tool tofu \
+  --inventory-path ./comprehensive-analysis
+```
 
-The command generates detailed reports about your infrastructure components:
+## Report Structure
 
-### HTML Report
+### HTML Report Sections
 
-The HTML report includes:
-- Project overview and framework type
-- Module list with versions and sources
-- Provider information (when using --check-providers)
-- Dependency graph visualization
-- Version status (latest vs. current)
-- File locations
+1. **Header**: Project name, type, and generation timestamp
+2. **Summary**: Statistics about components, providers, and versions
+3. **Stack Details**: Organized by stack with:
+   - Component tables with version information
+   - Provider tables with version analysis
+   - Status indicators and latest version information
 
-### JSON Report
+### JSON Report Structure
 
-The JSON report contains structured data about your infrastructure:
 ```json
 {
   "version": 2,
   "projectName": "my-project",
-  "projectType": "terragrunt",
+  "projectType": "terraform-terragrunt",
   "components": [
     {
-      "path": "./modules",
+      "stack": "./stacks/networking",
       "components": [
         {
-          "type": "terragrunt_module",
+          "type": "module",
           "name": "vpc",
-          "version": ["3.14.0"],
+          "version": ["5.0.0"],
           "source": ["terraform-aws-modules/vpc/aws"],
-          "file": "modules/terragrunt.hcl",
           "latest_version": "5.19.0",
-          "source_url": "https://registry.terraform.io/v1/modules/terraform-aws-modules/vpc/aws",
+          "source_url": "https://registry.terraform.io/modules/terraform-aws-modules/vpc/aws",
           "status": "Outdated"
         }
       ],
       "providers": [
         {
           "name": "aws",
-          "version": "5.0.0",
-          "source": "registry.terraform.io/hashicorp/aws",
+          "version": "6.0.0",
+          "source": "registry.opentofu.org/hashicorp/aws",
           "module": "Root",
-          "component": "vpc"
+          "component": "networking",
+          "latest_version": "6.2.0",
+          "status": "outdated"
         }
       ]
     }
   ],
-  "unique_providers_count": 1
+  "provider_version_stats": {
+    "total_providers": 15,
+    "outdated_providers": 3,
+    "current_providers": 12,
+    "unknown_providers": 0
+  }
 }
 ```
 
-## Inventory Structure
-
-The inventory tracks the following information for each component:
-
-- **Type**: The component type (module, terragrunt_module, etc.)
-- **Name**: The component name
-- **Version**: The current version
-- **Source**: Where the component comes from (registry, GitHub, etc.)
-- **File**: The file where the component is defined
-- **Latest Version**: The latest available version (if --check-versions is used)
-- **Source URL**: The URL to the source repository or registry
-- **Status**: Version status (Updated, Outdated, Unknown)
-
-For providers (when using --check-providers):
-- **Name**: The provider name (aws, google, etc.)
-- **Version**: The provider version
-- **Source**: The provider source registry
-- **Module**: The module using the provider
-- **Component**: The specific component using the provider
-
 ## Use Cases
 
-### Infrastructure Auditing
-
-Create an inventory to audit your infrastructure components:
+### 1. Infrastructure Auditing
 
 ```bash
-thothctl inventory iac --check-versions --check-providers --report-type all
+thothctl inventory iac --check-versions --report-type all
 ```
 
-### Version Management
+**Benefits:**
+- Identify outdated modules and providers
+- Generate professional reports for stakeholders
+- Track infrastructure composition over time
 
-Identify outdated modules and update them:
+### 2. Version Management
 
 ```bash
-# First create an inventory with version checking
+# Create inventory with version analysis
 thothctl inventory iac --check-versions --report-type json
 
-# Then update modules to latest versions
-thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inventory/InventoryIaC_20250602_121227.json
+# Review the generated report for outdated components
+# Update modules based on findings
 ```
 
-### Documentation
-
-Generate documentation about your infrastructure:
+### 3. Documentation Generation
 
 ```bash
-thothctl inventory iac --report-type html --project-name "Production Infrastructure"
+thothctl inventory iac \
+  --check-versions \
+  --project-name "Production Infrastructure Documentation" \
+  --report-type html
 ```
 
-### Provider Analysis
+**Generates professional documentation with:**
+- Modern styling suitable for business presentations
+- Comprehensive component and provider information
+- Version status and recommendations
 
-Analyze which providers are used in your infrastructure:
+### 4. Compliance and Security
 
 ```bash
-thothctl inventory iac --check-providers
+thothctl inventory iac \
+  --check-versions \
+  --complete \
+  --report-type all
 ```
 
-### Disaster Recovery
+**Helps with:**
+- Security audits by identifying outdated providers
+- Compliance reporting with comprehensive documentation
+- Risk assessment through version analysis
 
-Create regular inventories for disaster recovery purposes:
-
-```bash
-thothctl inventory iac --report-type all --inventory-path ./backups/$(date +%Y-%m-%d)
-```
-
-## Examples
-
-### Basic Inventory Creation
+### 5. CI/CD Integration
 
 ```bash
-thothctl inventory iac
-```
+# In your pipeline
+thothctl inventory iac \
+  --check-versions \
+  --report-type json \
+  --inventory-path ./reports/$(date +%Y-%m-%d)
 
-### Terragrunt Project Inventory
-
-```bash
-thothctl inventory iac --framework-type terragrunt
-```
-
-### Comprehensive Inventory with Version and Provider Checking
-
-```bash
-thothctl inventory iac --check-versions --check-providers --report-type all --inventory-path ./docs/inventory
-```
-
-### Update Infrastructure to Latest Versions
-
-```bash
-# First create an inventory with version checking
-thothctl inventory iac --check-versions --report-type json
-
-# Then update modules to latest versions
-thothctl inventory iac --inventory-action update --inventory-path ./Reports/Inventory/InventoryIaC_20250602_121227.json
-```
-
-### Restore Infrastructure from Backup
-
-```bash
-thothctl inventory iac --inventory-action restore --inventory-path ./backups/2023-01-01/inventory.json
+# Parse JSON output for automated decision making
 ```
 
 ## Best Practices
 
-1. **Regular Inventories**: Create inventories regularly to track changes over time
-2. **Version Checking**: Use `--check-versions` to identify outdated modules
-3. **Provider Analysis**: Use `--check-providers` to understand provider dependencies
-4. **Multiple Report Types**: Use `--report-type all` to generate both HTML and JSON reports
-5. **Custom Project Names**: Use `--project-name` for clear identification in reports
-6. **Backup Inventories**: Store inventories in a version-controlled location
-7. **CI/CD Integration**: Add inventory creation to your CI/CD pipeline
-8. **Framework Specification**: Explicitly specify the framework type for more accurate results
+### 1. Regular Version Checking
+```bash
+# Run weekly to identify outdated components
+thothctl inventory iac --check-versions
+```
 
-## Terragrunt Support
+### 2. Comprehensive Analysis
+```bash
+# For thorough audits, use all features
+thothctl inventory iac \
+  --check-versions \
+  --complete \
+  --report-type all \
+  --project-name "Monthly Infrastructure Audit"
+```
 
-The inventory command supports Terragrunt projects with the following features:
+### 3. Documentation Standards
+```bash
+# Generate consistent documentation
+thothctl inventory iac \
+  --check-versions \
+  --project-name "$(basename $(pwd)) Infrastructure" \
+  --inventory-path ./docs/infrastructure
+```
 
-- **Module Detection**: Detects modules defined in `terragrunt.hcl` files
-- **Version Extraction**: Extracts version information from Terragrunt source blocks
-- **Cache Exclusion**: Automatically excludes `.terragrunt-cache` directories
-- **Registry Support**: Supports Terraform Registry modules referenced with `tfr:///`
-- **Version Checking**: Checks for latest versions of modules referenced in Terragrunt files
+### 4. Provider Tool Selection
+```bash
+# Use OpenTofu for modern Terraform workflows
+thothctl inventory iac --check-versions --provider-tool tofu
 
-### Terragrunt Source Formats
+# Use Terraform for legacy workflows
+thothctl inventory iac --check-versions --provider-tool terraform
+```
 
-The inventory command supports various Terragrunt source formats:
-
-- **Terraform Registry**: `tfr:///terraform-aws-modules/alb/aws?version=8.7.0`
-- **GitHub References**: `git::https://github.com/org/repo.git?ref=v1.0.0`
-- **Local Modules**: `../modules/my-module`
-- **Direct References**: `terraform-aws-modules/vpc/aws`
+### 5. Report Organization
+```bash
+# Organize reports by date and environment
+thothctl inventory iac \
+  --check-versions \
+  --inventory-path ./reports/$(date +%Y-%m)/production \
+  --project-name "Production Infrastructure - $(date +%B\ %Y)"
+```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### No Components Found
-
-```
-Warning: No components found in the specified directory.
-```
-
-**Solution**: Ensure you're running the command in a directory containing Terraform (`.tf`) or Terragrunt (`terragrunt.hcl`) files.
+#### CSS Styling Issues (Fixed)
+The recent updates have resolved all CSS variable issues that previously caused HTML report generation failures.
 
 #### Version Checking Failures
-
 ```
 Error: Failed to check versions for module xyz
 ```
-
-**Solution**: Ensure you have internet connectivity and the module source is accessible.
+**Solution**: Ensure internet connectivity and module source accessibility.
 
 #### Provider Analysis Failures
-
 ```
 Error: Failed to get providers for stack xyz
 ```
+**Solution**: 
+- Ensure the provider tool (tofu/terraform) is installed
+- Run `tofu init` or `terraform init` in problematic directories
+- Check that all modules are properly initialized
 
-**Solution**: Ensure the specified provider tool (tofu or terraform) is installed and accessible in your PATH.
-
-#### Report Generation Failures
-
+#### Report Generation Issues
 ```
 Error: Failed to generate HTML report
 ```
-
-**Solution**: Ensure you have write permissions to the output directory.
+**Solution**: Ensure write permissions to the output directory.
 
 ### Debugging
 
-For more detailed logs, run ThothCTL with the `--debug` flag:
-
+For detailed logs:
 ```bash
-thothctl --debug inventory iac
+thothctl --debug inventory iac --check-versions
 ```
+
+## Migration from Old Flags
+
+### Before (Deprecated)
+```bash
+# Old redundant flags
+thothctl inventory iac --check-providers --check-provider-versions --check-versions
+```
+
+### After (Recommended)
+```bash
+# New unified approach
+thothctl inventory iac --check-versions
+```
+
+**Benefits of the new approach:**
+- ✅ Single flag for all version checking
+- ✅ Automatic provider checking when needed
+- ✅ Simplified user experience
+- ✅ Reduced confusion
+- ✅ Maintained functionality
 
 ## Related Commands
 
 - [thothctl check iac](../check/check_iac.md): Check IaC components against best practices
 - [thothctl scan](../../use_cases/check_command.md): Scan infrastructure code for security issues
+- [thothctl project](../project/project_overview.md): Project management commands
+
+## Summary
+
+The `thothctl inventory iac` command now provides:
+
+- 🎯 **Unified version checking** with a single `--check-versions` flag
+- 🎨 **Modern HTML reports** with professional styling and responsive design
+- 📊 **Comprehensive provider analysis** with version tracking and status indicators
+- 🚀 **Intelligent automation** that enables provider checking when needed
+- 📱 **Multi-device compatibility** with responsive design for all screen sizes
+- 🔧 **Enhanced user experience** with simplified flags and better documentation
+
+Use `thothctl inventory iac --check-versions` for the best experience with comprehensive analysis and modern reporting.

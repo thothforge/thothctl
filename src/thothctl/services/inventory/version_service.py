@@ -1,10 +1,10 @@
-"""Module for checking and comparing versions of Terraform modules."""
+"""Module for checking and comparing versions of Terraform modules and providers."""
 import asyncio
 import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -714,6 +714,286 @@ async def main():
     manager = InventoryVersionManager()
     updated_inventory = await manager.check_versions(inventory)
     return updated_inventory
+
+
+class ProviderVersionChecker:
+    """Handles provider version checking against registries."""
+    
+    TERRAFORM_REGISTRY_BASE = "https://registry.terraform.io/v1/providers"
+    OPENTOFU_REGISTRY_BASE = "https://registry.opentofu.org/v1/providers"
+    
+    def __init__(self, timeout: int = 30):
+        """Initialize with configurable timeout."""
+        self.timeout = ClientTimeout(total=timeout)
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        self._session = aiohttp.ClientSession(timeout=self.timeout)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        if self._session:
+            await self._session.close()
+
+    def _parse_provider_source(self, source: str) -> Tuple[str, str, str]:
+        """
+        Parse provider source to extract registry, namespace, and name.
+        
+        Args:
+            source: Provider source like 'registry.terraform.io/hashicorp/aws'
+            
+        Returns:
+            Tuple of (registry_url, namespace, provider_name)
+        """
+        # Always prioritize Terraform registry due to better API compatibility
+        # OpenTofu registry has issues with content-type headers
+        
+        if source.startswith("registry.terraform.io/"):
+            registry_base = self.TERRAFORM_REGISTRY_BASE
+            parts = source.replace("registry.terraform.io/", "").split("/")
+        elif source.startswith("registry.opentofu.org/"):
+            # Use Terraform registry instead of OpenTofu due to API issues
+            registry_base = self.TERRAFORM_REGISTRY_BASE
+            parts = source.replace("registry.opentofu.org/", "").split("/")
+            logger.debug(f"Using Terraform registry for OpenTofu source: {source}")
+        elif "/" in source and len(source.split("/")) >= 2:
+            # Default to Terraform registry for namespace/provider format
+            registry_base = self.TERRAFORM_REGISTRY_BASE
+            parts = source.split("/")
+        else:
+            # Single name, assume hashicorp namespace
+            registry_base = self.TERRAFORM_REGISTRY_BASE
+            parts = ["hashicorp", source]
+            
+        if len(parts) >= 2:
+            namespace = parts[0]
+            provider_name = parts[1]
+        else:
+            namespace = "hashicorp"
+            provider_name = parts[0] if parts else source
+            
+        return registry_base, namespace, provider_name
+
+    async def get_latest_provider_version(self, provider_source: str, provider_name: str) -> Optional[str]:
+        """
+        Get the latest version for a provider from the registry.
+        
+        Args:
+            provider_source: Provider source URL
+            provider_name: Provider name
+            
+        Returns:
+            Latest version string or None if not found
+        """
+        if not self._session:
+            logger.error("Session not initialized. Use async context manager.")
+            return None
+            
+        try:
+            registry_base, namespace, name = self._parse_provider_source(provider_source)
+            
+            # Use the provider info endpoint to get the latest version directly
+            # This is more reliable than the versions endpoint which doesn't sort chronologically
+            url = f"{registry_base}/{namespace}/{name}"
+            
+            logger.debug(f"Checking latest version for {provider_name} at {url}")
+            
+            # Set proper headers to request JSON
+            headers = {
+                'Accept': 'application/json',
+                'User-Agent': 'ThothCTL/1.0'
+            }
+            
+            async with self._session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    try:
+                        # Try to parse as JSON regardless of content-type header
+                        text_content = await response.text()
+                        
+                        # Check if the content looks like JSON
+                        if text_content.strip().startswith('{') or text_content.strip().startswith('['):
+                            import json
+                            data = json.loads(text_content)
+                        else:
+                            logger.warning(f"Response for {provider_name} doesn't appear to be JSON: {text_content[:100]}...")
+                            return None
+                        
+                        # Get the latest version from the provider info
+                        latest_version = data.get("version")
+                        
+                        if latest_version:
+                            logger.info(f"Latest version for {provider_name}: {latest_version}")
+                            return latest_version
+                        else:
+                            logger.warning(f"No version found for provider {provider_name}")
+                            return None
+                            
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse JSON response for {provider_name}: {str(e)}")
+                        return None
+                        
+                else:
+                    logger.warning(f"Failed to fetch version for {provider_name}: HTTP {response.status}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error fetching latest version for {provider_name}: {str(e)}")
+            return None
+
+    def _compare_provider_versions(self, current: str, latest: str) -> str:
+        """
+        Compare current and latest provider versions to determine status.
+        
+        Args:
+            current: Current version string
+            latest: Latest version string
+            
+        Returns:
+            Status string: 'current', 'outdated', or 'unknown'
+        """
+        if not current or not latest:
+            return "unknown"
+            
+        try:
+            # Handle 'latest' keyword - if current version is 'latest', it's current
+            if current.lower() == "latest":
+                return "current"
+            
+            # Clean version strings (remove 'v' prefix, constraints, etc.)
+            current_clean = re.sub(r'^[v~>=<!\s]+', '', current).strip()
+            latest_clean = re.sub(r'^[v~>=<!\s]+', '', latest).strip()
+            
+            # If current version is still 'latest' after cleaning, it's current
+            if current_clean.lower() == "latest":
+                return "current"
+            
+            # Handle version constraints like "~> 5.0", ">= 3.1", etc.
+            # Extract the base version number for comparison
+            current_version_match = re.search(r'(\d+(?:\.\d+)*)', current_clean)
+            latest_version_match = re.search(r'(\d+(?:\.\d+)*)', latest_clean)
+            
+            if not current_version_match or not latest_version_match:
+                # If we can't extract version numbers, fall back to string comparison
+                if current_clean == latest_clean:
+                    return "current"
+                else:
+                    return "unknown"
+            
+            current_version = current_version_match.group(1)
+            latest_version = latest_version_match.group(1)
+            
+            # Extract version numbers for comparison
+            current_parts = [int(x) for x in current_version.split('.')]
+            latest_parts = [int(x) for x in latest_version.split('.')]
+            
+            # Pad shorter version with zeros for comparison
+            max_len = max(len(current_parts), len(latest_parts))
+            current_padded = current_parts + [0] * (max_len - len(current_parts))
+            latest_padded = latest_parts + [0] * (max_len - len(latest_parts))
+            
+            # Compare versions
+            if current_padded == latest_padded:
+                return "current"
+            elif current_padded < latest_padded:
+                # For constraint versions like "~> 5.0", check if latest satisfies constraint
+                if current.startswith('~>'):
+                    # Pessimistic constraint: ~> 5.0 allows 5.x but not 6.x
+                    if len(current_parts) >= 2 and len(latest_parts) >= 2:
+                        if (current_parts[0] == latest_parts[0] and 
+                            current_parts[1] <= latest_parts[1]):
+                            return "current"
+                elif current.startswith('>='):
+                    # Greater than or equal: >= 3.1 allows any version >= 3.1
+                    return "current"
+                elif current.startswith('>'):
+                    # Greater than: > 3.0 allows any version > 3.0
+                    return "current"
+                
+                return "outdated"
+            else:
+                return "newer"  # Local version is newer than registry
+                
+        except Exception as e:
+            logger.warning(f"Error comparing provider versions {current} vs {latest}: {str(e)}")
+            return "unknown"
+
+
+class ProviderVersionManager:
+    """Manager for provider version operations."""
+    
+    def __init__(self):
+        """Initialize provider version manager."""
+        self.version_checker = ProviderVersionChecker()
+
+    async def check_provider_versions(self, providers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Check latest versions for providers and update their information.
+        
+        Args:
+            providers: List of provider dictionaries
+            
+        Returns:
+            Updated list of provider dictionaries with version information
+        """
+        if not providers:
+            return providers
+            
+        logger.info(f"Checking latest versions for {len(providers)} providers...")
+        
+        async with self.version_checker as checker:
+            updated_providers = []
+            
+            # Process providers concurrently
+            tasks = []
+            for provider in providers:
+                task = self._check_single_provider_version(checker, provider)
+                tasks.append(task)
+                
+            # Execute all tasks concurrently
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Collect results
+            for i, result in enumerate(results):
+                if isinstance(result, dict):
+                    updated_providers.append(result)
+                else:
+                    # If there was an exception, use original provider
+                    logger.warning(f"Error checking provider {providers[i].get('name', 'unknown')}: {result}")
+                    updated_providers.append(providers[i])
+                    
+        return updated_providers
+
+    async def _check_single_provider_version(self, checker: ProviderVersionChecker, provider: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Check version for a single provider.
+        
+        Args:
+            checker: ProviderVersionChecker instance
+            provider: Provider dictionary
+            
+        Returns:
+            Updated provider dictionary
+        """
+        provider_name = provider.get("name", "")
+        provider_source = provider.get("source", "")
+        current_version = provider.get("version", "")
+        
+        # Get latest version
+        latest_version = await checker.get_latest_provider_version(provider_source, provider_name)
+        
+        # Update provider information
+        updated_provider = provider.copy()
+        
+        if latest_version:
+            updated_provider["latest_version"] = latest_version
+            updated_provider["status"] = checker._compare_provider_versions(current_version, latest_version)
+        else:
+            updated_provider["latest_version"] = "Unknown"
+            updated_provider["status"] = "Unknown"
+            
+        return updated_provider
 
 
 if __name__ == "__main__":

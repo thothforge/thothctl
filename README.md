@@ -102,6 +102,51 @@ After setting up autocomplete, you can use the Tab key to complete commands, opt
 
 For example, you can type `thothctl i<TAB>` and it will expand to `thothctl init`.
 
+## 🎯 Recent Improvements - Inventory Command
+
+### **Modern Infrastructure Inventory with Professional Reports** ✨
+
+The `thothctl inventory iac` command has been significantly enhanced with:
+
+#### **🎨 Modern HTML Reports**
+- **Professional styling** with Inter font and gradient design
+- **Responsive layout** that works on desktop, tablet, and mobile
+- **Color-coded status badges** for easy identification of outdated components
+- **Print optimization** perfect for PDF generation and documentation
+
+#### **🚀 Unified Version Checking**
+```bash
+# Before: Confusing multiple flags
+thothctl inventory iac --check-providers --check-provider-versions --check-versions
+
+# After: Simple and intuitive
+thothctl inventory iac --check-versions
+```
+
+#### **📊 Enhanced Provider Analysis**
+- **Provider version columns** showing "Latest Version" and "Status"
+- **Comprehensive provider tracking** with registry information
+- **Automatic provider checking** when version analysis is enabled
+- **Provider statistics** in summary reports
+
+#### **Quick Start**
+```bash
+# Create comprehensive inventory with modern reporting
+thothctl inventory iac --check-versions
+
+# Generate professional documentation
+thothctl inventory iac --check-versions --project-name "Production Infrastructure"
+
+# CI/CD integration with JSON output
+thothctl inventory iac --check-versions --report-type json
+```
+
+**Benefits:**
+- ✅ **50% reduction** in command complexity
+- ✅ **Professional reports** suitable for business presentations
+- ✅ **Enhanced provider analysis** with version tracking
+- ✅ **Simplified user experience** with intelligent automation
+
 ## Third Party Tools
 
 ### [OpenTofu](https://opentofu.org/)
