@@ -133,9 +133,9 @@ class InventoryService:
             
         return "Unknown"
 
-    def _parse_terragrunt_file(self, file_path: Path) -> List[Component]:
+    def _parse_terragrunt_file(self, file_path: Path, source_directory: Path = None) -> List[Component]:
         """Parse Terragrunt HCL file and extract components."""
-        return self.terragrunt_parser.parse_terragrunt_file(file_path)
+        return self.terragrunt_parser.parse_terragrunt_file(file_path, source_directory)
 
     def _walk_directory(self, directory: Path, complete: bool = False) -> Generator[Tuple[str, Path], None, None]:
         """
@@ -248,6 +248,7 @@ class InventoryService:
         check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
+        print_console: bool = True,
     ) -> Dict[str, Any]:
         """Create inventory from source directory."""
         source_path = Path(source_directory).resolve()
@@ -288,20 +289,27 @@ class InventoryService:
                 if stack_path not in terragrunt_stacks:
                     terragrunt_stacks.append(stack_path)
                 
-                components = self._parse_terragrunt_file(file_path)
+                components = self._parse_terragrunt_file(file_path, source_path)
             else:  # terraform
                 components = self._parse_hcl_file(file_path)
 
             if components:  # Only add if there are components
                 relative_dir = str(file_path.parent.relative_to(source_path))
                 
-                # Skip if we've already processed this directory
-                if relative_dir in processed_dirs:
-                    continue
-                    
-                processed_dirs.add(relative_dir)
-                stack_name = f"./{relative_dir}" if relative_dir else "./."
-                group = ComponentGroup(stack=stack_name, components=components)
+                # For Terragrunt projects, each terragrunt.hcl file represents a separate stack
+                # For Terraform projects, group files by directory
+                if file_type == 'terragrunt':
+                    # Each terragrunt.hcl file is its own stack
+                    stack_name = f"./{relative_dir}" if relative_dir else "./."
+                    group = ComponentGroup(stack=stack_name, components=components)
+                else:
+                    # For Terraform files, skip if we've already processed this directory
+                    if relative_dir in processed_dirs:
+                        continue
+                        
+                    processed_dirs.add(relative_dir)
+                    stack_name = f"./{relative_dir}" if relative_dir else "./."
+                    group = ComponentGroup(stack=stack_name, components=components)
                 
                 # Check providers if requested
                 if check_providers:
@@ -470,8 +478,9 @@ class InventoryService:
                 reports_directory=str(reports_path)
             )
 
-        # Print to console
-        self.report_service.print_inventory_console(inventory_dict)
+        # Print to console if requested
+        if print_console:
+            self.report_service.print_inventory_console(inventory_dict)
 
         return inventory_dict
 
@@ -501,40 +510,47 @@ class InventoryService:
         if not abs_stack_path.exists() or not abs_stack_path.is_dir():
             logger.warning(f"Stack path does not exist or is not a directory: {stack_path}")
             return providers
+        
+        # Determine the command to use based on project type
+        if self.is_terragrunt_project:
+            # For Terragrunt projects, use terragrunt run providers
+            command = ["terragrunt", "run", "providers"]
+            tool_name = "terragrunt"
+        else:
+            # For regular Terraform projects, use the specified provider tool
+            command = [provider_tool, "providers"]
+            tool_name = provider_tool
             
         # Check if the tool exists
         try:
             # Use 'which' on Unix/Linux or 'where' on Windows
             subprocess.run(
-                ["which", provider_tool] if os.name != "nt" else ["where", provider_tool],
+                ["which", tool_name] if os.name != "nt" else ["where", tool_name],
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=5,  # Add a timeout to prevent hanging
             )
         except subprocess.CalledProcessError:
-            logger.warning(f"{provider_tool} command not found. Skipping provider check.")
+            logger.warning(f"{tool_name} command not found. Skipping provider check.")
             return providers
         except subprocess.TimeoutExpired:
-            logger.warning(f"Timeout checking for {provider_tool} command. Skipping provider check.")
+            logger.warning(f"Timeout checking for {tool_name} command. Skipping provider check.")
             return providers
             
         # Run the providers command
         try:
-            logger.info(f"Running {provider_tool} providers in {abs_stack_path}")
+            logger.info(f"Running {' '.join(command)} in {abs_stack_path}")
             
-            # Skip the state check to avoid potential hangs
-            # This is a fix for the bug that causes hanging when both check_versions and check_providers are used
-            
-            # Now run the standard providers command
+            # Run the providers command
             result = subprocess.run(
-                [provider_tool, "providers"],
+                command,
                 cwd=abs_stack_path,
                 check=False,  # Don't raise exception on non-zero exit
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=30,  # Timeout after 30 seconds
+                timeout=60,  # Longer timeout for terragrunt
             )
             
             if result.returncode != 0:

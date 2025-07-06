@@ -171,11 +171,12 @@ class IaCInvCommand(ClickCommand):
                     check_schema_compatibility=check_schema_compatibility,
                     provider_tool=provider_tool,
                     project_name=project_name,
+                    print_console=True,  # Enable console printing
                 )
 
             self.ui.print_success("Infrastructure inventory created successfully!")
 
-            if inventory["components"]:
+            if inventory and inventory.get("components"):
                 self._display_summary(inventory)
             else:
                 self.ui.print_warning("No components found in the specified directory.")

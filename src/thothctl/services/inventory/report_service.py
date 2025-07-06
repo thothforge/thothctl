@@ -110,19 +110,25 @@ class ReportService:
                     }}
                     /* Column width adjustments */
                     .components-table th:nth-child(1), .components-table td:nth-child(1) {{
-                        width: 15%;  /* Name column */
+                        width: 10%;  /* Type column */
                     }}
                     .components-table th:nth-child(2), .components-table td:nth-child(2) {{
-                        width: 10%;  /* Version column */
+                        width: 15%;  /* Name column */
                     }}
                     .components-table th:nth-child(3), .components-table td:nth-child(3) {{
-                        width: 25%;  /* Source column */
+                        width: 10%;  /* Current Version column */
                     }}
                     .components-table th:nth-child(4), .components-table td:nth-child(4) {{
-                        width: 20%;  /* Module column */
+                        width: 20%;  /* Source column */
                     }}
                     .components-table th:nth-child(5), .components-table td:nth-child(5) {{
-                        width: 30%;  /* Component column */
+                        width: 10%;  /* Latest Version column */
+                    }}
+                    .components-table th:nth-child(6), .components-table td:nth-child(6) {{
+                        width: 25%;  /* SourceUrl column */
+                    }}
+                    .components-table th:nth-child(7), .components-table td:nth-child(7) {{
+                        width: 10%;  /* Status column */
                     }}
                     /* Module column specific styling */
                     .module-cell {{
@@ -253,8 +259,10 @@ class ReportService:
                             <tr>
                                 <th>Type</th>
                                 <th>Name</th>
-                                <th>Version</th>
+                                <th>Current Version</th>
                                 <th>Source</th>
+                                <th>Latest Version</th>
+                                <th>SourceUrl</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -264,6 +272,8 @@ class ReportService:
                     for component in components:
                         source = component.get("source", ["Unknown"])[0] if component.get("source") else "Unknown"
                         version = component.get("version", ["Unknown"])[0] if component.get("version") else "Unknown"
+                        latest_version = component.get("latest_version", "Null")
+                        source_url = component.get("source_url", "Null")
                         status = component.get("status", "Unknown")
                         status_class = f"status-{status.lower()}" if status != "Null" else ""
                         
@@ -273,6 +283,8 @@ class ReportService:
                             <td>{component.get("name", "Unknown")}</td>
                             <td>{version}</td>
                             <td>{source}</td>
+                            <td>{latest_version}</td>
+                            <td>{source_url}</td>
                             <td class="{status_class}">{status}</td>
                         </tr>
                         """
@@ -293,6 +305,8 @@ class ReportService:
                                 <th>Name</th>
                                 <th>Version</th>
                                 <th>Source</th>
+                                <th>Latest Version</th>
+                                <th>Status</th>
                                 <th>Module</th>
                                 <th>Component</th>
                             </tr>
@@ -308,12 +322,19 @@ class ReportService:
                         module_name = provider.get("module", "")
                         if not module_name or module_name == "Root":
                             module_name = stack_name
+                        
+                        # Get provider version information
+                        latest_version = provider.get("latest_version", "Null")
+                        status = provider.get("status", "Unknown")
+                        status_class = f"status-{status.lower()}" if status != "Null" and status != "Unknown" else ""
                             
                         components_html += f"""
                         <tr>
                             <td>{provider.get("name", "Unknown")}</td>
                             <td>{provider.get("version", "Unknown")}</td>
                             <td>{provider.get("source", "Unknown")}</td>
+                            <td>{latest_version}</td>
+                            <td class="{status_class}">{status}</td>
                             <td class="module-cell">{module_name}</td>
                             <td class="component-cell">{provider.get("component", "")}</td>
                         </tr>
@@ -461,6 +482,9 @@ class ReportService:
                     providers_table.add_column("Name", style="cyan")
                     providers_table.add_column("Version", style="green")
                     providers_table.add_column("Source", style="white", overflow="fold")
+                    providers_table.add_column("Latest Version", style="yellow")
+                    providers_table.add_column("SourceUrl", style="blue", overflow="fold")
+                    providers_table.add_column("Status", style="red")
                     providers_table.add_column("Module", style="yellow", overflow="fold")
                     providers_table.add_column("Component", style="magenta", overflow="fold")
                     
@@ -473,10 +497,18 @@ class ReportService:
                         if not module_name or module_name == "Root":
                             module_name = stack_name
                             
+                        # Get provider version information
+                        latest_version = provider.get("latest_version", "Null")
+                        source_url = provider.get("source_url", "Null")
+                        status = provider.get("status", "Unknown")
+                        
                         providers_table.add_row(
                             provider.get("name", "Unknown"),
                             provider.get("version", "Unknown"),
                             provider.get("source", "Unknown"),
+                            latest_version,
+                            source_url,
+                            status,
                             module_name,
                             provider.get("component", ""),
                         )
@@ -654,6 +686,8 @@ class ReportService:
                     <th>Name</th>
                     <th>Version</th>
                     <th>Source</th>
+                    <th>Latest Version</th>
+                    <th>Status</th>
                     <th>Module</th>
                     <th>Component</th>
                 </tr>
@@ -666,12 +700,19 @@ class ReportService:
             module_name = provider.get("module", "")
             if not module_name or module_name == "Root":
                 module_name = stack_name
+            
+            # Get provider version information
+            latest_version = provider.get("latest_version", "Null")
+            status = provider.get("status", "Unknown")
+            status_class = f"status-{status.lower()}" if status != "Null" and status != "Unknown" else ""
                 
             providers_html += f"""
             <tr>
                 <td>{provider.get('name', 'Unknown')}</td>
                 <td>{provider.get('version', 'Unknown')}</td>
                 <td>{provider.get('source', 'Unknown')}</td>
+                <td>{latest_version}</td>
+                <td class="{status_class}">{status}</td>
                 <td>{module_name}</td>
                 <td>{provider.get('component', '')}</td>
             </tr>
