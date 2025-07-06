@@ -46,193 +46,409 @@ class ReportService:
             # Define HTML template with proper string formatting
             html_template = """
             <!DOCTYPE html>
-            <html>
+            <html lang="en">
             <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Infrastructure Inventory Report</title>
                 <style>
+                    :root {{
+                        --primary-color: #2563eb;
+                        --secondary-color: #1e40af;
+                        --success-color: #10b981;
+                        --warning-color: #f59e0b;
+                        --danger-color: #ef4444;
+                        --info-color: #06b6d4;
+                        --light-bg: #f8fafc;
+                        --card-bg: #ffffff;
+                        --text-primary: #1e293b;
+                        --text-secondary: #64748b;
+                        --border-color: #e2e8f0;
+                        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                    }}
+                    
+                    * {{
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }}
+                    
                     body {{
-                        font-family: Arial, sans-serif;
-                        margin: 20px;
-                        background-color: #f5f5f5;
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        min-height: 100vh;
+                        color: var(--text-primary);
+                        line-height: 1.6;
                     }}
-                    .inventory-table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-top: 20px;
-                        background-color: white;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                    
+                    .container {{
+                        max-width: 1400px;
+                        margin: 0 auto;
+                        padding: 2rem;
                     }}
-                    .inventory-table th, .inventory-table td {{
-                        border: 1px solid #ddd;
-                        padding: 12px;
-                        text-align: left;
+                    
+                    .header {{
+                        background: var(--card-bg);
+                        border-radius: 16px;
+                        padding: 2rem;
+                        margin-bottom: 2rem;
+                        box-shadow: var(--shadow-lg);
+                        text-align: center;
+                        position: relative;
+                        overflow: hidden;
                     }}
-                    .inventory-table th {{
-                        background-color: #4CAF50;
+                    
+                    .header::before {{
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 4px;
+                        background: linear-gradient(90deg, var(--primary-color), var(--info-color), var(--success-color));
+                    }}
+                    
+                    .header h1 {{
+                        font-size: 2.5rem;
+                        font-weight: 700;
+                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                        margin-bottom: 1rem;
+                    }}
+                    
+                    .project-info {{
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 1rem;
+                        margin-top: 1.5rem;
+                    }}
+                    
+                    .info-item {{
+                        background: var(--light-bg);
+                        padding: 1rem;
+                        border-radius: 8px;
+                        border-left: 4px solid var(--primary-color);
+                    }}
+                    
+                    .info-label {{
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                        color: var(--text-secondary);
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                    }}
+                    
+                    .info-value {{
+                        font-size: 1.125rem;
+                        font-weight: 600;
+                        color: var(--text-primary);
+                        margin-top: 0.25rem;
+                    }}
+                    
+                    .summary-section {{
+                        background: var(--card-bg);
+                        border-radius: 16px;
+                        padding: 2rem;
+                        margin-bottom: 2rem;
+                        box-shadow: var(--shadow-lg);
+                    }}
+                    
+                    .summary-title {{
+                        font-size: 1.875rem;
+                        font-weight: 700;
+                        color: var(--text-primary);
+                        margin-bottom: 1.5rem;
+                        text-align: center;
+                    }}
+                    
+                    .summary-grid {{
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 1.5rem;
+                    }}
+                    
+                    .summary-card {{
+                        background: var(--light-bg);
+                        border-radius: 12px;
+                        padding: 1.5rem;
+                        text-align: center;
+                        border: 2px solid transparent;
+                        transition: all 0.3s ease;
+                    }}
+                    
+                    .summary-card:hover {{
+                        transform: translateY(-2px);
+                        box-shadow: var(--shadow);
+                    }}
+                    
+                    .summary-card.updated {{
+                        border-color: var(--success-color);
+                        background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+                    }}
+                    
+                    .summary-card.outdated {{
+                        border-color: var(--danger-color);
+                        background: linear-gradient(135deg, #fef2f2, #fef7f7);
+                    }}
+                    
+                    .summary-card.unknown {{
+                        border-color: var(--warning-color);
+                        background: linear-gradient(135deg, #fffbeb, #fefce8);
+                    }}
+                    
+                    .summary-card.local {{
+                        border-color: var(--info-color);
+                        background: linear-gradient(135deg, #f0f9ff, #f7fafc);
+                    }}
+                    
+                    .summary-number {{
+                        font-size: 2.5rem;
+                        font-weight: 800;
+                        margin-bottom: 0.5rem;
+                    }}
+                    
+                    .summary-label {{
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                        color: var(--text-secondary);
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                    }}
+                    
+                    .stack-section {{
+                        background: var(--card-bg);
+                        border-radius: 16px;
+                        margin-bottom: 2rem;
+                        box-shadow: var(--shadow-lg);
+                        overflow: hidden;
+                    }}
+                    
+                    .stack-header {{
+                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
                         color: white;
+                        padding: 1.5rem 2rem;
+                        font-size: 1.5rem;
+                        font-weight: 700;
                     }}
-                    .inventory-table tr:nth-child(even) {{
-                        background-color: #f9f9f9;
+                    
+                    .stack-content {{
+                        padding: 2rem;
                     }}
-                    .status-updated {{
-                        color: green;
-                        font-weight: bold;
+                    
+                    .table-section {{
+                        margin-bottom: 2rem;
                     }}
-                    .status-outdated {{
-                        color: red;
-                        font-weight: bold;
+                    
+                    .table-title {{
+                        font-size: 1.25rem;
+                        font-weight: 700;
+                        color: var(--text-primary);
+                        margin-bottom: 1rem;
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
                     }}
-                    .status-unknown {{
-                        color: orange;
-                        font-weight: bold;
+                    
+                    .table-title::before {{
+                        content: '';
+                        width: 4px;
+                        height: 1.5rem;
+                        background: var(--primary-color);
+                        border-radius: 2px;
                     }}
+                    
+                    .table-container {{
+                        overflow-x: auto;
+                        border-radius: 12px;
+                        box-shadow: var(--shadow);
+                        background: var(--card-bg);
+                    }}
+                    
                     .components-table {{
                         width: 100%;
                         border-collapse: collapse;
-                        margin-top: 10px;
-                        margin-bottom: 30px;
-                        background-color: white;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                        table-layout: fixed;
+                        font-size: 0.875rem;
                     }}
-                    .components-table th, .components-table td {{
-                        border: 1px solid #ddd;
-                        padding: 8px;
-                        text-align: left;
-                        word-wrap: break-word;
-                        overflow-wrap: break-word;
-                    }}
+                    
                     .components-table th {{
-                        background-color: #2196F3;
+                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
                         color: white;
+                        padding: 1rem 0.75rem;
+                        text-align: left;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        font-size: 0.75rem;
+                        border: none;
                     }}
-                    .components-table tr:nth-child(even) {{
-                        background-color: #f9f9f9;
-                    }}
-                    /* Column width adjustments */
-                    .components-table th:nth-child(1), .components-table td:nth-child(1) {{
-                        width: 10%;  /* Type column */
-                    }}
-                    .components-table th:nth-child(2), .components-table td:nth-child(2) {{
-                        width: 15%;  /* Name column */
-                    }}
-                    .components-table th:nth-child(3), .components-table td:nth-child(3) {{
-                        width: 10%;  /* Current Version column */
-                    }}
-                    .components-table th:nth-child(4), .components-table td:nth-child(4) {{
-                        width: 20%;  /* Source column */
-                    }}
-                    .components-table th:nth-child(5), .components-table td:nth-child(5) {{
-                        width: 10%;  /* Latest Version column */
-                    }}
-                    .components-table th:nth-child(6), .components-table td:nth-child(6) {{
-                        width: 25%;  /* SourceUrl column */
-                    }}
-                    .components-table th:nth-child(7), .components-table td:nth-child(7) {{
-                        width: 10%;  /* Status column */
-                    }}
-                    /* Module column specific styling */
-                    .module-cell {{
-                        font-family: monospace;
-                        white-space: normal;
-                        word-break: break-word;
+                    
+                    .components-table td {{
+                        padding: 1rem 0.75rem;
+                        border-bottom: 1px solid var(--border-color);
+                        vertical-align: top;
+                        word-wrap: break-word;
                         max-width: 200px;
                     }}
-                    /* Component column specific styling */
-                    .component-cell {{
-                        font-family: monospace;
-                        white-space: normal;
-                        word-break: break-word;
+                    
+                    .components-table tr:hover {{
+                        background: var(--light-bg);
                     }}
-                    h1 {{
-                        color: #333;
-                        text-align: center;
-                        margin-bottom: 30px;
-                    }}
-                    h2 {{
-                        color: #333;
-                        margin-top: 30px;
-                        margin-bottom: 15px;
-                        border-bottom: 2px solid #4CAF50;
-                        padding-bottom: 5px;
-                    }}
-                    h3 {{
-                        color: #2196F3;
-                        margin-top: 20px;
-                        margin-bottom: 10px;
-                    }}
-                    .project-info {{
-                        background-color: #e7f3fe;
-                        border-left: 6px solid #2196F3;
-                        padding: 10px;
-                        margin-bottom: 20px;
-                    }}
-                    .summary-table {{
-                        width: 50%;
-                        margin: 20px auto;
-                        border-collapse: collapse;
-                        background-color: white;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                        border-radius: 8px;
-                        overflow: hidden;
-                    }}
-                    .summary-table th {{
-                        background-color: #2196F3;
-                        color: white;
-                        padding: 12px;
-                        text-align: left;
-                        font-weight: bold;
-                    }}
-                    .summary-table td {{
-                        padding: 12px;
-                        border-bottom: 1px solid #ddd;
-                    }}
-                    .summary-table tr:last-child td {{
+                    
+                    .components-table tr:last-child td {{
                         border-bottom: none;
                     }}
-                    .summary-table .metric {{
-                        font-weight: bold;
-                        color: #333;
-                        width: 60%;
+                    
+                    .status-badge {{
+                        display: inline-flex;
+                        align-items: center;
+                        padding: 0.25rem 0.75rem;
+                        border-radius: 9999px;
+                        font-size: 0.75rem;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
                     }}
-                    .summary-table .value {{
-                        text-align: right;
-                        font-weight: bold;
+                    
+                    .status-updated {{
+                        background: #dcfce7;
+                        color: #166534;
+                        border: 1px solid #bbf7d0;
                     }}
-                    .value-updated {{
-                        color: #4CAF50;
+                    
+                    .status-outdated {{
+                        background: #fee2e2;
+                        color: #991b1b;
+                        border: 1px solid #fecaca;
                     }}
-                    .value-outdated {{
-                        color: #f44336;
+                    
+                    .status-unknown {{
+                        background: #fef3c7;
+                        color: #92400e;
+                        border: 1px solid #fde68a;
                     }}
-                    .value-unknown {{
-                        color: #ff9800;
+                    
+                    .version-badge {{
+                        background: var(--light-bg);
+                        padding: 0.25rem 0.5rem;
+                        border-radius: 6px;
+                        font-family: 'Monaco', 'Menlo', monospace;
+                        font-size: 0.75rem;
+                        border: 1px solid var(--border-color);
                     }}
-                    .value-local {{
-                        color: #2196F3;
+                    
+                    .source-link {{
+                        color: var(--primary-color);
+                        text-decoration: none;
+                        font-weight: 500;
+                        word-break: break-all;
                     }}
-                    .summary-container {{
+                    
+                    .source-link:hover {{
+                        text-decoration: underline;
+                    }}
+                    
+                    .module-path {{
+                        font-family: 'Monaco', 'Menlo', monospace;
+                        font-size: 0.75rem;
+                        background: var(--light-bg);
+                        padding: 0.25rem 0.5rem;
+                        border-radius: 4px;
+                        border: 1px solid var(--border-color);
+                        word-break: break-all;
+                    }}
+                    
+                    .empty-state {{
                         text-align: center;
-                        margin: 30px 0;
+                        padding: 3rem;
+                        color: var(--text-secondary);
+                    }}
+                    
+                    .empty-state-icon {{
+                        font-size: 3rem;
+                        margin-bottom: 1rem;
+                        opacity: 0.5;
+                    }}
+                    
+                    @media (max-width: 768px) {{
+                        .container {{
+                            padding: 1rem;
+                        }}
+                        
+                        .header h1 {{
+                            font-size: 2rem;
+                        }}
+                        
+                        .project-info {{
+                            grid-template-columns: 1fr;
+                        }}
+                        
+                        .summary-grid {{
+                            grid-template-columns: repeat(2, 1fr);
+                        }}
+                        
+                        .components-table {{
+                            font-size: 0.75rem;
+                        }}
+                        
+                        .components-table th,
+                        .components-table td {{
+                            padding: 0.5rem 0.25rem;
+                        }}
+                    }}
+                    
+                    @media print {{
+                        body {{
+                            background: white;
+                        }}
+                        
+                        .container {{
+                            max-width: none;
+                            padding: 1rem;
+                        }}
+                        
+                        .stack-section,
+                        .summary-section,
+                        .header {{
+                            box-shadow: none;
+                            border: 1px solid var(--border-color);
+                        }}
                     }}
                 </style>
             </head>
             <body>
-                <h1>Infrastructure Inventory Report</h1>
-                <div class="project-info">
-                    <p><strong>Project Name:</strong> {project_name}</p>
-                    <p><strong>Project Type:</strong> {project_type}</p>
-                    <p><strong>Generated:</strong> {timestamp}</p>
+                <div class="container">
+                    <div class="header">
+                        <h1>🏗️ Infrastructure Inventory Report</h1>
+                        <div class="project-info">
+                            <div class="info-item">
+                                <div class="info-label">Project Name</div>
+                                <div class="info-value">{project_name}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Project Type</div>
+                                <div class="info-value">{project_type}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Generated</div>
+                                <div class="info-value">{timestamp}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-section">
+                        <h2 class="summary-title">📊 Summary Overview</h2>
+                        {summary_table}
+                    </div>
+                    
+                    {compatibility_section}
+                    
+                    <div class="stacks-container">
+                        {content}
+                    </div>
                 </div>
-                
-                <div class="summary-container">
-                    <h2>Summary</h2>
-                    {summary_table}
-                </div>
-                
-                {compatibility_section}
-                
-                <h2>Detailed Inventory</h2>
-                {content}
             </body>
             </html>
             """
@@ -247,26 +463,34 @@ class ReportService:
             components_html = ""
             for component_group in inventory.get("components", []):
                 stack = component_group.get("stack", "Unknown")
-                components_html += f"<h2>Stack: {stack}</h2>"
+                components_html += f"""
+                <div class="stack-section">
+                    <div class="stack-header">
+                        📁 Stack: {stack}
+                    </div>
+                    <div class="stack-content">
+                """
                 
                 # Add components table
                 components = component_group.get("components", [])
                 if components:
                     components_html += """
-                    <h3>Components</h3>
-                    <table class="components-table">
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Name</th>
-                                <th>Current Version</th>
-                                <th>Source</th>
-                                <th>Latest Version</th>
-                                <th>SourceUrl</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                        <div class="table-section">
+                            <h3 class="table-title">🧩 Components</h3>
+                            <div class="table-container">
+                                <table class="components-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Name</th>
+                                            <th>Current Version</th>
+                                            <th>Source</th>
+                                            <th>Latest Version</th>
+                                            <th>SourceUrl</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                     """
                     
                     for component in components:
@@ -275,43 +499,56 @@ class ReportService:
                         latest_version = component.get("latest_version", "Null")
                         source_url = component.get("source_url", "Null")
                         status = component.get("status", "Unknown")
-                        status_class = f"status-{status.lower()}" if status != "Null" else ""
+                        
+                        # Format version badges
+                        version_badge = f'<span class="version-badge">{version}</span>' if version != "local" else f'<span class="version-badge" style="background: #e0f2fe; color: #0277bd;">{version}</span>'
+                        latest_version_badge = f'<span class="version-badge">{latest_version}</span>' if latest_version != "Null" else '<span style="color: #9ca3af;">—</span>'
+                        
+                        # Format source URL
+                        source_url_display = f'<a href="{source_url}" class="source-link" target="_blank">{source_url[:50]}{"..." if len(source_url) > 50 else ""}</a>' if source_url != "Null" and source_url.startswith("http") else (source_url if source_url != "Null" else '<span style="color: #9ca3af;">—</span>')
+                        
+                        # Format status badge
+                        status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" else '<span style="color: #9ca3af;">—</span>'
                         
                         components_html += f"""
                         <tr>
-                            <td>{component.get("type", "Unknown")}</td>
-                            <td>{component.get("name", "Unknown")}</td>
-                            <td>{version}</td>
-                            <td>{source}</td>
-                            <td>{latest_version}</td>
-                            <td>{source_url}</td>
-                            <td class="{status_class}">{status}</td>
+                            <td><strong>{component.get("type", "Unknown")}</strong></td>
+                            <td><strong>{component.get("name", "Unknown")}</strong></td>
+                            <td>{version_badge}</td>
+                            <td><span class="module-path">{source}</span></td>
+                            <td>{latest_version_badge}</td>
+                            <td>{source_url_display}</td>
+                            <td>{status_display}</td>
                         </tr>
                         """
                     
                     components_html += """
-                        </tbody>
-                    </table>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     """
                 
                 # Add providers table if available
                 providers = component_group.get("providers", [])
                 if providers:
                     components_html += """
-                    <h3>Providers</h3>
-                    <table class="components-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Version</th>
-                                <th>Source</th>
-                                <th>Latest Version</th>
-                                <th>Status</th>
-                                <th>Module</th>
-                                <th>Component</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                        <div class="table-section">
+                            <h3 class="table-title">⚙️ Providers</h3>
+                            <div class="table-container">
+                                <table class="components-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Version</th>
+                                            <th>Source</th>
+                                            <th>Latest Version</th>
+                                            <th>Status</th>
+                                            <th>Module</th>
+                                            <th>Component</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                     """
                     
                     # Get the stack name for this component group
@@ -326,24 +563,37 @@ class ReportService:
                         # Get provider version information
                         latest_version = provider.get("latest_version", "Null")
                         status = provider.get("status", "Unknown")
-                        status_class = f"status-{status.lower()}" if status != "Null" and status != "Unknown" else ""
+                        
+                        # Format version badges
+                        version_badge = f'<span class="version-badge">{provider.get("version", "Unknown")}</span>'
+                        latest_version_badge = f'<span class="version-badge">{latest_version}</span>' if latest_version != "Null" else '<span style="color: #9ca3af;">—</span>'
+                        
+                        # Format status badge
+                        status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" and status != "Unknown" else '<span style="color: #9ca3af;">—</span>'
                             
                         components_html += f"""
                         <tr>
-                            <td>{provider.get("name", "Unknown")}</td>
-                            <td>{provider.get("version", "Unknown")}</td>
-                            <td>{provider.get("source", "Unknown")}</td>
-                            <td>{latest_version}</td>
-                            <td class="{status_class}">{status}</td>
-                            <td class="module-cell">{module_name}</td>
-                            <td class="component-cell">{provider.get("component", "")}</td>
+                            <td><strong>{provider.get("name", "Unknown")}</strong></td>
+                            <td>{version_badge}</td>
+                            <td><span class="module-path">{provider.get("source", "Unknown")}</span></td>
+                            <td>{latest_version_badge}</td>
+                            <td>{status_display}</td>
+                            <td><span class="module-path">{module_name}</span></td>
+                            <td><em>{provider.get("component", "")}</em></td>
                         </tr>
                         """
                     
                     components_html += """
-                        </tbody>
-                    </table>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     """
+                
+                components_html += """
+                    </div>
+                </div>
+                """
 
             # Create report file
             report_path = self._create_report_path(report_name, "html", reports_directory)
@@ -588,86 +838,66 @@ class ReportService:
                     comp_type = component.get("type", "").lower()
                     if "terragrunt" in comp_type:
                         terragrunt_modules += 1
-                    elif "module" in comp_type:
+                    elif "terraform" in comp_type:
                         terraform_modules += 1
 
-            # Generate HTML table
+            # Generate modern card-based summary
             summary_html = f"""
-            <table class="summary-table">
-                <tr>
-                    <td class="metric">Project Type</td>
-                    <td class="value">{inventory.get("projectType", "Terraform")}</td>
-                </tr>
-                <tr>
-                    <td class="metric">Total Components</td>
-                    <td class="value">{total_components}</td>
-                </tr>
-                <tr>
-                    <td class="metric">Updated Components</td>
-                    <td class="value value-updated">{updated_components}</td>
-                </tr>
-                <tr>
-                    <td class="metric">Outdated Components</td>
-                    <td class="value value-outdated">{outdated_components}</td>
-                </tr>
-                <tr>
-                    <td class="metric">Unknown Status</td>
-                    <td class="value value-unknown">{unknown_components}</td>
-                </tr>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-number" style="color: var(--primary-color);">{total_components}</div>
+                    <div class="summary-label">Total Components</div>
+                </div>
+                <div class="summary-card updated">
+                    <div class="summary-number" style="color: var(--success-color);">{updated_components}</div>
+                    <div class="summary-label">Updated Components</div>
+                </div>
+                <div class="summary-card outdated">
+                    <div class="summary-number" style="color: var(--danger-color);">{outdated_components}</div>
+                    <div class="summary-label">Outdated Components</div>
+                </div>
+                <div class="summary-card unknown">
+                    <div class="summary-number" style="color: var(--warning-color);">{unknown_components}</div>
+                    <div class="summary-label">Unknown Status</div>
+                </div>
+                <div class="summary-card local">
+                    <div class="summary-number" style="color: var(--info-color);">{local_components}</div>
+                    <div class="summary-label">Local Modules</div>
+                </div>
             """
             
-            # Add local modules count if any exist
-            if local_components > 0:
-                summary_html += f"""
-                <tr>
-                    <td class="metric">Local Modules</td>
-                    <td class="value value-local">{local_components}</td>
-                </tr>
-                """
-                
-            # Add providers count if any exist
+            # Add providers card if we have providers
             if total_providers > 0:
                 summary_html += f"""
-                <tr>
-                    <td class="metric">Providers</td>
-                    <td class="value">{total_providers}</td>
-                </tr>
+                <div class="summary-card">
+                    <div class="summary-number" style="color: var(--secondary-color);">{total_providers}</div>
+                    <div class="summary-label">Providers</div>
+                </div>
                 """
             
-            # Add terragrunt stacks count for terraform-terragrunt projects
-            if project_type == 'terraform-terragrunt':
-                terragrunt_stacks_count = inventory.get('terragrunt_stacks_count', 0)
+            # Add framework-specific cards
+            if project_type == 'terragrunt' and terragrunt_modules > 0:
                 summary_html += f"""
-                <tr>
-                    <td class="metric">Terragrunt Stacks</td>
-                    <td class="value">{terragrunt_stacks_count}</td>
-                </tr>
+                <div class="summary-card">
+                    <div class="summary-number" style="color: #8b5cf6;">{terragrunt_modules}</div>
+                    <div class="summary-label">Terragrunt Modules</div>
+                </div>
                 """
-            
-            # Add framework-specific rows if applicable
-            if 'terragrunt' in project_type and terragrunt_modules > 0:
+            elif terraform_modules > 0:
                 summary_html += f"""
-                <tr>
-                    <td class="metric">Terragrunt Modules</td>
-                    <td class="value">{terragrunt_modules}</td>
-                </tr>
+                <div class="summary-card">
+                    <div class="summary-number" style="color: #8b5cf6;">{terraform_modules}</div>
+                    <div class="summary-label">Terraform Modules</div>
+                </div>
                 """
             
-            if 'terraform' in project_type and terraform_modules > 0:
-                summary_html += f"""
-                <tr>
-                    <td class="metric">Terraform Modules</td>
-                    <td class="value">{terraform_modules}</td>
-                </tr>
-                """
-            
-            summary_html += "</table>"
+            summary_html += "</div>"
             
             return summary_html
 
         except Exception as e:
             logger.error(f"Failed to generate summary HTML: {str(e)}")
-            return f"<p>Error generating summary: {str(e)}</p>"
+            return f'<div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Error generating summary: {str(e)}</p></div>'
 
     def _generate_providers_html(self, component_group: Dict[str, Any]) -> str:
         """Generate HTML table for provider information."""
