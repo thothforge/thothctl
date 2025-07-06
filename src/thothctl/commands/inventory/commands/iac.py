@@ -95,6 +95,7 @@ class IaCInvCommand(ClickCommand):
                         complete=complete,
                         check_providers=check_providers,
                         check_provider_versions=check_versions,  # Use unified flag for provider versions too
+                        check_schema_compatibility=check_schema_compatibility,
                         provider_tool=provider_tool,
                         project_name=project_name,
                     )
@@ -155,6 +156,21 @@ class IaCInvCommand(ClickCommand):
             project_name: Custom project name to use in the report
         """
         try:
+            # Debug logging for CLI parameters
+            logger.info(f"CLI Debug: check_schema_compatibility={check_schema_compatibility}")
+            logger.info(f"CLI Debug: check_versions={check_versions}")
+            logger.info(f"CLI Debug: check_providers={check_providers}")
+            logger.info(f"CLI Debug: check_provider_versions={check_provider_versions}")
+            
+            # Validate schema compatibility dependencies
+            if check_schema_compatibility and not check_versions:
+                self.ui.print_error("❌ Error: --check-schema-compatibility requires --check-versions to be enabled")
+                self.ui.print_info("💡 Use: thothctl inventory iac --check-versions --check-schema-compatibility")
+                raise click.ClickException("Schema compatibility analysis requires version checking to be enabled")
+            
+            if check_schema_compatibility:
+                self.ui.print_info("🔍 Schema compatibility analysis enabled - this may take additional time")
+            
             with self.ui.status_spinner("Creating infrastructure inventory..."):
                 # When check_versions is enabled, automatically enable provider checking
                 effective_check_providers = check_providers or check_versions
@@ -409,7 +425,7 @@ cli = IaCInvCommand.as_click_command(
         "--check-schema-compatibility",
         is_flag=True,
         default=False,
-        help="Check provider schema compatibility between current and latest versions (generates detailed compatibility subreport)",
+        help="Check provider schema compatibility between current and latest versions. Requires --check-versions to be enabled. Generates detailed compatibility analysis including breaking changes, warnings, and recommendations.",
     ),
     click.option(
         "--provider-tool",
@@ -424,3 +440,45 @@ cli = IaCInvCommand.as_click_command(
         default=None,
     ),
 )
+def create_inventory_command(
+    source_dir: str,
+    inventory_path: str,
+    check_versions: bool,
+    update_dependencies_path: bool,
+    auto_approve: bool,
+    inventory_action: str,
+    report_type: str,
+    framework_type: str,
+    complete: bool,
+    check_providers: bool,
+    check_schema_compatibility: bool,
+    provider_tool: str,
+    project_name: Optional[str],
+) -> None:
+    """Create infrastructure inventory from source directory."""
+    # Debug all parameters
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔍 ALL PARAMS: source_dir={source_dir}")
+    logger.info(f"🔍 ALL PARAMS: inventory_path={inventory_path}")
+    logger.info(f"🔍 ALL PARAMS: check_versions={check_versions}")
+    logger.info(f"🔍 ALL PARAMS: check_schema_compatibility={check_schema_compatibility}")
+    logger.info(f"🔍 ALL PARAMS: check_providers={check_providers}")
+    logger.info(f"🔍 ALL PARAMS: framework_type={framework_type}")
+    
+    command = IaCInventoryCommand()
+    asyncio.run(
+        command.create_inventory(
+            source_dir=source_dir,
+            check_versions=check_versions,
+            report_type=report_type,
+            reports_dir=inventory_path,
+            framework_type=framework_type,
+            complete=complete,
+            check_providers=check_providers,
+            check_provider_versions=check_versions,  # Map check_versions to check_provider_versions
+            check_schema_compatibility=check_schema_compatibility,
+            provider_tool=provider_tool,
+            project_name=project_name,
+        )
+    )

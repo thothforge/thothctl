@@ -390,34 +390,67 @@ class InventoryService:
                     "unknown_providers": unknown_providers
                 }
         
+        # Debug logging for schema compatibility conditions
+        logger.info(f"Schema compatibility debug: check_schema_compatibility={check_schema_compatibility}")
+        logger.info(f"Schema compatibility debug: check_provider_versions={check_provider_versions}")
+        logger.info(f"Schema compatibility debug: inventory_dict exists={inventory_dict is not None}")
+        if inventory_dict:
+            logger.info(f"Schema compatibility debug: inventory_dict has components={len(inventory_dict.get('components', []))}")
+        
         # Check schema compatibility if requested
         if check_schema_compatibility and check_provider_versions and inventory_dict:
-            logger.info("Checking provider schema compatibility...")
+            logger.info("🔍 Starting provider schema compatibility analysis...")
             
             try:
-                # Collect unique providers with version information
-                compatibility_reports = []
-                processed_providers = set()
+                import asyncio
                 
-                for component_group in inventory_dict.get("components", []):
-                    for provider in component_group.get("providers", []):
-                        provider_key = f"{provider['name']}:{provider.get('version', 'latest')}"
+                # Create async wrapper function
+                async def check_compatibility_async():
+                    logger.info("🔍 Inside async compatibility check function")
+                    # Collect unique providers with version information
+                    compatibility_reports = []
+                    processed_providers = set()
+                    
+                    logger.info(f"🔍 Processing {len(inventory_dict.get('components', []))} component groups")
+                    
+                    for component_group in inventory_dict.get("components", []):
+                        providers = component_group.get("providers", [])
+                        logger.info(f"🔍 Component group has {len(providers)} providers")
                         
-                        if provider_key not in processed_providers and provider.get('latest_version'):
-                            processed_providers.add(provider_key)
+                        for provider in providers:
+                            provider_key = f"{provider['name']}:{provider.get('version', 'latest')}"
+                            latest_version = provider.get('latest_version')
                             
-                            # Get resources used by this provider (optional enhancement)
-                            used_resources = None  # Could be extracted from IaC files
+                            logger.info(f"🔍 Checking provider: {provider['name']} v{provider.get('version', 'latest')}, latest: {latest_version}")
                             
-                            # Check compatibility
-                            compatibility_report = await self.schema_compatibility_service.check_provider_compatibility(
-                                provider_name=provider['name'],
-                                current_version=provider.get('version', 'latest'),
-                                latest_version=provider.get('latest_version', provider.get('version', 'latest')),
-                                used_resources=used_resources
-                            )
-                            
-                            compatibility_reports.append(compatibility_report)
+                            if provider_key not in processed_providers and latest_version:
+                                processed_providers.add(provider_key)
+                                logger.info(f"🔍 Processing compatibility for {provider['name']}")
+                                
+                                # Get resources used by this provider (optional enhancement)
+                                used_resources = None  # Could be extracted from IaC files
+                                
+                                # Check compatibility
+                                compatibility_report = await self.schema_compatibility_service.check_provider_compatibility(
+                                    provider_name=provider['name'],
+                                    current_version=provider.get('version', 'latest'),
+                                    latest_version=provider.get('latest_version', provider.get('version', 'latest')),
+                                    used_resources=used_resources
+                                )
+                                
+                                compatibility_reports.append(compatibility_report)
+                                logger.info(f"🔍 Added compatibility report for {provider['name']}: {compatibility_report.compatibility_level.value}")
+                            else:
+                                if provider_key in processed_providers:
+                                    logger.info(f"🔍 Skipping duplicate provider: {provider_key}")
+                                else:
+                                    logger.info(f"🔍 Skipping provider without latest_version: {provider['name']}")
+                    
+                    logger.info(f"🔍 Generated {len(compatibility_reports)} compatibility reports")
+                    return compatibility_reports
+                
+                # Run async compatibility check
+                compatibility_reports = await check_compatibility_async()
                 
                 # Add compatibility reports to inventory
                 if compatibility_reports:
@@ -432,7 +465,29 @@ class InventoryService:
                                 "warnings_count": len(report.warnings),
                                 "new_features_count": len(report.new_features),
                                 "summary": report.summary,
-                                "recommendations": report.recommendations
+                                "recommendations": report.recommendations,
+                                "breaking_changes": [
+                                    {
+                                        "type": change.type,
+                                        "resource": change.resource,
+                                        "attribute": change.attribute,
+                                        "description": change.description,
+                                        "severity": change.severity,
+                                        "impact": change.impact
+                                    }
+                                    for change in report.breaking_changes
+                                ],
+                                "warnings": [
+                                    {
+                                        "type": change.type,
+                                        "resource": change.resource,
+                                        "attribute": change.attribute,
+                                        "description": change.description,
+                                        "severity": change.severity,
+                                        "impact": change.impact
+                                    }
+                                    for change in report.warnings
+                                ]
                             }
                             for report in compatibility_reports
                         ],
@@ -445,12 +500,20 @@ class InventoryService:
                     inventory_dict["_compatibility_reports"] = compatibility_reports
                     
                     logger.info(f"Schema compatibility analysis completed for {len(compatibility_reports)} providers")
+                    logger.info(f"Found {inventory_dict['schema_compatibility']['providers_with_breaking_changes']} providers with breaking changes")
+                    logger.info(f"Found {inventory_dict['schema_compatibility']['providers_with_warnings']} providers with warnings")
+                else:
+                    logger.info("No providers found for schema compatibility analysis")
                 
             except Exception as e:
                 logger.error(f"Error during schema compatibility checking: {str(e)}")
+                logger.debug(f"Schema compatibility error details: {str(e)}", exc_info=True)
                 inventory_dict["schema_compatibility"] = {
                     "error": f"Schema compatibility analysis failed: {str(e)}",
-                    "reports": []
+                    "reports": [],
+                    "total_providers_analyzed": 0,
+                    "providers_with_breaking_changes": 0,
+                    "providers_with_warnings": 0
                 }
                 
                 logger.info(f"Provider version check completed: {outdated_providers} outdated, {current_providers} current, {unknown_providers} unknown")
