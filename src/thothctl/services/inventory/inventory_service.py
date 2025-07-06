@@ -10,6 +10,7 @@ import hcl2
 
 from .models import Component, ComponentGroup, Inventory, Provider
 from .report_service import ReportService
+from .schema_compatibility_service import SchemaCompatibilityService
 from .terragrunt_parser import TerragruntParser
 from .update_versions import main_update_versions
 from .version_service import InventoryVersionManager, ProviderVersionManager
@@ -31,6 +32,7 @@ class InventoryService:
         self.version_service = version_service or InventoryVersionManager()
         self.report_service = report_service or ReportService()
         self.provider_version_service = provider_version_service or ProviderVersionManager()
+        self.schema_compatibility_service = SchemaCompatibilityService()
         self.terragrunt_parser = TerragruntParser()
         self.is_terragrunt_project = False
 
@@ -243,6 +245,7 @@ class InventoryService:
         complete: bool = False,
         check_providers: bool = False,
         check_provider_versions: bool = False,
+        check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -377,6 +380,69 @@ class InventoryService:
                     "outdated_providers": outdated_providers,
                     "current_providers": current_providers,
                     "unknown_providers": unknown_providers
+                }
+        
+        # Check schema compatibility if requested
+        if check_schema_compatibility and check_provider_versions and inventory_dict:
+            logger.info("Checking provider schema compatibility...")
+            
+            try:
+                # Collect unique providers with version information
+                compatibility_reports = []
+                processed_providers = set()
+                
+                for component_group in inventory_dict.get("components", []):
+                    for provider in component_group.get("providers", []):
+                        provider_key = f"{provider['name']}:{provider.get('version', 'latest')}"
+                        
+                        if provider_key not in processed_providers and provider.get('latest_version'):
+                            processed_providers.add(provider_key)
+                            
+                            # Get resources used by this provider (optional enhancement)
+                            used_resources = None  # Could be extracted from IaC files
+                            
+                            # Check compatibility
+                            compatibility_report = await self.schema_compatibility_service.check_provider_compatibility(
+                                provider_name=provider['name'],
+                                current_version=provider.get('version', 'latest'),
+                                latest_version=provider.get('latest_version', provider.get('version', 'latest')),
+                                used_resources=used_resources
+                            )
+                            
+                            compatibility_reports.append(compatibility_report)
+                
+                # Add compatibility reports to inventory
+                if compatibility_reports:
+                    inventory_dict["schema_compatibility"] = {
+                        "reports": [
+                            {
+                                "provider_name": report.provider_name,
+                                "current_version": report.current_version,
+                                "latest_version": report.latest_version,
+                                "compatibility_level": report.compatibility_level.value,
+                                "breaking_changes_count": len(report.breaking_changes),
+                                "warnings_count": len(report.warnings),
+                                "new_features_count": len(report.new_features),
+                                "summary": report.summary,
+                                "recommendations": report.recommendations
+                            }
+                            for report in compatibility_reports
+                        ],
+                        "total_providers_analyzed": len(compatibility_reports),
+                        "providers_with_breaking_changes": sum(1 for r in compatibility_reports if r.breaking_changes),
+                        "providers_with_warnings": sum(1 for r in compatibility_reports if r.warnings)
+                    }
+                    
+                    # Store full reports for HTML generation
+                    inventory_dict["_compatibility_reports"] = compatibility_reports
+                    
+                    logger.info(f"Schema compatibility analysis completed for {len(compatibility_reports)} providers")
+                
+            except Exception as e:
+                logger.error(f"Error during schema compatibility checking: {str(e)}")
+                inventory_dict["schema_compatibility"] = {
+                    "error": f"Schema compatibility analysis failed: {str(e)}",
+                    "reports": []
                 }
                 
                 logger.info(f"Provider version check completed: {outdated_providers} outdated, {current_providers} current, {unknown_providers} unknown")

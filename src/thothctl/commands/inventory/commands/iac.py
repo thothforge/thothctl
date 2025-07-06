@@ -52,6 +52,7 @@ class IaCInvCommand(ClickCommand):
         framework_type: str = "auto",
         complete: bool = False,
         check_providers: bool = False,
+        check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
         **kwargs,
@@ -68,6 +69,7 @@ class IaCInvCommand(ClickCommand):
             framework_type: Framework type to analyze
             complete: Flag to exclude .terraform and .terragrunt-cache folders
             check_providers: Flag to check provider information
+            check_schema_compatibility: Flag to check provider schema compatibility
             provider_tool: Tool to use for checking providers
             project_name: Custom project name for the inventory report
         """
@@ -132,6 +134,7 @@ class IaCInvCommand(ClickCommand):
         complete: bool = False,
         check_providers: bool = False,
         check_provider_versions: bool = False,
+        check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
     ) -> None:
@@ -147,6 +150,7 @@ class IaCInvCommand(ClickCommand):
             complete: Flag to include .terraform and .terragrunt-cache folders
             check_providers: Flag to check provider information
             check_provider_versions: Flag to check provider versions against registries
+            check_schema_compatibility: Flag to check provider schema compatibility
             provider_tool: Tool to use for checking providers
             project_name: Custom project name to use in the report
         """
@@ -164,6 +168,7 @@ class IaCInvCommand(ClickCommand):
                     complete=complete,
                     check_providers=effective_check_providers,
                     check_provider_versions=check_versions,
+                    check_schema_compatibility=check_schema_compatibility,
                     provider_tool=provider_tool,
                     project_name=project_name,
                 )
@@ -398,6 +403,12 @@ cli = IaCInvCommand.as_click_command(
         is_flag=True,
         default=False,
         help="Check and report provider information for each stack (automatically enabled with --check-versions)",
+    ),
+    click.option(
+        "--check-schema-compatibility",
+        is_flag=True,
+        default=False,
+        help="Check provider schema compatibility between current and latest versions (generates detailed compatibility subreport)",
     ),
     click.option(
         "--provider-tool",
