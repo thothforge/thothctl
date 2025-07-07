@@ -277,14 +277,40 @@ class ReportService:
                         gap: 8px;
                     }}
 
+                    .table-container {{
+                        max-height: 600px;
+                        overflow-y: auto;
+                        border-radius: var(--border-radius);
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        border: 1px solid #e9ecef;
+                    }}
+
+                    .table-container::-webkit-scrollbar {{
+                        width: 8px;
+                    }}
+
+                    .table-container::-webkit-scrollbar-track {{
+                        background: #f1f1f1;
+                        border-radius: 4px;
+                    }}
+
+                    .table-container::-webkit-scrollbar-thumb {{
+                        background: #c1c1c1;
+                        border-radius: 4px;
+                    }}
+
+                    .table-container::-webkit-scrollbar-thumb:hover {{
+                        background: #a8a8a8;
+                    }}
+
                     .components-table {{
                         width: 100%;
                         border-collapse: collapse;
-                        margin-bottom: 20px;
+                        margin-bottom: 0;
                         background: white;
-                        border-radius: var(--border-radius);
-                        overflow: hidden;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        border-radius: 0;
+                        box-shadow: none;
+                        border: none;
                     }}
 
                     .components-table th {{
@@ -395,14 +421,33 @@ class ReportService:
 
                     .compatibility-content {{
                         transition: max-height 0.4s ease-out, opacity 0.3s ease;
-                        max-height: 2000px;
+                        max-height: 800px;
                         opacity: 1;
-                        overflow: hidden;
+                        overflow-y: auto;
+                    }}
+
+                    .compatibility-content::-webkit-scrollbar {{
+                        width: 8px;
+                    }}
+
+                    .compatibility-content::-webkit-scrollbar-track {{
+                        background: #f1f1f1;
+                        border-radius: 4px;
+                    }}
+
+                    .compatibility-content::-webkit-scrollbar-thumb {{
+                        background: #c1c1c1;
+                        border-radius: 4px;
+                    }}
+
+                    .compatibility-content::-webkit-scrollbar-thumb:hover {{
+                        background: #a8a8a8;
                     }}
 
                     .compatibility-content.collapsed {{
                         max-height: 0;
                         opacity: 0;
+                        overflow: hidden;
                     }}
 
                     .provider-compatibility-section {{
