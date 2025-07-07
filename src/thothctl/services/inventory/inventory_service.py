@@ -9,6 +9,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 import hcl2
 
 from .models import Component, ComponentGroup, Inventory, Provider
+from .module_compatibility_service import ModuleCompatibilityService
 from .report_service import ReportService
 from .schema_compatibility_service import SchemaCompatibilityService
 from .terragrunt_parser import TerragruntParser
@@ -33,6 +34,7 @@ class InventoryService:
         self.report_service = report_service or ReportService()
         self.provider_version_service = provider_version_service or ProviderVersionManager()
         self.schema_compatibility_service = SchemaCompatibilityService()
+        self.module_compatibility_service = ModuleCompatibilityService()
         self.terragrunt_parser = TerragruntParser()
         self.is_terragrunt_project = False
 
@@ -517,6 +519,29 @@ class InventoryService:
                 }
                 
                 logger.info(f"Provider version check completed: {outdated_providers} outdated, {current_providers} current, {unknown_providers} unknown")
+
+        # Check module compatibility if schema compatibility is enabled
+        if check_schema_compatibility and inventory_dict:
+            logger.info("🔍 Starting module compatibility analysis...")
+            try:
+                inventory_dict = self.module_compatibility_service.check_inventory_modules_compatibility(inventory_dict)
+                
+                module_stats = inventory_dict.get("module_compatibility", {})
+                logger.info(f"Module compatibility analysis completed:")
+                logger.info(f"  - Total modules analyzed: {module_stats.get('total_modules_analyzed', 0)}")
+                logger.info(f"  - Safe upgrades: {module_stats.get('safe_upgrades', 0)}")
+                logger.info(f"  - Breaking changes: {module_stats.get('breaking_changes', 0)}")
+                
+            except Exception as e:
+                logger.error(f"Error during module compatibility checking: {str(e)}")
+                logger.debug(f"Module compatibility error details: {str(e)}", exc_info=True)
+                inventory_dict["module_compatibility"] = {
+                    "error": f"Module compatibility analysis failed: {str(e)}",
+                    "total_modules_analyzed": 0,
+                    "safe_upgrades": 0,
+                    "breaking_changes": 0,
+                    "reports": []
+                }
 
         # Generate reports
         reports_path = Path(reports_directory)

@@ -44,8 +44,838 @@ class ReportService:
     def create_html_report(
         self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
-        """Create HTML report from inventory data using external template."""
+        """Create HTML report from inventory data with custom styling."""
         try:
+            # Define HTML template with proper string formatting
+            html_template = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Infrastructure Inventory Report - {project_name} ({project_type})</title>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                <style>
+                    :root {{
+                        --primary-color: #007bff;
+                        --secondary-color: #6c757d;
+                        --success-color: #28a745;
+                        --warning-color: #ffc107;
+                        --danger-color: #dc3545;
+                        --info-color: #17a2b8;
+                        --light-color: #f8f9fa;
+                        --dark-color: #343a40;
+                        --border-radius: 8px;
+                        --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        --transition: all 0.3s ease;
+                    }}
+
+                    * {{
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }}
+
+                    body {{
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        line-height: 1.6;
+                        color: var(--dark-color);
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        min-height: 100vh;
+                        padding: 20px;
+                    }}
+
+                    html {{
+                        scroll-behavior: smooth;
+                    }}
+
+                    .container {{
+                        max-width: 1400px;
+                        margin: 0 auto;
+                        background: white;
+                        border-radius: var(--border-radius);
+                        box-shadow: var(--box-shadow);
+                        overflow: hidden;
+                    }}
+
+                    /* Navigation Styles */
+                    .nav-header {{
+                        background: linear-gradient(135deg, var(--primary-color), #0056b3);
+                        color: white;
+                        padding: 20px 30px;
+                        position: sticky;
+                        top: 0;
+                        z-index: 100;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }}
+
+                    .nav-title {{
+                        font-size: 1.8rem;
+                        font-weight: 700;
+                        margin-bottom: 10px;
+                    }}
+
+                    .nav-subtitle {{
+                        font-size: 1rem;
+                        opacity: 0.9;
+                        margin-bottom: 15px;
+                    }}
+
+                    .nav-menu {{
+                        display: flex;
+                        gap: 20px;
+                        flex-wrap: wrap;
+                    }}
+
+                    .nav-link {{
+                        color: rgba(255,255,255,0.9);
+                        text-decoration: none;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        transition: var(--transition);
+                        font-weight: 500;
+                        font-size: 0.9rem;
+                    }}
+
+                    .nav-link:hover {{
+                        background: rgba(255,255,255,0.2);
+                        color: white;
+                        transform: translateY(-1px);
+                    }}
+
+                    /* Content Sections */
+                    .content-section {{
+                        padding: 30px;
+                        border-bottom: 1px solid #e9ecef;
+                    }}
+
+                    .content-section:last-child {{
+                        border-bottom: none;
+                    }}
+
+                    .section-header {{
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 10px;
+                        border-bottom: 2px solid var(--primary-color);
+                    }}
+
+                    .section-title {{
+                        font-size: 1.5rem;
+                        font-weight: 600;
+                        color: var(--primary-color);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }}
+
+                    /* Expand/Collapse Functionality */
+                    .collapsible {{
+                        cursor: pointer;
+                        user-select: none;
+                        transition: var(--transition);
+                        background: none;
+                        border: none;
+                        color: var(--primary-color);
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }}
+
+                    .collapsible:hover {{
+                        background: rgba(0, 123, 255, 0.1);
+                    }}
+
+                    .collapsible-content {{
+                        max-height: 2000px;
+                        overflow: hidden;
+                        transition: max-height 0.4s ease-out, opacity 0.3s ease;
+                        opacity: 1;
+                    }}
+
+                    .collapsible-content.collapsed {{
+                        max-height: 0;
+                        opacity: 0;
+                    }}
+
+                    .expand-icon {{
+                        transition: transform 0.3s ease;
+                        font-size: 1rem;
+                        color: var(--primary-color);
+                    }}
+
+                    .expand-icon.rotated {{
+                        transform: rotate(180deg);
+                    }}
+
+                    /* Stack Sections */
+                    .stack-section {{
+                        margin-bottom: 30px;
+                        border: 1px solid #e9ecef;
+                        border-radius: var(--border-radius);
+                        overflow: hidden;
+                        background: white;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        transition: var(--transition);
+                    }}
+
+                    .stack-section:hover {{
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                    }}
+
+                    .stack-header {{
+                        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+                        padding: 15px 20px;
+                        border-bottom: 1px solid #dee2e6;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        cursor: pointer;
+                        transition: var(--transition);
+                    }}
+
+                    .stack-header:hover {{
+                        background: linear-gradient(135deg, #e9ecef, #dee2e6);
+                    }}
+
+                    .stack-title {{
+                        font-size: 1.2rem;
+                        font-weight: 600;
+                        color: var(--dark-color);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }}
+
+                    .stack-path {{
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.85rem;
+                        color: var(--secondary-color);
+                        background: rgba(108, 117, 125, 0.1);
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                    }}
+
+                    /* Table Styles */
+                    .table-section {{
+                        margin: 20px 0;
+                    }}
+
+                    .table-title {{
+                        font-size: 1.1rem;
+                        font-weight: 600;
+                        margin-bottom: 15px;
+                        color: var(--dark-color);
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }}
+
+                    .components-table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 20px;
+                        background: white;
+                        border-radius: var(--border-radius);
+                        overflow: hidden;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    }}
+
+                    .components-table th {{
+                        background: linear-gradient(135deg, var(--primary-color), #0056b3);
+                        color: white;
+                        padding: 12px 15px;
+                        text-align: left;
+                        font-weight: 600;
+                        font-size: 0.9rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }}
+
+                    .components-table td {{
+                        padding: 12px 15px;
+                        border-bottom: 1px solid #e9ecef;
+                        vertical-align: top;
+                    }}
+
+                    .components-table tr:hover {{
+                        background-color: #f8f9fa;
+                        transition: var(--transition);
+                    }}
+
+                    .components-table tr:last-child td {{
+                        border-bottom: none;
+                    }}
+
+                    /* Status Badges */
+                    .status-badge {{
+                        padding: 4px 12px;
+                        border-radius: 20px;
+                        font-size: 0.8rem;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }}
+
+                    .status-current {{
+                        background: var(--success-color);
+                        color: white;
+                    }}
+
+                    .status-outdated {{
+                        background: var(--warning-color);
+                        color: #856404;
+                    }}
+
+                    .status-unknown {{
+                        background: var(--secondary-color);
+                        color: white;
+                    }}
+
+                    /* Summary Grid */
+                    .summary-grid {{
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 20px;
+                        margin-bottom: 30px;
+                    }}
+
+                    .summary-card {{
+                        background: white;
+                        padding: 20px;
+                        border-radius: var(--border-radius);
+                        text-align: center;
+                        box-shadow: var(--box-shadow);
+                        border-left: 4px solid var(--primary-color);
+                        transition: var(--transition);
+                    }}
+
+                    .summary-card:hover {{
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    }}
+
+                    .summary-number {{
+                        font-size: 2.5rem;
+                        font-weight: 700;
+                        color: var(--primary-color);
+                        margin-bottom: 5px;
+                    }}
+
+                    .summary-label {{
+                        font-size: 0.9rem;
+                        color: var(--secondary-color);
+                        font-weight: 500;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }}
+
+                    /* Compatibility Section Styles */
+                    .compatibility-section {{
+                        margin: 20px 0;
+                        padding: 15px;
+                        background-color: #f8f9fa;
+                        border-left: 4px solid #007bff;
+                        border-radius: 5px;
+                    }}
+
+                    .compatibility-header {{
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        cursor: pointer;
+                        margin-bottom: 15px;
+                    }}
+
+                    .compatibility-content {{
+                        transition: max-height 0.4s ease-out, opacity 0.3s ease;
+                        max-height: 2000px;
+                        opacity: 1;
+                        overflow: hidden;
+                    }}
+
+                    .compatibility-content.collapsed {{
+                        max-height: 0;
+                        opacity: 0;
+                    }}
+
+                    .provider-compatibility-section {{
+                        margin: 15px 0;
+                        border: 1px solid #dee2e6;
+                        border-radius: 8px;
+                        overflow: hidden;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    }}
+
+                    .provider-compatibility-header {{
+                        padding: 15px;
+                        cursor: pointer;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        transition: background-color 0.3s ease;
+                    }}
+
+                    .provider-compatibility-content {{
+                        background: white;
+                        transition: max-height 0.4s ease-out, opacity 0.3s ease;
+                        max-height: 1000px;
+                        opacity: 1;
+                        overflow-y: auto;
+                        max-height: 500px;
+                    }}
+
+                    .provider-compatibility-content.collapsed {{
+                        max-height: 0;
+                        opacity: 0;
+                        overflow: hidden;
+                    }}
+
+                    .provider-compatibility-content::-webkit-scrollbar {{
+                        width: 8px;
+                    }}
+
+                    .provider-compatibility-content::-webkit-scrollbar-track {{
+                        background: #f1f1f1;
+                        border-radius: 4px;
+                    }}
+
+                    .provider-compatibility-content::-webkit-scrollbar-thumb {{
+                        background: #c1c1c1;
+                        border-radius: 4px;
+                    }}
+
+                    .provider-compatibility-content::-webkit-scrollbar-thumb:hover {{
+                        background: #a8a8a8;
+                    }}
+
+                    /* Back to Top Button */
+                    .back-to-top {{
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        background: var(--primary-color);
+                        color: white;
+                        border: none;
+                        border-radius: 50%;
+                        width: 50px;
+                        height: 50px;
+                        font-size: 1.2rem;
+                        cursor: pointer;
+                        box-shadow: var(--box-shadow);
+                        transition: var(--transition);
+                        opacity: 0;
+                        visibility: hidden;
+                        z-index: 1000;
+                    }}
+
+                    .back-to-top.visible {{
+                        opacity: 1;
+                        visibility: visible;
+                    }}
+
+                    .back-to-top:hover {{
+                        background: #0056b3;
+                        transform: translateY(-2px);
+                    }}
+
+                    /* Responsive Design */
+                    @media (max-width: 768px) {{
+                        body {{
+                            padding: 10px;
+                        }}
+
+                        .content-section {{
+                            padding: 20px;
+                        }}
+
+                        .nav-menu {{
+                            flex-direction: column;
+                            gap: 10px;
+                        }}
+
+                        .summary-grid {{
+                            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                            gap: 15px;
+                        }}
+
+                        .components-table {{
+                            font-size: 0.85rem;
+                        }}
+
+                        .components-table th,
+                        .components-table td {{
+                            padding: 8px 10px;
+                        }}
+
+                        .section-header {{
+                            flex-direction: column;
+                            align-items: flex-start;
+                            gap: 10px;
+                        }}
+                    }}
+
+                    /* Print Styles */
+                    @media print {{
+                        body {{
+                            background: white;
+                            padding: 0;
+                        }}
+
+                        .container {{
+                            box-shadow: none;
+                            border-radius: 0;
+                        }}
+
+                        .nav-header {{
+                            position: static;
+                            background: var(--primary-color) !important;
+                        }}
+
+                        .collapsible-content {{
+                            max-height: none !important;
+                            opacity: 1 !important;
+                        }}
+
+                        .stack-section {{
+                            break-inside: avoid;
+                        }}
+
+                        .back-to-top {{
+                            display: none;
+                        }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <!-- Navigation Header -->
+                    <div class="nav-header">
+                        <div class="nav-title">📊 Infrastructure Inventory Report</div>
+                        <div class="nav-subtitle">
+                            {project_name} • {project_type} • Generated on {timestamp}
+                        </div>
+                        <nav class="nav-menu">
+                            <a href="#summary" class="nav-link">📈 Summary</a>
+                            <a href="#compatibility" class="nav-link">🔍 Compatibility</a>
+                            <a href="#components" class="nav-link">🧩 Components</a>
+                        </nav>
+                    </div>
+
+                    <!-- Summary Section -->
+                    <section id="summary" class="content-section">
+                        <div class="section-header">
+                            <h2 class="section-title">📈 Summary Overview</h2>
+                        </div>
+                        {summary_table}
+                    </section>
+
+                    <!-- Schema Compatibility Section -->
+                    <section id="compatibility" class="content-section">
+                        <div class="section-header">
+                            <h2 class="section-title">🔍 Compatibility Analysis</h2>
+                        </div>
+                        {compatibility_section}
+                    </section>
+
+                    <!-- Components Section -->
+                    <section id="components" class="content-section">
+                        <div class="section-header">
+                            <h2 class="section-title">🧩 Infrastructure Components</h2>
+                            <button class="collapsible" onclick="toggleAllSections()">
+                                <span id="toggle-all-text">Collapse All</span>
+                                <span class="expand-icon" id="toggle-all-icon">▼</span>
+                            </button>
+                        </div>
+                        <div class="stacks-container">
+                            {content}
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Back to Top Button -->
+                <button class="back-to-top" id="backToTop" onclick="scrollToTop()">↑</button>
+
+                <script>
+                    // Navigation and Interactivity JavaScript
+                    document.addEventListener('DOMContentLoaded', function() {{
+                        // Initialize collapsible sections
+                        initializeCollapsibleSections();
+                        
+                        // Initialize back to top button
+                        initializeBackToTop();
+                        
+                        // Initialize smooth scrolling for navigation links
+                        initializeSmoothScrolling();
+                        
+                        // Add click tracking for analytics (optional)
+                        trackUserInteractions();
+                    }});
+
+                    function initializeCollapsibleSections() {{
+                        // Make stack headers collapsible
+                        const stackHeaders = document.querySelectorAll('.stack-header');
+                        stackHeaders.forEach(header => {{
+                            // Add expand icon to stack headers
+                            const expandIcon = document.createElement('span');
+                            expandIcon.className = 'expand-icon';
+                            expandIcon.innerHTML = '▼';
+                            expandIcon.style.marginLeft = '10px';
+                            header.appendChild(expandIcon);
+                            
+                            header.addEventListener('click', function() {{
+                                toggleStackSection(this);
+                            }});
+                        }});
+                    }}
+
+                    function toggleStackSection(header) {{
+                        const stackSection = header.parentElement;
+                        const content = stackSection.querySelector('.table-section')?.parentElement || 
+                                       stackSection.querySelector('.collapsible-content');
+                        const icon = header.querySelector('.expand-icon');
+                        
+                        if (content) {{
+                            // Create collapsible wrapper if it doesn't exist
+                            if (!content.classList.contains('collapsible-content')) {{
+                                const wrapper = document.createElement('div');
+                                wrapper.className = 'collapsible-content';
+                                content.parentNode.insertBefore(wrapper, content);
+                                wrapper.appendChild(content);
+                            }}
+                            
+                            const wrapper = content.classList.contains('collapsible-content') ? content : content.parentElement;
+                            wrapper.classList.toggle('collapsed');
+                            icon.classList.toggle('rotated');
+                        }}
+                    }}
+
+                    function toggleAllSections() {{
+                        const allStackSections = document.querySelectorAll('.stack-section');
+                        const toggleText = document.getElementById('toggle-all-text');
+                        const toggleIcon = document.getElementById('toggle-all-icon');
+                        const isCollapsed = toggleText.textContent === 'Expand All';
+                        
+                        allStackSections.forEach(section => {{
+                            const content = section.querySelector('.collapsible-content') || 
+                                          section.querySelector('.table-section')?.parentElement;
+                            const icon = section.querySelector('.stack-header .expand-icon');
+                            
+                            if (content) {{
+                                // Create collapsible wrapper if it doesn't exist
+                                if (!content.classList.contains('collapsible-content')) {{
+                                    const wrapper = document.createElement('div');
+                                    wrapper.className = 'collapsible-content';
+                                    content.parentNode.insertBefore(wrapper, content);
+                                    wrapper.appendChild(content);
+                                }}
+                                
+                                const wrapper = content.classList.contains('collapsible-content') ? content : content.parentElement;
+                                
+                                if (isCollapsed) {{
+                                    wrapper.classList.remove('collapsed');
+                                    if (icon) icon.classList.remove('rotated');
+                                }} else {{
+                                    wrapper.classList.add('collapsed');
+                                    if (icon) icon.classList.add('rotated');
+                                }}
+                            }}
+                        }});
+                        
+                        // Update toggle button text
+                        toggleText.textContent = isCollapsed ? 'Collapse All' : 'Expand All';
+                        toggleIcon.textContent = isCollapsed ? '▼' : '▲';
+                    }}
+
+                    function initializeBackToTop() {{
+                        const backToTopButton = document.getElementById('backToTop');
+                        
+                        window.addEventListener('scroll', function() {{
+                            if (window.pageYOffset > 300) {{
+                                backToTopButton.classList.add('visible');
+                            }} else {{
+                                backToTopButton.classList.remove('visible');
+                            }}
+                        }});
+                    }}
+
+                    function scrollToTop() {{
+                        window.scrollTo({{
+                            top: 0,
+                            behavior: 'smooth'
+                        }});
+                    }}
+
+                    function initializeSmoothScrolling() {{
+                        const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
+                        navLinks.forEach(link => {{
+                            link.addEventListener('click', function(e) {{
+                                e.preventDefault();
+                                const targetId = this.getAttribute('href').substring(1);
+                                const targetElement = document.getElementById(targetId);
+                                
+                                if (targetElement) {{
+                                    const offsetTop = targetElement.offsetTop - 80; // Account for sticky header
+                                    window.scrollTo({{
+                                        top: offsetTop,
+                                        behavior: 'smooth'
+                                    }});
+                                }}
+                            }});
+                        }});
+                    }}
+
+                    function trackUserInteractions() {{
+                        // Track section expansions
+                        document.addEventListener('click', function(e) {{
+                            if (e.target.closest('.stack-header')) {{
+                                const stackTitle = e.target.closest('.stack-section')?.querySelector('.stack-title')?.textContent;
+                                console.log('Stack section toggled:', stackTitle);
+                            }}
+                            
+                            if (e.target.closest('.nav-link')) {{
+                                console.log('Navigation clicked:', e.target.textContent);
+                            }}
+                        }});
+                    }}
+
+                    // Compatibility section toggle functions
+                    function toggleProviderCompatibilitySection() {{
+                        const content = document.getElementById('provider-compatibility-content');
+                        const icon = document.getElementById('provider-compatibility-icon');
+                        
+                        if (content && icon) {{
+                            content.classList.toggle('collapsed');
+                            icon.classList.toggle('rotated');
+                            
+                            if (content.classList.contains('collapsed')) {{
+                                icon.textContent = '▶';
+                            }} else {{
+                                icon.textContent = '▼';
+                            }}
+                        }}
+                    }}
+
+                    function toggleModuleCompatibilitySection() {{
+                        const content = document.getElementById('module-compatibility-content');
+                        const icon = document.getElementById('module-compatibility-icon');
+                        
+                        if (content && icon) {{
+                            content.classList.toggle('collapsed');
+                            icon.classList.toggle('rotated');
+                            
+                            if (content.classList.contains('collapsed')) {{
+                                icon.textContent = '▶';
+                            }} else {{
+                                icon.textContent = '▼';
+                            }}
+                        }}
+                    }}
+
+                    function toggleProviderCompatibility(providerId) {{
+                        const content = document.getElementById(providerId + '-content');
+                        const icon = document.getElementById(providerId + '-icon');
+                        
+                        if (content && icon) {{
+                            content.classList.toggle('collapsed');
+                            icon.classList.toggle('rotated');
+                            
+                            if (content.classList.contains('collapsed')) {{
+                                icon.textContent = '▶';
+                            }} else {{
+                                icon.textContent = '▼';
+                            }}
+                        }}
+                    }}
+
+                    function toggleModuleCompatibility(moduleId) {{
+                        const content = document.getElementById(moduleId + '-content');
+                        const icon = document.getElementById(moduleId + '-icon');
+                        
+                        if (content && icon) {{
+                            content.classList.toggle('collapsed');
+                            icon.classList.toggle('rotated');
+                            
+                            if (content.classList.contains('collapsed')) {{
+                                icon.textContent = '▶';
+                            }} else {{
+                                icon.textContent = '▼';
+                            }}
+                        }}
+                    }}
+
+                    // Enhanced keyboard shortcuts
+                    document.addEventListener('keydown', function(e) {{
+                        // Escape to collapse all sections
+                        if (e.key === 'Escape') {{
+                            const expandedSections = document.querySelectorAll('.collapsible-content:not(.collapsed)');
+                            if (expandedSections.length > 0) {{
+                                toggleAllSections();
+                            }}
+                            
+                            // Also collapse compatibility sections
+                            const providerCompatibilityContent = document.getElementById('provider-compatibility-content');
+                            if (providerCompatibilityContent && !providerCompatibilityContent.classList.contains('collapsed')) {{
+                                toggleProviderCompatibilitySection();
+                            }}
+                            
+                            const moduleCompatibilityContent = document.getElementById('module-compatibility-content');
+                            if (moduleCompatibilityContent && !moduleCompatibilityContent.classList.contains('collapsed')) {{
+                                toggleModuleCompatibilitySection();
+                            }}
+                        }}
+                        
+                        // Home key to scroll to top
+                        if (e.key === 'Home' && e.ctrlKey) {{
+                            e.preventDefault();
+                            scrollToTop();
+                        }}
+                        
+                        // 'C' key to toggle compatibility section
+                        if (e.key === 'c' || e.key === 'C') {{
+                            if (!e.ctrlKey && !e.altKey && !e.metaKey) {{
+                                const compatibilitySection = document.querySelector('.compatibility-section');
+                                if (compatibilitySection) {{
+                                    toggleCompatibilitySection();
+                                }}
+                            }}
+                        }}
+                    }});
+
+                    // Add section anchors for better navigation
+                    function addSectionAnchors() {{
+                        const stackSections = document.querySelectorAll('.stack-section');
+                        stackSections.forEach((section, index) => {{
+                            const title = section.querySelector('.stack-title');
+                            if (title) {{
+                                const anchor = title.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                                section.id = `stack-${{index}}-${{anchor}}`;
+                                
+                                // Add anchor link to title
+                                const anchorLink = document.createElement('a');
+                                anchorLink.href = `#${{section.id}}`;
+                                anchorLink.style.color = 'inherit';
+                                anchorLink.style.textDecoration = 'none';
+                                anchorLink.innerHTML = title.innerHTML;
+                                title.innerHTML = '';
+                                title.appendChild(anchorLink);
+                            }}
+                        }});
+                    }}
+
+                    // Initialize section anchors after DOM is loaded
+                    document.addEventListener('DOMContentLoaded', addSectionAnchors);
+                </script>
+            </body>
+            </html>
+            """
+
             # Generate summary statistics
             summary_html = self._generate_summary_html(inventory)
             
@@ -54,32 +884,20 @@ class ReportService:
             
             # Generate custom HTML for components and providers
             components_html = self._generate_components_html(inventory)
-            
-            # Prepare template context
-            context = {
-                'content': components_html,
-                'summary_table': summary_html,
-                'compatibility_section': compatibility_html,
-                'project_name': inventory.get("projectName", inventory.get("project_name", "Unknown")),
-                'project_type': inventory.get("projectType", "Terraform"),
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'script_path': ''  # Will be handled by template loader
-            }
-            
-            # Render template with context
-            html_content = self.template_loader.render_template(
-                template_name="inventory_report",
-                context=context,
-                template_type="reports",
-                inline_script=True  # Inline JavaScript for standalone HTML
-            )
-            
+
             # Create report file
             report_path = self._create_report_path(report_name, "html", reports_directory)
-            
-            # Write the report
+
+            # Write the report with proper formatting
             with open(report_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
+                f.write(html_template.format(
+                    content=components_html,
+                    summary_table=summary_html,
+                    compatibility_section=compatibility_html,
+                    project_name=inventory.get("projectName", inventory.get("project_name", "Unknown")),
+                    project_type=inventory.get("projectType", "Terraform"),
+                    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
 
             logger.info(f"HTML report created at: {report_path}")
             return report_path
@@ -114,12 +932,143 @@ class ReportService:
                 # Add components table
                 components = component_group.get("components", [])
                 if components:
-                    components_html += self._generate_components_table(components, stack_id)
+                    components_html += """
+                        <div class="table-section">
+                            <h3 class="table-title">🧩 Components</h3>
+                            <div class="table-container">
+                                <table class="components-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Name</th>
+                                            <th>Source</th>
+                                            <th>Version</th>
+                                            <th>Latest</th>
+                                            <th>SourceUrl</th>
+                                            <th>Status</th>
+                                            <th>Path</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    """
+                    
+                    for component in components:
+                        source = component.get("source", "Unknown")
+                        version = component.get("version", "Unknown")
+                        latest_version = component.get("latest_version", "Unknown")
+                        source_url = component.get("source_url", "Unknown")
+                        status = component.get("status", "Unknown")
+                        path = component.get("path", "Unknown")
+                        name = component.get("name", "Unknown")
+                        
+                        # Determine status styling
+                        status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" else '<span style="color: #9ca3af;">—</span>'
+                        
+                        # Add anchor link for component
+                        component_id = f"{stack_id}-{name.lower().replace(' ', '-')}"
+                        
+                        components_html += f"""
+                        <tr id="component-{component_id}">
+                            <td><strong>{component.get("type", "Unknown")}</strong></td>
+                            <td>
+                                <a href="#component-{component_id}" style="color: var(--primary-color); text-decoration: none;">
+                                    {name}
+                                </a>
+                            </td>
+                            <td><code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code></td>
+                            <td><span style="font-family: monospace; color: var(--info-color);">{version}</span></td>
+                            <td><span style="font-family: monospace; color: var(--success-color);">{latest_version}</span></td>
+                            <td>{source_url if source_url != "Unknown" else '<span style="color: #9ca3af;">—</span>'}</td>
+                            <td>{status_display}</td>
+                            <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{path}</code></td>
+                        </tr>
+                        """
+                    
+                    components_html += """
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    """
                 
                 # Add providers table if available
                 providers = component_group.get("providers", [])
                 if providers:
-                    components_html += self._generate_providers_table(providers, stack_id)
+                    components_html += """
+                        <div class="table-section">
+                            <h3 class="table-title">⚙️ Providers</h3>
+                            <div class="table-container">
+                                <table class="components-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Provider</th>
+                                            <th>Version</th>
+                                            <th>Source</th>
+                                            <th>Latest Version</th>
+                                            <th>SourceUrl</th>
+                                            <th>Status</th>
+                                            <th>Module</th>
+                                            <th>Component</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    """
+                    
+                    for provider in providers:
+                        name = provider.get("name", "Unknown")
+                        version = provider.get("version", "Unknown")
+                        source = provider.get("source", "Unknown")
+                        latest_version = provider.get("latest_version", "Unknown")
+                        source_url = provider.get("source_url", "Unknown")
+                        status = provider.get("status", "Unknown")
+                        module = provider.get("module", "Unknown")
+                        component = provider.get("component", "Unknown")
+                        
+                        # Create provider anchor
+                        provider_id = f"{stack_id}-provider-{name.lower().replace(' ', '-')}"
+                        
+                        # Format status badge with proper styling
+                        if status.lower() == "current":
+                            status_display = f'<span class="status-badge status-current">{status}</span>'
+                        elif status.lower() == "outdated":
+                            status_display = f'<span class="status-badge status-outdated">{status}</span>'
+                        elif status != "Null" and status != "Unknown":
+                            status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>'
+                        else:
+                            status_display = '<span style="color: #9ca3af;">—</span>'
+                        
+                        # Format version with color coding
+                        version_display = f'<span style="font-family: monospace; color: var(--info-color);">{version}</span>' if version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+                        latest_version_display = f'<span style="font-family: monospace; color: var(--success-color);">{latest_version}</span>' if latest_version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+                        
+                        # Format source with proper styling
+                        source_display = f'<code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code>' if source != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+                        
+                        components_html += f"""
+                        <tr id="provider-{provider_id}">
+                            <td>
+                                <strong>
+                                    <a href="#provider-{provider_id}" style="color: var(--primary-color); text-decoration: none;">
+                                        {name}
+                                    </a>
+                                </strong>
+                            </td>
+                            <td>{version_display}</td>
+                            <td>{source_display}</td>
+                            <td>{latest_version_display}</td>
+                            <td>{source_url if source_url != "Unknown" else '<span style="color: #9ca3af;">—</span>'}</td>
+                            <td>{status_display}</td>
+                            <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{module}</code></td>
+                            <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{component}</code></td>
+                        </tr>
+                        """
+                    
+                    components_html += """
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    """
                 
                 # Close the collapsible content and stack section
                 components_html += """
@@ -133,148 +1082,7 @@ class ReportService:
             logger.error(f"Failed to generate components HTML: {str(e)}")
             return f'<div class="error-message">Error generating components: {str(e)}</div>'
 
-    def _generate_components_table(self, components: list, stack_id: str) -> str:
-        """Generate HTML table for components."""
-        html = """
-            <div class="table-section">
-                <h3 class="table-title">🧩 Components</h3>
-                <div class="table-container">
-                    <table class="components-table">
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Name</th>
-                                <th>Source</th>
-                                <th>Version</th>
-                                <th>Latest</th>
-                                <th>Registry</th>
-                                <th>Status</th>
-                                <th>Path</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-        """
-        
-        for component in components:
-            source = component.get("source", "Unknown")
-            version = component.get("version", "Unknown")
-            latest_version = component.get("latest_version", "Unknown")
-            registry = component.get("registry", "Unknown")
-            status = component.get("status", "Unknown")
-            path = component.get("path", "Unknown")
-            name = component.get("name", "Unknown")
-            
-            # Determine status styling
-            status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" else '<span style="color: #9ca3af;">—</span>'
-            
-            # Add anchor link for component
-            component_id = f"{stack_id}-{name.lower().replace(' ', '-')}"
-            
-            html += f"""
-            <tr id="component-{component_id}">
-                <td><strong>{component.get("type", "Unknown")}</strong></td>
-                <td>
-                    <a href="#component-{component_id}" style="color: var(--primary-color); text-decoration: none;">
-                        {name}
-                    </a>
-                </td>
-                <td><code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code></td>
-                <td><span style="font-family: monospace; color: var(--info-color);">{version}</span></td>
-                <td><span style="font-family: monospace; color: var(--success-color);">{latest_version}</span></td>
-                <td>{registry}</td>
-                <td>{status_display}</td>
-                <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{path}</code></td>
-            </tr>
-            """
-        
-        html += """
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        """
-        
-        return html
 
-    def _generate_providers_table(self, providers: list, stack_id: str) -> str:
-        """Generate HTML table for providers."""
-        html = """
-            <div class="table-section">
-                <h3 class="table-title">⚙️ Providers</h3>
-                <div class="table-container">
-                    <table class="components-table">
-                        <thead>
-                            <tr>
-                                <th>Provider</th>
-                                <th>Version</th>
-                                <th>Source</th>
-                                <th>Latest Version</th>
-                                <th>Registry</th>
-                                <th>Status</th>
-                                <th>Module</th>
-                                <th>Component</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-        """
-        
-        for provider in providers:
-            name = provider.get("name", "Unknown")
-            version = provider.get("version", "Unknown")
-            source = provider.get("source", "Unknown")
-            latest_version = provider.get("latest_version", "Unknown")
-            registry = provider.get("registry", "Unknown")
-            status = provider.get("status", "Unknown")
-            module = provider.get("module", "Unknown")
-            component = provider.get("component", "Unknown")
-            
-            # Create provider anchor
-            provider_id = f"{stack_id}-provider-{name.lower().replace(' ', '-')}"
-            
-            # Format status badge with proper styling
-            if status.lower() == "current":
-                status_display = f'<span class="status-badge status-current">{status}</span>'
-            elif status.lower() == "outdated":
-                status_display = f'<span class="status-badge status-outdated">{status}</span>'
-            elif status != "Null" and status != "Unknown":
-                status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>'
-            else:
-                status_display = '<span style="color: #9ca3af;">—</span>'
-            
-            # Format version with color coding
-            version_display = f'<span style="font-family: monospace; color: var(--info-color);">{version}</span>' if version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
-            latest_version_display = f'<span style="font-family: monospace; color: var(--success-color);">{latest_version}</span>' if latest_version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
-            
-            # Format source with proper styling
-            source_display = f'<code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code>' if source != "Unknown" else '<span style="color: #9ca3af;">—</span>'
-            
-            html += f"""
-            <tr id="provider-{provider_id}">
-                <td>
-                    <strong>
-                        <a href="#provider-{provider_id}" style="color: var(--primary-color); text-decoration: none;">
-                            {name}
-                        </a>
-                    </strong>
-                </td>
-                <td>{version_display}</td>
-                <td>{source_display}</td>
-                <td>{latest_version_display}</td>
-                <td>{registry if registry != "Unknown" else '<span style="color: #9ca3af;">—</span>'}</td>
-                <td>{status_display}</td>
-                <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{module}</code></td>
-                <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{component}</code></td>
-            </tr>
-            """
-        
-        html += """
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        """
-        
-        return html
     def create_pdf_report(
         self, html_path: Path, report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
@@ -291,53 +1099,6 @@ class ReportService:
                 'encoding': "UTF-8",
                 'no-outline': None,
                 'enable-local-file-access': None
-            }
-
-            pdfkit.from_file(str(html_path), str(pdf_path), options=options)
-            logger.info(f"PDF report created at: {pdf_path}")
-            return pdf_path
-
-        except Exception as e:
-            logger.error(f"Failed to create PDF report: {str(e)}")
-            raise
-
-            # Create report file
-            report_path = self._create_report_path(report_name, "html", reports_directory)
-
-            # Write the report with proper formatting
-            with open(report_path, "w", encoding="utf-8") as f:
-                f.write(html_template.format(
-                    content=components_html,
-                    summary_table=summary_html,
-                    compatibility_section=compatibility_html,
-                    project_name=inventory.get("projectName", inventory.get("project_name", "Unknown")),
-                    project_type=inventory.get("projectType", "Terraform"),
-                    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                ))
-
-            logger.info(f"HTML report created at: {report_path}")
-            return report_path
-
-        except Exception as e:
-            logger.error(f"Failed to create HTML report: {str(e)}")
-            raise
-
-    def create_pdf_report(
-        self, html_path: Path, report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
-    ) -> Path:
-        """Create PDF report from HTML file with custom options."""
-        try:
-            pdf_path = self._create_report_path(report_name, "pdf", reports_directory)
-
-            options = {
-                "page-size": "A4",
-                "margin-top": "20mm",
-                "margin-right": "20mm",
-                "margin-bottom": "20mm",
-                "margin-left": "20mm",
-                "encoding": "UTF-8",
-                "no-outline": None,
-                "enable-local-file-access": None,
             }
 
             pdfkit.from_file(str(html_path), str(pdf_path), options=options)
@@ -755,7 +1516,33 @@ class ReportService:
             logger.error(f"Failed to print summary: {str(e)}")
 
     def _generate_compatibility_html(self, inventory: Dict[str, Any]) -> str:
-        """Generate HTML section for schema compatibility analysis with collapsible functionality."""
+        """Generate HTML section for compatibility analysis with collapsible functionality."""
+        try:
+            compatibility_html = ""
+            
+            # Generate provider schema compatibility section
+            provider_compatibility_html = self._generate_provider_compatibility_html(inventory)
+            if provider_compatibility_html:
+                compatibility_html += provider_compatibility_html
+            
+            # Generate module compatibility section
+            module_compatibility_html = self._generate_module_compatibility_html(inventory)
+            if module_compatibility_html:
+                compatibility_html += module_compatibility_html
+            
+            return compatibility_html
+            
+        except Exception as e:
+            logger.error(f"Failed to generate compatibility HTML: {str(e)}")
+            return f"""
+            <div style="margin: 20px 0; padding: 15px; background-color: #f8d7da; border-left: 4px solid #dc3545; border-radius: 5px;">
+                <h2 style="color: #721c24;">🔍 Compatibility Analysis</h2>
+                <p><strong>Error:</strong> Failed to generate compatibility report: {str(e)}</p>
+            </div>
+            """
+
+    def _generate_provider_compatibility_html(self, inventory: Dict[str, Any]) -> str:
+        """Generate HTML section for provider schema compatibility analysis."""
         try:
             # Check if schema compatibility data exists
             compatibility_data = inventory.get("schema_compatibility")
@@ -766,7 +1553,7 @@ class ReportService:
             if "error" in compatibility_data:
                 return f"""
                 <div style="margin: 20px 0; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
-                    <h2 style="color: #856404;">🔍 Provider Schema Compatibility Analysis</h2>
+                    <h2 style="color: #856404;">🔧 Provider Schema Compatibility Analysis</h2>
                     <p><strong>Note:</strong> Schema compatibility analysis encountered an issue: {compatibility_data['error']}</p>
                 </div>
                 """
@@ -778,16 +1565,16 @@ class ReportService:
             
             # Generate compatibility section HTML with collapsible header
             compatibility_html = f"""
-            <div class="compatibility-section" style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 5px;">
-                <div class="compatibility-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 15px;" onclick="toggleCompatibilitySection()">
-                    <h2 style="color: #007bff; margin: 0;">🔍 Provider Schema Compatibility Analysis</h2>
+            <div class="compatibility-section">
+                <div class="compatibility-header" onclick="toggleProviderCompatibilitySection()">
+                    <h2 style="color: #007bff; margin: 0;">🔧 Provider Schema Compatibility Analysis</h2>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 0.9rem; color: #6c757d;">{len(reports)} provider(s) analyzed</span>
-                        <span class="expand-icon" id="compatibility-icon" style="font-size: 1.2rem; color: #007bff; transition: transform 0.3s ease;">▼</span>
+                        <span class="expand-icon" id="provider-compatibility-icon" style="font-size: 1.2rem; color: #007bff; transition: transform 0.3s ease;">▼</span>
                     </div>
                 </div>
                 
-                <div class="compatibility-content" id="compatibility-content" style="transition: max-height 0.4s ease-out, opacity 0.3s ease; max-height: 2000px; opacity: 1; overflow: hidden;">
+                <div class="compatibility-content" id="provider-compatibility-content">
                     <p style="color: #6c757d; font-style: italic; margin-bottom: 20px;">
                         This section analyzes provider schema compatibility between your current versions and the latest available versions. 
                         It identifies potential breaking changes, deprecations, and new features that may affect your infrastructure code.
@@ -824,8 +1611,8 @@ class ReportService:
                     status_icon = "❓"
                 
                 compatibility_html += f"""
-                <div class="provider-compatibility-section" style="margin: 15px 0; border: 1px solid {border_color}; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <div class="provider-compatibility-header" style="background-color: {bg_color}; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background-color 0.3s ease;" onclick="toggleProviderCompatibility('{provider_id}')">
+                <div class="provider-compatibility-section" style="border-color: {border_color};">
+                    <div class="provider-compatibility-header" style="background-color: {bg_color};" onclick="toggleProviderCompatibility('{provider_id}')">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span style="font-size: 1.2rem;">{status_icon}</span>
                             <h4 style="margin: 0; color: #495057;">{provider_name}</h4>
@@ -841,7 +1628,7 @@ class ReportService:
                         </div>
                     </div>
                     
-                    <div class="provider-compatibility-content" id="{provider_id}-content" style="background: white; transition: max-height 0.4s ease-out, opacity 0.3s ease; max-height: 1000px; opacity: 1; overflow: hidden;">
+                    <div class="provider-compatibility-content" id="{provider_id}-content">
                         <div style="padding: 15px;">
                             <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.02); border-radius: 5px; border-left: 3px solid {border_color};">
                                 <p style="margin: 0; color: #495057; font-weight: 500;">{summary}</p>
@@ -928,10 +1715,220 @@ class ReportService:
             return compatibility_html
             
         except Exception as e:
-            logger.error(f"Failed to generate compatibility HTML: {str(e)}")
+            logger.error(f"Failed to generate provider compatibility HTML: {str(e)}")
             return f"""
             <div style="margin: 20px 0; padding: 15px; background-color: #f8d7da; border-left: 4px solid #dc3545; border-radius: 5px;">
-                <h2 style="color: #721c24;">🔍 Provider Schema Compatibility Analysis</h2>
-                <p><strong>Error:</strong> Failed to generate compatibility report: {str(e)}</p>
+                <h2 style="color: #721c24;">🔧 Provider Schema Compatibility Analysis</h2>
+                <p><strong>Error:</strong> Failed to generate provider compatibility report: {str(e)}</p>
+            </div>
+            """
+
+    def _generate_module_compatibility_html(self, inventory: Dict[str, Any]) -> str:
+        """Generate HTML section for module compatibility analysis."""
+        try:
+            # Check if module compatibility data exists
+            module_compatibility = inventory.get("module_compatibility")
+            if not module_compatibility:
+                return ""
+            
+            # Check if there's an error in compatibility analysis
+            if "error" in module_compatibility:
+                return f"""
+                <div style="margin: 20px 0; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
+                    <h2 style="color: #856404;">📦 Module Compatibility Analysis</h2>
+                    <p><strong>Note:</strong> Module compatibility analysis encountered an issue: {module_compatibility['error']}</p>
+                </div>
+                """
+            
+            # Get compatibility reports
+            reports = module_compatibility.get("reports", [])
+            if not reports:
+                return ""
+            
+            total_analyzed = module_compatibility.get("total_modules_analyzed", 0)
+            safe_upgrades = module_compatibility.get("safe_upgrades", 0)
+            breaking_changes = module_compatibility.get("breaking_changes", 0)
+            
+            # Generate module compatibility section HTML
+            compatibility_html = f"""
+            <div class="compatibility-section" style="margin-top: 30px;">
+                <div class="compatibility-header" onclick="toggleModuleCompatibilitySection()">
+                    <h2 style="color: #28a745; margin: 0;">📦 Module Compatibility Analysis</h2>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 0.9rem; color: #6c757d;">{total_analyzed} module(s) analyzed</span>
+                        <span style="font-size: 0.8rem; color: #28a745;">✅ {safe_upgrades} safe</span>
+                        <span style="font-size: 0.8rem; color: #dc3545;">⚠️ {breaking_changes} breaking</span>
+                        <span class="expand-icon" id="module-compatibility-icon" style="font-size: 1.2rem; color: #28a745; transition: transform 0.3s ease;">▼</span>
+                    </div>
+                </div>
+                
+                <div class="compatibility-content" id="module-compatibility-content">
+                    <p style="color: #6c757d; font-style: italic; margin-bottom: 20px;">
+                        This section analyzes Terraform module compatibility between your current versions and the latest available versions. 
+                        It identifies breaking changes in module inputs, outputs, and dependencies that may require code updates.
+                    </p>
+            """
+            
+            # Process each module compatibility report
+            for i, report in enumerate(reports):
+                module_name = report.get("module_name", "Unknown")
+                current_version = report.get("current_version", "Unknown")
+                latest_version = report.get("latest_version", "Unknown")
+                compatibility_level = report.get("compatibility_level", "unknown")
+                upgrade_safe = report.get("upgrade_safe", False)
+                summary = report.get("summary", "No summary available")
+                
+                # Create unique ID for this module report
+                module_id = f"module-{module_name.replace('/', '-').replace(' ', '-').lower()}-{i}"
+                
+                # Determine styling based on compatibility
+                if upgrade_safe:
+                    border_color = "#28a745"
+                    bg_color = "#d4edda"
+                    status_icon = "✅"
+                    status_text = "Safe Upgrade"
+                else:
+                    border_color = "#dc3545"
+                    bg_color = "#f8d7da"
+                    status_icon = "⚠️"
+                    status_text = "Breaking Changes"
+                
+                compatibility_html += f"""
+                <div class="provider-compatibility-section" style="border-color: {border_color};">
+                    <div class="provider-compatibility-header" style="background-color: {bg_color};" onclick="toggleModuleCompatibility('{module_id}')">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;">{status_icon}</span>
+                            <h4 style="margin: 0; color: #495057;">{module_name}</h4>
+                            <div style="font-family: monospace; font-size: 0.9em;">
+                                <span style="background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">{current_version}</span>
+                                <span style="margin: 0 8px; color: #6c757d;">→</span>
+                                <span style="background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">{latest_version}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="padding: 2px 8px; background: {border_color}; color: white; border-radius: 12px; font-size: 0.8em; text-transform: uppercase; font-weight: 600;">{status_text}</span>
+                            <span class="expand-icon" id="{module_id}-icon" style="font-size: 1rem; color: {border_color}; transition: transform 0.3s ease;">▼</span>
+                        </div>
+                    </div>
+                    
+                    <div class="provider-compatibility-content" id="{module_id}-content">
+                        <div style="padding: 15px;">
+                            <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.02); border-radius: 5px; border-left: 3px solid {border_color};">
+                                <p style="margin: 0; color: #495057; font-weight: 500;">{summary}</p>
+                            </div>
+                """
+                
+                # Add breaking changes section
+                breaking_changes = report.get("breaking_changes", [])
+                if breaking_changes:
+                    compatibility_html += f"""
+                            <div style="margin: 15px 0;">
+                                <h5 style="color: #dc3545; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                    <span>⚠️</span>
+                                    <span>Breaking Changes</span>
+                                    <span style="background: #dc3545; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7em; font-weight: bold;">{len(breaking_changes)}</span>
+                                </h5>
+                                <ul style="margin: 0; padding-left: 20px; background: rgba(220,53,69,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #dc3545;">
+                    """
+                    
+                    for change in breaking_changes:
+                        category = change.get("category", "unknown")
+                        message = change.get("message", "")
+                        old_value = change.get("old_value", "")
+                        new_value = change.get("new_value", "")
+                        recommendation = change.get("recommendation", "")
+                        
+                        compatibility_html += f"""
+                                <li style="margin: 8px 0;">
+                                    <strong style="color: #495057; text-transform: capitalize;">{category}:</strong> {message}
+                                    <br><span style="color: #6c757d; font-size: 0.9em; margin-left: 5px;">
+                                        {old_value} → {new_value}
+                                    </span>
+                                    {f'<br><span style="color: #007bff; font-size: 0.9em; margin-left: 5px;"><strong>Recommendation:</strong> {recommendation}</span>' if recommendation else ''}
+                                </li>
+                        """
+                    
+                    compatibility_html += """
+                                </ul>
+                            </div>
+                    """
+                
+                # Add warnings section
+                warnings = report.get("warnings", [])
+                if warnings:
+                    compatibility_html += f"""
+                            <div style="margin: 15px 0;">
+                                <h5 style="color: #ffc107; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                    <span>⚠️</span>
+                                    <span>Warnings</span>
+                                    <span style="background: #ffc107; color: #856404; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7em; font-weight: bold;">{len(warnings)}</span>
+                                </h5>
+                                <ul style="margin: 0; padding-left: 20px; background: rgba(255,193,7,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #ffc107;">
+                    """
+                    
+                    for warning in warnings:
+                        category = warning.get("category", "unknown")
+                        message = warning.get("message", "")
+                        old_value = warning.get("old_value", "")
+                        new_value = warning.get("new_value", "")
+                        recommendation = warning.get("recommendation", "")
+                        
+                        compatibility_html += f"""
+                                <li style="margin: 8px 0;">
+                                    <strong style="color: #495057; text-transform: capitalize;">{category}:</strong> {message}
+                                    <br><span style="color: #6c757d; font-size: 0.9em; margin-left: 5px;">
+                                        {old_value} → {new_value}
+                                    </span>
+                                    {f'<br><span style="color: #007bff; font-size: 0.9em; margin-left: 5px;"><strong>Recommendation:</strong> {recommendation}</span>' if recommendation else ''}
+                                </li>
+                        """
+                    
+                    compatibility_html += """
+                                </ul>
+                            </div>
+                    """
+                
+                # Add recommendations section
+                recommendations = report.get("recommendations", [])
+                if recommendations:
+                    compatibility_html += """
+                            <div style="margin: 15px 0;">
+                                <h5 style="color: #007bff; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                    <span>💡</span>
+                                    <span>Recommendations</span>
+                                </h5>
+                                <ul style="margin: 0; padding-left: 20px; background: rgba(0,123,255,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #007bff;">
+                    """
+                    
+                    for recommendation in recommendations:
+                        if recommendation:  # Skip empty recommendations
+                            compatibility_html += f"""
+                                <li style="margin: 8px 0; color: #495057;">{recommendation}</li>
+                            """
+                    
+                    compatibility_html += """
+                                </ul>
+                            </div>
+                    """
+                
+                compatibility_html += """
+                        </div>
+                    </div>
+                </div>
+                """
+            
+            compatibility_html += """
+                </div>
+            </div>
+            """
+            
+            return compatibility_html
+            
+        except Exception as e:
+            logger.error(f"Failed to generate module compatibility HTML: {str(e)}")
+            return f"""
+            <div style="margin: 20px 0; padding: 15px; background-color: #f8d7da; border-left: 4px solid #dc3545; border-radius: 5px;">
+                <h2 style="color: #721c24;">📦 Module Compatibility Analysis</h2>
+                <p><strong>Error:</strong> Failed to generate module compatibility report: {str(e)}</p>
             </div>
             """
