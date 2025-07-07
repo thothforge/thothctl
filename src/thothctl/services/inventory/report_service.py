@@ -13,6 +13,8 @@ from rich.console import Console
 from rich.style import Style
 from rich.table import Table
 
+from thothctl.utils.template_loader import get_template_loader
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,7 @@ class ReportService:
         self.reports_dir = Path(reports_directory)
         self.reports_dir.mkdir(exist_ok=True, parents=True)
         self.console = Console()
+        self.template_loader = get_template_loader()
 
     def _create_report_path(self, report_name: str, extension: str, reports_directory: Optional[str] = None) -> Path:
         """Create report file path with timestamp."""
@@ -41,418 +44,8 @@ class ReportService:
     def create_html_report(
         self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
-        """Create HTML report from inventory data with custom styling."""
+        """Create HTML report from inventory data using external template."""
         try:
-            # Define HTML template with proper string formatting
-            html_template = """
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Infrastructure Inventory Report</title>
-                <style>
-                    :root {{
-                        --primary-color: #2563eb;
-                        --secondary-color: #1e40af;
-                        --success-color: #10b981;
-                        --warning-color: #f59e0b;
-                        --danger-color: #ef4444;
-                        --info-color: #06b6d4;
-                        --light-bg: #f8fafc;
-                        --card-bg: #ffffff;
-                        --text-primary: #1e293b;
-                        --text-secondary: #64748b;
-                        --border-color: #e2e8f0;
-                        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-                    }}
-                    
-                    * {{
-                        margin: 0;
-                        padding: 0;
-                        box-sizing: border-box;
-                    }}
-                    
-                    body {{
-                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        min-height: 100vh;
-                        color: var(--text-primary);
-                        line-height: 1.6;
-                    }}
-                    
-                    .container {{
-                        max-width: 1400px;
-                        margin: 0 auto;
-                        padding: 2rem;
-                    }}
-                    
-                    .header {{
-                        background: var(--card-bg);
-                        border-radius: 16px;
-                        padding: 2rem;
-                        margin-bottom: 2rem;
-                        box-shadow: var(--shadow-lg);
-                        text-align: center;
-                        position: relative;
-                        overflow: hidden;
-                    }}
-                    
-                    .header::before {{
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        height: 4px;
-                        background: linear-gradient(90deg, var(--primary-color), var(--info-color), var(--success-color));
-                    }}
-                    
-                    .header h1 {{
-                        font-size: 2.5rem;
-                        font-weight: 700;
-                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                        margin-bottom: 1rem;
-                    }}
-                    
-                    .project-info {{
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                        gap: 1rem;
-                        margin-top: 1.5rem;
-                    }}
-                    
-                    .info-item {{
-                        background: var(--light-bg);
-                        padding: 1rem;
-                        border-radius: 8px;
-                        border-left: 4px solid var(--primary-color);
-                    }}
-                    
-                    .info-label {{
-                        font-size: 0.875rem;
-                        font-weight: 600;
-                        color: var(--text-secondary);
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                    }}
-                    
-                    .info-value {{
-                        font-size: 1.125rem;
-                        font-weight: 600;
-                        color: var(--text-primary);
-                        margin-top: 0.25rem;
-                    }}
-                    
-                    .summary-section {{
-                        background: var(--card-bg);
-                        border-radius: 16px;
-                        padding: 2rem;
-                        margin-bottom: 2rem;
-                        box-shadow: var(--shadow-lg);
-                    }}
-                    
-                    .summary-title {{
-                        font-size: 1.875rem;
-                        font-weight: 700;
-                        color: var(--text-primary);
-                        margin-bottom: 1.5rem;
-                        text-align: center;
-                    }}
-                    
-                    .summary-grid {{
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                        gap: 1.5rem;
-                    }}
-                    
-                    .summary-card {{
-                        background: var(--light-bg);
-                        border-radius: 12px;
-                        padding: 1.5rem;
-                        text-align: center;
-                        border: 2px solid transparent;
-                        transition: all 0.3s ease;
-                    }}
-                    
-                    .summary-card:hover {{
-                        transform: translateY(-2px);
-                        box-shadow: var(--shadow);
-                    }}
-                    
-                    .summary-card.updated {{
-                        border-color: var(--success-color);
-                        background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
-                    }}
-                    
-                    .summary-card.outdated {{
-                        border-color: var(--danger-color);
-                        background: linear-gradient(135deg, #fef2f2, #fef7f7);
-                    }}
-                    
-                    .summary-card.unknown {{
-                        border-color: var(--warning-color);
-                        background: linear-gradient(135deg, #fffbeb, #fefce8);
-                    }}
-                    
-                    .summary-card.local {{
-                        border-color: var(--info-color);
-                        background: linear-gradient(135deg, #f0f9ff, #f7fafc);
-                    }}
-                    
-                    .summary-number {{
-                        font-size: 2.5rem;
-                        font-weight: 800;
-                        margin-bottom: 0.5rem;
-                    }}
-                    
-                    .summary-label {{
-                        font-size: 0.875rem;
-                        font-weight: 600;
-                        color: var(--text-secondary);
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                    }}
-                    
-                    .stack-section {{
-                        background: var(--card-bg);
-                        border-radius: 16px;
-                        margin-bottom: 2rem;
-                        box-shadow: var(--shadow-lg);
-                        overflow: hidden;
-                    }}
-                    
-                    .stack-header {{
-                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-                        color: white;
-                        padding: 1.5rem 2rem;
-                        font-size: 1.5rem;
-                        font-weight: 700;
-                    }}
-                    
-                    .stack-content {{
-                        padding: 2rem;
-                    }}
-                    
-                    .table-section {{
-                        margin-bottom: 2rem;
-                    }}
-                    
-                    .table-title {{
-                        font-size: 1.25rem;
-                        font-weight: 700;
-                        color: var(--text-primary);
-                        margin-bottom: 1rem;
-                        display: flex;
-                        align-items: center;
-                        gap: 0.5rem;
-                    }}
-                    
-                    .table-title::before {{
-                        content: '';
-                        width: 4px;
-                        height: 1.5rem;
-                        background: var(--primary-color);
-                        border-radius: 2px;
-                    }}
-                    
-                    .table-container {{
-                        overflow-x: auto;
-                        border-radius: 12px;
-                        box-shadow: var(--shadow);
-                        background: var(--card-bg);
-                    }}
-                    
-                    .components-table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        font-size: 0.875rem;
-                    }}
-                    
-                    .components-table th {{
-                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-                        color: white;
-                        padding: 1rem 0.75rem;
-                        text-align: left;
-                        font-weight: 600;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                        font-size: 0.75rem;
-                        border: none;
-                    }}
-                    
-                    .components-table td {{
-                        padding: 1rem 0.75rem;
-                        border-bottom: 1px solid var(--border-color);
-                        vertical-align: top;
-                        word-wrap: break-word;
-                        max-width: 200px;
-                    }}
-                    
-                    .components-table tr:hover {{
-                        background: var(--light-bg);
-                    }}
-                    
-                    .components-table tr:last-child td {{
-                        border-bottom: none;
-                    }}
-                    
-                    .status-badge {{
-                        display: inline-flex;
-                        align-items: center;
-                        padding: 0.25rem 0.75rem;
-                        border-radius: 9999px;
-                        font-size: 0.75rem;
-                        font-weight: 600;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                    }}
-                    
-                    .status-updated {{
-                        background: #dcfce7;
-                        color: #166534;
-                        border: 1px solid #bbf7d0;
-                    }}
-                    
-                    .status-outdated {{
-                        background: #fee2e2;
-                        color: #991b1b;
-                        border: 1px solid #fecaca;
-                    }}
-                    
-                    .status-unknown {{
-                        background: #fef3c7;
-                        color: #92400e;
-                        border: 1px solid #fde68a;
-                    }}
-                    
-                    .version-badge {{
-                        background: var(--light-bg);
-                        padding: 0.25rem 0.5rem;
-                        border-radius: 6px;
-                        font-family: 'Monaco', 'Menlo', monospace;
-                        font-size: 0.75rem;
-                        border: 1px solid var(--border-color);
-                    }}
-                    
-                    .source-link {{
-                        color: var(--primary-color);
-                        text-decoration: none;
-                        font-weight: 500;
-                        word-break: break-all;
-                    }}
-                    
-                    .source-link:hover {{
-                        text-decoration: underline;
-                    }}
-                    
-                    .module-path {{
-                        font-family: 'Monaco', 'Menlo', monospace;
-                        font-size: 0.75rem;
-                        background: var(--light-bg);
-                        padding: 0.25rem 0.5rem;
-                        border-radius: 4px;
-                        border: 1px solid var(--border-color);
-                        word-break: break-all;
-                    }}
-                    
-                    .empty-state {{
-                        text-align: center;
-                        padding: 3rem;
-                        color: var(--text-secondary);
-                    }}
-                    
-                    .empty-state-icon {{
-                        font-size: 3rem;
-                        margin-bottom: 1rem;
-                        opacity: 0.5;
-                    }}
-                    
-                    @media (max-width: 768px) {{
-                        .container {{
-                            padding: 1rem;
-                        }}
-                        
-                        .header h1 {{
-                            font-size: 2rem;
-                        }}
-                        
-                        .project-info {{
-                            grid-template-columns: 1fr;
-                        }}
-                        
-                        .summary-grid {{
-                            grid-template-columns: repeat(2, 1fr);
-                        }}
-                        
-                        .components-table {{
-                            font-size: 0.75rem;
-                        }}
-                        
-                        .components-table th,
-                        .components-table td {{
-                            padding: 0.5rem 0.25rem;
-                        }}
-                    }}
-                    
-                    @media print {{
-                        body {{
-                            background: white;
-                        }}
-                        
-                        .container {{
-                            max-width: none;
-                            padding: 1rem;
-                        }}
-                        
-                        .stack-section,
-                        .summary-section,
-                        .header {{
-                            box-shadow: none;
-                            border: 1px solid var(--border-color);
-                        }}
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>🏗️ Infrastructure Inventory Report</h1>
-                        <div class="project-info">
-                            <div class="info-item">
-                                <div class="info-label">Project Name</div>
-                                <div class="info-value">{project_name}</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-label">Project Type</div>
-                                <div class="info-value">{project_type}</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-label">Generated</div>
-                                <div class="info-value">{timestamp}</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="summary-section">
-                        <h2 class="summary-title">📊 Summary Overview</h2>
-                        {summary_table}
-                    </div>
-                    
-                    {compatibility_section}
-                    
-                    <div class="stacks-container">
-                        {content}
-                    </div>
-                </div>
-            </body>
-            </html>
-            """
-
             # Generate summary statistics
             summary_html = self._generate_summary_html(inventory)
             
@@ -460,140 +53,253 @@ class ReportService:
             compatibility_html = self._generate_compatibility_html(inventory)
             
             # Generate custom HTML for components and providers
+            components_html = self._generate_components_html(inventory)
+            
+            # Prepare template context
+            context = {
+                'content': components_html,
+                'summary_table': summary_html,
+                'compatibility_section': compatibility_html,
+                'project_name': inventory.get("projectName", inventory.get("project_name", "Unknown")),
+                'project_type': inventory.get("projectType", "Terraform"),
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'script_path': ''  # Will be handled by template loader
+            }
+            
+            # Render template with context
+            html_content = self.template_loader.render_template(
+                template_name="inventory_report",
+                context=context,
+                template_type="reports",
+                inline_script=True  # Inline JavaScript for standalone HTML
+            )
+            
+            # Create report file
+            report_path = self._create_report_path(report_name, "html", reports_directory)
+            
+            # Write the report
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
+            logger.info(f"HTML report created at: {report_path}")
+            return report_path
+
+        except Exception as e:
+            logger.error(f"Failed to create HTML report: {str(e)}")
+            raise
+
+    def _generate_components_html(self, inventory: Dict[str, Any]) -> str:
+        """Generate HTML for components and providers sections."""
+        try:
             components_html = ""
+            
             for component_group in inventory.get("components", []):
                 stack = component_group.get("stack", "Unknown")
+                stack_path = component_group.get("path", "")
+                
+                # Create unique ID for the stack section
+                stack_id = stack.lower().replace("/", "-").replace("\\", "-").replace(" ", "-")
+                
                 components_html += f"""
-                <div class="stack-section">
+                <div class="stack-section" id="stack-{stack_id}">
                     <div class="stack-header">
-                        📁 Stack: {stack}
+                        <div class="stack-title">
+                            📁 {stack}
+                        </div>
+                        <div class="stack-path">{stack_path}</div>
                     </div>
-                    <div class="stack-content">
+                    <div class="collapsible-content">
                 """
                 
                 # Add components table
                 components = component_group.get("components", [])
                 if components:
-                    components_html += """
-                        <div class="table-section">
-                            <h3 class="table-title">🧩 Components</h3>
-                            <div class="table-container">
-                                <table class="components-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Type</th>
-                                            <th>Name</th>
-                                            <th>Current Version</th>
-                                            <th>Source</th>
-                                            <th>Latest Version</th>
-                                            <th>SourceUrl</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                    """
-                    
-                    for component in components:
-                        source = component.get("source", ["Unknown"])[0] if component.get("source") else "Unknown"
-                        version = component.get("version", ["Unknown"])[0] if component.get("version") else "Unknown"
-                        latest_version = component.get("latest_version", "Null")
-                        source_url = component.get("source_url", "Null")
-                        status = component.get("status", "Unknown")
-                        
-                        # Format version badges
-                        version_badge = f'<span class="version-badge">{version}</span>' if version != "local" else f'<span class="version-badge" style="background: #e0f2fe; color: #0277bd;">{version}</span>'
-                        latest_version_badge = f'<span class="version-badge">{latest_version}</span>' if latest_version != "Null" else '<span style="color: #9ca3af;">—</span>'
-                        
-                        # Format source URL
-                        source_url_display = f'<a href="{source_url}" class="source-link" target="_blank">{source_url[:50]}{"..." if len(source_url) > 50 else ""}</a>' if source_url != "Null" and source_url.startswith("http") else (source_url if source_url != "Null" else '<span style="color: #9ca3af;">—</span>')
-                        
-                        # Format status badge
-                        status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" else '<span style="color: #9ca3af;">—</span>'
-                        
-                        components_html += f"""
-                        <tr>
-                            <td><strong>{component.get("type", "Unknown")}</strong></td>
-                            <td><strong>{component.get("name", "Unknown")}</strong></td>
-                            <td>{version_badge}</td>
-                            <td><span class="module-path">{source}</span></td>
-                            <td>{latest_version_badge}</td>
-                            <td>{source_url_display}</td>
-                            <td>{status_display}</td>
-                        </tr>
-                        """
-                    
-                    components_html += """
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    """
+                    components_html += self._generate_components_table(components, stack_id)
                 
                 # Add providers table if available
                 providers = component_group.get("providers", [])
                 if providers:
-                    components_html += """
-                        <div class="table-section">
-                            <h3 class="table-title">⚙️ Providers</h3>
-                            <div class="table-container">
-                                <table class="components-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Version</th>
-                                            <th>Source</th>
-                                            <th>Latest Version</th>
-                                            <th>Status</th>
-                                            <th>Module</th>
-                                            <th>Component</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                    """
-                    
-                    # Get the stack name for this component group
-                    stack_name = component_group.get("stack", "Unknown")
-                    
-                    for provider in providers:
-                        # Use the stack name if the module is empty or "Root"
-                        module_name = provider.get("module", "")
-                        if not module_name or module_name == "Root":
-                            module_name = stack_name
-                        
-                        # Get provider version information
-                        latest_version = provider.get("latest_version", "Null")
-                        status = provider.get("status", "Unknown")
-                        
-                        # Format version badges
-                        version_badge = f'<span class="version-badge">{provider.get("version", "Unknown")}</span>'
-                        latest_version_badge = f'<span class="version-badge">{latest_version}</span>' if latest_version != "Null" else '<span style="color: #9ca3af;">—</span>'
-                        
-                        # Format status badge
-                        status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" and status != "Unknown" else '<span style="color: #9ca3af;">—</span>'
-                            
-                        components_html += f"""
-                        <tr>
-                            <td><strong>{provider.get("name", "Unknown")}</strong></td>
-                            <td>{version_badge}</td>
-                            <td><span class="module-path">{provider.get("source", "Unknown")}</span></td>
-                            <td>{latest_version_badge}</td>
-                            <td>{status_display}</td>
-                            <td><span class="module-path">{module_name}</span></td>
-                            <td><em>{provider.get("component", "")}</em></td>
-                        </tr>
-                        """
-                    
-                    components_html += """
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    """
+                    components_html += self._generate_providers_table(providers, stack_id)
                 
+                # Close the collapsible content and stack section
                 components_html += """
                     </div>
                 </div>
                 """
+            
+            return components_html
+            
+        except Exception as e:
+            logger.error(f"Failed to generate components HTML: {str(e)}")
+            return f'<div class="error-message">Error generating components: {str(e)}</div>'
+
+    def _generate_components_table(self, components: list, stack_id: str) -> str:
+        """Generate HTML table for components."""
+        html = """
+            <div class="table-section">
+                <h3 class="table-title">🧩 Components</h3>
+                <div class="table-container">
+                    <table class="components-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Name</th>
+                                <th>Source</th>
+                                <th>Version</th>
+                                <th>Latest</th>
+                                <th>Registry</th>
+                                <th>Status</th>
+                                <th>Path</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        """
+        
+        for component in components:
+            source = component.get("source", "Unknown")
+            version = component.get("version", "Unknown")
+            latest_version = component.get("latest_version", "Unknown")
+            registry = component.get("registry", "Unknown")
+            status = component.get("status", "Unknown")
+            path = component.get("path", "Unknown")
+            name = component.get("name", "Unknown")
+            
+            # Determine status styling
+            status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" else '<span style="color: #9ca3af;">—</span>'
+            
+            # Add anchor link for component
+            component_id = f"{stack_id}-{name.lower().replace(' ', '-')}"
+            
+            html += f"""
+            <tr id="component-{component_id}">
+                <td><strong>{component.get("type", "Unknown")}</strong></td>
+                <td>
+                    <a href="#component-{component_id}" style="color: var(--primary-color); text-decoration: none;">
+                        {name}
+                    </a>
+                </td>
+                <td><code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code></td>
+                <td><span style="font-family: monospace; color: var(--info-color);">{version}</span></td>
+                <td><span style="font-family: monospace; color: var(--success-color);">{latest_version}</span></td>
+                <td>{registry}</td>
+                <td>{status_display}</td>
+                <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{path}</code></td>
+            </tr>
+            """
+        
+        html += """
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        """
+        
+        return html
+
+    def _generate_providers_table(self, providers: list, stack_id: str) -> str:
+        """Generate HTML table for providers."""
+        html = """
+            <div class="table-section">
+                <h3 class="table-title">⚙️ Providers</h3>
+                <div class="table-container">
+                    <table class="components-table">
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>Version</th>
+                                <th>Source</th>
+                                <th>Latest Version</th>
+                                <th>Registry</th>
+                                <th>Status</th>
+                                <th>Module</th>
+                                <th>Component</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        """
+        
+        for provider in providers:
+            name = provider.get("name", "Unknown")
+            version = provider.get("version", "Unknown")
+            source = provider.get("source", "Unknown")
+            latest_version = provider.get("latest_version", "Unknown")
+            registry = provider.get("registry", "Unknown")
+            status = provider.get("status", "Unknown")
+            module = provider.get("module", "Unknown")
+            component = provider.get("component", "Unknown")
+            
+            # Create provider anchor
+            provider_id = f"{stack_id}-provider-{name.lower().replace(' ', '-')}"
+            
+            # Format status badge with proper styling
+            if status.lower() == "current":
+                status_display = f'<span class="status-badge status-current">{status}</span>'
+            elif status.lower() == "outdated":
+                status_display = f'<span class="status-badge status-outdated">{status}</span>'
+            elif status != "Null" and status != "Unknown":
+                status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>'
+            else:
+                status_display = '<span style="color: #9ca3af;">—</span>'
+            
+            # Format version with color coding
+            version_display = f'<span style="font-family: monospace; color: var(--info-color);">{version}</span>' if version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+            latest_version_display = f'<span style="font-family: monospace; color: var(--success-color);">{latest_version}</span>' if latest_version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+            
+            # Format source with proper styling
+            source_display = f'<code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code>' if source != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+            
+            html += f"""
+            <tr id="provider-{provider_id}">
+                <td>
+                    <strong>
+                        <a href="#provider-{provider_id}" style="color: var(--primary-color); text-decoration: none;">
+                            {name}
+                        </a>
+                    </strong>
+                </td>
+                <td>{version_display}</td>
+                <td>{source_display}</td>
+                <td>{latest_version_display}</td>
+                <td>{registry if registry != "Unknown" else '<span style="color: #9ca3af;">—</span>'}</td>
+                <td>{status_display}</td>
+                <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{module}</code></td>
+                <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{component}</code></td>
+            </tr>
+            """
+        
+        html += """
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        """
+        
+        return html
+    def create_pdf_report(
+        self, html_path: Path, report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
+    ) -> Path:
+        """Create PDF report from HTML file with custom options."""
+        try:
+            pdf_path = self._create_report_path(report_name, "pdf", reports_directory)
+
+            options = {
+                'page-size': 'A4',
+                'margin-top': '0.75in',
+                'margin-right': '0.75in',
+                'margin-bottom': '0.75in',
+                'margin-left': '0.75in',
+                'encoding': "UTF-8",
+                'no-outline': None,
+                'enable-local-file-access': None
+            }
+
+            pdfkit.from_file(str(html_path), str(pdf_path), options=options)
+            logger.info(f"PDF report created at: {pdf_path}")
+            return pdf_path
+
+        except Exception as e:
+            logger.error(f"Failed to create PDF report: {str(e)}")
+            raise
 
             # Create report file
             report_path = self._create_report_path(report_name, "html", reports_directory)
@@ -1049,7 +755,7 @@ class ReportService:
             logger.error(f"Failed to print summary: {str(e)}")
 
     def _generate_compatibility_html(self, inventory: Dict[str, Any]) -> str:
-        """Generate HTML section for schema compatibility analysis."""
+        """Generate HTML section for schema compatibility analysis with collapsible functionality."""
         try:
             # Check if schema compatibility data exists
             compatibility_data = inventory.get("schema_compatibility")
@@ -1070,62 +776,89 @@ class ReportService:
             if not reports:
                 return ""
             
-            # Generate compatibility section HTML
-            compatibility_html = """
-            <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 5px;">
-                <h2 style="color: #007bff;">🔍 Provider Schema Compatibility Analysis</h2>
-                <p style="color: #6c757d; font-style: italic;">
-                    This section analyzes provider schema compatibility between your current versions and the latest available versions. 
-                    It identifies potential breaking changes, deprecations, and new features that may affect your infrastructure code.
-                </p>
+            # Generate compatibility section HTML with collapsible header
+            compatibility_html = f"""
+            <div class="compatibility-section" style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 5px;">
+                <div class="compatibility-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 15px;" onclick="toggleCompatibilitySection()">
+                    <h2 style="color: #007bff; margin: 0;">🔍 Provider Schema Compatibility Analysis</h2>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 0.9rem; color: #6c757d;">{len(reports)} provider(s) analyzed</span>
+                        <span class="expand-icon" id="compatibility-icon" style="font-size: 1.2rem; color: #007bff; transition: transform 0.3s ease;">▼</span>
+                    </div>
+                </div>
+                
+                <div class="compatibility-content" id="compatibility-content" style="transition: max-height 0.4s ease-out, opacity 0.3s ease; max-height: 2000px; opacity: 1; overflow: hidden;">
+                    <p style="color: #6c757d; font-style: italic; margin-bottom: 20px;">
+                        This section analyzes provider schema compatibility between your current versions and the latest available versions. 
+                        It identifies potential breaking changes, deprecations, and new features that may affect your infrastructure code.
+                    </p>
             """
             
-            # Process each compatibility report
-            for report in reports:
+            # Process each compatibility report with individual collapsible sections
+            for i, report in enumerate(reports):
                 provider_name = report.get("provider_name", "Unknown")
                 current_version = report.get("current_version", "Unknown")
                 latest_version = report.get("latest_version", "Unknown")
                 compatibility_level = report.get("compatibility_level", "unknown")
                 summary = report.get("summary", "No summary available")
                 
+                # Create unique ID for this provider report
+                provider_id = f"provider-{provider_name.lower()}-{i}"
+                
                 # Determine border color based on compatibility level
                 if compatibility_level == "compatible":
                     border_color = "#28a745"
                     bg_color = "#d4edda"
+                    status_icon = "✅"
                 elif compatibility_level == "minor_issues":
                     border_color = "#ffc107"
                     bg_color = "#fff3cd"
+                    status_icon = "⚠️"
                 elif compatibility_level == "breaking_changes":
                     border_color = "#dc3545"
                     bg_color = "#f8d7da"
+                    status_icon = "🔴"
                 else:
                     border_color = "#6c757d"
                     bg_color = "#e9ecef"
+                    status_icon = "❓"
                 
                 compatibility_html += f"""
-                <div style="margin: 15px 0; padding: 15px; background-color: {bg_color}; border-left: 4px solid {border_color}; border-radius: 5px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="margin: 0; color: #495057;">{provider_name}</h4>
-                        <div style="font-family: monospace; font-size: 0.9em;">
-                            <span style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px;">{current_version}</span>
-                            <span style="margin: 0 8px; color: #6c757d;">→</span>
-                            <span style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px;">{latest_version}</span>
-                            <span style="margin-left: 10px; padding: 2px 8px; background: {border_color}; color: white; border-radius: 12px; font-size: 0.8em; text-transform: uppercase;">{compatibility_level.replace('_', ' ')}</span>
+                <div class="provider-compatibility-section" style="margin: 15px 0; border: 1px solid {border_color}; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div class="provider-compatibility-header" style="background-color: {bg_color}; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background-color 0.3s ease;" onclick="toggleProviderCompatibility('{provider_id}')">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;">{status_icon}</span>
+                            <h4 style="margin: 0; color: #495057;">{provider_name}</h4>
+                            <div style="font-family: monospace; font-size: 0.9em;">
+                                <span style="background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">{current_version}</span>
+                                <span style="margin: 0 8px; color: #6c757d;">→</span>
+                                <span style="background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">{latest_version}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="padding: 2px 8px; background: {border_color}; color: white; border-radius: 12px; font-size: 0.8em; text-transform: uppercase; font-weight: 600;">{compatibility_level.replace('_', ' ')}</span>
+                            <span class="expand-icon" id="{provider_id}-icon" style="font-size: 1rem; color: {border_color}; transition: transform 0.3s ease;">▼</span>
                         </div>
                     </div>
                     
-                    <div style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.7); border-radius: 3px;">
-                        <p style="margin: 0; color: #495057;">{summary}</p>
-                    </div>
+                    <div class="provider-compatibility-content" id="{provider_id}-content" style="background: white; transition: max-height 0.4s ease-out, opacity 0.3s ease; max-height: 1000px; opacity: 1; overflow: hidden;">
+                        <div style="padding: 15px;">
+                            <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.02); border-radius: 5px; border-left: 3px solid {border_color};">
+                                <p style="margin: 0; color: #495057; font-weight: 500;">{summary}</p>
+                            </div>
                 """
                 
                 # Add breaking changes section
                 breaking_changes = report.get("breaking_changes", [])
                 if breaking_changes:
                     compatibility_html += """
-                    <div style="margin: 10px 0;">
-                        <h5 style="color: #dc3545; margin-bottom: 8px;">⚠️ Breaking Changes</h5>
-                        <ul style="margin: 0; padding-left: 20px; background: rgba(220,53,69,0.1); padding: 10px; border-radius: 3px;">
+                            <div style="margin: 15px 0;">
+                                <h5 style="color: #dc3545; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                    <span>⚠️</span>
+                                    <span>Breaking Changes</span>
+                                    <span style="background: #dc3545; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7em; font-weight: bold;">""" + str(len(breaking_changes)) + """</span>
+                                </h5>
+                                <ul style="margin: 0; padding-left: 20px; background: rgba(220,53,69,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #dc3545;">
                     """
                     
                     # Show first 5 breaking changes
@@ -1139,47 +872,56 @@ class ReportService:
                             change_text += f".{attribute}"
                         
                         compatibility_html += f"""
-                        <li style="margin: 5px 0;">
-                            <strong style="font-family: monospace; color: #495057;">{change_text}</strong>
-                            <br><span style="color: #6c757d; font-size: 0.9em;">{description}</span>
-                        </li>
+                                <li style="margin: 8px 0;">
+                                    <strong style="font-family: 'Monaco', 'Menlo', monospace; color: #495057; background: rgba(255,255,255,0.8); padding: 2px 4px; border-radius: 3px;">{change_text}</strong>
+                                    <br><span style="color: #6c757d; font-size: 0.9em; margin-left: 5px;">{description}</span>
+                                </li>
                         """
                     
                     # Show count if there are more changes
                     if len(breaking_changes) > 5:
                         compatibility_html += f"""
-                        <li style="color: #6c757d; font-style: italic;">... and {len(breaking_changes) - 5} more breaking changes</li>
+                                <li style="color: #6c757d; font-style: italic; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(220,53,69,0.2);">
+                                    <strong>... and {len(breaking_changes) - 5} more breaking changes</strong>
+                                    <br><span style="font-size: 0.8em;">Click to expand this section for full details</span>
+                                </li>
                         """
                     
                     compatibility_html += """
-                        </ul>
-                    </div>
+                                </ul>
+                            </div>
                     """
                 
                 # Add recommendations section
                 recommendations = report.get("recommendations", [])
                 if recommendations:
                     compatibility_html += """
-                    <div style="margin: 10px 0;">
-                        <h5 style="color: #007bff; margin-bottom: 8px;">💡 Recommendations</h5>
-                        <ul style="margin: 0; padding-left: 20px; background: rgba(0,123,255,0.1); padding: 10px; border-radius: 3px;">
+                            <div style="margin: 15px 0;">
+                                <h5 style="color: #007bff; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                    <span>💡</span>
+                                    <span>Recommendations</span>
+                                </h5>
+                                <ul style="margin: 0; padding-left: 20px; background: rgba(0,123,255,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #007bff;">
                     """
                     
                     for recommendation in recommendations:
                         compatibility_html += f"""
-                        <li style="margin: 5px 0; color: #495057;">{recommendation}</li>
+                                <li style="margin: 8px 0; color: #495057;">{recommendation}</li>
                         """
                     
                     compatibility_html += """
-                        </ul>
-                    </div>
+                                </ul>
+                            </div>
                     """
                 
                 compatibility_html += """
+                        </div>
+                    </div>
                 </div>
                 """
             
             compatibility_html += """
+                </div>
             </div>
             """
             
