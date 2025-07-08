@@ -1,5 +1,6 @@
 import re
 import subprocess
+import shlex
 """Inventory management service."""
 import logging
 import os
@@ -250,7 +251,7 @@ class InventoryService:
         check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
-        print_console: bool = True,
+        terragrunt_args: str = "",        print_console: bool = True,
     ) -> Dict[str, Any]:
         """Create inventory from source directory."""
         source_path = Path(source_directory).resolve()
@@ -317,7 +318,7 @@ class InventoryService:
                 if check_providers:
                     # Get absolute path to the stack directory
                     abs_stack_path = (source_path / relative_dir).resolve()
-                    providers = self._get_providers_for_stack(abs_stack_path, provider_tool)
+                    providers = self._get_providers_for_stack(abs_stack_path, provider_tool, terragrunt_args)
                     
                     # Update the module field for each provider to use the stack name
                     for provider in providers:
@@ -579,13 +580,14 @@ class InventoryService:
             inventory_file=inventory_path, auto_approve=auto_approve, action=action
         )
         
-    def _get_providers_for_stack(self, stack_path: str, provider_tool: str = "tofu") -> List[Provider]:
+    def _get_providers_for_stack(self, stack_path: str, provider_tool: str = "tofu", terragrunt_args: str = "") -> List[Provider]:
         """
         Get provider information for a stack by running the provider tool.
         
         Args:
             stack_path: Path to the stack directory
             provider_tool: Tool to use for checking providers (tofu or terraform)
+            terragrunt_args: Additional arguments to pass to terragrunt commands
             
         Returns:
             List of Provider objects
@@ -602,7 +604,22 @@ class InventoryService:
         # Determine the command to use based on project type
         if self.is_terragrunt_project:
             # For Terragrunt projects, use terragrunt run providers
-            command = ["terragrunt", "run", "providers"]
+            command = ["terragrunt"]
+            
+            # Add custom terragrunt arguments if provided
+            if terragrunt_args.strip():
+                # Split the arguments string and add them to the command
+                # Handle both space-separated and quoted arguments
+                try:
+                    args = shlex.split(terragrunt_args)
+                    command.extend(args)
+                except ValueError:
+                    # If shlex fails, split by spaces as fallback
+                    args = terragrunt_args.split()
+                    command.extend(args)
+            
+            # Add the run providers command
+            command.extend(["run", "providers"])
             tool_name = "terragrunt"
         else:
             # For regular Terraform projects, use the specified provider tool

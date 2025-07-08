@@ -55,7 +55,7 @@ class IaCInvCommand(ClickCommand):
         check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
-        **kwargs,
+        terragrunt_args: str = "",        **kwargs,
     ) -> None:
         """
         Execute project initialization
@@ -72,6 +72,7 @@ class IaCInvCommand(ClickCommand):
             check_schema_compatibility: Flag to check provider schema compatibility
             provider_tool: Tool to use for checking providers
             project_name: Custom project name for the inventory report
+            terragrunt_args: Additional arguments to pass to terragrunt commands
         """
         try:
             ctx = click.get_current_context()
@@ -98,6 +99,7 @@ class IaCInvCommand(ClickCommand):
                         check_schema_compatibility=check_schema_compatibility,
                         provider_tool=provider_tool,
                         project_name=project_name,
+                        terragrunt_args=terragrunt_args,
                     )
                 )
             elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
@@ -133,7 +135,7 @@ class IaCInvCommand(ClickCommand):
         reports_dir: Optional[str] = None,
         framework_type: str = "auto",
         complete: bool = False,
-        check_providers: bool = False,
+        terragrunt_args: str = "",        check_providers: bool = False,
         check_provider_versions: bool = False,
         check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
@@ -154,6 +156,7 @@ class IaCInvCommand(ClickCommand):
             check_schema_compatibility: Flag to check provider schema compatibility
             provider_tool: Tool to use for checking providers
             project_name: Custom project name to use in the report
+            terragrunt_args: Additional arguments to pass to terragrunt commands
         """
         try:
             # Debug logging for CLI parameters
@@ -187,7 +190,7 @@ class IaCInvCommand(ClickCommand):
                     check_schema_compatibility=check_schema_compatibility,
                     provider_tool=provider_tool,
                     project_name=project_name,
-                    print_console=True,  # Enable console printing
+                    terragrunt_args=terragrunt_args,                    print_console=True,  # Enable console printing
                 )
 
             self.ui.print_success("Infrastructure inventory created successfully!")
@@ -439,4 +442,9 @@ cli = IaCInvCommand.as_click_command(
         help="Specify a custom project name for the inventory report",
         default=None,
     ),
-)
+    click.option(
+        "--terragrunt-args",
+        "-tg-args",
+        help="Additional arguments to pass to terragrunt commands (e.g., '--feature=ci=false'). Only used for terragrunt and terraform-terragrunt projects.",
+        default="",
+    ),)
