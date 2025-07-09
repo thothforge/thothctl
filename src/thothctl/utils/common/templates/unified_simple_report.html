@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrastructure Security Scan Report - {{ project_name|default('ThothCTL Project') }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../../templates/unified_report_styles.css">
+    <style>
+        /* Additional scan-specific styles */
+        .scan-summary {
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            border-left: 4px solid var(--primary-color);
+            margin-bottom: 30px;
+        }
+        
+        .scan-metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 123, 255, 0.05);
+            border-radius: var(--border-radius);
+        }
+        
+        .metadata-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .metadata-label {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .metadata-value {
+            font-size: 0.9rem;
+            color: var(--dark-color);
+            font-weight: 500;
+        }
+        
+        .scan-type-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation Header -->
+        <div class="nav-header">
+            <div class="nav-title">🛡️ Infrastructure Security Scan Report</div>
+            <div class="nav-subtitle">{{ project_name|default('ThothCTL Project') }} - Generated on {{ timestamp|default('N/A') }}</div>
+            <div class="nav-menu">
+                <a href="#summary" class="nav-link">📊 Summary</a>
+                <a href="#results" class="nav-link">🔍 Results</a>
+                <a href="#details" class="nav-link">📋 Details</a>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="content-section" id="summary">
+            <div class="section-header">
+                <div class="section-title">
+                    📊 Scan Summary
+                </div>
+                <button class="collapsible" onclick="toggleSection('summary-content')">
+                    <span class="expand-icon">▼</span>
+                    Toggle Details
+                </button>
+            </div>
+            
+            <div class="collapsible-content" id="summary-content">
+                <!-- Scan Metadata -->
+                <div class="scan-metadata">
+                    <div class="metadata-item">
+                        <div class="metadata-label">Scan Date</div>
+                        <div class="metadata-value">{{ timestamp|default('N/A') }}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Total Scans</div>
+                        <div class="metadata-value">{{ results|length }}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Scan Types</div>
+                        <div class="metadata-value">
+                            {% for result in results %}
+                                <span class="scan-type-badge">{{ result.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-number total">{{ results|sum(attribute='total') }}</div>
+                        <div class="summary-label">Total Tests</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number passed">{{ results|sum(attribute='passed') }}</div>
+                        <div class="summary-label">Passed</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number failed">{{ results|sum(attribute='failures') }}</div>
+                        <div class="summary-label">Failed</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number error">{{ results|sum(attribute='errors') }}</div>
+                        <div class="summary-label">Errors</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number skipped">{{ results|sum(attribute='skipped') }}</div>
+                        <div class="summary-label">Skipped</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="content-section" id="results">
+            <div class="section-header">
+                <div class="section-title">
+                    🔍 Scan Results
+                </div>
+                <button class="collapsible" onclick="toggleSection('results-content')">
+                    <span class="expand-icon">▼</span>
+                    Toggle Results
+                </button>
+            </div>
+            
+            <div class="collapsible-content" id="results-content">
+                <div class="results">
+                    {% for result in results %}
+                    <div class="result-card fade-in">
+                        <h3>
+                            {% if result.name == 'checkov' %}🔒{% elif result.name == 'trivy' %}🛡️{% elif result.name == 'tfsec' %}🔐{% else %}🔍{% endif %}
+                            {{ result.name|title }}
+                        </h3>
+                        
+                        <div class="stats">
+                            <div class="stat">
+                                <div class="value total">{{ result.total }}</div>
+                                <div class="label">Total</div>
+                            </div>
+                            <div class="stat">
+                                <div class="value passed">{{ result.passed }}</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="stat">
+                                <div class="value failed">{{ result.failures }}</div>
+                                <div class="label">Failed</div>
+                            </div>
+                            <div class="stat">
+                                <div class="value error">{{ result.errors }}</div>
+                                <div class="label">Errors</div>
+                            </div>
+                            <div class="stat">
+                                <div class="value skipped">{{ result.skipped }}</div>
+                                <div class="label">Skipped</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Success Rate Bar -->
+                        <div style="margin-top: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <span style="font-size: 0.8rem; color: var(--secondary-color); font-weight: 600;">Success Rate</span>
+                                <span style="font-size: 0.8rem; color: var(--dark-color); font-weight: 600;">
+                                    {% if result.total > 0 %}
+                                        {{ ((result.passed / result.total) * 100)|round(1) }}%
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                                {% if result.total > 0 %}
+                                    <div style="width: {{ ((result.passed / result.total) * 100)|round(1) }}%; height: 100%; background: var(--success-color); transition: width 0.5s ease;"></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Section -->
+        <div class="content-section" id="details">
+            <div class="section-header">
+                <div class="section-title">
+                    📋 Detailed Analysis
+                </div>
+                <button class="collapsible" onclick="toggleSection('details-content')">
+                    <span class="expand-icon">▼</span>
+                    Toggle Details
+                </button>
+            </div>
+            
+            <div class="collapsible-content" id="details-content">
+                {% for result in results %}
+                <div class="stack-section">
+                    <div class="stack-header" onclick="toggleSection('detail-{{ loop.index }}')">
+                        <div class="stack-title">
+                            {% if result.name == 'checkov' %}🔒{% elif result.name == 'trivy' %}🛡️{% elif result.name == 'tfsec' %}🔐{% else %}🔍{% endif %}
+                            {{ result.name|title }} Analysis
+                        </div>
+                        <div class="expand-icon">▼</div>
+                    </div>
+                    
+                    <div class="collapsible-content" id="detail-{{ loop.index }}">
+                        <div style="padding: 20px;">
+                            <div class="table-section">
+                                <div class="table-title">
+                                    📊 Test Results Breakdown
+                                </div>
+                                <div class="table-container">
+                                    <table class="components-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th>Count</th>
+                                                <th>Percentage</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Total Tests</strong></td>
+                                                <td>{{ result.total }}</td>
+                                                <td>100%</td>
+                                                <td><span class="status-badge">{{ result.total }}</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Passed</strong></td>
+                                                <td>{{ result.passed }}</td>
+                                                <td>
+                                                    {% if result.total > 0 %}
+                                                        {{ ((result.passed / result.total) * 100)|round(1) }}%
+                                                    {% else %}
+                                                        0%
+                                                    {% endif %}
+                                                </td>
+                                                <td><span class="status-badge status-current">✅ PASS</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Failed</strong></td>
+                                                <td>{{ result.failures }}</td>
+                                                <td>
+                                                    {% if result.total > 0 %}
+                                                        {{ ((result.failures / result.total) * 100)|round(1) }}%
+                                                    {% else %}
+                                                        0%
+                                                    {% endif %}
+                                                </td>
+                                                <td><span class="status-badge status-outdated">❌ FAIL</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Errors</strong></td>
+                                                <td>{{ result.errors }}</td>
+                                                <td>
+                                                    {% if result.total > 0 %}
+                                                        {{ ((result.errors / result.total) * 100)|round(1) }}%
+                                                    {% else %}
+                                                        0%
+                                                    {% endif %}
+                                                </td>
+                                                <td><span class="status-badge status-unknown">⚠️ ERROR</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Skipped</strong></td>
+                                                <td>{{ result.skipped }}</td>
+                                                <td>
+                                                    {% if result.total > 0 %}
+                                                        {{ ((result.skipped / result.total) * 100)|round(1) }}%
+                                                    {% else %}
+                                                        0%
+                                                    {% endif %}
+                                                </td>
+                                                <td><span class="status-badge">⏭️ SKIP</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const button = content.previousElementSibling.querySelector('.expand-icon') || 
+                          content.parentElement.querySelector('.expand-icon');
+            
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                if (button) button.classList.remove('rotated');
+            } else {
+                content.classList.add('collapsed');
+                if (button) button.classList.add('rotated');
+            }
+        }
+
+        // Initialize all sections as expanded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add fade-in animation to cards
+            const cards = document.querySelectorAll('.result-card');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                    }, 100);
+                }, index * 100);
+            });
+        });
+
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
