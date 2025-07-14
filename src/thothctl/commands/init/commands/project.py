@@ -58,10 +58,10 @@ class ProjectInitCommand(ClickCommand):
         with self.ui.status_spinner("🏗️ Creating project structure..."):
             self.project_service.initialize_project(project_name, project_type=project_type, reuse=reuse, space=space)
 
-        # Setup configuration if requested
+        # Setup configuration if requested - NO SPINNER for interactive prompts
         if setup_conf:
-            with self.ui.status_spinner("📝 Setting up project configuration..."):
-                self.project_service.setup_project_config(project_name, space=space)
+            self.ui.print_info("📝 Setting up project configuration...")
+            self.project_service.setup_project_config(project_name, space=space)
 
         # Setup version control if reuse is enabled
         if reuse:
@@ -72,8 +72,15 @@ class ProjectInitCommand(ClickCommand):
             elif vcs_provider == "github" and github_username:
                 vcs_params["github_username"] = github_username
             
-            with self.ui.status_spinner("🔄 Setting up version control..."):
-                self.project_service.setup_azure_repos(project_name, **vcs_params)
+            self.ui.print_info("🔄 Setting up version control...")
+            self.project_service.setup_version_control(
+                project_name=project_name,
+                project_path=project_path,
+                vcs_provider=vcs_provider,
+                r_list=r_list,
+                space=space,
+                **vcs_params
+            )
         
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 

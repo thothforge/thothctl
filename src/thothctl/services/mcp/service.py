@@ -1,6 +1,7 @@
 """ThothCTL MCP Service - Exposes ThothCTL functionality through Model Context Protocol."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Sequence, Dict, Any, List
 from enum import Enum
@@ -503,223 +504,16 @@ def run_server(host: str = "localhost", port: int = 8080) -> None:
         port: Port to run the server on
     """
     try:
-        import asyncio
-        import uvicorn
-        from mcp.server.fastmcp import FastMCP
-        import os
-        import atexit
-        
-        # Create a PID file to make it easier to find and stop the server
-        pid_dir = os.path.expanduser("~/.thothctl/mcp")
-        os.makedirs(pid_dir, exist_ok=True)
-        pid_file = os.path.join(pid_dir, f"server_{port}.pid")
-        
-        # Write PID to file
-        with open(pid_file, 'w') as f:
-            f.write(str(os.getpid()))
-        
-        # Register cleanup function to remove PID file on exit
-        def cleanup():
-            try:
-                if os.path.exists(pid_file):
-                    os.remove(pid_file)
-            except:
-                pass
-        
-        atexit.register(cleanup)
+        # Use the simplified HTTP server implementation
+        from .simple_http_server import run_simple_http_server
         
         logger.info(f"Starting ThothCTL MCP server on {host}:{port}")
         ui.print_info(f"Starting ThothCTL MCP server on {host}:{port}")
         ui.print_info(f"Server PID: {os.getpid()}")
-        ui.print_info(f"PID file: {pid_file}")
         
-        # Create a FastMCP server
-        mcp = FastMCP("ThothCTL", path="/mcp/v1")
+        # Run the simplified server
+        run_simple_http_server(host, port)
         
-        # Configure error handling
-        @mcp.exception_handler(Exception)
-        async def handle_exception(request, exc):
-            from starlette.responses import JSONResponse
-            import traceback
-            
-            logger.error(f"Error handling request: {str(exc)}")
-            logger.error(traceback.format_exc())
-            ui.print_error(f"Error handling request: {str(exc)}")
-            
-            return JSONResponse(
-                status_code=500,
-                content={"error": str(exc), "type": type(exc).__name__}
-            )
-        
-        # Add a health check endpoint
-        @mcp.custom_route("/health", methods=["GET"])
-        async def health_check(request):
-            from starlette.responses import JSONResponse
-            return JSONResponse({"status": "ok", "version": __version__})
-            
-        # Add a metadata endpoint for Amazon Q to discover capabilities
-        @mcp.custom_route("/metadata", methods=["GET"])
-        async def metadata(request):
-            from starlette.responses import JSONResponse
-            return JSONResponse({
-                "name": "ThothCTL",
-                "version": __version__,
-                "description": "ThothCTL MCP Server for Internal Developer Platform tasks",
-                "capabilities": [
-                    "project-management",
-                    "infrastructure-as-code",
-                    "security-scanning",
-                    "documentation"
-                ]
-            })
-            
-        # Add a shutdown endpoint for graceful termination
-        @mcp.custom_route("/shutdown", methods=["POST"])
-        async def shutdown(request):
-            from starlette.responses import JSONResponse
-            import threading
-            import time
-            
-            def shutdown_server():
-                # Wait a moment to allow the response to be sent
-                time.sleep(1)
-                # Exit the process
-                os._exit(0)
-            
-            # Start a thread to shutdown the server
-            threading.Thread(target=shutdown_server).start()
-            
-            return JSONResponse({"status": "shutting_down", "message": "Server is shutting down"})
-        
-        # Register all tools
-        @mcp.tool(description="Initialize a new project with ThothCTL")
-        def thothctl_init_project(project_name: str, directory: str = ".") -> Dict[str, Any]:
-            """Initialize a new project with ThothCTL.
-            
-            Args:
-                project_name: Name of the project to initialize
-                directory: Directory to initialize the project in
-                
-            Returns:
-                Dictionary with status and message
-            """
-            with ui.status_spinner(f"Initializing project {project_name}..."):
-                result = init_project(project_name, directory)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Remove a project managed by thothctl")
-        def thothctl_remove_project(project_name: str) -> Dict[str, Any]:
-            """Remove a project managed by ThothCTL."""
-            with ui.status_spinner(f"Removing project {project_name}..."):
-                result = remove_project(project_name)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="List projects managed by thothctl locally")
-        def thothctl_list_projects() -> Dict[str, Any]:
-            """List projects managed by ThothCTL."""
-            with ui.status_spinner("Listing projects..."):
-                projects = list_all_projects()
-            ui.print_success(f"Found {len(projects)} projects")
-            return {"projects": projects}
-        
-        @mcp.tool(description="Initialize and setup space configurations")
-        def thothctl_init_space(space_name: str, directory: str = ".") -> Dict[str, Any]:
-            """Initialize a new space with ThothCTL."""
-            with ui.status_spinner(f"Initializing space {space_name}..."):
-                result = init_space(space_name, directory)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Remove a space managed by thothctl")
-        def thothctl_remove_space(space_name: str) -> Dict[str, Any]:
-            """Remove a space managed by ThothCTL."""
-            with ui.status_spinner(f"Removing space {space_name}..."):
-                result = remove_space(space_name)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="List spaces managed by thothctl locally")
-        def thothctl_list_spaces() -> Dict[str, Any]:
-            """List spaces managed by ThothCTL."""
-            with ui.status_spinner("Listing spaces..."):
-                spaces = list_all_spaces()
-            ui.print_success(f"Found {len(spaces)} spaces")
-            return {"spaces": spaces}
-        
-        @mcp.tool(description="Get list of projects in a specific space")
-        def thothctl_get_projects_in_space(space_name: str) -> Dict[str, Any]:
-            """Get list of projects in a specific space."""
-            with ui.status_spinner(f"Getting projects in space {space_name}..."):
-                projects = get_projects_in_specific_space(space_name)
-            ui.print_success(f"Found {len(projects)} projects in space {space_name}")
-            return {"projects": projects}
-        
-        @mcp.tool(description="Scan infrastructure code for security issues")
-        def thothctl_scan(directory: str = ".") -> Dict[str, Any]:
-            """Scan infrastructure code for security issues."""
-            with ui.status_spinner(f"Scanning {directory}..."):
-                result = scan_infrastructure(directory)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Create Inventory for the iac composition")
-        def thothctl_inventory(directory: str = ".") -> Dict[str, Any]:
-            """Create Inventory for the iac composition."""
-            with ui.status_spinner(f"Creating inventory for {directory}..."):
-                result = create_inventory(directory)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Generate IaC from rules, use cases, and components")
-        def thothctl_generate(template: str, output: str = ".") -> Dict[str, Any]:
-            """Generate IaC from rules, use cases, and components."""
-            with ui.status_spinner(f"Generating {template}..."):
-                result = generate_iac(template, output)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Initialize and setup project documentation")
-        def thothctl_document(directory: str = ".") -> Dict[str, Any]:
-            """Initialize and setup project documentation."""
-            with ui.status_spinner(f"Documenting {directory}..."):
-                result = document_project(directory)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Check infrastructure code for compliance")
-        def thothctl_check(directory: str = ".") -> Dict[str, Any]:
-            """Check infrastructure code for compliance."""
-            with ui.status_spinner(f"Checking {directory}..."):
-                result = check_compliance(directory)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Convert, clean up and manage the current project")
-        def thothctl_project(action: str, directory: str = ".") -> Dict[str, Any]:
-            """Convert, clean up and manage the current project."""
-            with ui.status_spinner(f"Managing project with action {action}..."):
-                result = manage_project(action, directory)
-            ui.print_success(result)
-            return {"status": "success", "message": result}
-        
-        @mcp.tool(description="Get ThothCTL version")
-        def thothctl_version() -> Dict[str, Any]:
-            """Get ThothCTL version."""
-            with ui.status_spinner("Getting ThothCTL version..."):
-                version = get_version()
-            ui.print_success(f"ThothCTL version: {version}")
-            return {"version": version}
-        
-        # Create a Starlette app from the MCP server
-        app = mcp.streamable_http_app()
-        
-        # Run the server with uvicorn
-        ui.print_success(f"MCP server ready at http://{host}:{port}")
-        ui.print_info(f"Health check endpoint: http://{host}:{port}/health")
-        ui.print_info(f"MCP endpoint: http://{host}:{port}/mcp/v1")
-        uvicorn.run(app, host=host, port=port, log_level="info")
     except Exception as e:
         logger.error(f"Error running MCP server: {e}")
         ui.print_error(f"Error running MCP server: {str(e)}")

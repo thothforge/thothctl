@@ -18,11 +18,11 @@ class MCPServerCommand(ClickCommand):
         if stdio:
             import asyncio
             from pathlib import Path
-            from ....services.mcp import serve
             
-            # Run in stdio mode - this is the mode Amazon Q uses
-            self.ui.print_info(f"Starting ThothCTL MCP server in stdio mode")
-            asyncio.run(serve(Path.cwd()))
+            # Use Amazon Q compatible server as default for stdio mode
+            from ....services.mcp.amazon_q_server import serve_amazon_q
+            self.ui.print_info("Starting ThothCTL MCP server in stdio mode")
+            asyncio.run(serve_amazon_q())
         else:
             # Run in HTTP mode
             with self.ui.status_spinner(f"Starting MCP server on {host}:{port}..."):
@@ -52,6 +52,6 @@ cli = MCPServerCommand.as_click_command(name="server")(
     click.option(
         "--stdio",
         is_flag=True,
-        help="Run in stdio mode instead of HTTP mode",
+        help="Run in stdio mode (default for Amazon Q compatibility)",
     )
 )
