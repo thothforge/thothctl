@@ -1,16 +1,17 @@
 """thothctl main cli."""
 import importlib.util
+import logging
+import os
 from functools import wraps
 from pathlib import Path
 from typing import Optional
 from importlib.metadata import version
 import click
-import os
-import sys
 
 
 def global_options(f):
-    @click.option("--debug", is_flag=True, help="Enable debug mode")
+    @click.option("--debug", is_flag=True, help="Enable debug mode (most verbose)")
+    @click.option("--verbose", "-v", is_flag=True, help="Enable verbose mode (show info messages)")
     @click.option(
         "-d",
         "--code-directory",
@@ -72,12 +73,25 @@ class ThothCLI(click.MultiCommand):
     help='Show the version and exit.')
 @global_options
 @click.pass_context
-def cli(ctx, debug, code_directory):
+def cli(ctx, debug, verbose, code_directory):
     """ThothForge CLI - The Open Source Internal Developer Platform CLI"""
     """Thoth CLI tool"""
     ctx.ensure_object(dict)
     ctx.obj["DEBUG"] = debug
+    ctx.obj["VERBOSE"] = verbose
     ctx.obj["CODE_DIRECTORY"] = code_directory
+    
+    # Configure logging based on flags
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        # Also set environment variable for child processes
+        os.environ["THOTHCTL_DEBUG"] = "true"
+    elif verbose:
+        logging.getLogger().setLevel(logging.INFO)
+        os.environ["THOTHCTL_VERBOSE"] = "true"
+    else:
+        # Keep it clean - only show warnings and errors
+        logging.getLogger().setLevel(logging.WARNING)
 
 
 if __name__ == "__main__":

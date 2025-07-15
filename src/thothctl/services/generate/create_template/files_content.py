@@ -550,7 +550,7 @@ repos:
     - id: gofmt
     - id: golint
 """
-thothcf_toml_content = """#conf
+thothcf_toml_content = r"""#conf
 [template_input_parameters.project_name]
 template_value = "#{project_name}#"
 condition = "\\\b[a-zA-Z]+\\\b"
@@ -608,7 +608,7 @@ condition = "^[a-zA-Z0-9_.-]{3,255}$"
 description = "Backend profile for s3 remote state"
 """
 
-thothcf_toml_module_content = """
+thothcf_toml_module_content = r"""
 # Define template input parameters
 [template_input_parameters.module_name]
 template_value = "#{ModuleName}#"

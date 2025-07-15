@@ -17,7 +17,6 @@ from .get_project_data import (
     check_template_properties,
     get_exist_project_props,
     get_project_props,
-    get_template_props,
 )
 from .project_defaults import (
     g_catalog_spec,
@@ -168,6 +167,7 @@ def set_project_conf(
     directory=PurePath("."),
     repo_metadata: dict = None,
     space: Optional[str] = None,
+    batch_mode: bool = False,
 ):
     """
     Set project configuration.
@@ -178,14 +178,26 @@ def set_project_conf(
     :param directory:
     :param repo_metadata:
     :param space: Space name for the project
+    :param batch_mode: Run in batch mode with minimal prompts
     :return:
     """
     if project_properties is None:
-        project_properties = get_project_props(project_name=project_name)
-    if template_input_parameters is None and check_template_properties(
-        directory=directory
-    ):
-        template_input_parameters = get_template_props()
+        project_properties = get_project_props(project_name=project_name, batch_mode=batch_mode)
+    
+    if template_input_parameters is None and check_template_properties(directory=directory):
+        # Automatically create template parameters from project properties
+        template_input_parameters = {}
+        
+        # Use all collected project properties to create template parameters
+        for key in project_properties:
+            template_input_parameters[key] = f"#{{{key}}}#"
+            
+        print(f"{Fore.GREEN}✅ Automatically created template parameters from project properties{Fore.RESET}")
+        
+        # Display the template parameters
+        print(f"{Fore.CYAN}Template parameters:{Fore.RESET}")
+        for key, value in template_input_parameters.items():
+            print(f"  • {key}: {value}")
 
     create_project_conf(
         project_properties=project_properties,

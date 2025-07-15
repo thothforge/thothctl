@@ -156,25 +156,25 @@ def create_template(template, parent_dir, cloud="aws", project_type="terraform")
         if t["type"] == "directory" and t["name"] != ".":
             path = os.path.join(parent_dir, t["name"])
             os.makedirs(path)
-            logging.info("Directory Name  " + t["name"])
-            logging.info(t["contents"])
+            logging.debug("Creating directory: " + t["name"])
+            logging.debug("Directory contents: " + str(t.get("contents", [])))
 
         elif t["type"] == "file":
             file = t["name"]
-            logging.info("file name " + file)
+            logging.debug("Creating file: " + file)
             create_common_files(file_name=file, path=path)
             create_project_files(
                 file_name=file, path=path, project_type=project_type, cloud=cloud
             )
 
         if "contents" in t:
-            logging.info("out  " + json.dumps(t["contents"]))
+            logging.debug("Processing contents: " + json.dumps(t["contents"]))
             if t["name"] != ".":
                 path = os.path.join(parent_dir, t["name"])
-                logging.info("Directory Name 2 " + t["name"])
+                logging.debug("Processing directory: " + t["name"])
             else:
-                logging.info("Directory Name 2 " + t["name"])
-                logging.info(path)
+                logging.debug("Processing root directory: " + t["name"])
+                logging.debug("Path: " + path)
 
             create_template(t["contents"], path, project_type=project_type)
 

@@ -32,19 +32,20 @@ class ProjectService:
         self, project_name: str, project_type: str = "terraform", reuse=False, space: Optional[str] = None
     ) -> None:
         """Initialize the basic project structure"""
-        self.logger.info(f"Initializing project: {project_name}")
+        self.logger.debug(f"Initializing project: {project_name}")
         create_info_project(project_name=project_name, space=space)
-        self.logger.info(f"Project {project_name} initialized successfully")
+        self.logger.debug(f"Project {project_name} initialized successfully")
 
         if not reuse:
             create_project(project_name=project_name, project_type=project_type)
 
-    def setup_project_config(self, project_name: str, space: Optional[str] = None) -> None:
+    def setup_project_config(self, project_name: str, space: Optional[str] = None, batch_mode: bool = False) -> None:
         """Setup project configuration"""
         project_props = get_project_props(
             project_name=project_name,
             cloud_provider=self.DEFAULT_CLOUD_PROVIDER,
             remote_bkd_cloud_provider=self.DEFAULT_CLOUD_PROVIDER,
+            batch_mode=batch_mode
         )
         set_project_conf(
             project_name=project_name,
@@ -130,7 +131,7 @@ class ProjectService:
                         # Use PAT from credentials if not provided
                         if not pat:
                             pat = credentials.get("pat")
-                            self.logger.info(f"Using Azure DevOps PAT from space '{space}'")
+                            self.logger.debug(f"Using Azure DevOps PAT from space '{space}'")
                     else:
                         self.logger.warning(f"Space '{space}' has non-Azure VCS credentials")
                 except (FileNotFoundError, ValueError) as e:
@@ -216,7 +217,7 @@ class ProjectService:
                         # Use token from credentials if not provided
                         if not token:
                             token = credentials.get("token")
-                            self.logger.info(f"Using GitHub token from space '{space}'")
+                            self.logger.debug(f"Using GitHub token from space '{space}'")
                     else:
                         self.logger.warning(f"Space '{space}' has non-GitHub VCS credentials")
                 except (FileNotFoundError, ValueError) as e:

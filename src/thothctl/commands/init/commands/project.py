@@ -24,6 +24,53 @@ class ProjectInitCommand(ClickCommand):
         if not project_name or not project_name.strip():
             self.ui.print_error("Project name is required and cannot be empty")
             raise ValueError("Project name is required and cannot be empty")
+        
+        # Check if project is already registered in ThothCTL
+        from ....common.common import check_info_project
+        project_info = check_info_project(project_name)
+        
+        # Check if project directory already exists
+        project_path = Path(f"./{project_name}")
+        project_exists = project_path.exists()
+        
+        # Determine the appropriate error message based on both conditions
+        if project_info and project_exists:
+            # Both the directory and ThothCTL registration exist
+            space_info = ""
+            if project_info.get("thothcf") and project_info["thothcf"].get("space"):
+                space = project_info["thothcf"]["space"]
+                space_info = f" in space '{space}'"
+                
+            removal_cmd = f"thothctl remove project -pj {project_name}"
+            
+            self.ui.print_error(f"Project '{project_name}'{space_info} already exists and is managed by ThothCTL")
+            raise ValueError(
+                f"Project '{project_name}'{space_info} already exists and is managed by ThothCTL.\n"
+                f"The project directory '{project_path}' also exists.\n"
+                f"To reuse this project name, run: {removal_cmd} and remove the directory."
+            )
+        elif project_info:
+            # Only ThothCTL registration exists
+            space_info = ""
+            if project_info.get("thothcf") and project_info["thothcf"].get("space"):
+                space = project_info["thothcf"]["space"]
+                space_info = f" in space '{space}'"
+                
+            removal_cmd = f"thothctl remove project -pj {project_name}"
+            
+            self.ui.print_error(f"Project '{project_name}'{space_info} is already registered in ThothCTL")
+            raise ValueError(
+                f"Project '{project_name}'{space_info} is already registered in ThothCTL.\n"
+                f"To reuse this project name, run: {removal_cmd}"
+            )
+        elif project_exists:
+            # Only directory exists
+            self.ui.print_error(f"Project directory '{project_path}' already exists")
+            raise ValueError(
+                f"Project directory '{project_path}' already exists.\n"
+                f"Please choose a different name or remove the existing directory."
+            )
+            
         return True
 
     def execute(
@@ -37,6 +84,7 @@ class ProjectInitCommand(ClickCommand):
         r_list: bool = False,
         project_type: str = "terraform",
         space: Optional[str] = None,
+        batch: bool = False,
         **kwargs,
     ) -> None:
         """Execute project initialization"""
@@ -61,7 +109,7 @@ class ProjectInitCommand(ClickCommand):
         # Setup configuration if requested - NO SPINNER for interactive prompts
         if setup_conf:
             self.ui.print_info("📝 Setting up project configuration...")
-            self.project_service.setup_project_config(project_name, space=space)
+            self.project_service.setup_project_config(project_name, space=space, batch_mode=batch)
 
         # Setup version control if reuse is enabled
         if reuse:
@@ -207,5 +255,11 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         "--space",
         help="Space name for the project (used for loading credentials and configurations)",
         default=None,
+    ),
+    click.option(
+        "--batch",
+        is_flag=True,
+        help="Run in batch mode with minimal prompts and use default values where possible",
+        default=False,
     ),
 )

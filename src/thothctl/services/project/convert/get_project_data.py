@@ -67,6 +67,7 @@ def get_project_props(
     remote_bkd_cloud_provider: str = "aws",
     cloud_provider: str = "aws",
     directory=PurePath("."),
+    batch_mode: bool = False,
 ) -> dict:
     """
     Get project properties.
@@ -84,6 +85,24 @@ def get_project_props(
         "template_input_parameters", {}
     )
     if input_parameters == {}:
+        if batch_mode:
+            # Use default values in batch mode
+            project_properties["project"] = project_name
+            project_properties["environment"] = "dev"
+            project_properties["owner"] = "thothctl"
+            project_properties["client"] = "thothctl"
+            
+            if remote_bkd_cloud_provider == "aws":
+                project_properties["backend_region"] = "us-east-2"
+                project_properties["dynamodb_backend"] = "db-terraform-lock"
+                project_properties["backend_bucket"] = f"{project_name}-tfstate"
+            
+            if cloud_provider == "aws":
+                project_properties["region"] = "us-east-2"
+                
+            print(f"{Fore.MAGENTA}✅ Using default project properties in batch mode: {project_properties} {Fore.RESET}")
+            return project_properties
+            
         try:
             questions = [
                 inquirer.Text(
@@ -232,34 +251,6 @@ def check_project_props(project_properties: dict, prop: str) -> bool:
                 f"{Fore.RED}❌ Invalid input. Please enter a valid string according to {project_properties[k]['condition']}. {Fore.RESET}"
             )
 
-
-def get_template_props() -> dict:
-    """
-    Get template repositories.
-
-    :return:
-    """
-
-    template_input_parameters = {}
-    x = "yes"
-    while x != "no":
-        try:
-            key = (str(input("Input key:  "))).lower().replace(" ", "")
-
-            value = (str(input(f"Input value for {key}: "))).lower().replace(" ", "")
-
-            template_input_parameters[key] = value
-            x = str(
-                input(
-                    f"{Fore.MAGENTA} Continue with template parameters  (yes/no):  {Fore.RESET}"
-                )
-            )
-
-        except ValueError:
-            print(
-                f"{Fore.RED}❌ Invalid input. Please enter a valid string. {Fore.RESET}"
-            )
-    return template_input_parameters
 
 
 def parse_project(

@@ -136,11 +136,19 @@ def create_info_project(project_name: str, file_name=config_file_name, content=N
             config = toml.load(fp)
 
         if project_name in config:
+            # Check if project has space information
+            space_info = ""
+            if config[project_name].get("thothcf") and config[project_name]["thothcf"].get("space"):
+                project_space = config[project_name]["thothcf"]["space"]
+                space_info = f" in space '{project_space}'"
+                
+            # Create the exact removal command
+            removal_cmd = f"thothctl remove project -pj {project_name}"
+            
             raise ValueError(
-                f'💥 Project  "{project_name}" already exists. \n '
-                f"Run 👉 {Fore.CYAN} thothctl remove project -pj {project_name} 👈🏼 {Fore.RED}if you want to reuse the project name."
+                f"💥 Project '{project_name}'{space_info} already exists. \n"
+                f"Run 👉 {Fore.CYAN}{removal_cmd}{Fore.RESET} 👈🏼 if you want to reuse the project name."
             )
-
         else:
             config[project_name] = content
             dump_iac_conf(content=config)
