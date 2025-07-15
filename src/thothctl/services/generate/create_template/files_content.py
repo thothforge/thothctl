@@ -36,24 +36,6 @@ terraform {
     ]
   }
 
-  after_hook "sync_workspace" {
-    commands = ["workspace"]
-    execute  = [
-      "thothctl", "--sync_terraform_workspaces",
-
-    ]
-
-  }
-
-  before_hook "sync_workspaces" {
-    commands = ["plan", "apply", "destroy", "refresh", "state"]
-    execute  = [
-      "thothctl", "--sync_terraform_workspaces",
-
-    ]
-
-  }
-
 
 }
 
