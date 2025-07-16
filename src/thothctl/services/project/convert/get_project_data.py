@@ -14,6 +14,78 @@ from ....common.common import load_iac_conf, update_info_project
 from .project_defaults import g_project_properties_parse
 
 
+def replace_template_placeholders(directory, project_properties, project_name):
+    """
+    Replace template placeholders in project files with values from project properties.
+    
+    :param directory: Project directory
+    :param project_properties: Dictionary of project properties
+    :param project_name: Name of the project
+    :return: None
+    """
+    allowed_extensions = {
+        "png", "svg", "xml", "toml", ".thothcf.toml", "drawio",
+        "gitignore", ".terraform.lock.hcl", "catalog-info.yaml",
+        "mkdocs.yaml", "pdf", "dot", "gif", "jpg", "jpeg", "exe", "bin",
+        "dll", "so", "dylib", "zip", "tar", "gz", "bz2", "xz", "7z", "rar"
+    }
+    not_allowed_folders = {
+        ".git", ".terraform", ".terragrunt-cache", "cdk.out",
+        "catalog", "__pycache__", "node_modules", "node-compile-cache",
+        ".X11-unix", "tmp"
+    }
+    
+    print(f"{Fore.LIGHTBLUE_EX}👷 Replacing template placeholders... {Fore.RESET}")
+    
+    for dirpath, dirnames, filenames in os.walk(directory):
+        # Skip not allowed folders
+        if any(x in dirpath for x in not_allowed_folders):
+            continue
+            
+        for f in filenames:
+            # Skip files with binary extensions
+            if f.split(".")[-1] in allowed_extensions or f in allowed_extensions:
+                continue
+                
+            file_path = os.path.join(dirpath, f)
+            try:
+                # Try to detect if file is binary
+                is_binary = False
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as test_file:
+                        test_file.read(1024)  # Try to read a small chunk
+                except UnicodeDecodeError:
+                    is_binary = True
+                
+                if is_binary:
+                    continue
+                
+                # Read file content
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    data = file.read()
+                
+                # Track if any replacements were made
+                replaced = False
+                
+                # Replace each placeholder with its value
+                for prop, value in project_properties.items():
+                    placeholder = f"#{{{prop}}}#"
+                    if placeholder in data:
+                        data = data.replace(placeholder, str(value))
+                        replaced = True
+                        print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
+                
+                # Write updated content back to file if replacements were made
+                if replaced:
+                    with open(file_path, 'w', encoding='utf-8') as file:
+                        file.write(data)
+            except Exception as e:
+                # Just skip problematic files
+                pass
+    
+    print(f"{Fore.GREEN}✅ Template placeholders replaced successfully!{Fore.RESET}")
+
+
 def check_project_properties(directory) -> bool:
     """
     Check if project_properties exists.
@@ -40,9 +112,6 @@ def check_template_properties(directory) -> bool:
         return True
     else:
         return False
-
-
-# get project props
 
 
 # get project props
@@ -76,6 +145,7 @@ def get_project_props(
     :param remote_bkd_cloud_provider:
     :param cloud_provider:
     :param directory:
+    :param batch_mode: Run in batch mode with minimal prompts
     :return:
     """
     print(Fore.GREEN)
@@ -193,13 +263,14 @@ def get_project_props(
             input_parameters=input_parameters,
             project_properties=project_properties,
             project_name=project_name,
+            batch_mode=batch_mode,
         )
 
     return project_properties
 
 
 def get_simple_project_props(
-    input_parameters: dict, project_properties: dict, project_name: str
+    input_parameters: dict, project_properties: dict, project_name: str, batch_mode: bool = False
 ) -> dict:
     """
     Get project properties.
@@ -207,31 +278,55 @@ def get_simple_project_props(
     :param input_parameters:
     :param project_properties:
     :param project_name:
+    :param batch_mode: Run in batch mode with minimal prompts
     :return:
     """
     print(f"{Fore.GREEN} Write project parameters for {project_name}")
+    
+    if batch_mode:
+        # In batch mode, use default values or generate sensible defaults
+        for k in input_parameters.keys():
+            try:
+                # Check if input_parameters[k] is a dictionary with a 'default' key
+                if isinstance(input_parameters[k], dict) and 'default' in input_parameters[k]:
+                    default_value = input_parameters[k]['default']
+                else:
+                    # If not, use a sensible default based on the key
+                    default_value = f"{project_name}-{k}"
+                
+                project_properties[k] = default_value
+                print(f"  • Using default value for {k}: {default_value}")
+            except Exception as e:
+                print(f"{Fore.RED}❌ Error setting default value for {k}: {str(e)}{Fore.RESET}")
+        return project_properties
+    
+    # Interactive mode
     for k in input_parameters.keys():
         try:
-            questions = [
-                inquirer.Text(
-                    name=k,
-                    message=f'Input {input_parameters[k]["description"]} ',
-                    validate=lambda _, x: re.match(
-                        pattern=input_parameters[k]["condition"], string=x
+            # Check if input_parameters[k] is a dictionary with required keys
+            if isinstance(input_parameters[k], dict) and 'description' in input_parameters[k] and 'condition' in input_parameters[k]:
+                questions = [
+                    inquirer.Text(
+                        name=k,
+                        message=f'Input {input_parameters[k]["description"]} ',
+                        validate=lambda _, x: re.match(
+                            pattern=input_parameters[k]["condition"], string=x
+                        ),
+                        default=input_parameters[k].get("default", None),
                     ),
-                    default=input_parameters[k].get("default", None),
-                ),
-            ]
-            answer = inquirer.prompt(questions)
-            project_properties[k] = answer[k]
+                ]
+                answer = inquirer.prompt(questions)
+                project_properties[k] = answer[k]
+            else:
+                # If not properly formatted, use a default value
+                default_value = f"{project_name}-{k}"
+                project_properties[k] = default_value
+                print(f"  • Using default value for {k}: {default_value}")
         except ValueError:
             print(
                 f"{Fore.RED}❌ Invalid input. Please enter a valid string. {Fore.RESET}"
             )
     return project_properties
-
-
-# def check project props based on regex
 
 
 def check_project_props(project_properties: dict, prop: str) -> bool:
@@ -250,336 +345,3 @@ def check_project_props(project_properties: dict, prop: str) -> bool:
             print(
                 f"{Fore.RED}❌ Invalid input. Please enter a valid string according to {project_properties[k]['condition']}. {Fore.RESET}"
             )
-
-
-
-def parse_project(
-    project_properties: dict,
-    project_properties_parse: dict = None,
-    file_name: PurePath = None,
-    project_conf_name: str = None,
-    parser_type: str = "normal",
-):
-    """
-    Parse project properties.
-
-    :param project_conf_name:
-    :param project_properties:
-    :param project_properties_parse:
-    :param file_name:
-    :param parser_type: replace type , normal or invert
-    :return:
-    """
-    change = False
-    if project_properties_parse is None:
-        project_properties_parse = g_project_properties_parse
-
-    if parser_type == "invert":
-        copy_files_info_project(project_name=project_conf_name)
-    else:
-        for prop in project_properties_parse["template_input_parameters"].keys():
-            # creating a variable and storing the text that we want to search
-            replace = project_properties.get(prop, None)
-            search = project_properties_parse["template_input_parameters"][prop][
-                "template_value"
-            ]
-
-            if replace is not None:
-                # Opening our text file in read only
-                # mode using the open() function
-                with open(file_name, "r") as file:
-                    # Reading the content of the file
-                    # using the read() function and storing
-                    # them in a new variable
-                    data = file.read()
-                    if search in data and change == False:
-                        create_tmp_file(
-                            file_name=file_name, project_name=project_conf_name
-                        )
-                        change = True
-                    # Searching and replacing the text
-                    # using the replace() function
-                    data = data.replace(search, replace)
-
-                with open(file_name, "w") as file:
-                    file.write(data)
-
-                # Printing Text replaced
-                logging.debug(f"Text {search} replaced in {file_name} by {replace}")
-                # verify if search is in data and copy the file
-
-
-# create a copy of file to a tmp path home .thothcf folder
-def create_tmp_file(file_name: PurePath = None, project_name: str = None) -> PurePath:
-    """
-    Create tmp file.
-
-    :param file_name:
-    :param project_name:
-    :return:
-    """
-    # TODO create hash for file and add to entry to check if template changed or not after create check file hash
-
-    if not os.path.exists(PurePath(f"{Path.home()}/.thothcf/{project_name}")):
-        os.makedirs(PurePath(f"{Path.home()}/.thothcf/{project_name}"))
-        logging.debug(
-            f"Folder {PurePath(f'{Path.home()}/.thothcf/{project_name}')} created"
-        )
-
-    tmp_path = PurePath(
-        f"{Path.home()}/.thothcf/{project_name}/{file_name.parent.as_posix()}"
-    )
-    os.makedirs(tmp_path, exist_ok=True)
-
-    tmp_file = PurePath(f"{tmp_path}/{file_name.name}")
-
-    if not os.path.exists(
-        PurePath(f"{Path.home()}/.thothcf/{project_name}/")
-    ) or not os.path.exists(tmp_file):
-        print(f"{Fore.CYAN}👷 Modifying {file_name.name} for {project_name}")
-
-        # todo check copy many times and entries in thothcf
-        shutil.copy(file_name, tmp_file)
-        update_info_project(file_path=Path(file_name), project_name=project_name)
-    elif not check_hash_file(file_path=tmp_file, file_path_2=file_name) and (
-        os.path.exists(PurePath(f"{Path.home()}/.thothcf/{project_name}/"))
-        and os.path.exists(tmp_file)
-    ):
-        print(f"{Fore.CYAN}👷 Modifying {file_name.name} for {project_name}")
-        os.remove(tmp_file)
-        shutil.copy(file_name, tmp_file)
-        update_info_project(file_path=Path(file_name), project_name=project_name)
-    return tmp_file
-
-
-def check_hash_file(file_path: PurePath = None, file_path_2: PurePath = None):
-    """
-    Check hash file.
-
-    :param file_path_2:
-    :param file_path:
-    :return:
-    """
-    if file_path is not None and file_path_2 is not None:
-        with open(file_path, "rb") as f:
-            file_hash = hashlib.sha256(f.read()).hexdigest()
-        with open(file_path_2, "rb") as f:
-            file_hash_2 = hashlib.sha256(f.read()).hexdigest()
-        if file_hash == file_hash_2:
-            return True
-        else:
-            return False
-    else:
-        return False
-
-
-# copy home file in .thothcf folder to the specific project location  based on path
-# and replace if exists
-def copy_home_file(
-    file_name: PurePath = None, directory: PurePath = None, project_name: str = None
-):
-    """
-    Copy home file.
-
-    :param project_name:
-    :param file_name:
-    :param directory:
-    :return:
-    """
-    print(Fore.GREEN + f"Restoring file {file_name}" + Fore.RESET)
-    tmp_file = PurePath(
-        f"{Path.home()}/.thothcf/{project_name}/{directory}/{PurePath(file_name).name}"
-    )
-    if not os.path.exists(
-        PurePath(f"{Path.home()}/.thothcf/{project_name}")
-    ) or not os.path.exists(tmp_file):
-        shutil.copy(file_name, tmp_file)
-    if os.path.exists(file_name):
-        os.remove(directory / file_name)
-    shutil.copy(tmp_file, directory / file_name)
-
-
-# copy all files in the array of dictionaries in .thothcf.toml at home
-def copy_files_info_project(project_name: str):
-    """
-    Copy all files in the array of dictionaries in .thothcf.toml at home.
-
-    :param project_name:
-
-    :return:
-    """
-
-    config = load_iac_conf(directory=f"{Path.home()}/.thothcf/")
-
-    if project_name in config:
-        for file in config[project_name]["template_files"]:
-            logging.debug(f"Copying {file['local']} to {file['source']}")
-            copy_home_file(
-                file_name=file["local"],
-                directory=PurePath(file["source"]),
-                project_name=project_name,
-            )
-
-
-def get_project_properties_parse(
-    directory: PurePath = None,
-    project_properties: dict = None,
-) -> dict:
-    """
-    Get project properties parse.
-
-    :param project_properties:
-    :param directory:
-    :return:
-    """
-    project_properties_parse = {}
-    if directory is not None:
-        project_properties_parse = load_iac_conf(directory=directory)
-        project_properties = project_properties_parse.get(
-            "project_properties", project_properties
-        )
-        logging.debug(project_properties_parse)
-    return {
-        "project_properties_parse": project_properties_parse,
-        "project_properties": project_properties,
-    }
-
-
-def walk_folder_replace(
-    directory,
-    project_name: str,
-    project_properties: dict = None,
-    action="make_project",
-):
-    """
-    Walk folder and replace keywords.
-
-    :param project_name:
-    :param directory:
-    :param project_properties:
-    :param action:
-    :return:
-    """
-
-    project_properties_ = get_project_properties_parse(
-        directory=directory,
-        project_properties=project_properties,
-    )
-
-    project_properties_parse = project_properties_.get("project_properties_parse")
-    project_properties = project_properties_.get("project_properties")
-
-    if project_properties_parse != {} and action != "make_template":
-        allowed_extensions = {
-            "png",
-            "svg",
-            "xml",
-            "toml",
-            ".thothcf.toml",
-            "drawio",
-            "gitignore",
-            ".terraform.lock.hcl",
-            "catalog-info.yaml",
-            "mkdocs.yaml",
-            "pdf",
-            "dot",
-            "gif",
-        }
-        not_allowed_folders = {
-            ".git",
-            ".terraform",
-            ".terragrunt-cache",
-            "cdk.out",
-            "catalog",
-            "__pycache__",
-        }
-
-        print(f"{Fore.LIGHTBLUE_EX}👷 Parsing template ... {Fore.RESET}")
-        for dirpath, dirnames, filenames in os.walk(directory):
-            if not (any(x in dirpath for x in not_allowed_folders)):
-                logging.debug(f"dirpath: {dirpath}, dirnames, filenames)")
-
-                for f in filenames:
-                    if (
-                        f.split(".")[-1] not in allowed_extensions
-                        and f not in allowed_extensions
-                    ):
-                        make_template_or_project(
-                            directory=dirpath,
-                            project_properties=project_properties,
-                            project_properties_parse=project_properties_parse,
-                            project_conf_name=project_name,
-                            action=action,
-                            file=f,
-                        )
-
-    elif action == "make_template":
-        parse_project(
-            project_properties=project_properties,
-            project_properties_parse=project_properties_parse,
-            parser_type="invert",
-            project_conf_name=project_name,
-        )
-        # TODO unify make project and template for all kind of projects
-    else:
-        print(f"{Fore.RED}No project Config founds {Fore.RESET} ")
-
-    print(f"✅{Fore.CYAN} Done! {Fore.RESET}")
-
-
-def make_template_or_project(
-    directory: PurePath = None,
-    project_properties: dict = None,
-    project_properties_parse: dict = None,
-    project_type: str = "terraform",
-    action: str = "make_project",
-    project_conf_name: str = None,
-    file: str = None,
-):
-    """
-    Make template or project.
-
-    :param project_conf_name:
-    :param file:
-    :param project_properties_parse:
-    :param directory:
-    :param project_properties:
-    :param action:
-    :param project_type:
-    :return:
-    """
-    if project_type == "cdkv2":
-        file = "project_configs/environment_options/environment_options.yml"
-
-        project_properties_parse = get_project_properties_parse(
-            directory=directory,
-            project_properties=project_properties,
-        )["project_properties_parse"]
-        project_properties = get_exist_project_props(directory=directory)
-
-    if (
-        action == "make_project"
-        # and project_properties is not None
-        # and project_properties != {}
-    ):
-        file_path = PurePath(os.path.join(directory, file))
-        logging.debug(f"The file to parser {file_path}")
-
-        parse_project(
-            project_properties=project_properties,
-            file_name=file_path,
-            project_properties_parse=project_properties_parse,
-            project_conf_name=project_conf_name,
-        )
-
-    elif action == "make_template":
-        file_path = PurePath(os.path.join(directory, file))
-        logging.debug(f"The file to parser {file_path}")
-
-        parse_project(
-            project_properties=project_properties,
-            file_name=file_path,
-            project_properties_parse=project_properties_parse,
-            parser_type="invert",
-            project_conf_name=project_conf_name,
-        )

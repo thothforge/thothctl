@@ -263,9 +263,6 @@ provider "aws" {
 EOF
 }
 
-
-EOF
-}
 """
 tflint_hcl = """
 plugin "aws" {

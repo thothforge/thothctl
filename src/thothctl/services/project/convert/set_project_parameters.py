@@ -199,6 +199,7 @@ def set_project_conf(
         for key, value in template_input_parameters.items():
             print(f"  • {key}: {value}")
 
+    # Create project configuration
     create_project_conf(
         project_properties=project_properties,
         template_input_parameters=template_input_parameters,
@@ -206,6 +207,14 @@ def set_project_conf(
         repo_metadata=repo_metadata,
         project_name=project_name,
         space=space,
+    )
+    
+    # Execute template replacement logic to replace placeholders in files
+    from .get_project_data import replace_template_placeholders
+    replace_template_placeholders(
+        directory=directory,
+        project_properties=project_properties,
+        project_name=project_name
     )
 
 

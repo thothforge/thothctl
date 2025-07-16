@@ -11,8 +11,8 @@ from ....core.integrations.azure_devops.get_azure_devops import get_pattern_from
 from ....core.integrations.github.get_github import get_pattern_from_github
 from ....services.generate.create_template.create_template import create_project
 from ...project.convert.get_project_data import (
+    replace_template_placeholders,
     get_project_props,
-    walk_folder_replace,
 )
 from ...project.convert.set_project_parameters import set_project_conf
 from ....utils.crypto import load_credentials, validate_credentials
