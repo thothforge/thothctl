@@ -283,16 +283,27 @@ def get_simple_project_props(
     """
     print(f"{Fore.GREEN} Write project parameters for {project_name}")
     
+    # Check if input_parameters is empty or not properly formatted
+    if not input_parameters:
+        print(f"{Fore.YELLOW}⚠️ No input parameters defined. Using default project properties.{Fore.RESET}")
+        return project_properties
+    
+    # Check if input_parameters is a simple dictionary of placeholders
+    is_simple_dict = all(isinstance(v, str) for v in input_parameters.values())
+    
     if batch_mode:
         # In batch mode, use default values or generate sensible defaults
         for k in input_parameters.keys():
             try:
-                # Check if input_parameters[k] is a dictionary with a 'default' key
-                if isinstance(input_parameters[k], dict) and 'default' in input_parameters[k]:
-                    default_value = input_parameters[k]['default']
-                else:
-                    # If not, use a sensible default based on the key
+                if is_simple_dict:
+                    # For simple dictionaries, use key as value with project name prefix
                     default_value = f"{project_name}-{k}"
+                else:
+                    # For complex dictionaries with metadata
+                    if isinstance(input_parameters[k], dict) and 'default' in input_parameters[k]:
+                        default_value = input_parameters[k]['default']
+                    else:
+                        default_value = f"{project_name}-{k}"
                 
                 project_properties[k] = default_value
                 print(f"  • Using default value for {k}: {default_value}")
@@ -303,29 +314,57 @@ def get_simple_project_props(
     # Interactive mode
     for k in input_parameters.keys():
         try:
-            # Check if input_parameters[k] is a dictionary with required keys
-            if isinstance(input_parameters[k], dict) and 'description' in input_parameters[k] and 'condition' in input_parameters[k]:
+            if is_simple_dict:
+                # For simple dictionaries, just ask for the value
                 questions = [
                     inquirer.Text(
                         name=k,
-                        message=f'Input {input_parameters[k]["description"]} ',
-                        validate=lambda _, x: re.match(
-                            pattern=input_parameters[k]["condition"], string=x
-                        ),
-                        default=input_parameters[k].get("default", None),
+                        message=f"Input value for {k}: ",
+                        default=project_name if k == "project" else None,
                     ),
                 ]
                 answer = inquirer.prompt(questions)
-                project_properties[k] = answer[k]
+                if answer:  # Check if user didn't cancel
+                    project_properties[k] = answer[k]
             else:
-                # If not properly formatted, use a default value
-                default_value = f"{project_name}-{k}"
-                project_properties[k] = default_value
-                print(f"  • Using default value for {k}: {default_value}")
-        except ValueError:
-            print(
-                f"{Fore.RED}❌ Invalid input. Please enter a valid string. {Fore.RESET}"
-            )
+                # For complex dictionaries with metadata
+                if isinstance(input_parameters[k], dict) and 'description' in input_parameters[k]:
+                    message = f'Input {input_parameters[k]["description"]} '
+                    
+                    # Set up validation if condition exists
+                    validate = None
+                    if 'condition' in input_parameters[k]:
+                        pattern = input_parameters[k]["condition"]
+                        validate = lambda _, x: re.match(pattern=pattern, string=x)
+                    
+                    # Set up default if it exists
+                    default = input_parameters[k].get("default", None)
+                    
+                    questions = [
+                        inquirer.Text(
+                            name=k,
+                            message=message,
+                            validate=validate,
+                            default=default,
+                        ),
+                    ]
+                    answer = inquirer.prompt(questions)
+                    if answer:  # Check if user didn't cancel
+                        project_properties[k] = answer[k]
+                else:
+                    # If not properly formatted, just ask for the value
+                    questions = [
+                        inquirer.Text(
+                            name=k,
+                            message=f"Input value for {k}: ",
+                        ),
+                    ]
+                    answer = inquirer.prompt(questions)
+                    if answer:  # Check if user didn't cancel
+                        project_properties[k] = answer[k]
+        except Exception as e:
+            print(f"{Fore.RED}❌ Error processing parameter {k}: {str(e)}{Fore.RESET}")
+    
     return project_properties
 
 
