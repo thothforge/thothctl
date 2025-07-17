@@ -109,55 +109,55 @@ def create_project_conf(
     :return:
     """
     file_path = os.path.join(directory, ".thothcf.toml")
-    properties = {}
     if project_name is None:
         project_name = set_project_id()
 
-    if not check_project_properties(directory="."):
-        properties = load_iac_conf(directory=directory)
-        properties.pop("project_properties")
-        properties.pop("thothcf")
-
-    if os.path.exists(file_path):
-        mode = "a"
-        if properties != {}:
-            with open(file_path, "w") as file:
-                toml.dump(properties, file)
-    else:
-        mode = "w"
-
-    with open(file_path, mode) as file:
+    # Create the file with project_properties first
+    with open(file_path, "w") as file:
         logging.debug(f"{Fore.GREEN} Opening {file} ... {Fore.RESET}")
-        properties = {"project_properties": project_properties}
-        file.write("\n\n")
-        toml.dump(properties, file)
         
-        # Add space to thothcf configuration if provided
+        # Write project_properties section
+        if project_properties:
+            file.write("# Project Properties\n")
+            toml.dump({"project_properties": project_properties}, file)
+            file.write("\n")
+        
+        # Add thothcf configuration
         thothcf_config = {"project_id": project_name}
         if space:
             thothcf_config["space"] = space
         
+        file.write("# ThothCTL Configuration\n")
         toml.dump({"thothcf": thothcf_config}, file)
+        file.write("\n")
 
-        if mode == "w" and template_input_parameters is None:
+        # Write template_input_parameters section
+        if template_input_parameters is None:
+            file.write("# Template Parameters\n")
             template_input_parameters = {
                 "template_input_parameters": g_project_properties_parse
             }
             toml.dump(template_input_parameters, file)
-
-        elif mode == "w" and template_input_parameters is not None:
+        else:
+            file.write("# Template Parameters\n")
             template_input_parameters = {
                 "template_input_parameters": template_input_parameters
             }
             toml.dump(template_input_parameters, file)
-        set_meta_data(repo_metadata=repo_metadata, file_path=file_path)
+        
+        # Add metadata if provided
+        if repo_metadata:
+            file.write("\n# Repository Metadata\n")
+            meta = {"origin_metadata": repo_metadata}
+            toml.dump(meta, file)
 
-        create_catalog_info(
-            directory=PurePath.joinpath(directory, "docs/catalog/"),
-            project_properties=project_properties,
-            project_name=project_name,
-            space=space,
-        )
+    # Create catalog info
+    create_catalog_info(
+        directory=PurePath.joinpath(directory, "docs/catalog/"),
+        project_properties=project_properties,
+        project_name=project_name,
+        space=space,
+    )
 
 
 def set_project_conf(
@@ -209,6 +209,10 @@ def set_project_conf(
         space=space,
     )
     
+    # Add project_properties to .thothcf.toml
+    from .post_init import add_project_properties_to_thothcf
+    add_project_properties_to_thothcf(directory, project_properties)
+    
     # Execute template replacement logic to replace placeholders in files
     from .get_project_data import replace_template_placeholders
     replace_template_placeholders(
@@ -257,154 +261,70 @@ def create_catalog_info(
     Create catalog info.
 
     :param az_project_name:
-    :param netsted:
-    :param git_repo_url:
-    :param project_properties:
-    :param project_name:
     :param directory:
-    :param space: Space name for the project
-    :return:
-    """
-    if git_repo_url is None:
-        git_repo_url = f"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX{project_name}"
-    if netsted:
-        # Get relative path for specific directory
-        relative_path = get_relative_path_from_git_root()
-        git_repo_url = f"{git_repo_url}/{relative_path}"
-        print(git_repo_url)
-    if project_properties is None:
-        project_properties = get_exist_project_props(directory=PurePath("."))
-
-    idp_properties = get_exist_project_props(
-        directory=PurePath("."),
-        key="idp",
-    )
-
-    if project_properties is not None:
-        catalog_info = {
-            "apiVersion": "backstage.io/v1alpha1",
-            "kind": "Resource",
-            "metadata": {
-                "name": f"{project_name}",
-                "description": f"{project_properties.get('description', '')}",
-                "links": [
-                    {
-                        "url": git_repo_url,
-                        "title": "Source Code",
-                        "icon": "GitHub",
-                    }
-                ],
-                "annotations": {
-                    "backstage.io/techdocs-ref": "dir:.",
-                    "dev.azure.com/project-repo": f"{az_project_name}/{project_name}",
-                },
-                "tags": idp_properties.get("tags", g_catalog_tags),
-            },
-            "spec": idp_properties.get("spec", g_catalog_spec),
-        }
-        
-        # Add space to catalog info if provided
-        if space:
-            catalog_info["metadata"]["space"] = space
-            
-        # Create all necessary directories in the path
-        path_catalog = f"{directory}/"
-        os.makedirs(path_catalog, exist_ok=True)
-        path_catalog = f"{path_catalog}/catalog-info.yaml"
-
-        try:
-            with open(path_catalog, "w") as file:
-                yaml.dump(catalog_info, file, default_flow_style=False)
-                print(
-                    f"{Fore.CYAN} catalog-info.yaml file created in {path_catalog}. {Fore.RESET}"
-                )
-        except:
-            logging.warning("catalog-info.yaml file not found")
-            print(
-                f"{Fore.YELLOW}  No such file or directory: {path_catalog} {Fore.RESET}"
-            )
-
-
-def get_git_metadata_repo_url(
-    directory: PurePath = None, remote_name: str = "origin"
-) -> str:
-    """
-    Get git metadata repo url.
-
-    Args:
-        directory (PurePath): Path to the git repository directory. If None, uses current directory.
-        remote_name (str): Name of the remote to get URL from. Defaults to 'origin'.
-
-    Returns:
-        str: The remote repository URL
-    """
-    try:
-        repo_path = directory if directory else "."
-        repo = Repo(repo_path, search_parent_directories=True)
-
-        # Get the specified remote
-        remote = repo.remotes[remote_name]
-        return remote.url
-    except Exception as e:
-        print(f"Error getting git remote URL: {str(e)}")
-        return ""
-
-
-def get_relative_path_from_git_root(file_path: PurePath = None) -> str:
-    """
-    Get the relative path from git root directory to the specified path.
-    If no path is specified, uses current working directory.
-
-    Args:
-        file_path (PurePath): Path to get relative path for. If None, uses current directory.
-
-    Returns:
-        str: Relative path from git root to the specified path
-    """
-    try:
-        # If no path specified, use current directory
-        path_to_check = file_path if file_path else Path.cwd()
-
-        # Initialize repo and get git root directory
-        repo = Repo(path_to_check, search_parent_directories=True)
-        git_root = Path(repo.git.rev_parse("--show-toplevel"))
-
-        # Get relative path
-        relative_path = str(Path(path_to_check).relative_to(git_root))
-
-        return relative_path
-    except Exception as e:
-        print(f"Error getting relative path: {str(e)}")
-        return ""
-
-
-def create_idp_doc_main(
-    directory_code: Path,
-    project_name: str,
-    az_project_name: str,
-    directory_docs_file: PurePath = PurePath("docs/catalog"),
-    nested: bool = False,
-    space: Optional[str] = None,
-):
-    """
-    Create idp doc main.
-
-    :param az_project_name:
-    :param nested:
     :param project_name:
-    :param directory_docs_file:
-    :param directory_code:
+    :param project_properties:
+    :param git_repo_url:
+    :param netsted:
     :param space: Space name for the project
     :return:
     """
+    if project_name is None:
+        project_name = "project"
 
-    remote_url = get_git_metadata_repo_url(directory=directory_code)
+    if project_properties is None:
+        project_properties = {}
 
-    create_catalog_info(
-        directory=directory_docs_file,
-        project_name=project_name,
-        git_repo_url=remote_url,
-        netsted=nested,
-        az_project_name=az_project_name,
-        space=space,
-    )
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    file_path = os.path.join(directory, "catalog-info.yaml")
+    catalog_info = {
+        "apiVersion": "backstage.io/v1alpha1",
+        "kind": "Component",
+        "metadata": {
+            "name": project_name,
+            "description": f"IaC project for {project_name}",
+            "annotations": {
+                "backstage.io/techdocs-ref": "dir:.",
+                "github.com/project-slug": f"{project_name}",
+            },
+            "tags": g_catalog_tags,
+        },
+        "spec": g_catalog_spec,
+    }
+    
+    # Add space to metadata if provided
+    if space:
+        catalog_info["metadata"]["space"] = space
+
+    if project_properties != {}:
+        catalog_info["metadata"]["annotations"]["project_properties"] = project_properties
+
+    if git_repo_url is not None:
+        catalog_info["metadata"]["annotations"]["github.com/project-slug"] = git_repo_url
+
+    if az_project_name is not None:
+        catalog_info["metadata"]["annotations"][
+            "dev.azure.com/project-repo"
+        ] = az_project_name
+
+    with open(file_path, "w") as file:
+        yaml.dump(catalog_info, file, default_flow_style=False)
+        print(f"{Fore.CYAN} catalog-info.yaml file created in {file_path}. {Fore.RESET}")
+
+
+def get_git_repo_url(directory: PurePath = None):
+    """
+    Get git repo url.
+
+    :param directory:
+    :return:
+    """
+    try:
+        repo = Repo(directory)
+        remote_url = repo.remotes.origin.url
+        return remote_url
+    except Exception as e:
+        logging.error(f"{Fore.RED}Error getting git repo url: {e}{Fore.RESET}")
+        return None

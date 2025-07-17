@@ -51,6 +51,14 @@ class ProjectService:
             project_name=project_name,
             project_properties=project_props,
             space=space,
+            batch_mode=batch_mode,
+        )
+        
+        # Ensure project_properties are in the .thothcf.toml file
+        from ...project.convert.post_init import add_project_properties_to_thothcf
+        add_project_properties_to_thothcf(
+            project_dir=os.path.join(os.getcwd(), project_name),
+            project_properties=project_props
         )
 
     def setup_version_control(
