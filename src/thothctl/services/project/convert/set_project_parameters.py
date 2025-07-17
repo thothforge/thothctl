@@ -116,10 +116,12 @@ def create_project_conf(
     with open(file_path, "w") as file:
         logging.debug(f"{Fore.GREEN} Opening {file} ... {Fore.RESET}")
         
-        # Write project_properties section
+        # Write project_properties section first
         if project_properties:
             file.write("# Project Properties\n")
-            toml.dump({"project_properties": project_properties}, file)
+            file.write("[project_properties]\n")
+            for key, value in project_properties.items():
+                file.write(f'{key} = "{value}"\n')
             file.write("\n")
         
         # Add thothcf configuration
