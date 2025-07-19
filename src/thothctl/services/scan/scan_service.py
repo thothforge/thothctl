@@ -18,6 +18,18 @@ from ...utils.common.delete_directory import DirectoryManager
 # from .scanners.tfsec import TFSecScanner
 from .scanners.checkov import CheckovScanner
 from .scanners.scan_reports import ReportProcessor, ReportScanner
+
+
+def debug_print(message: str) -> None:
+    """Print debug message only if debug mode is enabled."""
+    if os.environ.get("THOTHCTL_DEBUG") == "true":
+        print(f"[DEBUG] {message}")
+
+
+def verbose_print(message: str) -> None:
+    """Print verbose message if verbose or debug mode is enabled."""
+    if os.environ.get("THOTHCTL_DEBUG") == "true" or os.environ.get("THOTHCTL_VERBOSE") == "true":
+        print(f"[INFO] {message}")
 # thothctl/application/scan_service.py (Application Layer)
 from .scanners.scanners import ScanOrchestrator, Scanner
 from .scanners.trivy import TrivyScanner
@@ -76,9 +88,9 @@ class ScanService:
             # Ensure clean reports directory
 
             if path.exists(reports_dir):
-                print(Fore.GREEN + "Clean up Directory" + Fore.RESET)
+                verbose_print("Clean up Directory")
                 for t in selected_tools:
-                    print(f"Removing {path.join(reports_path, t)}")
+                    verbose_print(f"Removing {path.join(reports_path, t)}")
                     p = path.join(reports_path, t)
                     if path.exists(p):
                         reports_path = DirectoryManager.ensure_empty_directory(
@@ -136,8 +148,8 @@ class ScanService:
                 total_issues += total_checkov_issues
                 
                 # Log the results for debugging
-                print(f"[DEBUG] Checkov scan results: passed={total_passed}, failed={total_failed}, skipped={total_skipped}, error={total_error}")
-                print(f"[DEBUG] report_data: {report_data}")
+                debug_print(f"Checkov scan results: passed={total_passed}, failed={total_failed}, skipped={total_skipped}, error={total_error}")
+                debug_print(f"report_data: {report_data}")
                 self.logger.info(f"Checkov scan results: passed={total_passed}, failed={total_failed}, skipped={total_skipped}, error={total_error}")
                 
                 # Save the results to a file for debugging
@@ -149,7 +161,7 @@ class ScanService:
                         for report_name, report_data in checkov_results.items():
                             f.write(f"Report {report_name}: {report_data.get('passed', 0)} passed, {report_data.get('failed', 0)} failed\n")
                 except Exception as e:
-                    print(f"[DEBUG] Error saving debug info: {e}")
+                    debug_print(f"Error saving debug info: {e}")
                     
             # Run other scanners
             orchestrator = ScanOrchestrator(scanners)
@@ -189,7 +201,7 @@ class ScanService:
             
             # Double-check that report_data is present for checkov
             if "checkov" in results and results["checkov"].get("report_data") is None:
-                print("[DEBUG] report_data is still None after processing, recreating it")
+                debug_print("report_data is still None after processing, recreating it")
                 if "detailed_reports" in results["checkov"] and results["checkov"]["detailed_reports"]:
                     detailed_reports = results["checkov"]["detailed_reports"]
                     
@@ -232,23 +244,23 @@ class ScanService:
         checkov_dir = os.path.join(reports_dir, "checkov")
         
         # Debug output
-        print(f"\n[DEBUG] Looking for Checkov reports in: {checkov_dir}")
+        debug_print(f"Looking for Checkov reports in: {checkov_dir}")
         
         if not os.path.exists(checkov_dir):
             print(f"[WARNING] Checkov directory not found: {checkov_dir}")
             
             # Try to find any XML files in the reports directory
-            print(f"[DEBUG] Searching for XML files in {reports_dir}")
+            debug_print(f" Searching for XML files in {reports_dir}")
             xml_files = []
             for root, _, files in os.walk(reports_dir):
                 for file in files:
                     if file.endswith('.xml'):
                         xml_path = os.path.join(root, file)
-                        print(f"[DEBUG] Found XML file: {xml_path}")
+                        debug_print(f" Found XML file: {xml_path}")
                         xml_files.append(xml_path)
             
             if xml_files:
-                print(f"[DEBUG] Found {len(xml_files)} XML files")
+                debug_print(f" Found {len(xml_files)} XML files")
                 for xml_file in xml_files:
                     try:
                         # Get report name from parent directory
@@ -300,23 +312,23 @@ class ScanService:
                             "report_path": xml_file
                         }
                         
-                        print(f"[DEBUG] Report {report_dir} results: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
+                        debug_print(f" Report {report_dir} results: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
                     except Exception as e:
                         print(f"[WARNING] Error parsing XML file {xml_file}: {e}")
             
             # If still no results, look for HTML reports
             if not results:
-                print(f"[DEBUG] Searching for HTML reports in {reports_dir}")
+                debug_print(f" Searching for HTML reports in {reports_dir}")
                 html_files = []
                 for root, _, files in os.walk(reports_dir):
                     for file in files:
                         if file.endswith('.html') and not file == "index.html":
                             html_path = os.path.join(root, file)
-                            print(f"[DEBUG] Found HTML file: {html_path}")
+                            debug_print(f" Found HTML file: {html_path}")
                             html_files.append(html_path)
                 
                 if html_files:
-                    print(f"[DEBUG] Found {len(html_files)} HTML files, using as fallback")
+                    debug_print(f" Found {len(html_files)} HTML files, using as fallback")
                     # Just create a dummy entry for each HTML file
                     for i, html_file in enumerate(html_files):
                         report_name = f"report_{i+1}"
@@ -332,7 +344,7 @@ class ScanService:
             return results
             
         # List all contents of the directory for debugging
-        print(f"[DEBUG] Contents of {checkov_dir}:")
+        debug_print(f" Contents of {checkov_dir}:")
         for item in os.listdir(checkov_dir):
             item_path = os.path.join(checkov_dir, item)
             if os.path.isdir(item_path):
@@ -357,32 +369,32 @@ class ScanService:
             xml_path = os.path.join(report_path, "results_junitxml.xml")
             json_path = os.path.join(report_path, "results_json.json")
             
-            print(f"[DEBUG] Checking for XML report at: {xml_path}")
+            debug_print(f" Checking for XML report at: {xml_path}")
             
             if os.path.exists(xml_path):
                 # Parse XML report
                 try:
-                    print(f"[DEBUG] Parsing XML report: {xml_path}")
+                    debug_print(f" Parsing XML report: {xml_path}")
                     self.logger.info(f"Parsing XML report: {xml_path}")
                     
                     # Read the XML file content for debugging
                     with open(xml_path, 'r') as f:
                         xml_content = f.read()
-                        print(f"[DEBUG] XML file size: {len(xml_content)} bytes")
-                        print(f"[DEBUG] First 200 chars: {xml_content[:200]}")
+                        debug_print(f" XML file size: {len(xml_content)} bytes")
+                        debug_print(f" First 200 chars: {xml_content[:200]}")
                     
                     tree = ET.parse(xml_path)
                     root = tree.getroot()
                     
                     # Debug output
-                    print(f"[DEBUG] XML root tag: {root.tag}")
+                    debug_print(f" XML root tag: {root.tag}")
                     
                     # Initialize counters
                     passed = failed = skipped = error = 0
                     
                     # First try to get counts from testsuite attributes
                     testsuites = root.findall(".//testsuite")
-                    print(f"[DEBUG] Found {len(testsuites)} testsuite elements")
+                    debug_print(f" Found {len(testsuites)} testsuite elements")
                     
                     for testsuite in testsuites:
                         # Get counts from testsuite attributes
@@ -391,7 +403,7 @@ class ScanService:
                         errors = int(testsuite.get('errors', '0'))
                         skipped_count = int(testsuite.get('skipped', '0'))
                         
-                        print(f"[DEBUG] Testsuite: tests={tests}, failures={failures}, errors={errors}, skipped={skipped_count}")
+                        debug_print(f" Testsuite: tests={tests}, failures={failures}, errors={errors}, skipped={skipped_count}")
                         
                         # Add to our totals
                         failed += failures
@@ -404,7 +416,7 @@ class ScanService:
                     # If we didn't find any testsuites with attributes, count individual testcases
                     if passed + failed + skipped + error == 0:
                         testcases = root.findall(".//testcase")
-                        print(f"[DEBUG] Found {len(testcases)} testcase elements")
+                        debug_print(f" Found {len(testcases)} testcase elements")
                         
                         for testcase in testcases:
                             # Check if the test failed
@@ -431,13 +443,13 @@ class ScanService:
                         "report_path": xml_path
                     }
                     
-                    print(f"[DEBUG] Report {report_dir} results: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
+                    debug_print(f" Report {report_dir} results: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
                     self.logger.info(f"Report {report_dir} results: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
                     
                     # Try to get more details from JSON if available
                     if os.path.exists(json_path):
                         try:
-                            print(f"[DEBUG] Parsing JSON report: {json_path}")
+                            debug_print(f" Parsing JSON report: {json_path}")
                             with open(json_path, 'r') as f:
                                 json_data = json.load(f)
                                 
@@ -455,7 +467,7 @@ class ScanService:
                                             })
                                 
                                 results[report_dir]["failed_checks"] = failed_checks
-                                print(f"[DEBUG] Found {len(failed_checks)} failed checks in JSON")
+                                debug_print(f" Found {len(failed_checks)} failed checks in JSON")
                         except Exception as e:
                             print(f"[WARNING] Error parsing JSON report {json_path}: {e}")
                             self.logger.warning(f"Error parsing JSON report {json_path}: {e}")
@@ -479,12 +491,12 @@ class ScanService:
                 # Check if there are any XML files in the directory
                 xml_files = [f for f in os.listdir(report_path) if f.endswith('.xml')]
                 if xml_files:
-                    print(f"[DEBUG] Found other XML files in directory: {xml_files}")
+                    debug_print(f" Found other XML files in directory: {xml_files}")
                     
                     # Try to parse the first XML file found
                     alt_xml_path = os.path.join(report_path, xml_files[0])
                     try:
-                        print(f"[DEBUG] Trying to parse alternative XML file: {alt_xml_path}")
+                        debug_print(f" Trying to parse alternative XML file: {alt_xml_path}")
                         tree = ET.parse(alt_xml_path)
                         root = tree.getroot()
                         
@@ -513,18 +525,18 @@ class ScanService:
                             "report_path": alt_xml_path
                         }
                         
-                        print(f"[DEBUG] Alternative report {report_dir} results: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
+                        debug_print(f" Alternative report {report_dir} results: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
                     except Exception as e:
                         print(f"[WARNING] Error parsing alternative XML file {alt_xml_path}: {e}")
         
         # If no results were found, try to find any XML files in the checkov directory
         if not results:
-            print("[DEBUG] No results found in standard directory structure, searching for any XML files")
+            debug_print(" No results found in standard directory structure, searching for any XML files")
             for root, dirs, files in os.walk(checkov_dir):
                 for file in files:
                     if file.endswith('.xml'):
                         xml_path = os.path.join(root, file)
-                        print(f"[DEBUG] Found XML file: {xml_path}")
+                        debug_print(f" Found XML file: {xml_path}")
                         try:
                             tree = ET.parse(xml_path)
                             root_elem = tree.getroot()
@@ -561,17 +573,17 @@ class ScanService:
         
         # If still no results, try to find HTML reports
         if not results:
-            print(f"[DEBUG] No XML results found, searching for HTML reports in {reports_dir}")
+            debug_print(f" No XML results found, searching for HTML reports in {reports_dir}")
             html_files = []
             for root, _, files in os.walk(reports_dir):
                 for file in files:
                     if file.endswith('.html') and not file == "index.html":
                         html_path = os.path.join(root, file)
-                        print(f"[DEBUG] Found HTML file: {html_path}")
+                        debug_print(f" Found HTML file: {html_path}")
                         html_files.append(html_path)
             
             if html_files:
-                print(f"[DEBUG] Found {len(html_files)} HTML files, using as fallback")
+                debug_print(f" Found {len(html_files)} HTML files, using as fallback")
                 # Just create a dummy entry for each HTML file
                 for i, html_file in enumerate(html_files):
                     report_name = f"report_{i+1}"
@@ -585,9 +597,9 @@ class ScanService:
                     }
         
         # Final debug output
-        print(f"[DEBUG] Total reports found: {len(results)}")
+        debug_print(f" Total reports found: {len(results)}")
         for report_name, report_data in results.items():
-            print(f"[DEBUG] Report: {report_name}, Total: {report_data['total']}, Passed: {report_data['passed']}, Failed: {report_data['failed']}")
+            debug_print(f" Report: {report_name}, Total: {report_data['total']}, Passed: {report_data['passed']}, Failed: {report_data['failed']}")
             
         return results
 

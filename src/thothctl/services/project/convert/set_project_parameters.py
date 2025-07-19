@@ -112,10 +112,8 @@ def create_project_conf(
     if project_name is None:
         project_name = set_project_id()
 
-    # Create the file with project_properties first
+    # Create a new file with project_properties first
     with open(file_path, "w") as file:
-        logging.debug(f"{Fore.GREEN} Opening {file} ... {Fore.RESET}")
-        
         # Write project_properties section first
         if project_properties:
             file.write("# Project Properties\n")
@@ -125,33 +123,32 @@ def create_project_conf(
             file.write("\n")
         
         # Add thothcf configuration
-        thothcf_config = {"project_id": project_name}
-        if space:
-            thothcf_config["space"] = space
-        
         file.write("# ThothCTL Configuration\n")
-        toml.dump({"thothcf": thothcf_config}, file)
+        file.write("[thothcf]\n")
+        file.write(f'project_id = "{project_name}"\n')
+        if space:
+            file.write(f'space = "{space}"\n')
         file.write("\n")
-
+        
         # Write template_input_parameters section
+        file.write("# Template Parameters\n")
         if template_input_parameters is None:
-            file.write("# Template Parameters\n")
-            template_input_parameters = {
-                "template_input_parameters": g_project_properties_parse
-            }
-            toml.dump(template_input_parameters, file)
+            # Use default template parameters
+            file.write("[template_input_parameters]\n")
+            for key, value in g_project_properties_parse.items():
+                file.write(f'{key} = "{value}"\n')
         else:
-            file.write("# Template Parameters\n")
-            template_input_parameters = {
-                "template_input_parameters": template_input_parameters
-            }
-            toml.dump(template_input_parameters, file)
+            # Use provided template parameters
+            file.write("[template_input_parameters]\n")
+            for key, value in template_input_parameters.items():
+                file.write(f'{key} = "{value}"\n')
         
         # Add metadata if provided
         if repo_metadata:
             file.write("\n# Repository Metadata\n")
-            meta = {"origin_metadata": repo_metadata}
-            toml.dump(meta, file)
+            file.write("[origin_metadata]\n")
+            for key, value in repo_metadata.items():
+                file.write(f'{key} = "{value}"\n')
 
     # Create catalog info
     create_catalog_info(

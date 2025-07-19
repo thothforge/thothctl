@@ -35,6 +35,17 @@ def replace_template_placeholders(directory, project_properties, project_name):
         ".X11-unix", "tmp"
     }
     
+    # Create a mapping for common parameter name variations
+    parameter_mapping = {
+        "deployment_region": project_properties.get("region", "us-east-2"),
+        "project_name": project_properties.get("project", project_name),
+        "backend_dynamodb": project_properties.get("dynamodb_backend", "db-terraform-lock"),
+        "cloud_provider": "aws",  # Default value
+        "project_code": project_name,  # Use project name as default
+        "deployment_profile": "default",  # Default value
+        "backend_profile": "default",  # Default value
+    }
+    
     print(f"{Fore.LIGHTBLUE_EX}👷 Replacing template placeholders... {Fore.RESET}")
     
     for dirpath, dirnames, filenames in os.walk(directory):
@@ -67,10 +78,22 @@ def replace_template_placeholders(directory, project_properties, project_name):
                 # Track if any replacements were made
                 replaced = False
                 
-                # Replace each placeholder with its value
-                for prop, value in project_properties.items():
-                    placeholder = f"#{{{prop}}}#"
-                    if placeholder in data:
+                # Find all placeholders in the format #{parameter}#
+                placeholders = re.findall(r'#\{([^}]+)\}#', data)
+                
+                # Replace each found placeholder
+                for param in placeholders:
+                    placeholder = f"#{{{param}}}#"
+                    
+                    # First check if the parameter exists in project_properties
+                    if param in project_properties:
+                        value = project_properties[param]
+                        data = data.replace(placeholder, str(value))
+                        replaced = True
+                        print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
+                    # Then check if it's in our mapping
+                    elif param in parameter_mapping:
+                        value = parameter_mapping[param]
                         data = data.replace(placeholder, str(value))
                         replaced = True
                         print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
@@ -80,8 +103,8 @@ def replace_template_placeholders(directory, project_properties, project_name):
                     with open(file_path, 'w', encoding='utf-8') as file:
                         file.write(data)
             except Exception as e:
-                # Just skip problematic files
-                pass
+                # Log errors but continue processing
+                logging.debug(f"Error processing {os.path.relpath(file_path, directory)}: {str(e)}")
     
     print(f"{Fore.GREEN}✅ Template placeholders replaced successfully!{Fore.RESET}")
 

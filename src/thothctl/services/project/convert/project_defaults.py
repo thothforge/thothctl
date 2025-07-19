@@ -4,14 +4,14 @@ Define default values for project properties.
 These properties are using as default metadata values for templates and projects
 """
 g_project_properties_parse = {
-    "deployment_region": "#{deployment_region}#",
-    "dynamodb_table": "#{backend_dynamodb}#",
-    "backend_region": "#{backend_region}#",
-    "backend_bucket": "#{backend_bucket}#",
-    "owner": "#{owner}#",
-    "client": "#{client}#",
-    "environment": "#{environment}#",
-    "project": "#{project}#",
+    "deployment_region": "us-east-2",
+    "dynamodb_table": "db-terraform-lock",
+    "backend_region": "us-east-2",
+    "backend_bucket": "test-wrapper-tfstate",
+    "owner": "thothctl",
+    "client": "thothctl",
+    "environment": "dev",
+    "project": "test-wrapper",
 }
 g_project_properties = {
     "deployment_region": "us-east-1",

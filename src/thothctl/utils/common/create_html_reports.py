@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 
 import junitparser
 from jinja2 import Environment, FileSystemLoader
+from .report_html_utils import HTMLReportUtils
 
 
 class HTMLReportGenerator:
@@ -91,6 +92,9 @@ class HTMLReportGenerator:
             self._create_simple_report(xml_files, abs_directory)
         else:
             self._create_xunit_report(xml_files, abs_directory)
+        
+        # Ensure all generated reports have consistent styling
+        self._ensure_report_consistency(abs_directory, reports_dir)
 
     def create_individual_reports(self, xml_files: List[str], output_dir: str) -> List[Dict]:
         """Create individual HTML reports for each XML file."""
@@ -502,3 +506,45 @@ class HTMLReportGenerator:
         except Exception as e:
             self.logger.error(f"Error creating xUnit HTML report: {e}")
             print(f"Error creating xUnit HTML report: {e}")
+
+    def _ensure_report_consistency(self, main_reports_dir: str, html_reports_dir: str):
+        """Ensure all generated HTML reports have consistent styling."""
+        try:
+            # Find all HTML reports
+            html_files = []
+            
+            # Main report files
+            for file in glob.glob(os.path.join(main_reports_dir, "*.html")):
+                html_files.append(file)
+            
+            # HTML reports directory files
+            for file in glob.glob(os.path.join(html_reports_dir, "*.html")):
+                html_files.append(file)
+            
+            self.logger.info(f"Checking consistency for {len(html_files)} HTML reports")
+            
+            inconsistent_reports = []
+            
+            for html_file in html_files:
+                validation = HTMLReportUtils.validate_report_consistency(html_file)
+                
+                if validation["issues"]:
+                    self.logger.warning(f"Inconsistencies found in {html_file}: {validation['issues']}")
+                    inconsistent_reports.append(html_file)
+                    
+                    # Attempt to fix the issues
+                    if HTMLReportUtils.fix_report_consistency(html_file):
+                        self.logger.info(f"Fixed consistency issues in {html_file}")
+                    else:
+                        self.logger.error(f"Failed to fix consistency issues in {html_file}")
+                else:
+                    self.logger.debug(f"Report {html_file} is consistent")
+            
+            if inconsistent_reports:
+                print(f"⚠️  Fixed styling inconsistencies in {len(inconsistent_reports)} reports")
+            else:
+                print("✅ All reports have consistent styling")
+                
+        except Exception as e:
+            self.logger.error(f"Error checking report consistency: {e}")
+            print(f"Warning: Could not verify report consistency: {e}")

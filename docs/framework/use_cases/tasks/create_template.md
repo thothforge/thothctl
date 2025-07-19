@@ -60,17 +60,17 @@ Each template type has a specific `.thothcf.toml` structure:
 
 ```toml
 [template_input_parameters.project_name]
-template_value = "#{project_name}#"
+template_value = "test-wrapper"
 condition = "\\b[a-zA-Z]+\\b"
 description = "Project Name"
 
 [template_input_parameters.deployment_region]
-template_value = "#{deployment_region}#"
+template_value = "us-east-2"
 condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
 description = "AWS Region"
 
 [template_input_parameters.environment]
-template_value = "#{environment}#"
+template_value = "dev"
 condition = "(dev|qa|stg|test|prod)"
 description = "Environment name (dev|qa|stg|test|prod)"
 
@@ -149,7 +149,7 @@ files:
   - path: .thothcf.toml
     content: |
       [template_input_parameters.project_name]
-      template_value = "#{project_name}#"
+      template_value = "test-wrapper"
       condition = "\\b[a-zA-Z]+\\b"
       description = "Project Name"
 ```
@@ -214,7 +214,7 @@ The `.thothcf.toml` file defines template variables that are replaced during gen
 
 ```toml
 [template_input_parameters.project_name]
-template_value = "#{project_name}#"
+template_value = "test-wrapper"
 condition = "\\b[a-zA-Z]+\\b"
 description = "Project Name"
 ```
@@ -238,7 +238,7 @@ The `.thothcf.toml` file includes regex conditions to validate input parameters:
 
 ```toml
 [template_input_parameters.environment]
-template_value = "#{environment}#"
+template_value = "dev"
 condition = "(dev|qa|stg|test|prod)"
 description = "Environment name (dev|qa|stg|test|prod)"
 ```

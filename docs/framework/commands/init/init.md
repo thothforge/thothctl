@@ -204,7 +204,7 @@ These properties are used for template substitution and configuration generation
 
 ### Template Substitution
 
-ThothCTL supports template substitution in project files. For example, `#{project_name}#` in templates will be replaced with the actual project name.
+ThothCTL supports template substitution in project files. For example, `test-wrapper` in templates will be replaced with the actual project name.
 
 ## Examples
 

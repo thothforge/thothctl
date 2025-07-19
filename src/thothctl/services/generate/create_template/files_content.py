@@ -48,167 +48,62 @@ remote_state {
   }
   config = {
     bucket               = local.common_vars.locals.backend_bucket_name
-    profile              = local.common_vars.locals.backend_profile
+    key                  = "${local.common_vars.locals.project_folder}/${path_relative_to_include()}/terraform.tfstate"
     region               = local.common_vars.locals.backend_region
-    workspace_key_prefix = "${local.common_vars.locals.project_folder}/${path_relative_to_include()}"
-    key                  = local.common_vars.locals.backend_key
     encrypt              = local.common_vars.locals.backend_encrypt
-    dynamodb_table       = "${local.common_vars.locals.backend_dynamodb_lock}-${local.common_vars.locals.project}"
-  }
-}
-
-generate = local.common_vars.generate
-
-
-"""
-terragrunt_hcl_clean = """locals {
-  common_vars = read_terragrunt_config("${get_parent_terragrunt_dir()}/common/common.hcl")
-}
-
-inputs = {
-  COMMAND        = get_terraform_cli_args()
-  COMMAND_GLOBAL = local.common_vars.locals
-}
-
-terraform {
-  extra_arguments "init_arg" {
-    commands  = ["init"]
-    arguments = [
-      "-reconfigure"
-    ]
-    env_vars = {
-      TERRAGRUNT_AUTO_INIT = true
-
-    }
-  }
-
-  extra_arguments "common_vars" {
-    commands = get_terraform_commands_that_need_vars()
-
-    arguments = [
-      "-var-file=${get_parent_terragrunt_dir()}/common/common.tfvars"
-
-    ]
-  }
-
-}
-
-
-remote_state {
-  backend = "s3"
-  generate = {
-    path      = "remotebackend.tf"
-    if_exists = "overwrite"
-  }
-  config = {
-    bucket               = local.common_vars.locals.backend_bucket_name
+    dynamodb_table       = local.common_vars.locals.backend_dynamodb_lock
     profile              = local.common_vars.locals.backend_profile
-    region               = local.common_vars.locals.backend_region
-    workspace_key_prefix = "${local.common_vars.locals.project_folder}/${path_relative_to_include()}"
-    key                  = local.common_vars.locals.backend_key
-    encrypt              = local.common_vars.locals.backend_encrypt
-    dynamodb_table       = "${local.common_vars.locals.backend_dynamodb_lock}-${local.common_vars.locals.project}"
   }
-}
-
-generate = local.common_vars.generate
-
-
-"""
-
-
-common_tfvars_content = """
-# Default values for deployment credentials
-# Access profile in your IDE env or pipeline the IAM user to use for deployment."
-profile = {
-      default = {
-        profile = "#{deployment_profile}#"
-        region = "#{deployment_region}#"
-  }
-      dev  = {
-        profile = "#{deployment_profile}#"
-        region = "#{deployment_region}#"
-  }
-      prod = {
-        profile = "#{deployment_profile}#"
-        region = "#{deployment_region}#"
-  }
-}
-
-# Project default tags
-project = "#{project_name}#"
-required_tags = {
-    ManagedBy = "Terraform-Terragrunt"
-    Project = "#{project_name}#"
-
 }
 """
-variables_tf_content = """# General variables
-variable "profile" {
-  type = map(any)
-  description = "Access profile for the IAM user to use for deployment."
-  default     = {
-    default = {
-      profile = "default_profile"
-      region  = "us-east-2"
-    }
-    dev = {
-      profile = "default_profile"
-      region  = "us-east-2"
-    }
-    prod = {
-      profile = "default_profile"
-      region  = "us-east-2"
-    }
-  }
-
+terragrunt_hcl_clean = """
+include "root" {
+  path = find_in_parent_folders("root.hcl")
+  expose = true
 }
-
+"""
+variables_tf_content = """
 variable "project" {
   type        = string
   description = "Project tool"
 }
-
-variable "required_tags" {
-  description = "A map of tags to add to all resources"
-  type        = map(string)
-  default     = {}
+"""
+main_tf_content = """
+resource "aws_s3_bucket" "bucket" {
+  bucket = var.project
+  tags = {
+    Name        = var.project
+    Environment = terraform.workspace
+  }
 }
-
-variable "provider" {
-  type        = string
-  default     = "AWS"
-  description = "Cloud Provider, for example: aws, azure, gcp"
-}
-
-variable "client" {
-  type        = string
-  default     = "internal"
-  description = "Client Name"
-}
-
+"""
+common_tfvars_content = """
+project = "test-wrapper"
+environment = "dev"
+owner = "thothctl"
+region = "us-east-2"
 """
 common_hcl_content = """# Load variables in locals
 # Load variables in locals
 locals {
   # Default values for variables
-  profile           = "#{deployment_profile}#"
-  project           = "#{project_name}#"
-  deployment_region = "#{deployment_region}#"
-  provider          = "#{cloud_provider}#"
-  client = "#{client}#"
+  profile           = "default"
+  project           = "test-wrapper"
+  deployment_region = "us-east-2"
+  provider          = "aws"
+  client = "thothctl"
 
   # Set tags according to company policies
   tags = {
-    ProjectCode = "#{project_code}#"
+    ProjectCode = "test-wrapper"
     Framework   = "DevSecOps-IaC"
   }
 
   # Backend Configuration
-  backend_region        = "#{backend_region}#"
-  backend_bucket_name   = "#{backend_bucket}#"
-  backend_profile       = "#{backend_profile}#"
-  backend_dynamodb_lock = "#{backend_dynamodb}#"
+  backend_region        = "us-east-2"
+  backend_bucket_name   = "test-wrapper-tfstate"
+  backend_profile       = "default"
+  backend_dynamodb_lock = "db-terraform-lock"
   backend_key           = "terraform.tfstate"
   backend_encrypt = true
   # format cloud provider/client/projectname
@@ -233,16 +128,16 @@ variable "profile" {
   description = "Variable for credentials management."
   default = {
     default = {
-      profile = "#{deployment_profile}#"
-      region = "#{deployment_region}#"
+      profile = "default"
+      region = "us-east-2"
 }
     dev  = {
-      profile = "#{deployment_profile}#"
-      region = "#{deployment_region}#"
+      profile = "default"
+      region = "us-east-2"
 }
     prod = {
-      profile = "#{deployment_profile}#"
-      region = "#{deployment_region}#"
+      profile = "default"
+      region = "us-east-2"
     
 }
   }
@@ -262,7 +157,6 @@ provider "aws" {
 
 EOF
 }
-
 """
 tflint_hcl = """
 plugin "aws" {
@@ -449,10 +343,6 @@ terraform.rc
 # terragrunt cache directories
 **/.terragrunt-cache/*
 
-# Terragrunt debug output file (when using `--terragrunt-debug` option)
-# See: https://terragrunt.gruntwork.io/docs/reference/cli-options/#terragrunt-debug
-terragrunt-debug.tfvars.json
-
 ### VisualStudioCode ###
 .vscode/*
 !.vscode/settings.json
@@ -473,30 +363,8 @@ terragrunt-debug.tfvars.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/terraform,terragrunt,pycharm,visualstudiocode
-
-
 """
-parameters_tf_content = """
-locals {
-  env = {
-    default = {
-      create = true
-    }
-    "#{environment}#" = {
-      create = true
-    }
-
-  }
-  environment_vars = contains(keys(local.env), terraform.workspace) ? terraform.workspace : "default"
-  workspace        = merge(local.env["default"], local.env[local.environment_vars])
-}
-"""
-terragrunt_hcl_resource_content = """
-include "root" {
-  path = find_in_parent_folders("root")
-} 
-"""
-main_tf_content = """
+module_readme_content = """
 /*
 * # Module for #{resource_name}# deployment
 *
@@ -529,65 +397,86 @@ repos:
     - id: gofmt
     - id: golint
 """
-thothcf_toml_content = r"""#conf
+thothcf_toml_content = """#conf
+[project_properties]
+project = "project-name"
+environment = "dev"
+owner = "thothctl"
+client = "thothctl"
+backend_region = "us-east-2"
+dynamodb_backend = "db-terraform-lock"
+backend_bucket = "project-name-tfstate"
+region = "us-east-2"
+
 [template_input_parameters.project_name]
-template_value = "#{project_name}#"
-condition = "\\\b[a-zA-Z]+\\\b"
+template_value = "test-wrapper"
+condition = "\\b[a-zA-Z]+\\b"
 description = "Project Name"
 
 [template_input_parameters.deployment_region]
-template_value = "#{deployment_region}#"
-condition = "^[a-z]{2}-[a-z]{4,10}-\\\d$"
+template_value = "us-east-2"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
 description = "Aws Region"
 
 [template_input_parameters.backend_bucket]
-template_value = "#{backend_bucket}#"
+template_value = "test-wrapper-tfstate"
 condition = "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
 description = "Backend Bucket for tfstate"
 
 [template_input_parameters.backend_region]
-template_value = "#{backend_region}#"
-condition = "^[a-z]{2}-[a-z]{4,10}-\\\d$"
+template_value = "us-east-2"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
 description = "Backend Aws Region"
 
 [template_input_parameters.owner]
-template_value = "#{owner}#"
-condition = "\\\b[a-zA-Z]+\\\b"
+template_value = "thothctl"
+condition = "\\b[a-zA-Z]+\\b"
 description = "Team or role owner for this deployment"
 
 [template_input_parameters.client]
-template_value = "#{client}#"
-condition = "\\\b[a-zA-Z]+\\\b"
+template_value = "thothctl"
+condition = "\\b[a-zA-Z]+\\b"
 description = "Client or Area for this deployment"
 
 [template_input_parameters.backend_dynamodb]
-template_value = "#{backend_dynamodb}#"
+template_value = "db-terraform-lock"
 condition = "^[a-zA-Z0-9_.-]{3,255}$"
 description = "Dynamodb for lock state"
 
 [template_input_parameters.environment]
-template_value = "#{environment}#"
+template_value = "dev"
 condition = "(dev|qa|stg|test|prod)"
 description = "The environment or workspace name for initial setup. Environment allowed values (dev|qa|stg|test|prod)"
 
 [template_input_parameters.cloud_provider]
-template_value = "#{cloud_provider}#"
+template_value = "aws"
 condition = "(aws|azure|oci|gcp)"
 description = "The environment or workspace name for initial setup. Environment allowed values (aws|azure|oci|gcp)"
 
 
 [template_input_parameters.deployment_profile]
-template_value = "#{deployment_profile}#"
+template_value = "default"
 condition = "^[a-zA-Z0-9_.-]{3,255}$"
 description = "Deployment profile aws cli"
 
 [template_input_parameters.backend_profile]
-template_value = "#{backend_profile}#"
+template_value = "default"
 condition = "^[a-zA-Z0-9_.-]{3,255}$"
 description = "Backend profile for s3 remote state"
 """
 
-thothcf_toml_module_content = r"""
+thothcf_toml_module_content = """
+# Project Properties
+[project_properties]
+project = "module-name"
+environment = "dev"
+owner = "thothctl"
+client = "thothctl"
+backend_region = "us-east-2"
+dynamodb_backend = "db-terraform-lock"
+backend_bucket = "module-name-tfstate"
+region = "us-east-2"
+
 # Define template input parameters
 [template_input_parameters.module_name]
 template_value = "#{ModuleName}#"
@@ -596,65 +485,54 @@ description = "Module Name"
 
 [template_input_parameters.resources_to_create]
 template_value= "#{ResourcesToCreate}#"
-condition= "^[a-zA-Z\\\s]+$"
+condition= "^[a-zA-Z\\s]+$"
 description = "Resources to create in this module"
-
-[template_input_parameters.description]
-template_value= "#{ModuleDescription}#"
-condition = "^[a-zA-Z\\\s]+$"
-description = "Module description"
-
-# Define project structure
-[project_structure]
-root_files = [
-   ".git",
-    ".gitignore",
-    ".pre-commit-config.yaml",
-    "README.md"
-]
-ignore_folders = [
-    ".git",
-    ".terraform",
-    "Reports"
-]
-
-[[project_structure.folders]]
-name = "catalog"
-mandatory = false
-content = [
-    "catalog-info.yaml",
-    "mkdocs.yaml"
-]
-type= "child_folder"
-[[project_structure.folders]]
-name = "docs"
-mandatory = true
-type= "root"
-[[project_structure.folders]]
-name = "modules"
-mandatory = false
-content = [
-    "variables.tf",
-    "main.tf",
-    "outputs.tf",
-    "README.md"
-]
-type= "root"
-[[project_structure.folders]]
-name = "examples"
-mandatory = true
-type= "root"
-content = [
-    "main.tf",
-    "outputs.tf",
-    "terraform.tfvars",
-    "README.md",
-    "variables.tf",
-]
-[[project_structure.folders]]
-name = "test"
-mandatory = false
-# Set rule for root file
-
-
 """
+
+terraform_template = {
+    "folders": [
+        {"name": "common", "files": ["common.hcl", "common.tfvars"]},
+        {"name": "resources", "folders": [{"name": "operations"}]},
+    ],
+    "files": [".gitignore", ".tflint.hcl", "root.hcl", ".thothcf.toml"],
+}
+
+terraform_module_template = {
+    "folders": [
+        {"name": "examples", "files": ["main.tf", "outputs.tf", "terraform.tfvars", "README.md", "variables.tf"]},
+        {"name": "test"},
+    ],
+    "files": [
+        "main.tf",
+        "outputs.tf",
+        "variables.tf",
+        "README.md",
+        ".gitignore",
+        ".tflint.hcl",
+        ".thothcf.toml",
+    ],
+}
+
+project_structure = {
+    "name": "terraform_module",
+    "description": "Terraform module template",
+    "folders": [
+        {
+            "name": "examples",
+            "mandatory": True,
+            "type": "root",
+            "content": [
+                "main.tf",
+                "outputs.tf",
+                "terraform.tfvars",
+                "README.md",
+                "variables.tf",
+            ],
+        },
+        {
+            "name": "test",
+            "mandatory": False,
+            "type": "root",
+        }
+    ]
+}

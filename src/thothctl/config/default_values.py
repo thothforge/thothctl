@@ -5,14 +5,14 @@ from typing import Dict, Final, List
 
 
 DEFAULT_PROPERTIES_PARSE: Final[Dict[str, str]] = {
-    "deployment_region": "#{deployment_region}#",
-    "dynamodb_table": "#{backend_dynamodb}#",
-    "backend_region": "#{backend_region}#",
-    "backend_bucket": "#{backend_bucket}#",
-    "owner": "#{owner}#",
-    "client": "#{client}#",
-    "environment": "#{environment}#",
-    "project": "#{project}#",
+    "deployment_region": "us-east-2",
+    "dynamodb_table": "db-terraform-lock",
+    "backend_region": "us-east-2",
+    "backend_bucket": "test-wrapper-tfstate",
+    "owner": "thothctl",
+    "client": "thothctl",
+    "environment": "dev",
+    "project": "test-wrapper",
 }
 
 DEFAULT_PROPERTIES: Final[Dict[str, str]] = {

@@ -48,6 +48,11 @@ class RestoredIaCScanCommand(ClickCommand):
         try:
             ctx = click.get_current_context()
             code_directory = ctx.obj.get("CODE_DIRECTORY")
+            debug_mode = ctx.obj.get("DEBUG", False)
+            
+            # Set debug environment variable for the scan service
+            if debug_mode:
+                os.environ["THOTHCTL_DEBUG"] = "true"
             
             self.logger.info(f"Starting original recursive scan in {code_directory}")
             
