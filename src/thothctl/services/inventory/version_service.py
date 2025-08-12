@@ -809,20 +809,20 @@ class ProviderVersionChecker:
             
         return registry_base, namespace, provider_name
 
-    async def get_latest_provider_version(self, provider_source: str, provider_name: str) -> Optional[str]:
+    async def get_latest_provider_version(self, provider_source: str, provider_name: str) -> Tuple[Optional[str], str]:
         """
-        Get the latest version for a provider from the registry.
+        Get the latest version and source URL for a provider from the registry.
         
         Args:
             provider_source: Provider source URL
             provider_name: Provider name
             
         Returns:
-            Latest version string or None if not found
+            Tuple of (latest_version, source_url) or (None, source_url) if not found
         """
         if not self._session:
             logger.error("Session not initialized. Use async context manager.")
-            return None
+            return None, "Error: Session not initialized"
             
         try:
             registry_base, namespace, name = self._parse_provider_source(provider_source)
@@ -851,29 +851,29 @@ class ProviderVersionChecker:
                             data = json.loads(text_content)
                         else:
                             logger.warning(f"Response for {provider_name} doesn't appear to be JSON: {text_content[:100]}...")
-                            return None
+                            return None, url
                         
                         # Get the latest version from the provider info
                         latest_version = data.get("version")
                         
                         if latest_version:
                             logger.info(f"Latest version for {provider_name}: {latest_version}")
-                            return latest_version
+                            return latest_version, url
                         else:
                             logger.warning(f"No version found for provider {provider_name}")
-                            return None
+                            return None, url
                             
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse JSON response for {provider_name}: {str(e)}")
-                        return None
+                        return None, url
                         
                 else:
                     logger.warning(f"Failed to fetch version for {provider_name}: HTTP {response.status}")
-                    return None
+                    return None, url
                     
         except Exception as e:
             logger.error(f"Error fetching latest version for {provider_name}: {str(e)}")
-            return None
+            return None, f"Error: {str(e)}"
 
     def _compare_provider_versions(self, current: str, latest: str) -> str:
         """
@@ -1013,17 +1013,19 @@ class ProviderVersionManager:
         provider_source = provider.get("source", "")
         current_version = provider.get("version", "")
         
-        # Get latest version
-        latest_version = await checker.get_latest_provider_version(provider_source, provider_name)
+        # Get latest version and source URL
+        latest_version, source_url = await checker.get_latest_provider_version(provider_source, provider_name)
         
         # Update provider information
         updated_provider = provider.copy()
         
         if latest_version:
             updated_provider["latest_version"] = latest_version
+            updated_provider["source_url"] = source_url
             updated_provider["status"] = checker._compare_provider_versions(current_version, latest_version)
         else:
             updated_provider["latest_version"] = "Unknown"
+            updated_provider["source_url"] = source_url if source_url else "Null"
             updated_provider["status"] = "Unknown"
             
         return updated_provider
