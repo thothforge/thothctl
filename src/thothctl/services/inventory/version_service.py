@@ -83,11 +83,13 @@ class VersionChecker:
 
     @staticmethod
     def _clean_resource_path(resource: str) -> str:
-        """Clean resource path by removing protocol prefix."""
+        """Clean resource path by removing protocol prefix and submodule paths."""
         # Handle tfr:/// format (Terraform Registry)
         if resource.startswith("tfr:///"):
-            return resource.replace("tfr:///", "")
+            resource = resource.replace("tfr:///", "")
             
+
+        # Handle submodule paths (everything after //)
         return resource.split("//")[0] if "//" in resource else resource
 
     def _determine_registry_type(self, source: str) -> RegistryType:
@@ -240,18 +242,49 @@ class InventoryVersionManager:
         if not source or source == "Null":
             return False
             
-        # Check for local paths
-        return (source.startswith("./") or 
-                source.startswith("../") or 
-                source.startswith("/") or
-                # Check for relative paths with multiple levels
-                source.startswith("../../") or
-                source.startswith("../../../") or
-                source.startswith("../../../../") or
-                source.startswith("../../../../../") or
-                # Check for absolute paths without protocol
-                (not source.startswith("http") and not source.startswith("git") and "/" in source and not source.count("/") == 2))
-
+        # Check for explicit local path indicators
+        if (source.startswith("./") or 
+            source.startswith("../") or 
+            source.startswith("/")):
+            return True
+        
+        # Check for tfr:/// sources (Terraform registry)
+        if source.startswith("tfr:///"):
+            return False
+        
+        # Check for Git sources
+        if (source.startswith("git::") or 
+            source.startswith("git@") or
+            source.endswith(".git") or
+            "github.com" in source or
+            "gitlab.com" in source or
+            "bitbucket.org" in source):
+            return False
+            
+        # Check for HTTP sources
+        if source.startswith("http://") or source.startswith("https://"):
+            return False
+        
+        # Check for registry.terraform.io sources
+        if source.startswith("registry.terraform.io/"):
+            return False
+        
+        # Split on // to separate main module from submodule path
+        main_source = source.split("//")[0]
+        
+        # Check if it matches Terraform registry format: namespace/name/provider
+        # This pattern allows for 2 or 3 parts separated by slashes
+        # Examples: hashicorp/aws, terraform-aws-modules/vpc/aws
+        registry_pattern = r'^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)?$'
+        if re.match(registry_pattern, main_source):
+            return False
+        
+        # If it contains slashes but doesn't match any of the above patterns,
+        # it's likely a local path
+        if "/" in source:
+            return True
+            
+        return False
     async def _process_component(
         self, checker: VersionChecker, component: Dict[str, Any]
     ) -> None:
