@@ -60,7 +60,7 @@ class CleanUpProjectCommand(ClickCommand):
 
 # Create the Click command
 cli = CleanUpProjectCommand.as_click_command(
-    help="Clean Up residual files and directories from your project"
+    help="Clean Up residual files and directories from your project. By default removes .terraform and .terragrunt-cache folders"
 )(
     click.option(
         "-cfs",

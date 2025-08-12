@@ -52,6 +52,8 @@ thothctl project cleanup --clean-additional-files config.local.json,secrets.txt
 # Clean up multiple specific files
 thothctl project cleanup -cfs *.log,*.tmp,*.bak
 ```
+![./img/clean_project](clean%20project%20img)
+
 
 ### Combining Options
 
