@@ -246,10 +246,50 @@ class VersionManager:
 
     @staticmethod
     def _format_terraform_file(file_path: Path) -> None:
-        """Format terraform file."""
+        """
+        Format terraform file using available tools.
+        
+        Tries to use tofu or terraform fmt, whichever is available.
+        If neither is available, logs a warning but doesn't fail.
+        """
         import subprocess
-
-        subprocess.run(["terraform", "fmt", str(file_path)], check=True)
+        import shutil
+        
+        # List of tools to try, in order of preference
+        format_tools = ["tofu", "terraform"]
+        
+        for tool in format_tools:
+            # Check if the tool is available
+            if shutil.which(tool):
+                try:
+                    logging.debug(f"Formatting {file_path} using {tool} fmt")
+                    result = subprocess.run(
+                        [tool, "fmt", str(file_path)], 
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=30  # Add timeout to prevent hanging
+                    )
+                    logging.debug(f"Successfully formatted {file_path} with {tool}")
+                    return
+                except subprocess.CalledProcessError as e:
+                    logging.warning(f"Failed to format {file_path} with {tool}: {e}")
+                    # Try the next tool
+                    continue
+                except subprocess.TimeoutExpired:
+                    logging.warning(f"Timeout formatting {file_path} with {tool}")
+                    # Try the next tool
+                    continue
+                except Exception as e:
+                    logging.warning(f"Unexpected error formatting {file_path} with {tool}: {e}")
+                    # Try the next tool
+                    continue
+        
+        # If we get here, no tool worked
+        logging.warning(
+            f"Could not format {file_path}: neither 'tofu' nor 'terraform' is available or working. "
+            f"File was updated but not formatted."
+        )
 
     def _get_version_strings(self, file_details: dict, action: str) -> Tuple[str, str]:
         """Get version strings for update or restore."""
