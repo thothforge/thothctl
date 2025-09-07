@@ -96,6 +96,7 @@ def create_project_conf(
     repo_metadata: dict = None,
     project_name: str = None,
     space: Optional[str] = None,
+    project_type: str = "terraform",
 ):
     """
     Create project configuration file.
@@ -106,42 +107,56 @@ def create_project_conf(
     :param directory:
     :param repo_metadata:
     :param space: Space name for the project
+    :param project_type: Type of project (terraform, terragrunt, etc.)
     :return:
     """
     file_path = os.path.join(directory, ".thothcf.toml")
     if project_name is None:
         project_name = set_project_id()
 
+    # Check if file already exists (from template)
+    existing_content = ""
+    if os.path.exists(file_path):
+        with open(file_path, "r") as file:
+            existing_content = file.read()
+
     # Create a new file with project_properties first
     with open(file_path, "w") as file:
-        # Write project_properties section first
-        if project_properties:
-            file.write("# Project Properties\n")
-            file.write("[project_properties]\n")
-            for key, value in project_properties.items():
-                file.write(f'{key} = "{value}"\n')
+        # If there's existing content, preserve it
+        if existing_content:
+            file.write(existing_content)
             file.write("\n")
+        else:
+            # Write project_properties section first if no existing content
+            if project_properties:
+                file.write("# Project Properties\n")
+                file.write("[project_properties]\n")
+                for key, value in project_properties.items():
+                    file.write(f'{key} = "{value}"\n')
+                file.write("\n")
         
         # Add thothcf configuration
         file.write("# ThothCTL Configuration\n")
         file.write("[thothcf]\n")
         file.write(f'project_id = "{project_name}"\n')
+        file.write(f'project_type = "{project_type}"\n')
         if space:
             file.write(f'space = "{space}"\n')
         file.write("\n")
         
-        # Write template_input_parameters section
-        file.write("# Template Parameters\n")
-        if template_input_parameters is None:
-            # Use default template parameters
-            file.write("[template_input_parameters]\n")
-            for key, value in g_project_properties_parse.items():
-                file.write(f'{key} = "{value}"\n')
-        else:
-            # Use provided template parameters
-            file.write("[template_input_parameters]\n")
-            for key, value in template_input_parameters.items():
-                file.write(f'{key} = "{value}"\n')
+        # Write template_input_parameters section only if no existing content
+        if not existing_content:
+            file.write("# Template Parameters\n")
+            if template_input_parameters is None:
+                # Use default template parameters
+                file.write("[template_input_parameters]\n")
+                for key, value in g_project_properties_parse.items():
+                    file.write(f'{key} = "{value}"\n')
+            else:
+                # Use provided template parameters
+                file.write("[template_input_parameters]\n")
+                for key, value in template_input_parameters.items():
+                    file.write(f'{key} = "{value}"\n')
         
         # Add metadata if provided
         if repo_metadata:
@@ -167,6 +182,7 @@ def set_project_conf(
     repo_metadata: dict = None,
     space: Optional[str] = None,
     batch_mode: bool = False,
+    project_type: str = "terraform",
 ):
     """
     Set project configuration.
@@ -178,6 +194,7 @@ def set_project_conf(
     :param repo_metadata:
     :param space: Space name for the project
     :param batch_mode: Run in batch mode with minimal prompts
+    :param project_type: Type of project (terraform, terragrunt, etc.)
     :return:
     """
     if project_properties is None:
@@ -206,6 +223,7 @@ def set_project_conf(
         repo_metadata=repo_metadata,
         project_name=project_name,
         space=space,
+        project_type=project_type,
     )
     
     # Add project_properties to .thothcf.toml

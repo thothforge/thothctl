@@ -129,6 +129,9 @@ The MCP server exposes the following ThothCTL commands as tools for AI assistant
 
 ### Project Management
 - `thothctl_init_project` - Initialize and setup project configurations
+  - Supports project types: `terraform`, `tofu`, `cdkv2`, `terraform_module`, `terragrunt`, `custom`
+  - Can be associated with spaces for consistent configuration
+  - Supports batch mode for automated workflows
 - `thothctl_remove_project` - Remove a project managed by thothctl
 - `thothctl_get_projects` - Get list of projects managed by thothctl
 
@@ -164,10 +167,12 @@ q chat "List all ThothCTL projects"
 Example interactions:
 
 - "List all projects managed by ThothCTL"
+- "Initialize a new Terraform project called my-vpc"
+- "Create a Terragrunt project in the production space"
+- "Initialize a CDK project with batch mode enabled"
 - "Scan my infrastructure code for security issues"
 - "Generate IaC for my project"
 - "Create an inventory of my infrastructure components"
-- "Initialize a new project with ThothCTL"
 
 ## Troubleshooting
 

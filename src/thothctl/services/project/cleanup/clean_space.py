@@ -41,8 +41,19 @@ def remove_space(space_name: str, remove_projects: bool = False):
     :param remove_projects: Whether to remove projects in the space
     :return: None
     """
+    import toml
+    
     config_path = Path.joinpath(Path.home(), ".thothcf")
+    spaces_config_path = config_path.joinpath("spaces.toml")
+    
+    # Load main config for projects
     conf = load_iac_conf(directory=config_path)
+    
+    # Load spaces config
+    spaces_config = {}
+    if os.path.exists(spaces_config_path):
+        with open(spaces_config_path, mode="rt", encoding="utf-8") as fp:
+            spaces_config = toml.load(fp)
     
     # Find projects in this space
     projects_in_space = get_projects_in_space(space_name)
@@ -51,8 +62,8 @@ def remove_space(space_name: str, remove_projects: bool = False):
     space_dir = config_path.joinpath("spaces", space_name)
     space_exists = os.path.exists(space_dir)
     
-    # Check if space exists in configuration
-    space_in_config = "spaces" in conf and space_name in conf["spaces"]
+    # Check if space exists in spaces configuration
+    space_in_config = "spaces" in spaces_config and space_name in spaces_config["spaces"]
     
     if not space_exists and not projects_in_space and not space_in_config:
         print(f"{Fore.RED}Space '{space_name}' not found.{Fore.RESET}")
@@ -94,7 +105,7 @@ def remove_space(space_name: str, remove_projects: bool = False):
     else:
         print(f"{Fore.YELLOW}No projects found in space '{space_name}'{Fore.RESET}")
     
-    # Always remove space directory if it exists, regardless of whether projects were found
+    # Always remove space directory if it exists
     if space_exists:
         try:
             import shutil
@@ -103,11 +114,15 @@ def remove_space(space_name: str, remove_projects: bool = False):
         except Exception as e:
             print(f"{Fore.RED}Error removing space directory: {e}{Fore.RESET}")
     
-    # Remove the space entry from the configuration file
-    if "spaces" in conf and space_name in conf["spaces"]:
-        del conf["spaces"][space_name]
-        print(f"{Fore.GREEN}Removed space '{space_name}' from configuration.{Fore.RESET}")
+    # Remove the space entry from the spaces configuration file
+    if "spaces" in spaces_config and space_name in spaces_config["spaces"]:
+        del spaces_config["spaces"][space_name]
+        print(f"{Fore.GREEN}Removed space '{space_name}' from spaces configuration.{Fore.RESET}")
+        
+        # Save updated spaces configuration
+        with open(spaces_config_path, mode="wt", encoding="utf-8") as fp:
+            toml.dump(spaces_config, fp)
     
-    # Save updated configuration
+    # Save updated main configuration (for project associations)
     dump_iac_conf(content=conf)
     print(f"{Fore.GREEN}Space '{space_name}' has been removed.{Fore.RESET}")

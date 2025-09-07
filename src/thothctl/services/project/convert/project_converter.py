@@ -111,7 +111,7 @@ class ProjectTemplateConverter(ProjectConverter):
             project_props = get_project_props(
                 cloud_provider="aws", remote_bkd_cloud_provider="aws"
             )
-            set_project_conf(project_properties=project_props)
+            set_project_conf(project_properties=project_props, project_type=self.config.project_type or "terraform")
 
         return project_props
 
@@ -124,7 +124,7 @@ class ProjectTemplateConverter(ProjectConverter):
     def _apply_project_configuration(self, project_props: dict) -> None:
         """Apply project configuration if properties exist."""
         if project_props:
-            set_project_conf(project_properties=project_props)
+            set_project_conf(project_properties=project_props, project_type=self.config.project_type or "terraform")
 
     def _process_directory(self, project_props: dict, project_name: str) -> None:
         """Process directory for conversion."""

@@ -37,7 +37,7 @@ content = [
 ]
 type = "root"
 [[project_structure.folders]]
-name = "resources"
+name = "stacks"
 mandatory = true
 content = [
     "README.md",

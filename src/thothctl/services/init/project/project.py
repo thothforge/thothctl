@@ -39,7 +39,7 @@ class ProjectService:
         if not reuse:
             create_project(project_name=project_name, project_type=project_type)
 
-    def setup_project_config(self, project_name: str, space: Optional[str] = None, batch_mode: bool = False) -> None:
+    def setup_project_config(self, project_name: str, space: Optional[str] = None, batch_mode: bool = False, project_type: str = "terraform") -> None:
         """Setup project configuration"""
         project_props = get_project_props(
             project_name=project_name,
@@ -52,6 +52,7 @@ class ProjectService:
             project_properties=project_props,
             space=space,
             batch_mode=batch_mode,
+            project_type=project_type,
         )
 
     def setup_version_control(
@@ -59,8 +60,8 @@ class ProjectService:
         project_name: str,
         project_path: Path,
         vcs_provider: str,
-        r_list: bool = False,
         space: Optional[str] = None,
+        selected_template: Optional[dict] = None,
         **kwargs
     ) -> None:
         """
@@ -69,8 +70,8 @@ class ProjectService:
         :param project_name: Name of the project
         :param project_path: Path to the project
         :param vcs_provider: Version control system provider (azure_repos, github, gitlab)
-        :param r_list: Whether to list templates instead of applying them
         :param space: Space name to load credentials from
+        :param selected_template: Pre-selected template information
         :param kwargs: Additional provider-specific parameters
         """
         self.ui.print_info(f"🔄 Setting up {vcs_provider.replace('_', ' ').title()} integration...")
@@ -79,24 +80,24 @@ class ProjectService:
             self.setup_azure_repos(
                 project_name=project_name,
                 project_path=project_path,
-                r_list=r_list,
                 space=space,
+                selected_template=selected_template,
                 **kwargs
             )
         elif vcs_provider == "github":
             self.setup_github(
                 project_name=project_name,
                 project_path=project_path,
-                r_list=r_list,
                 space=space,
+                selected_template=selected_template,
                 **kwargs
             )
         elif vcs_provider == "gitlab":
             self.setup_gitlab(
                 project_name=project_name,
                 project_path=project_path,
-                r_list=r_list,
                 space=space,
+                selected_template=selected_template,
                 **kwargs
             )
         else:
@@ -108,9 +109,9 @@ class ProjectService:
         project_name: str,
         project_path: Path,
         az_org_name: Optional[str] = None,
-        r_list: bool = False,
         pat: Optional[str] = None,
         space: Optional[str] = None,
+        selected_template: Optional[dict] = None,
     ) -> None:
         """Setup Azure Repos configuration"""
         # Try to load credentials from space if provided
@@ -149,22 +150,21 @@ class ProjectService:
         if not az_org_name:
             az_org_name = input("Enter Azure DevOps organization name: ")
         
-        # Now proceed with the Azure Repos setup
-        org_url = f"{self.AZURE_DEVOPS_URL}/{az_org_name}/"
-        action = "list" if r_list else "reuse"
+        # Use selected template if provided, otherwise get template
+        if selected_template:
+            repo_meta = selected_template
+        else:
+            # Fallback to original behavior if no template was pre-selected
+            org_url = f"{self.AZURE_DEVOPS_URL}/{az_org_name}/"
+            repo_meta = get_pattern_from_azure(
+                pat=pat,
+                org_url=org_url,
+                directory=project_name,
+                action="reuse",
+            )
 
-        repo_meta = get_pattern_from_azure(
-            pat=pat,
-            org_url=org_url,
-            directory=project_name,
-            action=action,
-        )
-
-        if not repo_meta and not r_list:
+        if not repo_meta:
             self.ui.print_error("Failed to get template from Azure DevOps")
-            return
-
-        if r_list:
             return
 
         project_props = get_project_props(
@@ -175,7 +175,7 @@ class ProjectService:
         )
 
         with self._change_directory(project_path):
-            walk_folder_replace(
+            replace_template_placeholders(
                 directory=Path("."),
                 project_properties=project_props,
                 project_name=project_name,
@@ -187,6 +187,7 @@ class ProjectService:
                 directory=Path("."),
                 repo_metadata=repo_meta,
                 space=space,
+                project_type="terraform",  # Default for VCS setup
             )
 
     def setup_github(
@@ -194,9 +195,9 @@ class ProjectService:
         project_name: str,
         project_path: Path,
         github_username: Optional[str] = None,
-        r_list: bool = False,
         token: Optional[str] = None,
         space: Optional[str] = None,
+        selected_template: Optional[dict] = None,
     ) -> None:
         """Setup GitHub configuration"""
         # Try to load credentials from space if provided
@@ -271,21 +272,20 @@ class ProjectService:
         if not github_username:
             github_username = input("Enter GitHub username or organization name: ")
         
-        # Now proceed with the GitHub setup
-        action = "list" if r_list else "reuse"
+        # Use selected template if provided, otherwise get template
+        if selected_template:
+            repo_meta = selected_template
+        else:
+            # Fallback to original behavior if no template was pre-selected
+            repo_meta = get_pattern_from_github(
+                token=token,
+                username=github_username,
+                directory=project_name,
+                action="reuse",
+            )
 
-        repo_meta = get_pattern_from_github(
-            token=token,
-            username=github_username,
-            directory=project_name,
-            action=action,
-        )
-
-        if not repo_meta and not r_list:
+        if not repo_meta:
             self.ui.print_error("Failed to get template from GitHub")
-            return
-
-        if r_list:
             return
 
         project_props = get_project_props(
@@ -296,7 +296,7 @@ class ProjectService:
         )
 
         with self._change_directory(project_path):
-            walk_folder_replace(
+            replace_template_placeholders(
                 directory=Path("."),
                 project_properties=project_props,
                 project_name=project_name,
@@ -308,6 +308,7 @@ class ProjectService:
                 directory=Path("."),
                 repo_metadata=repo_meta,
                 space=space,
+                project_type="terraform",  # Default for VCS setup
             )
 
     def setup_gitlab(
@@ -315,9 +316,9 @@ class ProjectService:
         project_name: str,
         project_path: Path,
         gitlab_username: Optional[str] = None,
-        r_list: bool = False,
         token: Optional[str] = None,
         space: Optional[str] = None,
+        selected_template: Optional[dict] = None,
     ) -> None:
         """Setup GitLab configuration"""
         # This is a placeholder for GitLab integration

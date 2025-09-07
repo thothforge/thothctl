@@ -18,7 +18,6 @@ from rich.syntax import Syntax
 from ....core.cli_ui import CliUI
 
 from ....core.commands import ClickCommand
-from ....services.check.project.check_project_structure import validate
 from ....services.check.project.risk_assessment import calculate_component_risks
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ class CheckIaCCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
         self.console = Console()
-        self.supported_check_types = ["tfplan", "module", "project", "deps"]
+        self.supported_check_types = ["tfplan", "module", "deps"]
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
@@ -49,13 +48,7 @@ class CheckIaCCommand(ClickCommand):
 
         try:
             # Process based on check type
-            if kwargs['check_type'] == "project":
-                result = self._validate_project_structure(directory=directory, mode=kwargs['mode'],
-                                                          check_type=kwargs['check_type'])
-                self.logger.debug("Project structure validation completed")
-                return result
-
-            elif kwargs['check_type'] == "tfplan":
+            if kwargs['check_type'] == "tfplan":
                 # Process tfplan validation
                 result = self._validate_tfplan(
                     directory=directory,
@@ -80,10 +73,6 @@ class CheckIaCCommand(ClickCommand):
         except Exception as e:
             self.logger.error(f"Failed to execute check command: {str(e)}")
             raise
-
-    def _validate_project_structure(self, directory: str, mode: str = "soft", check_type: str = "project", ) -> bool:
-        """Validate the project structure"""
-        return validate(directory=directory, check_type=check_type, mode=mode)
 
     def _validate_tfplan(self, directory: str, recursive: bool = False, outmd: str = None, dependencies: bool = False,
                          tftool: str = 'tofu') -> bool:
@@ -721,9 +710,9 @@ cli = CheckIaCCommand.as_click_command(
         default='tofu',
     ),
     click.option("-type", "--check_type",
-                 help="Check module or project structure format, check tfplan, or visualize dependencies",
-                 type=click.Choice(["tfplan", "module", "project", "deps"], case_sensitive=True),
-                 default="project",
+                 help="Check tfplan, module structure, or visualize dependencies",
+                 type=click.Choice(["tfplan", "module", "deps"], case_sensitive=True),
+                 default="tfplan",
                  ),
     # click.option("--tfplan",
     #             help="Validate terraform plan",

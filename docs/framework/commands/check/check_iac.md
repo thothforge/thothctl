@@ -1,30 +1,20 @@
-# ThothCTL Check IaC Command
+# ThothCTL Check Project IaC Command
 
 ## Overview
 
-The `thothctl check iac` command validates Infrastructure as Code (IaC) artifacts against predefined rules and best practices. This command helps ensure that your infrastructure code follows project conventions, contains required files, and adheres to structural requirements. It also provides dependency visualization with risk assessment to help identify high-risk components in your infrastructure.
+The `thothctl check project iac` command validates Infrastructure as Code (IaC) project structure against predefined rules and best practices. This command ensures that your infrastructure project follows organizational conventions, contains required files and folders, and adheres to structural requirements defined in `.thothcf_project.toml` configuration files.
 
-## Command Options
+## Command Structure
 
 ```
-Usage: thothctl check iac [OPTIONS]
+Usage: thothctl check project iac [OPTIONS]
 
-  Check Infrastructure as code artifacts like tfplan and dependencies
+  Check Infrastructure as Code project structure and configuration
 
 Options:
-  --mode [soft|hard]              Validation mode  [default: soft]
-  -deps, --dependencies           View a dependency graph with risk assessment
-                                  in ASCII pretty shell output
-  --recursive                     Search for tfplan files recursively in
-                                  subdirectories
-  --outmd TEXT                    Output markdown file path
-                                  [default: tfplan_check_results.md]
-  --tftool [terraform|tofu]       Terraform tool to use (terraform or tofu)
-                                  [default: tofu]
-  -type, --check_type [tfplan|module|project|deps]
-                                  Check module or project structure format, check
-                                  tfplan, or visualize dependencies
-                                  [default: project]
+  -m, --mode [soft|strict]        Validation mode: soft (warnings) or strict (errors) [default: soft]
+  -t, --check-type [structure|metadata|compliance]
+                                  Type of IaC check to perform [default: structure]
   --help                          Show this message and exit.
 ```
 
@@ -33,286 +23,215 @@ Options:
 ### Check Project Structure
 
 ```bash
-thothctl check iac --check_type project
+thothctl check project iac
 ```
 
-This validates the current project's structure against the defined rules in the project's `.thothcf.toml` file or uses default rules if no configuration is found.
+This validates the current project's structure against the rules defined in `.thothcf_project.toml` or uses default template rules if no configuration is found.
 
-### Check Module Structure
+### Strict Validation Mode
 
 ```bash
-thothctl check iac --check_type module
+thothctl check project iac --mode strict
 ```
 
-This validates a Terraform module's structure against module-specific rules.
+Uses strict validation mode that enforces all requirements without exceptions.
 
-### Check Terraform Plan
+### Check Specific Types
 
 ```bash
-thothctl check iac --check_type tfplan
+thothctl check project iac --check-type metadata
+thothctl check project iac --check-type compliance
 ```
 
-This validates a Terraform plan file against best practices and security rules.
+## Validation Output
 
-### Visualize Dependencies with Risk Assessment
+The command provides a professional Rich-formatted output with two main sections:
 
-```bash
-thothctl check iac --check_type deps
-# or
-thothctl check iac -deps
-```
+### Root Structure Table
+Displays root-level folders and files:
+- **Required folders**: `common`, `docs`, `modules`, `resources`
+- **Optional folders**: `test`
+- **Required files**: `.gitignore`, `.pre-commit-config.yaml`, `README.md`, `root.hcl`
 
-This visualizes the dependencies between infrastructure components and provides a risk assessment for each component.
-
-## Validation Modes
-
-The command supports two validation modes:
-
-- **soft**: Reports issues but doesn't fail the command (exit code 0)
-- **hard**: Reports issues and fails the command with a non-zero exit code if any issues are found
-
-```bash
-thothctl check iac --mode hard
-```
-
-## Project Structure Validation
-
-The command validates the project structure against rules defined in the `.thothcf.toml` file. The validation includes:
-
-1. **Required Folders**: Checks if all mandatory folders exist
-2. **Required Files**: Checks if all required files exist in the project root
-3. **Folder Content**: Checks if folders contain required files
-4. **Folder Hierarchy**: Validates the parent-child relationship between folders
-
-### Example Project Structure Rules
-
-```toml
-[project_structure]
-root_files = [
-    ".gitignore",
-    ".pre-commit-config.yaml",
-    "README.md"
-]
-ignore_folders = [
-    ".git",
-    ".terraform",
-    "Reports"
-]
-
-[[project_structure.folders]]
-name = "modules"
-mandatory = true
-content = [
-    "variables.tf",
-    "main.tf",
-    "outputs.tf",
-    "README.md"
-]
-type = "root"
-
-[[project_structure.folders]]
-name = "environments"
-mandatory = true
-type = "root"
-```
-
-## Module Structure Validation
-
-When checking modules (`--check_type module`), the command validates against module-specific rules, which typically include:
-
-1. **Required Files**: `main.tf`, `variables.tf`, `outputs.tf`, `README.md`
-2. **Documentation**: Checks for proper documentation in the README
-3. **Module Structure**: Validates the module follows best practices
-
-## Terraform Plan Validation
-
-When checking Terraform plans (`--check_type tfplan`), the command validates:
-
-1. **Security Issues**: Identifies potential security concerns
-2. **Best Practices**: Checks if the plan follows Terraform best practices
-3. **Resource Changes**: Analyzes the changes that will be applied
-
-## Recursive Validation
-
-The `--recursive` option allows you to validate multiple directories:
-
-```bash
-thothctl check iac --recursive
-```
-
-This checks all subdirectories that contain IaC files.
-
-## Dependency Visualization with Risk Assessment
-
-The dependency visualization feature (`-deps` or `--check_type deps`) provides a comprehensive view of your infrastructure components and their dependencies, along with a risk assessment for each component:
-
-```bash
-thothctl check iac -deps
-```
-
-### Risk Assessment Factors
-
-The risk assessment considers multiple factors:
-
-1. **Changes Frequency**: How often the component changes (based on git history)
-2. **Dependencies Count**: Number of incoming and outgoing dependencies
-3. **Complexity**: Based on number of files and lines of code
-4. **Criticality**: How many other components depend on this one
-5. **Recent Changes**: Recent modifications to the component
-
-### Risk Levels
-
-Components are color-coded based on their risk level:
-
-- **Green (0-25%)**: Low risk - Minimal risk of issues if changed
-- **Yellow (26-50%)**: Medium risk - Changes should be reviewed carefully
-- **Orange (51-75%)**: High risk - Significant risk, careful testing needed
-- **Red (76-100%)**: Critical risk - Very high risk, changes may cause cascading issues
+### Module Structure Table
+Displays module-specific files found in subfolders:
+- **Module files**: `variables.tf`, `main.tf`, `outputs.tf`, `README.md`
+- **Subfolder content**: Files within module directories
 
 ### Example Output
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ 🔄 Enhanced Dependency Visualization 🔄                                                                                                                                                                                          │
+│ 🏗️ Infrastructure as Code Project Structure Check                                                                                                                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-Infrastructure Modules
-├── stacks/infra/databases/aurora (72.5% risk)
-│   ├── stacks/networking (45.2% risk)
-│   ├── stacks/infra/baselines (28.7% risk)
-│   │   └── stacks/networking (45.2% risk)
-│   └── stacks/infra/containers (63.1% risk)
-│       ├── stacks/networking (45.2% risk)
-│       └── stacks/infra/baselines (28.7% risk)
-└── stacks/services/addons (85.3% risk)
-    ├── stacks/infra/containers (63.1% risk)
-    ├── stacks/infra/streaming/msk (54.8% risk)
-    │   ├── stacks/networking (45.2% risk)
-    │   ├── stacks/infra/containers (63.1% risk)
-    │   └── stacks/infra/baselines (28.7% risk)
-    ├── stacks/infra/baselines (28.7% risk)
-    ├── stacks/networking (45.2% risk)
-    └── stacks/infra/application (67.9% risk)
-        ├── stacks/networking (45.2% risk)
-        ├── stacks/infra/baselines (28.7% risk)
-        └── stacks/infra/containers (63.1% risk)
+⚛️ Checking root structure
+📝 Checking content of subfolder terraform-aws-gitops-bridge-spoke
 
-✅ Found 24 modules with 17 dependencies
+                                         🏗️ Root Structure                                          
+╭───────────────────────────┬──────────┬────────────┬────────────┬────────────────────────────────╮
+│ Item                      │ Type     │ Required   │ Status     │ Details                        │
+├───────────────────────────┼──────────┼────────────┼────────────┼────────────────────────────────┤
+│ common                    │ 📁       │ Required   │ ✅ Pass    │ .                          │
+│ docs                      │ 📁       │ Required   │ ✅ Pass    │ .                          │
+│ modules                   │ 📁       │ Required   │ ✅ Pass    │ .                          │
+│ resources                 │ 📁       │ Required   │ ❌ Fail    │ .                          │
+│ test                      │ 📁       │ Optional   │ ❌ Fail    │ .                          │
+│ .gitignore                │ 📄       │ Required   │ ✅ Pass    │                                │
+│ .pre-commit-config.yaml   │ 📄       │ Required   │ ✅ Pass    │                                │
+│ README.md                 │ 📄       │ Required   │ ✅ Pass    │                                │
+│ root.hcl                  │ 📄       │ Required   │ ✅ Pass    │                                │
+╰───────────────────────────┴──────────┴────────────┴────────────┴────────────────────────────────╯
 
-Risk Level Legend:
-Risk Level           Description
-Low Risk (0-25%)     Minimal risk of issues if changed
-Medium Risk (26-50%) Moderate risk, changes should be reviewed
-High Risk (51-75%)   Significant risk, careful testing needed
-Critical Risk (76-100%) Very high risk, changes may cause cascading issues
+                                        📁 Module Structure                                        
+╭───────────────────────────┬──────────┬────────────┬────────────┬────────────────────────────────╮
+│ Item                      │ Type     │ Required   │ Status     │ Details                        │
+├───────────────────────────┼──────────┼────────────┼────────────┼────────────────────────────────┤
+│ variables.tf              │ 📄       │ Required   │ ✅ Pass    │ terraform-aws-gitops-bridge-s… │
+│ main.tf                   │ 📄       │ Required   │ ✅ Pass    │ terraform-aws-gitops-bridge-s… │
+│ outputs.tf                │ 📄       │ Required   │ ✅ Pass    │ terraform-aws-gitops-bridge-s… │
+│ README.md                 │ 📄       │ Required   │ ✅ Pass    │ terraform-aws-gitops-bridge-s… │
+╰───────────────────────────┴──────────┴────────────┴────────────┴────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────── Summary ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ❌ IaC project structure validation failed                                                                                                                                                                                       │
+│ 💡 Review the issues above and ensure your project follows the expected structure                                                                                                                                                │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-## Output Options
+## Configuration
 
-The `--outmd` flag generates a Markdown report of the validation results:
+The command uses configuration from `.thothcf_project.toml` files. If no configuration is found, it uses default template rules.
 
-```bash
-thothctl check iac --check_type tfplan --outmd report.md
+### Default Project Structure Rules
+
+```toml
+[project_structure]
+root_files = [
+    ".gitignore",
+    ".pre-commit-config.yaml", 
+    "README.md",
+    "root.hcl"
+]
+
+[[project_structure.folders]]
+name = "common"
+mandatory = true
+type = "root"
+
+[[project_structure.folders]]
+name = "docs"
+mandatory = true
+type = "root"
+
+[[project_structure.folders]]
+name = "modules"
+mandatory = true
+type = "root"
+content = [
+    "variables.tf",
+    "main.tf", 
+    "outputs.tf",
+    "README.md"
+]
+
+[[project_structure.folders]]
+name = "resources"
+mandatory = true
+type = "root"
+
+[[project_structure.folders]]
+name = "test"
+mandatory = false
+type = "root"
 ```
 
-This creates a detailed report that can be included in documentation or shared with team members.
+## Validation Behavior
+
+### Exit Codes
+- **Exit Code 0**: Validation passed successfully
+- **Exit Code 1**: Validation failed (required items missing)
+
+### Validation Logic
+- **Required items**: Must be present for validation to pass
+- **Optional items**: Can be missing without causing validation failure
+- **Dynamic detection**: Uses file extensions and validation output patterns instead of hardcoded lists
+- **Template-based**: Reads structure rules from thothcf configuration files
+
+## Key Features
+
+### Professional Output
+- Rich-formatted tables with color-coded status indicators
+- Separate tables for root structure vs module structure
+- Clear distinction between required and optional items
+- Detailed summary with actionable guidance
+
+### Dynamic Configuration
+- No hardcoded folder or file lists in the CLI code
+- Reads structure rules from `.thothcf_project.toml` template files
+- Falls back to default templates when no configuration is found
+- Supports custom project structure definitions
+
+### Proper Categorization
+- **Root Structure**: Items detected by patterns like "root exists! in ." or "exists!" (no path)
+- **Module Structure**: Items detected by patterns like "exists in [subfolder]" or "missing in [subfolder]"
+- **Type Detection**: Uses file extensions to determine if item is file (📄) or folder (📁)
 
 ## Examples
 
 ### Basic Project Structure Check
-
 ```bash
-thothctl check iac
+thothctl check project iac
 ```
 
-### Strict Module Validation
-
+### Strict Validation
 ```bash
-thothctl check iac --check_type module --mode hard
+thothctl check project iac --mode strict
 ```
 
-### Recursive Terraform Plan Check with Markdown Output
-
+### Check from Specific Directory
 ```bash
-thothctl check iac --check_type tfplan --recursive --outmd report.md
+thothctl -d /path/to/project check project iac
 ```
-
-### Visualize Dependencies with Risk Assessment
-
-```bash
-thothctl check iac -deps
-```
-
-### Check Dependencies for a Specific Directory
-
-```bash
-thothctl -d /path/to/project check iac --check_type deps
-```
-
-## Validation Process
-
-1. **Configuration Loading**: The command first loads the project configuration from `.thothcf.toml` or uses default rules
-2. **Structure Analysis**: It analyzes the current directory structure
-3. **Rule Comparison**: It compares the actual structure against the defined rules
-4. **Risk Assessment**: For dependency visualization, it calculates risk percentages for each component
-5. **Report Generation**: It generates a report of any discrepancies or visualizes dependencies with risk assessment
-6. **Exit Code**: In hard mode, it exits with a non-zero code if validation fails
 
 ## Best Practices
 
-1. **Version Control**: Include the `.thothcf.toml` file in version control to ensure consistent validation across the team
-2. **CI/CD Integration**: Add the check command to your CI/CD pipeline to validate infrastructure code before deployment
-3. **Hard Mode**: Use hard mode in CI/CD pipelines to enforce structure requirements
-4. **Risk Assessment**: Use the dependency visualization with risk assessment to identify high-risk components before making changes
-5. **Custom Rules**: Define custom rules in `.thothcf.toml` to match your project's specific requirements
-6. **Regular Validation**: Run validation regularly during development to catch issues early
+1. **Template Configuration**: Define project structure rules in `.thothcf_project.toml` for consistency
+2. **CI/CD Integration**: Add validation to CI/CD pipelines to enforce structure requirements
+3. **Version Control**: Include thothcf configuration files in version control
+4. **Regular Validation**: Run validation during development to catch issues early
+5. **Custom Rules**: Adapt structure rules to match your organization's standards
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### Missing Configuration
-
+#### Using Default Options
 ```
 Using default options
 ```
-
-**Solution**: Create a `.thothcf.toml` file with your project structure rules.
+**Solution**: Create a `.thothcf_project.toml` file with your project structure rules.
 
 #### Validation Failures
-
 ```
-❌ - Required file main.tf missing in modules/network
+❌ - resources doesn't exist in .
 Project structure is invalid
 ```
-
-**Solution**: Add the missing file or update your structure rules if the file is not actually required.
+**Solution**: Create the missing required folder or update your structure rules.
 
 #### Permission Issues
-
 ```
 Error: [Errno 13] Permission denied: '/path/to/directory'
 ```
-
 **Solution**: Ensure you have read permissions for all directories being validated.
 
-#### Terragrunt Not Found
-
-```
-Error running terragrunt dag graph: [Errno 2] No such file or directory: 'terragrunt'
-```
-
-**Solution**: Install Terragrunt or ensure it's in your PATH.
-
 ### Debugging
-
-For more detailed logs, run ThothCTL with the `--debug` flag:
-
+For detailed logs, run with debug flag:
 ```bash
-thothctl --debug check iac -deps
+thothctl --debug check project iac
 ```
 
 ## Related Commands
 
-- [thothctl init project](../init/init.md): Initialize a new project with the correct structure
-- [thothctl scan](../../use_cases/check_command.md): Scan infrastructure code for security issues
-- [thothctl inventory](../inventory/inventory_overview.md): Create an inventory of infrastructure components
+- [thothctl check environment](../check_environment.md): Check development environment setup
+- [thothctl init project](../../init/init.md): Initialize a new project with correct structure
+- [thothctl inventory iac](../../inventory/inventory_overview.md): Create inventory of infrastructure components

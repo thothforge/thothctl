@@ -280,6 +280,17 @@ def install_pipx():
     )
 
 
+def install_uv(version):
+    """Install uv package manager."""
+    print(f"{Fore.MAGENTA}Installing uv {version}{Fore.RESET}")
+    
+    _exit = os.system(
+        f"curl -LsSf https://astral.sh/uv/{version}/install.sh | sh"
+    )
+
+    check_result(result=_exit, tool="uv", version=version)
+
+
 def install_tool(
     tool_name,
     versions,
@@ -305,6 +316,7 @@ def install_tool(
         # "trivy": lambda: install_trivy(version=versions["trivy"]),
         "snyk": install_snyk,
         "tofu": install_open_tofu,
+        "uv": lambda: install_uv(version=versions["uv"]),
     }
 
     if tool_name in tool_installers:
@@ -386,6 +398,7 @@ def bootstrap_env(so):
             install_open_tofu()
             install_trivy(version=versions["trivy"])
             install_snyk()
+            install_uv(version=versions["uv"])
         else:
             logging.debug(f"{names} vs {selected_tools}")
             install_selected_tools(

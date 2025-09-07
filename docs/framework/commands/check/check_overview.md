@@ -2,49 +2,98 @@
 
 ## Overview
 
-The `thothctl check` command group provides tools for validating various aspects of your infrastructure code, project structure, and environment. These commands help ensure that your projects follow best practices, adhere to defined structures, and meet security requirements.
+The `thothctl check` command group provides tools for validating various aspects of your infrastructure code, project structure, and development environment. These commands help ensure that your projects follow best practices, adhere to defined structures, and meet security requirements.
 
 ## Available Check Commands
 
-### [check iac](check_iac.md)
+### [check environment](check_environment.md)
 
-Validates Infrastructure as Code (IaC) artifacts against predefined rules and best practices.
-
-```bash
-thothctl check iac [OPTIONS]
-```
-
-This command can validate:
-- Project structure
-- Module structure
-- Terraform plans
-
-### check project
-
-Validates project configuration and structure.
+Validates the development environment and required tools installation.
 
 ```bash
-thothctl check project [OPTIONS]
+thothctl check environment
 ```
 
-This command is currently under development.
+This command validates:
+- Tool versions (Terraform, OpenTofu, Terragrunt, etc.)
+- Current vs recommended versions
+- Tool availability and installation status
 
-### check environment
+### [check space](check_space.md)
 
-Validates the development environment and required tools.
+Provides comprehensive diagnostics for space configuration and setup.
 
 ```bash
-thothctl check environment [OPTIONS]
+thothctl check space --space-name <space_name>
 ```
 
-This command is currently under development.
+This command validates:
+- Space configuration and directory structure
+- VCS settings and connectivity
+- Credential status and security
+- Project usage and associations
+
+### [check project iac](check_iac.md)
+
+Validates Infrastructure as Code (IaC) project structure against predefined rules and best practices.
+
+```bash
+thothctl check project iac [OPTIONS]
+```
+
+This command validates:
+- Root project structure (folders and files)
+- Module structure within subfolders
+- Template-based configuration compliance
+- Required vs optional components
+
+## Command Structure
+
+The check commands follow a hierarchical structure:
+
+```
+thothctl check
+├── environment          # Environment and tools validation
+├── space               # Space configuration diagnostics
+└── project              # Project-specific validations
+    └── iac              # Infrastructure as Code structure validation
+```
 
 ## Common Options
 
 Most check commands support the following options:
 
-- **--mode [soft|hard]**: Determines whether validation failures should cause the command to exit with a non-zero code
-- **--outmd**: Generates a Markdown report of validation results
+- **--mode [soft|strict]**: Determines validation strictness level
+- **--check-type**: Specifies the type of validation to perform
+- **--debug**: Enables detailed logging for troubleshooting
+
+## Professional Output
+
+All check commands provide Rich-formatted output with:
+- Color-coded status indicators (✅ Pass, ❌ Fail)
+- Professional tables with clear categorization
+- Detailed summary panels with actionable guidance
+- Consistent styling across all commands
+
+### Example Output Structure
+
+```
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ 🏗️ Infrastructure as Code Project Structure Check                                                                                                                                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+                                         🏗️ Root Structure                                          
+╭───────────────────────────┬──────────┬────────────┬────────────┬────────────────────────────────╮
+│ Item                      │ Type     │ Required   │ Status     │ Details                        │
+├───────────────────────────┼──────────┼────────────┼────────────┼────────────────────────────────┤
+│ common                    │ 📁       │ Required   │ ✅ Pass    │ .                          │
+│ docs                      │ 📁       │ Required   │ ✅ Pass    │ .                          │
+╰───────────────────────────┴──────────┴────────────┴────────────┴────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────── Summary ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✅ IaC project structure validation passed                                                                                                                                                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
 
 ## Use Cases
 
@@ -61,8 +110,12 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install ThothCTL
         run: pip install thothctl
-      - name: Validate IaC
-        run: thothctl check iac --mode hard
+      - name: Check Environment
+        run: thothctl check environment
+      - name: Check Space Configuration
+        run: thothctl check space --space-name ${{ vars.SPACE_NAME }}
+      - name: Validate IaC Structure
+        run: thothctl check project iac --mode strict
 ```
 
 ### Pre-commit Hooks
@@ -74,41 +127,126 @@ Use check commands in pre-commit hooks to validate changes before committing:
 repos:
   - repo: local
     hooks:
-      - id: thothctl-check-iac
-        name: ThothCTL Check IaC
-        entry: thothctl check iac
+      - id: thothctl-check-environment
+        name: ThothCTL Check Environment
+        entry: thothctl check environment
+        language: system
+        pass_filenames: false
+      - id: thothctl-check-project-iac
+        name: ThothCTL Check Project IaC
+        entry: thothctl check project iac
         language: system
         pass_filenames: false
 ```
 
 ### Development Workflow
 
-Run check commands during development to ensure your code meets requirements:
+Run check commands during development to ensure your environment and code meet requirements:
 
 ```bash
-# Before submitting a pull request
-thothctl check iac --check_type project
+# Check development environment setup
+thothctl check environment
+
+# Validate space configuration before project operations
+thothctl check space --space-name development
+
+# Validate project structure before committing
+thothctl check project iac
+
+# Strict validation for production readiness
+thothctl check project iac --mode strict
+```
+
+## Configuration
+
+### Environment Configuration
+
+Environment checks use `version_tools.py` as the single source of truth for tool versions and installation methods.
+
+### Project Structure Configuration
+
+Project structure validation uses `.thothcf_project.toml` template files for configuration:
+
+```toml
+[project_structure]
+root_files = [
+    ".gitignore",
+    ".pre-commit-config.yaml", 
+    "README.md",
+    "root.hcl"
+]
+
+[[project_structure.folders]]
+name = "modules"
+mandatory = true
+type = "root"
+content = [
+    "variables.tf",
+    "main.tf", 
+    "outputs.tf",
+    "README.md"
+]
 ```
 
 ## Best Practices
 
-1. **Define Clear Rules**: Create detailed structure rules in your `.thothcf.toml` file
-2. **Version Control Rules**: Include your validation rules in version control
-3. **Consistent Validation**: Use the same validation rules across all environments
-4. **Automated Checks**: Integrate validation into your CI/CD pipeline
-5. **Documentation**: Document your project structure requirements
+1. **Template-Based Configuration**: Use `.thothcf_project.toml` files to define project structure rules
+2. **Version Control**: Include thothcf configuration files in version control for consistency
+3. **CI/CD Integration**: Add validation commands to pipelines to enforce requirements
+4. **Environment Validation**: Regularly check environment setup to ensure tool compatibility
+5. **Strict Mode**: Use strict validation mode in production environments
+6. **Regular Updates**: Keep tool versions and templates updated based on organizational standards
+
+## Exit Codes
+
+All check commands follow consistent exit code patterns:
+
+- **Exit Code 0**: Validation passed successfully
+- **Exit Code 1**: Validation failed (required items missing or environment issues)
+
+## Troubleshooting
+
+### Common Issues
+
+#### Missing Configuration Files
+```
+Using default options
+```
+**Solution**: Create appropriate `.thothcf_project.toml` configuration files.
+
+#### Tool Version Mismatches
+```
+❌ terraform: 1.5.0 (recommended: 1.6.0)
+```
+**Solution**: Update tools to recommended versions or adjust version requirements.
+
+#### Permission Issues
+```
+Error: [Errno 13] Permission denied
+```
+**Solution**: Ensure proper read/write permissions for directories being validated.
+
+### Debugging
+
+Enable debug mode for detailed logging:
+
+```bash
+thothctl --debug check environment
+thothctl --debug check project iac
+```
 
 ## Extending Check Commands
 
-ThothCTL's check commands can be extended with custom validators. To create a custom validator:
+ThothCTL's modular architecture allows for easy extension of check commands:
 
-1. Create a new Python file in the `src/thothctl/services/check/` directory
-2. Implement the validation logic
-3. Create a new command file in `src/thothctl/commands/check/commands/`
-4. Register your validator with the command
+1. **Service Layer**: Implement validation logic in `src/thothctl/services/check/`
+2. **Command Layer**: Create command interfaces in `src/thothctl/commands/check/commands/`
+3. **Configuration**: Define validation rules in template files
+4. **Rich Output**: Use consistent Rich formatting for professional output
 
 ## Related Documentation
 
-- [Project Structure](../../use_cases/check_command.md): Documentation on project structure requirements
-- [Terraform Best Practices](../../use_cases/check_command.md): Best practices for Terraform code
-- [Security Guidelines](../../use_cases/check_command.md): Security guidelines for infrastructure code
+- [Environment Setup](../init/init.md): Setting up development environments
+- [Project Initialization](../init/init.md): Creating new projects with proper structure
+- [Template Engine](../../template_engine/template_engine.md): Understanding ThothCTL templates
+- [Best Practices](../../use_cases/check_command.md): Infrastructure code best practices

@@ -12,3 +12,4 @@ IaC project, could be around a use case, blueprint, starter template published i
 
 Logical space to define the Internal Developer Platform context. For example the information about endpoints, credential, and registries.
 
+

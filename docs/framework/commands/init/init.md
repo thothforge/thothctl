@@ -30,21 +30,22 @@ Usage: thothctl init project [OPTIONS]
   Initialize a new project
 
 Options:
-  -pj, --project-name TEXT       Name of the project  [required]
-  -t, --project-type [terraform|tofu|cdkv2|terraform_module|terragrunt_project|custom]
+  -p, --project-name TEXT        Name of the project  [required]
+  -pt, --project-type [terraform|tofu|cdkv2|terraform_module|terragrunt|custom]
                                  Type of project to create  [default: terraform]
-  -sp, --setup_conf              Setup .thothcf.toml for thothctl configuration
-                                 file
-  -vcss, --version-control-systems-service [azure_repos]
+  -sc, --setup-conf              Setup project configuration  [default: True]
+  -vcss, --version-control-systems-service [azure_repos|github|gitlab]
                                  The Version Control System Service for you IDP
                                  [default: azure_repos]
   -reuse, --reuse                Reuse templates, pattern, PoC, projects and
-                                 more from your IDP catalog, use with az-org,
-                                 gh-org or gitlab
-  -az-org, --az-org-name TEXT    Azure organization name
-  -r-list                        List all available templates
+                                 more from your IDP catalog
+  -az-org, --az-org-name TEXT    Azure organization name (for Azure Repos)
+  -gh-user, --github-username TEXT
+                                 GitHub username or organization (for GitHub)
   -s, --space TEXT               Space name for the project (used for loading
                                  credentials and configurations)
+  --batch                        Run in batch mode with minimal prompts and use
+                                 default values where possible
   --help                         Show this message and exit.
 ```
 
@@ -82,6 +83,14 @@ thothctl init project --project-name my-cdk-project --project-type cdkv2
 
 This creates a new project using the CDKv2 template.
 
+### Create a Terragrunt Project
+
+```bash
+thothctl init project --project-name my-terragrunt-project --project-type terragrunt --space development
+```
+
+This creates a new Terragrunt project in the "development" space with the appropriate structure for Terragrunt orchestration.
+
 ## Project Types
 
 ThothCTL supports the following project types:
@@ -90,7 +99,7 @@ ThothCTL supports the following project types:
 - **tofu**: OpenTofu project
 - **cdkv2**: AWS CDK v2 project
 - **terraform_module**: Terraform module project
-- **terragrunt_project**: Terragrunt project
+- **terragrunt**: Terragrunt project with orchestration structure
 - **custom**: Custom project structure
 
 Each project type has a predefined structure and set of files that will be created.
@@ -114,22 +123,38 @@ my-project/
 └── root.hcl
 ```
 
-### Terraform Module Project
+### Terragrunt Project
 
 ```
-my-module/
+my-terragrunt-project/
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── .thothcf.toml
+├── .tflint.hcl
 ├── README.md
-├── examples/
+├── root.hcl
+├── common/
+│   ├── common.hcl
+│   ├── common.tfvars
+│   └── variables.tf
+├── docs/
+│   ├── DiagramArchitecture.png
+│   └── graph.svg
+├── modules/
 │   ├── main.tf
 │   ├── outputs.tf
-│   ├── terraform.tfvars
+│   ├── README.md
 │   └── variables.tf
-├── main.tf
-├── outputs.tf
-└── variables.tf
+└── stacks/
+    ├── README.md
+    ├── terragrunt.hcl
+    ├── graph.svg
+    └── compute/
+        └── EC2/
+            └── ALB_Main/
+                ├── README.md
+                ├── terragrunt.hcl
+                └── graph.svg
 ```
 
 ## Configuration Files
@@ -211,7 +236,7 @@ ThothCTL supports template substitution in project files. For example, `test-wra
 ### Basic Terraform Project
 
 ```bash
-thothctl init project --project-name terraform-vpc --project-type terraform --setup_conf
+thothctl init project --project-name terraform-vpc --project-type terraform --setup-conf
 ```
 
 ### Terraform Module in a Space
@@ -220,10 +245,16 @@ thothctl init project --project-name terraform-vpc --project-type terraform --se
 thothctl init project --project-name vpc-module --project-type terraform_module --space shared-modules
 ```
 
-### CDK Project with Azure DevOps Integration
+### Terragrunt Project with Batch Mode
 
 ```bash
-thothctl init project --project-name cdk-app --project-type cdkv2 --reuse --az-org-name my-organization
+thothctl init project --project-name terragrunt-infra --project-type terragrunt --space production --batch
+```
+
+### CDK Project with GitHub Integration
+
+```bash
+thothctl init project --project-name cdk-app --project-type cdkv2 --reuse --github-username my-organization
 ```
 
 ## Best Practices
@@ -250,7 +281,7 @@ Run 👉 thothctl remove -pj my-project 👈🏼 if you want to reuse the projec
 #### Invalid Project Type
 
 ```
-Error: Invalid value for "--project-type": "invalid-type" is not one of "terraform", "tofu", "cdkv2", "terraform_module", "terragrunt_project", "custom".
+Error: Invalid value for "--project-type": "invalid-type" is not one of "terraform", "tofu", "cdkv2", "terraform_module", "terragrunt", "custom".
 ```
 
 **Solution**: Use one of the supported project types.

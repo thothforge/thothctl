@@ -2,27 +2,27 @@
 version_tools = """[
   {
     "name": "terraform",
-    "version": "1.11.3"
+    "version": "1.13.1"
   },
   {
     "name": "tofu",
-    "version": "1.9.1"
+    "version": "1.10.6"
   },
   {
     "name": "terragrunt",
-    "version": "0.77.22"
+    "version": "0.87.0"
   },
   {
     "name": "thothctl",
-    "version": "0.2.0"
+    "version": "0.4.6"
   },
   {
     "name": "pre-commit",
-    "version": "3.6.2"
+    "version": "3.7.1"
   },
   {
     "name": "tflint",
-    "version": "0.50.0"
+    "version": "0.51.1"
   },
   {
     "name": "tfsec",
@@ -30,19 +30,19 @@ version_tools = """[
   },
   {
     "name": "checkov",
-    "version": "3.1.40"
+    "version": "3.2.451"
   },
   {
     "name": "terraform-docs",
-    "version": "0.18.0"
+    "version": "0.19.0"
   },
   {
     "name": "terraform-compliance",
-    "version": "1.3.48"
+    "version": "1.12.3"
   },
   {
     "name": "terramate",
-    "version": "0.8.4"
+    "version": "0.14.5"
   },
   {
     "name": "tfswitch",
@@ -56,5 +56,9 @@ version_tools = """[
   {
     "name": "pipx",
     "version": "1.4.3"
+    },
+  {
+    "name": "uv",
+    "version": "0.8.15"
     }
 ]"""

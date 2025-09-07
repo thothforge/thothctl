@@ -82,9 +82,25 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                             "type": "string",
                             "description": "Name of the project to initialize"
                         },
+                        "project_type": {
+                            "type": "string",
+                            "enum": ["terraform", "tofu", "cdkv2", "terraform_module", "terragrunt", "custom"],
+                            "description": "Type of project to create",
+                            "default": "terraform"
+                        },
                         "space": {
                             "type": "string",
                             "description": "Space name for the project (used for loading credentials and configurations)"
+                        },
+                        "setup_conf": {
+                            "type": "boolean",
+                            "description": "Setup project configuration",
+                            "default": true
+                        },
+                        "batch": {
+                            "type": "boolean",
+                            "description": "Run in batch mode with minimal prompts and use default values where possible",
+                            "default": false
                         },
                         "code_directory": {
                             "type": "string",
@@ -219,8 +235,54 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                 }
             },
             {
+                "name": "thothctl_check_environment",
+                "description": "Check development environment and tool versions",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "code_directory": {
+                            "type": "string",
+                            "description": "Directory to check from"
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "thothctl_check_project_iac",
+                "description": "Check Infrastructure as Code project structure and configuration",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "code_directory": {
+                            "type": "string",
+                            "description": "Directory containing infrastructure code"
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["soft", "strict"],
+                            "description": "Validation mode: soft (warnings) or strict (errors)",
+                            "default": "soft"
+                        },
+                        "check_type": {
+                            "type": "string",
+                            "enum": ["structure", "metadata", "compliance"],
+                            "description": "Type of IaC check to perform",
+                            "default": "structure"
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
+                    }
+                }
+            },
+            {
                 "name": "thothctl_check",
-                "description": "Check infrastructure code for compliance",
+                "description": "Legacy check command for backward compatibility",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -395,6 +457,8 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             "thothctl_inventory": ["inventory"],
             "thothctl_generate": ["generate"],
             "thothctl_document": ["document"],
+            "thothctl_check_environment": ["check", "environment"],
+            "thothctl_check_project_iac": ["check", "project", "iac"],
             "thothctl_check": ["check"],
             "thothctl_project": ["project"],
             "thothctl_remove": ["remove", "project"],
@@ -420,9 +484,13 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         # Handle specific command parameters
         if tool_name in ["thothctl_init", "thothctl_init_project"]:
             if "project_name" in parameters:
-                cmd.extend(["-pj", parameters["project_name"]])
+                cmd.extend(["-p", parameters["project_name"]])
+            if "project_type" in parameters:
+                cmd.extend(["-pt", parameters["project_type"]])
             if "space" in parameters:
                 cmd.extend(["-s", parameters["space"]])
+            if parameters.get("batch", False):
+                cmd.append("--batch")
                 
         elif tool_name == "thothctl_init_space":
             if "space_name" in parameters:

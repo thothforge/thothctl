@@ -20,7 +20,7 @@ from .files_content import (
     thothcf_toml_content,
     variables_tf_content,
 )
-from .project_templates import terraform_module_template, terraform_template
+from .project_templates import terraform_module_template, terraform_template, terragrunt_template
 
 
 # TODO Create project based on type / terraform module / terraform terragrunt / cdkv2 custom / ML /
@@ -36,6 +36,8 @@ def init_thothcf_content(project_type="terraform"):
         template = thothcf_toml_content
     elif project_type == "terraform_module":
         template = thothcf_toml_module_content
+    elif project_type == "terragrunt":
+        template = thothcf_toml_content  # Use same content as terraform for now
     else:
         logging.error(f"Project type {project_type} not supported")
         raise ValueError(f"Project type {project_type} not supported")
@@ -86,6 +88,10 @@ def create_project(
         template = terraform_template
     elif project_type == "terraform_module":
         template = terraform_module_template
+    elif project_type == "terragrunt":
+        template = terragrunt_template
+    else:
+        template = terraform_template  # Default fallback
 
     create_template(template=template, parent_dir=path, project_type=project_type)
 

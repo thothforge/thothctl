@@ -106,7 +106,7 @@ class StructureValidator:
             self._validate_files( existing_items, structure.root_files, differences)
 
             # Process results
-            is_valid = len(differences) == 0 or mode == ValidationMode.SOFT
+            is_valid = len(differences) == 0
 
             if not is_valid:
                 self._print_validation_summary(differences)
@@ -500,6 +500,31 @@ def validate_project_structure(directory: Path, structure_config: Dict, mode: st
     return validator.validate(directory, structure, ValidationMode(mode))
 
 
+def get_project_template_path(directory: str, check_type: str, dirname: str) -> tuple[str, str]:
+    """Get the appropriate template path based on project type."""
+    # Load configuration to determine project type
+    config = load_iac_conf(directory)
+    project_type = None
+    
+    if config and config.get("thothcf", {}).get("project_type"):
+        project_type = config["thothcf"]["project_type"]
+    
+    if check_type == "module":
+        file_name = ".thothcf_module.toml"
+        config_path = os.path.join(dirname, "../../../common/")
+    else:
+        # Use terragrunt-specific template if project type is terragrunt
+        if project_type == "terragrunt":
+            file_name = ".thothcf_project.toml"
+            config_path = os.path.join(dirname, "../../../common/terragrunt/")
+            print(f"{Fore.LIGHTBLUE_EX}Using terragrunt project template")
+        else:
+            file_name = ".thothcf_project.toml"
+            config_path = os.path.join(dirname, "../../../common/")
+    
+    return config_path, file_name
+
+
 def validate(directory: str, mode: str, check_type: str = "project"):
     """Validate project structure."""
     try:
@@ -508,15 +533,8 @@ def validate(directory: str, mode: str, check_type: str = "project"):
         dirname = os.path.dirname(__file__)
         if config == {} or config.get("project_structure", None) is None:
             print(f"{Fore.LIGHTBLUE_EX}Using default options")
-            if check_type == "module":
-                file_name = ".thothcf_module.toml"
-            else:
-                file_name = ".thothcf_project.toml"
-
-            config = load_iac_conf(
-                os.path.join(dirname, "../../../common/"), file_name=file_name
-            )
-
+            config_path, file_name = get_project_template_path(directory, check_type, dirname)
+            config = load_iac_conf(config_path, file_name=file_name)
         # Transform configuration to include content
         transformed_config = {
             "folders": [],
@@ -542,6 +560,7 @@ def validate(directory: str, mode: str, check_type: str = "project"):
 
         if result.is_valid:
             print(f"{Fore.GREEN}Project structure is valid{Fore.RESET}")
+            return True
         else:
             print(f"{Fore.RED}Project structure is invalid{Fore.RESET}")
             sys.exit(1)

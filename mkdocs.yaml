@@ -9,6 +9,7 @@ nav:
   - Framework:
     - Overview: index.md
     - Concepts: framework/concepts.md
+    - Infrastructure Composition:  framework/infrasctructure_composition.md
     - Space Configuration: framework/space_configuration.md
   - Commands:
     - Init: 
