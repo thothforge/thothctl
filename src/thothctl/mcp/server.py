@@ -385,6 +385,57 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                 }
             },
             {
+                "name": "thothctl_init_environment",
+                "description": "Initialize a development environment with required tools",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "code_directory": {
+                            "type": "string",
+                            "description": "Directory to initialize environment in"
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "thothctl_list_templates",
+                "description": "List available templates for project creation",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space": {
+                            "type": "string",
+                            "description": "Space name to list templates from"
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "thothctl_check_space",
+                "description": "Check space configuration and diagnostics",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of the space to check"
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "Enable debug mode"
+                        }
+                    }
+                }
+            },
+            {
                 "name": "thothctl_version",
                 "description": "Get ThothCTL version",
                 "parameters": {
@@ -450,15 +501,18 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             "thothctl_init": ["init", "project"],
             "thothctl_init_project": ["init", "project"],
             "thothctl_init_space": ["init", "space"],
+            "thothctl_init_environment": ["init", "env"],
             "thothctl_list": ["list", "projects"],
             "thothctl_list_projects": ["list", "projects"],
             "thothctl_list_spaces": ["list", "spaces"],
+            "thothctl_list_templates": ["list", "templates"],
             "thothctl_scan": ["scan"],
             "thothctl_inventory": ["inventory"],
             "thothctl_generate": ["generate"],
             "thothctl_document": ["document"],
             "thothctl_check_environment": ["check", "environment"],
             "thothctl_check_project_iac": ["check", "project", "iac"],
+            "thothctl_check_space": ["check", "space"],
             "thothctl_check": ["check"],
             "thothctl_project": ["project"],
             "thothctl_remove": ["remove", "project"],
@@ -509,6 +563,14 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                 cmd.extend(["--space-name", parameters["space_name"]])
             if parameters.get("remove_projects", False):
                 cmd.append("--remove-projects")
+                
+        elif tool_name == "thothctl_list_templates":
+            if "space" in parameters:
+                cmd.extend(["-s", parameters["space"]])
+                
+        elif tool_name == "thothctl_check_space":
+            if "space_name" in parameters:
+                cmd.extend(["-s", parameters["space_name"]])
         
         # Execute the command
         try:

@@ -11,7 +11,7 @@ from ..create_terramate.manage_terramate_stacks import TerramateConfig
 from .get_project_data import (
     check_project_properties,
     get_project_props,
-    walk_folder_replace,
+    replace_template_placeholders,
 )
 from .set_project_parameters import set_project_conf
 
@@ -132,9 +132,8 @@ class ProjectTemplateConverter(ProjectConverter):
         if self.config.make_template:
             action = "make_template"
 
-        walk_folder_replace(
+        replace_template_placeholders(
             directory=self.config.code_directory,
-            action=action,
             project_properties=project_props,
             project_name=project_name,
         )
