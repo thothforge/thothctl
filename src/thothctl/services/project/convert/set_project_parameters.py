@@ -116,9 +116,11 @@ def create_project_conf(
 
     # Check if file already exists (from template)
     existing_content = ""
+    has_thothcf_section = False
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             existing_content = file.read()
+            has_thothcf_section = "[thothcf]" in existing_content
 
     # Create a new file with project_properties first
     with open(file_path, "w") as file:
@@ -135,14 +137,15 @@ def create_project_conf(
                     file.write(f'{key} = "{value}"\n')
                 file.write("\n")
         
-        # Add thothcf configuration
-        file.write("# ThothCTL Configuration\n")
-        file.write("[thothcf]\n")
-        file.write(f'project_id = "{project_name}"\n')
-        file.write(f'project_type = "{project_type}"\n')
-        if space:
-            file.write(f'space = "{space}"\n')
-        file.write("\n")
+        # Add thothcf configuration only if it doesn't exist
+        if not has_thothcf_section:
+            file.write("# ThothCTL Configuration\n")
+            file.write("[thothcf]\n")
+            file.write(f'project_id = "{project_name}"\n')
+            file.write(f'project_type = "{project_type}"\n')
+            if space:
+                file.write(f'space = "{space}"\n')
+            file.write("\n")
         
         # Write template_input_parameters section only if no existing content
         if not existing_content:

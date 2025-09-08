@@ -14,25 +14,28 @@ from ....common.common import load_iac_conf, update_info_project
 from .project_defaults import g_project_properties_parse
 
 
-def replace_template_placeholders(directory, project_properties, project_name):
+def replace_template_placeholders(directory, project_properties, project_name, action="make_project"):
     """
-    Replace template placeholders in project files with values from project properties.
+    Replace template placeholders in project files with values from project properties,
+    or convert values to template placeholders when creating templates.
     
     :param directory: Project directory
     :param project_properties: Dictionary of project properties
     :param project_name: Name of the project
+    :param action: "make_project" to replace placeholders with values, "make_template" to replace values with placeholders
     :return: None
     """
     allowed_extensions = {
         "png", "svg", "xml", "toml", ".thothcf.toml", "drawio",
         "gitignore", ".terraform.lock.hcl", "catalog-info.yaml",
         "mkdocs.yaml", "pdf", "dot", "gif", "jpg", "jpeg", "exe", "bin",
-        "dll", "so", "dylib", "zip", "tar", "gz", "bz2", "xz", "7z", "rar"
+        "dll", "so", "dylib", "zip", "tar", "gz", "bz2", "xz", "7z", "rar",
+        ".gitignore", ".pre-commit-config.yaml", ".tflint.hcl", "LICENSE"
     }
     not_allowed_folders = {
         ".git", ".terraform", ".terragrunt-cache", "cdk.out",
         "catalog", "__pycache__", "node_modules", "node-compile-cache",
-        ".X11-unix", "tmp"
+        ".X11-unix", "tmp", ".amazonq"
     }
     
     # Create a mapping for common parameter name variations
@@ -78,25 +81,47 @@ def replace_template_placeholders(directory, project_properties, project_name):
                 # Track if any replacements were made
                 replaced = False
                 
-                # Find all placeholders in the format #{parameter}#
-                placeholders = re.findall(r'#\{([^}]+)\}#', data)
-                
-                # Replace each found placeholder
-                for param in placeholders:
-                    placeholder = f"#{{{param}}}#"
+                if action == "make_template":
+                    # Convert values to placeholders
+                    print(f"✅ Converting values to template parameters in {os.path.relpath(file_path, directory)}")
                     
-                    # First check if the parameter exists in project_properties
-                    if param in project_properties:
-                        value = project_properties[param]
-                        data = data.replace(placeholder, str(value))
-                        replaced = True
-                        print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
-                    # Then check if it's in our mapping
-                    elif param in parameter_mapping:
-                        value = parameter_mapping[param]
-                        data = data.replace(placeholder, str(value))
-                        replaced = True
-                        print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
+                    # Replace project properties values with placeholders
+                    for param, value in project_properties.items():
+                        if value and str(value) in data:
+                            placeholder = f"#{{{param}}}#"
+                            data = data.replace(str(value), placeholder)
+                            replaced = True
+                            print(f"  • {param}: {value} → {placeholder}")
+                    
+                    # Replace parameter mapping values with placeholders
+                    for param, value in parameter_mapping.items():
+                        if value and str(value) in data and param not in project_properties:
+                            placeholder = f"#{{{param}}}#"
+                            data = data.replace(str(value), placeholder)
+                            replaced = True
+                            print(f"  • {param}: {value} → {placeholder}")
+                            
+                else:
+                    # Original logic: Replace placeholders with values
+                    # Find all placeholders in the format #{parameter}#
+                    placeholders = re.findall(r'#\{([^}]+)\}#', data)
+                    
+                    # Replace each found placeholder
+                    for param in placeholders:
+                        placeholder = f"#{{{param}}}#"
+                        
+                        # First check if the parameter exists in project_properties
+                        if param in project_properties:
+                            value = project_properties[param]
+                            data = data.replace(placeholder, str(value))
+                            replaced = True
+                            print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
+                        # Then check if it's in our mapping
+                        elif param in parameter_mapping:
+                            value = parameter_mapping[param]
+                            data = data.replace(placeholder, str(value))
+                            replaced = True
+                            print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
                 
                 # Write updated content back to file if replacements were made
                 if replaced:

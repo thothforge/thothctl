@@ -23,8 +23,21 @@ terraform_template = [
                 "type": "directory",
                 "name": "docs",
                 "contents": [
-                    {"type": "file", "name": "DiagramArchitecture.png"},
-                    {"type": "file", "name": "graph.svg"},
+
+                    {"type": "directory", "name": "catalog", "contents": [
+                        {"type": "file", "name": "mkdocs.yaml"},
+                        {"type": "file", "name": "catalog-info.yaml"},
+                        {"type": "directory", "name": "docs", "contents": [
+                            {"type": "file", "name": "index.md"},
+                            {"type": "file", "name": "changelog.md"},
+                            {"type": "directory", "name": "images", "contents": [
+                                {"type": "file", "name": "DiagramArchitecture.png"},
+                                {"type": "file", "name": "graph.svg"},
+                            ]
+                             },
+                        ]},
+
+                    ]},
                 ],
             },
             {
@@ -95,8 +108,21 @@ terragrunt_template = [
                 "type": "directory",
                 "name": "docs",
                 "contents": [
-                    {"type": "file", "name": "DiagramArchitecture.png"},
-                    {"type": "file", "name": "graph.svg"},
+
+                    {"type": "directory", "name": "catalog", "contents": [
+                        {"type": "file", "name": "mkdocs.yaml"},
+                        {"type": "file", "name": "catalog-info.yaml"},
+                        {"type": "directory", "name": "docs", "contents": [
+                            {"type": "file", "name": "index.md"},
+                            {"type": "file", "name": "changelog.md"},
+                            {"type": "directory", "name": "images", "contents": [
+                                {"type": "file", "name": "DiagramArchitecture.png"},
+                                {"type": "file", "name": "graph.svg"},
+                            ]
+                             },
+                        ]},
+
+                    ]},
                 ],
             },
             {
@@ -158,8 +184,21 @@ terraform_module_template = [
                 "type": "directory",
                 "name": "docs",
                 "contents": [
-                    {"type": "file", "name": "DiagramArchitecture.png"},
-                    {"type": "file", "name": "graph.svg"},
+
+                    {"type": "directory", "name": "catalog", "contents": [
+                        {"type": "file", "name": "mkdocs.yaml"},
+                        {"type": "file", "name": "catalog-info.yaml"},
+                        {"type": "directory", "name": "docs", "contents": [
+                            {"type": "file", "name": "index.md"},
+                            {"type": "file", "name": "changelog.md"},
+                            {"type": "directory", "name": "images", "contents": [
+                                {"type": "file", "name": "DiagramArchitecture.png"},
+                                {"type": "file", "name": "graph.svg"},
+                            ]
+                             },
+                        ]},
+
+                    ]},
                 ],
             },
             {

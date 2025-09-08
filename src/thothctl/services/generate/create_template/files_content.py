@@ -415,7 +415,7 @@ description = "Project Name"
 
 [template_input_parameters.deployment_region]
 template_value = "us-east-2"
-condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\\\d$"
 description = "Aws Region"
 
 [template_input_parameters.backend_bucket]
@@ -425,7 +425,7 @@ description = "Backend Bucket for tfstate"
 
 [template_input_parameters.backend_region]
 template_value = "us-east-2"
-condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\\\d$"
 description = "Backend Aws Region"
 
 [template_input_parameters.owner]
