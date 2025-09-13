@@ -114,59 +114,46 @@ def create_project_conf(
     if project_name is None:
         project_name = set_project_id()
 
-    # Check if file already exists (from template)
-    existing_content = ""
-    has_thothcf_section = False
+    # Read existing content if file exists (from template)
+    existing_config = {}
     if os.path.exists(file_path):
-        with open(file_path, "r") as file:
-            existing_content = file.read()
-            has_thothcf_section = "[thothcf]" in existing_content
+        try:
+            with open(file_path, "r") as file:
+                existing_config = toml.load(file)
+        except Exception as e:
+            logging.warning(f"Could not parse existing .thothcf.toml: {e}")
 
-    # Create a new file with project_properties first
+    # Create new configuration structure
+    new_config = {}
+    
+    # Add project_properties section first
+    if project_properties:
+        new_config["project_properties"] = project_properties
+    
+    # Add or update thothcf section
+    thothcf_section = existing_config.get("thothcf", {})
+    thothcf_section["project_id"] = project_name  # Always update project_id
+    thothcf_section["project_type"] = project_type
+    if space:
+        thothcf_section["space"] = space
+    new_config["thothcf"] = thothcf_section
+    
+    # Add template_input_parameters section
+    if template_input_parameters:
+        new_config["template_input_parameters"] = template_input_parameters
+    elif "template_input_parameters" in existing_config:
+        # Keep existing template parameters if no new ones provided
+        new_config["template_input_parameters"] = existing_config["template_input_parameters"]
+    
+    # Add metadata if provided
+    if repo_metadata:
+        new_config["origin_metadata"] = repo_metadata
+    elif "origin_metadata" in existing_config:
+        new_config["origin_metadata"] = existing_config["origin_metadata"]
+
+    # Write the complete configuration
     with open(file_path, "w") as file:
-        # If there's existing content, preserve it
-        if existing_content:
-            file.write(existing_content)
-            file.write("\n")
-        else:
-            # Write project_properties section first if no existing content
-            if project_properties:
-                file.write("# Project Properties\n")
-                file.write("[project_properties]\n")
-                for key, value in project_properties.items():
-                    file.write(f'{key} = "{value}"\n')
-                file.write("\n")
-        
-        # Add thothcf configuration only if it doesn't exist
-        if not has_thothcf_section:
-            file.write("# ThothCTL Configuration\n")
-            file.write("[thothcf]\n")
-            file.write(f'project_id = "{project_name}"\n')
-            file.write(f'project_type = "{project_type}"\n')
-            if space:
-                file.write(f'space = "{space}"\n')
-            file.write("\n")
-        
-        # Write template_input_parameters section only if no existing content
-        if not existing_content:
-            file.write("# Template Parameters\n")
-            if template_input_parameters is None:
-                # Use default template parameters
-                file.write("[template_input_parameters]\n")
-                for key, value in g_project_properties_parse.items():
-                    file.write(f'{key} = "{value}"\n')
-            else:
-                # Use provided template parameters
-                file.write("[template_input_parameters]\n")
-                for key, value in template_input_parameters.items():
-                    file.write(f'{key} = "{value}"\n')
-        
-        # Add metadata if provided
-        if repo_metadata:
-            file.write("\n# Repository Metadata\n")
-            file.write("[origin_metadata]\n")
-            for key, value in repo_metadata.items():
-                file.write(f'{key} = "{value}"\n')
+        toml.dump(new_config, file)
 
     # Create catalog info
     create_catalog_info(
@@ -200,6 +187,10 @@ def set_project_conf(
     :param project_type: Type of project (terraform, terragrunt, etc.)
     :return:
     """
+    # If directory is not provided or is current directory, use project_name as directory
+    if directory == PurePath(".") and project_name:
+        directory = PurePath(project_name)
+    
     if project_properties is None:
         project_properties = get_project_props(project_name=project_name, batch_mode=batch_mode)
     
@@ -228,10 +219,6 @@ def set_project_conf(
         space=space,
         project_type=project_type,
     )
-    
-    # Add project_properties to .thothcf.toml
-    from .post_init import add_project_properties_to_thothcf
-    add_project_properties_to_thothcf(directory, project_properties)
     
     # Execute template replacement logic to replace placeholders in files
     from .get_project_data import replace_template_placeholders

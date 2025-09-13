@@ -30,16 +30,26 @@ class ProjectService:
 
     def initialize_project(
         self, project_name: str, project_type: str = "terraform", reuse=False, space: Optional[str] = None
-    ) -> None:
+    ) -> Optional[dict]:
         """Initialize the basic project structure"""
         self.logger.debug(f"Initializing project: {project_name}")
         create_info_project(project_name=project_name, space=space)
         self.logger.debug(f"Project {project_name} initialized successfully")
 
+        repo_metadata = None
         if not reuse:
-            create_project(project_name=project_name, project_type=project_type)
+            repo_metadata = create_project(project_name=project_name, project_type=project_type)
+        
+        return repo_metadata
 
-    def setup_project_config(self, project_name: str, space: Optional[str] = None, batch_mode: bool = False, project_type: str = "terraform") -> None:
+    def setup_project_config(
+        self, 
+        project_name: str, 
+        space: Optional[str] = None, 
+        batch_mode: bool = False, 
+        project_type: str = "terraform",
+        repo_metadata: Optional[dict] = None
+    ) -> None:
         """Setup project configuration"""
         project_props = get_project_props(
             project_name=project_name,
@@ -53,6 +63,7 @@ class ProjectService:
             space=space,
             batch_mode=batch_mode,
             project_type=project_type,
+            repo_metadata=repo_metadata,
         )
 
     def setup_version_control(

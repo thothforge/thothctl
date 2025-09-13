@@ -340,16 +340,31 @@ def get_simple_project_props(
     is_simple_dict = all(isinstance(v, str) for v in input_parameters.values())
     
     if batch_mode:
-        # In batch mode, use default values or generate sensible defaults
+        # In batch mode, use sensible default values
+        default_values = {
+            'project': project_name,
+            'environment': 'dev',
+            'owner': 'thothctl',
+            'client': 'thothctl',
+            'backend_region': 'us-east-2',
+            'dynamodb_backend': 'db-terraform-lock',
+            'backend_bucket': f"{project_name}-tfstate",
+            'region': 'us-east-2'
+        }
+        
         for k in input_parameters.keys():
             try:
-                if is_simple_dict:
-                    # For simple dictionaries, use key as value with project name prefix
-                    default_value = f"{project_name}-{k}"
+                # Use sensible defaults instead of placeholder values
+                if k in default_values:
+                    default_value = default_values[k]
                 else:
-                    # For complex dictionaries with metadata
-                    if isinstance(input_parameters[k], dict) and 'default' in input_parameters[k]:
-                        default_value = input_parameters[k]['default']
+                    # For unknown keys, use a sensible default
+                    if 'region' in k:
+                        default_value = 'us-east-2'
+                    elif 'bucket' in k:
+                        default_value = f"{project_name}-{k}"
+                    elif k in ['project', 'project_name']:
+                        default_value = project_name
                     else:
                         default_value = f"{project_name}-{k}"
                 

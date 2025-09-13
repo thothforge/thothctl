@@ -53,17 +53,15 @@ def create_project(
      :param template:
      :param project_type:
      :param project_name:
-     :return:
+     :return: Repository metadata if GitHub template was used, None otherwise
     """
     # Parent Directory path
     parent_dir = os.getcwd()
 
     # Path
-
     path = os.path.join(parent_dir, project_name)
 
     # Create the directory
-    # 'Nikhil'
     try:
         os.makedirs(path, exist_ok=True)
         print(
@@ -84,6 +82,19 @@ def create_project(
         )
         sys.exit(str(error))
 
+    # Try to load template from GitHub first
+    from .github_template_loader import GitHubTemplateLoader
+    
+    github_loader = GitHubTemplateLoader()
+    repo_metadata = github_loader.load_template(project_name, project_type)
+    
+    if repo_metadata:
+        # Template loaded successfully from GitHub
+        return repo_metadata
+    
+    # Fallback to local hardcoded templates
+    print(f"{Fore.YELLOW}⚠️ Using local template as fallback{Fore.RESET}")
+    
     if project_type == "terraform":
         template = terraform_template
     elif project_type == "terraform_module":
@@ -94,6 +105,7 @@ def create_project(
         template = terraform_template  # Default fallback
 
     create_template(template=template, parent_dir=path, project_type=project_type)
+    return None  # No metadata for local templates
 
 
 def create_common_files(file_name, path):

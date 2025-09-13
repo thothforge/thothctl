@@ -291,6 +291,30 @@ def install_uv(version):
     check_result(result=_exit, tool="uv", version=version)
 
 
+def install_thothctl():
+    """Install thothctl using pipx with --force flag."""
+    print(f"{Fore.MAGENTA}Installing thothctl {Fore.RESET}")
+    
+    _exit = os.system("pipx install thothctl --force")
+    
+    check_result(result=_exit, tool="thothctl")
+
+
+def install_amazon_q():
+    """Install Amazon Q CLI for Ubuntu using .deb package."""
+    print(f"{Fore.MAGENTA}Installing Amazon Q CLI {Fore.RESET}")
+    
+    _exit = os.system(
+        "cd /tmp "
+        "&& wget https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb "
+        "&& sudo dpkg -i amazon-q.deb "
+        "&& sudo apt-get install -f "
+        "&& rm -f amazon-q.deb"
+    )
+    
+    check_result(result=_exit, tool="Amazon Q CLI")
+
+
 def install_tool(
     tool_name,
     versions,
@@ -313,6 +337,8 @@ def install_tool(
         "tflint": install_tflint,
         "commitizen": lambda: install_commitizen(version=versions["commitizen"]),
         "open-tofu": install_open_tofu,
+        "thothctl": install_thothctl,
+        "amazon-q": install_amazon_q,
         # "trivy": lambda: install_trivy(version=versions["trivy"]),
         "snyk": install_snyk,
         "tofu": install_open_tofu,

@@ -125,12 +125,18 @@ class ProjectInitCommand(ClickCommand):
         
         # Initialize project
         with self.ui.status_spinner("🏗️ Creating project structure..."):
-            self.project_service.initialize_project(project_name, project_type=project_type, reuse=reuse, space=space)
+            repo_metadata = self.project_service.initialize_project(project_name, project_type=project_type, reuse=reuse, space=space)
 
         # Setup configuration if requested - NO SPINNER for interactive prompts
         if setup_conf:
             self.ui.print_info("📝 Setting up project configuration...")
-            self.project_service.setup_project_config(project_name, space=space, batch_mode=batch, project_type=project_type)
+            self.project_service.setup_project_config(
+                project_name, 
+                space=space, 
+                batch_mode=batch, 
+                project_type=project_type,
+                repo_metadata=repo_metadata
+            )
 
         # Setup version control if reuse is enabled
         if reuse and selected_template:

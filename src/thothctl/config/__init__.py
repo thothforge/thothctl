@@ -1,7 +1,7 @@
 # config/__init__.py
 """Configuration management for the application."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import toml
 

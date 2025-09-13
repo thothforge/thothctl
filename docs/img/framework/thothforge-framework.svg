@@ -1,0 +1,107 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="cmdGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#059669;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#047857;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="600" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="800" height="80" fill="url(#headerGrad)"/>
+  <text x="400" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">ThothForge Framework</text>
+  <text x="400" y="55" text-anchor="middle" fill="#e2e8f0" font-family="Arial, sans-serif" font-size="14">Open Source Internal Developer Platform CLI</text>
+  
+  <!-- Core Commands Section -->
+  <text x="50" y="110" fill="#1f2937" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Core Commands</text>
+  
+  <!-- Init Command -->
+  <rect x="50" y="130" width="150" height="80" fill="url(#cmdGrad)" rx="8"/>
+  <text x="125" y="155" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">init</text>
+  <text x="125" y="175" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Environment setup</text>
+  <text x="125" y="190" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Tool installation</text>
+  <text x="125" y="205" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Project bootstrap</text>
+  
+  <!-- Check Command -->
+  <rect x="220" y="130" width="150" height="80" fill="url(#cmdGrad)" rx="8"/>
+  <text x="295" y="155" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">check</text>
+  <text x="295" y="175" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Environment validation</text>
+  <text x="295" y="190" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Tool versions</text>
+  <text x="295" y="205" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Dependencies</text>
+  
+  <!-- Scan Command -->
+  <rect x="390" y="130" width="150" height="80" fill="url(#cmdGrad)" rx="8"/>
+  <text x="465" y="155" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">scan</text>
+  <text x="465" y="175" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Security scanning</text>
+  <text x="465" y="190" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Code analysis</text>
+  <text x="465" y="205" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Compliance</text>
+  
+  <!-- Document Command -->
+  <rect x="560" y="130" width="150" height="80" fill="url(#cmdGrad)" rx="8"/>
+  <text x="635" y="155" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">document</text>
+  <text x="635" y="175" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Auto documentation</text>
+  <text x="635" y="190" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Code generation</text>
+  <text x="635" y="205" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="11">• Templates</text>
+  
+  <!-- Management Commands Section -->
+  <text x="50" y="250" fill="#1f2937" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Management Commands</text>
+  
+  <!-- Project Command -->
+  <rect x="50" y="270" width="150" height="80" fill="#7c3aed" rx="8"/>
+  <text x="125" y="295" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">project</text>
+  <text x="125" y="315" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Project lifecycle</text>
+  <text x="125" y="330" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Configuration</text>
+  <text x="125" y="345" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Templates</text>
+  
+  <!-- Inventory Command -->
+  <rect x="220" y="270" width="150" height="80" fill="#7c3aed" rx="8"/>
+  <text x="295" y="295" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">inventory</text>
+  <text x="295" y="315" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Resource tracking</text>
+  <text x="295" y="330" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Version control</text>
+  <text x="295" y="345" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• State management</text>
+  
+  <!-- Generate Command -->
+  <rect x="390" y="270" width="150" height="80" fill="#7c3aed" rx="8"/>
+  <text x="465" y="295" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">generate</text>
+  <text x="465" y="315" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Code generation</text>
+  <text x="465" y="330" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Scaffolding</text>
+  <text x="465" y="345" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Boilerplate</text>
+  
+  <!-- List Command -->
+  <rect x="560" y="270" width="150" height="80" fill="#7c3aed" rx="8"/>
+  <text x="635" y="295" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">list</text>
+  <text x="635" y="315" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Resource listing</text>
+  <text x="635" y="330" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Discovery</text>
+  <text x="635" y="345" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="11">• Inventory view</text>
+  
+  <!-- Supported Tools Section -->
+  <text x="50" y="390" fill="#1f2937" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Supported Tools</text>
+  
+  <!-- Tools Grid -->
+  <rect x="50" y="410" width="700" height="120" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="8"/>
+  
+  <!-- Tool categories -->
+  <text x="70" y="435" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Infrastructure:</text>
+  <text x="70" y="450" fill="#64748b" font-family="Arial, sans-serif" font-size="10">Terraform • Terragrunt • OpenTofu • TFSwitch</text>
+  
+  <text x="70" y="470" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Security:</text>
+  <text x="70" y="485" fill="#64748b" font-family="Arial, sans-serif" font-size="10">TFSec • Trivy • Snyk • Checkov • Terraform-compliance</text>
+  
+  <text x="400" y="435" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Development:</text>
+  <text x="400" y="450" fill="#64748b" font-family="Arial, sans-serif" font-size="10">Pre-commit • Commitizen • TFLint • UV • Pipx</text>
+  
+  <text x="400" y="470" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Documentation:</text>
+  <text x="400" y="485" fill="#64748b" font-family="Arial, sans-serif" font-size="10">Terraform-docs • Terramate</text>
+  
+  <text x="400" y="505" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI/CLI:</text>
+  <text x="400" y="520" fill="#64748b" font-family="Arial, sans-serif" font-size="10">Amazon Q • ThothCTL • MCP Server</text>
+  
+  <!-- Footer -->
+  <text x="400" y="570" text-anchor="middle" fill="#64748b" font-family="Arial, sans-serif" font-size="12">DevSecOps • Infrastructure as Code • Developer Experience</text>
+</svg>

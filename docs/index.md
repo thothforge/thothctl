@@ -28,6 +28,9 @@ Thoth allows you to extend and operate your Developer Control Plane, and enable 
 Package for accelerating the adoption of Internal Frameworks, enable reusing and interaction with the Internal Developer Platform. 
 
 # Use cases
+
+![](./img/framework/thothforge-framework.svg)
+
 - **[Template Engine](template_engine/template_engine.md)**:
   - Build and configure any kind of template
   - Handling templates to create, add, remove or update components

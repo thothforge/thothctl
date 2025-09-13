@@ -60,5 +60,24 @@ version_tools = """[
   {
     "name": "uv",
     "version": "0.8.15"
-    }
+  },
+  {
+    "name": "trivy",
+    "version": "0.59.1"
+  },
+  {
+    "name": "snyk",
+    "version": "1.1266.0",
+    "command: "snyk --version"
+  },
+  {
+    "name": "open-tofu",
+    "version": "1.10.6",
+    "command: "tofu version"
+  },
+  {
+    "name": "amazon-q",
+    "version": "1.15.0",
+    "command": "q --version"
+  }
 ]"""
