@@ -57,7 +57,7 @@ class CheckCLI(click.MultiCommand):
             return module.cli
 
         except Exception as e:
-            logger.error(f"Error loading init subcommand {cmd_name}: {str(e)}")
+            logger.error(f"Error loading check subcommand {cmd_name}: {str(e)}")
             return None
 
 

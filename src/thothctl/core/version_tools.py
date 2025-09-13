@@ -68,12 +68,12 @@ version_tools = """[
   {
     "name": "snyk",
     "version": "1.1266.0",
-    "command: "snyk --version"
+    "command": "snyk --version"
   },
   {
     "name": "open-tofu",
     "version": "1.10.6",
-    "command: "tofu version"
+    "command": "tofu version"
   },
   {
     "name": "amazon-q",
