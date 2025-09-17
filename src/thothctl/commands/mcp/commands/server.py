@@ -21,7 +21,7 @@ class MCPServerCommand(ClickCommand):
             
             # Use Amazon Q compatible server as default for stdio mode
             from ....services.mcp.amazon_q_server import serve_amazon_q
-            self.ui.print_info("Starting ThothCTL MCP server in stdio mode")
+            # Don't print anything in stdio mode - it breaks MCP protocol
             asyncio.run(serve_amazon_q())
         else:
             # Run in HTTP mode
