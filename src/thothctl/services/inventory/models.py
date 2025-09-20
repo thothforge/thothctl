@@ -28,6 +28,9 @@ class Provider:
     source: str = "Null"
     module: str = ""  # Empty string for providers at the root level
     component: str = ""  # The specific component using this provider
+    latest_version: str = "Null"  # Latest available version
+    source_url: str = "Null"  # Source URL for the provider
+    status: str = "Unknown"  # Version status (Current, Outdated, Unknown)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -37,6 +40,9 @@ class Provider:
             "source": self.source,
             "module": self.module,
             "component": self.component,
+            "latest_version": self.latest_version,
+            "source_url": self.source_url,
+            "status": self.status,
         }
 
 
@@ -126,7 +132,9 @@ class Inventory:
                             "source": provider.source,
                             "module": provider.module,
                             "component": provider.component,
-                        }
+                            "latest_version": provider.latest_version,
+                            "source_url": provider.source_url,
+                            "status": provider.status,                        }
                         for provider in group.providers
                     ] if group.providers else []
                 }

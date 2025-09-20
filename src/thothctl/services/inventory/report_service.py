@@ -1115,7 +1115,44 @@ class ReportService:
                         </div>
                     """
                 
-                # Close the collapsible content and stack section
+                
+                # Add resources table if available (for modules)
+                resources = inventory.get("resources", [])
+                if resources:
+                    components_html += """
+                        <div class="table-section">
+                            <h3 class="table-title">📋 Resources</h3>
+                            <div class="table-container">
+                                <table class="components-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Name</th>
+                                            <th>File</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    """
+                    
+                    for resource in resources:
+                        resource_type = resource.get("resource_type", "Unknown")
+                        name = resource.get("name", "Unknown")
+                        file_name = resource.get("file", "Unknown")
+                        
+                        components_html += f"""
+                        <tr>
+                            <td><code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{resource_type}</code></td>
+                            <td><strong>{name}</strong></td>
+                            <td><span style="color: #6c757d;">{file_name}</span></td>
+                        </tr>
+                        """
+                    
+                    components_html += """
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    """                # Close the collapsible content and stack section
                 components_html += """
                     </div>
                 </div>
@@ -1275,10 +1312,28 @@ class ReportService:
                             provider.get("component", ""),
                         )
                     
-                    # Add both tables to the main table
+                    
+                    # Create resources table if available (for modules)
+                    resources = inventory.get("resources", [])
+                    if resources:
+                        resources_table = Table(show_lines=True, title="Resources")
+                        resources_table.add_column("Type", style="cyan")
+                        resources_table.add_column("Name", style="green")
+                        resources_table.add_column("File", style="white")
+                        
+                        for resource in resources:
+                            resources_table.add_row(
+                                resource.get("resource_type", "Unknown"),
+                                resource.get("name", "Unknown"),
+                                resource.get("file", "Unknown"),
+                            )
+                    
+                    # Add tables to the main table
                     grid = Table.grid()
                     grid.add_row(components_table)
                     grid.add_row(providers_table)
+                    if resources:
+                        grid.add_row(resources_table)
                     
                     table.add_row(
                         Align(f'[blue]{stack_path}[/blue]', vertical="middle"),
@@ -1377,6 +1432,16 @@ class ReportService:
                     <div class="summary-label">Local Modules</div>
                 </div>
             """
+            
+            # Add resources card if we have resources (for modules)
+            resources = inventory.get("resources", [])
+            if resources:
+                summary_html += f"""
+                <div class="summary-card">
+                    <div class="summary-number" style="color: var(--info-color);">{len(resources)}</div>
+                    <div class="summary-label">Resources</div>
+                </div>
+                """
             
             # Add providers card if we have providers
             if total_providers > 0:

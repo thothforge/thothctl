@@ -313,7 +313,20 @@ class IaCInvCommand(ClickCommand):
         # Display framework-specific information
         project_type = inventory.get('projectType', 'terraform')
         
-        # Show terragrunt stacks count for terraform-terragrunt projects
+        
+        # Show module-specific information
+        if project_type == 'module':
+            resources = inventory.get('resources', [])
+            if resources:
+                self.ui.print_info(f"Resources: {len(resources)}")
+                # Show resource types summary
+                resource_types = {}
+                for resource in resources:
+                    res_type = resource.get('resource_type', 'unknown')
+                    resource_types[res_type] = resource_types.get(res_type, 0) + 1
+                
+                for res_type, count in resource_types.items():
+                    self.ui.print_info(f"  - {res_type}: {count}")        # Show terragrunt stacks count for terraform-terragrunt projects
         if project_type == 'terraform-terragrunt':
             terragrunt_stacks_count = inventory.get('terragrunt_stacks_count', 0)
             self.ui.print_info(f"Terragrunt Stacks: {terragrunt_stacks_count}")
@@ -408,7 +421,7 @@ cli = IaCInvCommand.as_click_command(
     click.option(
         "--framework-type",
         "-ft",
-        type=click.Choice(["auto", "terraform", "terragrunt", "terraform-terragrunt"], case_sensitive=False),
+        type=click.Choice(["auto", "terraform", "terragrunt", "terraform-terragrunt", "module"], case_sensitive=False),
         default="auto",
         help="Framework type to analyze (auto for automatic detection)",
     ),

@@ -208,12 +208,24 @@ class InventoryService:
             complete: If True, include everything (complete analysis). If False, exclude cache folders.
             
         Returns:
-            'terragrunt', 'terraform', or 'terraform-terragrunt'
+            'terragrunt', 'terraform', 'terraform-terragrunt', or 'module'
         """
         has_terragrunt = False
         has_terraform = False
         
-        # Check for root terragrunt.hcl
+        # Check if this is a single module (has version.tf or versions.tf but no subdirectories with .tf files)
+        version_files = list(source_path.glob("version*.tf"))
+        if version_files:
+            # Check if there are .tf files in subdirectories
+            has_subdir_tf = False
+            for path in source_path.rglob("*.tf"):
+                if path.parent != source_path and not self._should_exclude_path(path, complete):
+                    has_subdir_tf = True
+                    break
+            
+            # If we have version.tf but no .tf files in subdirectories, it's likely a module
+            if not has_subdir_tf:
+                return "module"        # Check for root terragrunt.hcl
         root_terragrunt = source_path / "terragrunt.hcl"
         if root_terragrunt.exists():
             has_terragrunt = True
@@ -281,7 +293,20 @@ class InventoryService:
         # Set flag for terragrunt projects
         self.is_terragrunt_project = "terragrunt" in project_type
 
-        # Collect all components and track terragrunt stacks
+        # Handle module-specific analysis
+        if project_type == "module":
+            return await self._analyze_module(
+                source_path=source_path,
+                check_versions=check_versions,
+                check_providers=check_providers,
+                check_provider_versions=check_provider_versions,
+                check_schema_compatibility=check_schema_compatibility,
+                provider_tool=provider_tool,
+                project_name=project_name,
+                report_type=report_type,
+                reports_directory=reports_directory,
+                print_console=print_console
+            )        # Collect all components and track terragrunt stacks
         for file_type, file_path in self._walk_directory(source_path, complete):
             components = []
             
@@ -822,3 +847,206 @@ class InventoryService:
                 ))
                 
         return providers
+    async def _analyze_module(
+        self,
+        source_path: Path,
+        check_versions: bool = False,
+        check_providers: bool = False,
+        check_provider_versions: bool = False,
+        check_schema_compatibility: bool = False,
+        provider_tool: str = "tofu",
+        project_name: Optional[str] = None,
+        report_type: str = "html",
+        reports_directory: str = "Reports",
+        print_console: bool = False
+    ) -> dict:
+        """
+        Analyze a single Terraform module.
+        
+        Args:
+            source_path: Path to the module directory
+            check_versions: Whether to check for latest versions
+            check_providers: Whether to check provider information
+            check_provider_versions: Whether to check provider versions
+            check_schema_compatibility: Whether to check schema compatibility
+            provider_tool: Tool to use for provider operations
+            project_name: Custom project name
+            report_type: Type of report to generate
+            reports_directory: Directory for reports
+            print_console: Whether to print to console
+            
+        Returns:
+            Dictionary containing module analysis results
+        """
+        logger.info(f"🔍 Analyzing Terraform module at: {source_path}")
+        
+        # Parse module files to extract resources and providers
+        components = []
+        providers = []
+        resources = []
+        
+        # Find all .tf files in the module
+        tf_files = list(source_path.glob("*.tf"))
+        
+        for tf_file in tf_files:
+            file_components = self._parse_hcl_file(tf_file)
+            components.extend(file_components)
+            
+            # Extract resources from the file
+            file_resources = self._extract_resources_from_file(tf_file)
+            resources.extend(file_resources)
+        
+        # Get providers if requested
+        if check_providers:
+            try:
+                providers = self._get_providers_for_stack(source_path, provider_tool, "")
+                logger.info(f"Found {len(providers)} providers in module")
+            except Exception as e:
+                logger.warning(f"Could not get providers for module: {e}")
+        
+        # Create component group for the module
+        module_name = source_path.name
+        component_group = ComponentGroup(
+            stack=f"./{module_name}",
+            components=components,
+            providers=providers
+        )
+        
+        # Create inventory
+        inventory = Inventory(
+            project_name=project_name or module_name,
+            components=[component_group],
+            project_type="module"
+        )
+        
+        inventory_dict = inventory.to_dict()
+        
+        # Add module-specific metadata
+        inventory_dict["module_name"] = module_name
+        inventory_dict["module_path"] = str(source_path)
+        inventory_dict["resources"] = resources
+        
+        # Check versions if requested
+        if check_versions and components:
+            logger.info("🔍 Checking component versions...")
+            try:
+                inventory_dict = await self.provider_version_service.check_versions(
+                    inventory_dict, 
+                    check_provider_versions=check_provider_versions
+                )
+            except Exception as e:
+                logger.error(f"Error checking versions: {e}")
+        
+        # Check provider versions if requested
+        if check_provider_versions and providers:
+            logger.info("🔍 Checking provider versions...")
+            try:
+                # Convert providers to dict format expected by the service
+                provider_dicts = []
+                for provider in providers:
+                    provider_dict = provider.to_dict()
+                    # Ensure we have the right format for version checking
+                    if provider_dict.get('source') and provider_dict.get('name'):
+                        provider_dicts.append(provider_dict)
+                        logger.debug(f"Provider dict for version check: {provider_dict}")
+                
+                if provider_dicts:
+                    updated_providers = await self.provider_version_service.check_provider_versions(provider_dicts)
+                    logger.debug(f"Updated providers from version service: {updated_providers}")
+                    
+                    # Update the component group with enhanced provider information
+                    enhanced_providers = []
+                    for p in updated_providers:
+                        logger.debug(f"Processing updated provider: {p}")
+                        enhanced_providers.append(Provider(
+                            name=p.get('name', ''),
+                            version=p.get('version', ''),
+                            source=p.get('source', ''),
+                            module=p.get('module', ''),
+                            component=p.get('component', ''),
+                            latest_version=p.get('latest_version', 'Null'),
+                            source_url=p.get('source_url', 'Null'),
+                            status=p.get('status', 'Unknown')
+                        ))
+                    
+                    component_group.providers = enhanced_providers
+                    
+                    # Recreate inventory with updated providers
+                    inventory = Inventory(
+                        project_name=project_name or module_name,
+                        components=[component_group],
+                        project_type="module"
+                    )
+                    inventory_dict = inventory.to_dict()
+                    inventory_dict["module_name"] = module_name
+                    inventory_dict["module_path"] = str(source_path)
+                    inventory_dict["resources"] = resources
+                
+            except Exception as e:
+                logger.error(f"Error checking provider versions: {e}")
+                logger.debug(f"Provider version check error details: {e}", exc_info=True)
+        
+        # Check schema compatibility if requested
+        if check_schema_compatibility and inventory_dict:
+            logger.info("🔍 Starting schema compatibility analysis...")
+            try:
+                inventory_dict = await self.schema_compatibility_service.check_inventory_providers_compatibility(
+                    inventory_dict, provider_tool
+                )
+            except Exception as e:
+                logger.error(f"Error during schema compatibility checking: {e}")
+        
+        # Generate reports
+        if reports_directory:
+            try:
+                reports_path = Path(reports_directory)
+                reports_path.mkdir(exist_ok=True, parents=True)
+                
+                if report_type in ("html", "all"):
+                    html_path = self.report_service.create_html_report(
+                        inventory_dict, 
+                        reports_directory=str(reports_path)
+                    )
+                    self.report_service.create_pdf_report(
+                        html_path, 
+                        reports_directory=str(reports_path)
+                    )
+
+                if report_type in ("json", "all"):
+                    self.report_service.create_json_report(
+                        inventory_dict,
+                        reports_directory=str(reports_path)
+                    )
+                    
+            except Exception as e:
+                logger.error(f"Error generating reports: {e}")
+
+        # Print to console if requested (after reports are generated)
+        if print_console:
+            self.report_service.print_inventory_console(inventory_dict)
+        
+        return inventory_dict
+    def _extract_resources_from_file(self, file_path: Path) -> list:
+        """Extract resource definitions from a Terraform file."""
+        resources = []
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Simple regex to find resource blocks
+            import re
+            resource_pattern = r'resource\s+"([^"]+)"\s+"([^"]+)"\s*{'
+            matches = re.findall(resource_pattern, content)
+            
+            for resource_type, resource_name in matches:
+                resources.append({
+                    "type": "resource",
+                    "resource_type": resource_type,
+                    "name": resource_name,
+                    "file": file_path.name
+                })
+                
+        except Exception as e:
+            logger.warning(f"Could not parse resources from {file_path}: {e}")
+            
+        return resources
