@@ -1052,8 +1052,8 @@ class ReportService:
                                             <th>Latest Version</th>
                                             <th>SourceUrl</th>
                                             <th>Status</th>
-                                            <th>Module</th>
                                             <th>Component</th>
+                                            <th>Module</th>
                                         </tr>
                                     </thead>
                                     <tbody>
