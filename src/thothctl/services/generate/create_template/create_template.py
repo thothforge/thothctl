@@ -24,7 +24,7 @@ from .project_templates import terraform_module_template, terraform_template, te
 
 
 # TODO Create project based on type / terraform module / terraform terragrunt / cdkv2 custom / ML /
-def init_thothcf_content(project_type="terraform"):
+def init_thothcf_content(project_type="terraform-terragrunt"):
     """
     Init thothcf content based in project type.
 
@@ -34,9 +34,9 @@ def init_thothcf_content(project_type="terraform"):
 
     if project_type == "terraform":
         template = thothcf_toml_content
-    elif project_type == "terraform_module":
+    elif project_type == "terraform-module":
         template = thothcf_toml_module_content
-    elif project_type == "terragrunt":
+    elif project_type in ["terragrunt", "terraform-terragrunt"]:
         template = thothcf_toml_content  # Use same content as terraform for now
     else:
         logging.error(f"Project type {project_type} not supported")
@@ -45,7 +45,7 @@ def init_thothcf_content(project_type="terraform"):
 
 
 def create_project(
-    project_name: str, project_type="terraform", template=terraform_template
+    project_name: str, project_type="terraform-terragrunt", template=terraform_template
 ):
     """
     Create file structure for a project using terraform + terragrunt.
@@ -97,9 +97,9 @@ def create_project(
     
     if project_type == "terraform":
         template = terraform_template
-    elif project_type == "terraform_module":
+    elif project_type == "terraform-module":
         template = terraform_module_template
-    elif project_type == "terragrunt":
+    elif project_type in ["terragrunt", "terraform-terragrunt"]:
         template = terragrunt_template
     else:
         template = terraform_template  # Default fallback

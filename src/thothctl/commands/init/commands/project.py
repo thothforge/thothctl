@@ -378,10 +378,11 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
     click.option(
         "-pt",
         "--project-type",
-        default="terraform",
+        default="terraform-terragrunt",
         type=click.Choice(
             [
                 "terraform",
+                "terraform-terragrunt",
                 "tofu",
                 "cdkv2",
                 "terraform_module",

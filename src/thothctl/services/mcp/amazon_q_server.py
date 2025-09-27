@@ -67,6 +67,7 @@ async def serve_amazon_q():
                     "type": "object",
                     "properties": {
                         "project_name": {"type": "string", "description": "Name of the project"},
+                        "project_type": {"type": "string", "description": "Type of project", "default": "terraform-terragrunt", "enum": ["terraform", "terraform-terragrunt", "tofu", "cdkv2", "terraform_module", "terragrunt", "custom"]},
                         "space": {"type": "string", "description": "Space name (optional)"}
                     },
                     "required": ["project_name"],
@@ -203,6 +204,8 @@ async def serve_amazon_q():
                 cmd = ["thothctl", "init", "env"]
             elif name == "thothctl_init_project":
                 cmd = ["thothctl", "init", "project", "--project-name", arguments["project_name"]]
+                project_type = arguments.get("project_type", "terraform-terragrunt")
+                cmd.extend(["--project-type", project_type])
                 if arguments.get("space"):
                     cmd.extend(["--space", arguments["space"]])
             elif name == "thothctl_init_space":
