@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import pdfkit
 from json2html import json2html
 from rich import box
 from rich.align import Align
@@ -1164,32 +1163,6 @@ class ReportService:
             logger.error(f"Failed to generate components HTML: {str(e)}")
             return f'<div class="error-message">Error generating components: {str(e)}</div>'
 
-
-    def create_pdf_report(
-        self, html_path: Path, report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
-    ) -> Path:
-        """Create PDF report from HTML file with custom options."""
-        try:
-            pdf_path = self._create_report_path(report_name, "pdf", reports_directory)
-
-            options = {
-                'page-size': 'A4',
-                'margin-top': '0.75in',
-                'margin-right': '0.75in',
-                'margin-bottom': '0.75in',
-                'margin-left': '0.75in',
-                'encoding': "UTF-8",
-                'no-outline': None,
-                'enable-local-file-access': None
-            }
-
-            pdfkit.from_file(str(html_path), str(pdf_path), options=options)
-            logger.info(f"PDF report created at: {pdf_path}")
-            return pdf_path
-
-        except Exception as e:
-            logger.error(f"Failed to create PDF report: {str(e)}")
-            raise
 
     def create_json_report(
         self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None

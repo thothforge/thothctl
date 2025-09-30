@@ -581,10 +581,6 @@ class InventoryService:
                 inventory_dict, 
                 reports_directory=str(reports_path)
             )
-            self.report_service.create_pdf_report(
-                html_path, 
-                reports_directory=str(reports_path)
-            )
 
         if report_type in ("json", "all"):
             self.report_service.create_json_report(
@@ -1005,10 +1001,6 @@ class InventoryService:
                 if report_type in ("html", "all"):
                     html_path = self.report_service.create_html_report(
                         inventory_dict, 
-                        reports_directory=str(reports_path)
-                    )
-                    self.report_service.create_pdf_report(
-                        html_path, 
                         reports_directory=str(reports_path)
                     )
 

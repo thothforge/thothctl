@@ -112,7 +112,7 @@ The `thothctl inventory iac` command has been significantly enhanced with:
 - **Professional styling** with Inter font and gradient design
 - **Responsive layout** that works on desktop, tablet, and mobile
 - **Color-coded status badges** for easy identification of outdated components
-- **Print optimization** perfect for PDF generation and documentation
+- **Print optimization** perfect for documentation and sharing
 
 #### **🚀 Unified Version Checking**
 ```bash
@@ -190,16 +190,6 @@ sudo apt install graphviz -y
 ```
 - python >= 3.8 
     - check: `python --version` 
-
-- wkhtmltopdf
-
-You can install it using: 
-
-```commandline
-apt-get install wkhtmltopdf
-```
-
-> Visit [wkhtmltopdf](https://github.com/JazzCore/python-pdfkit/wiki/Installing-wkhtmltopdf) for more.
 
 ### AddOns
 
