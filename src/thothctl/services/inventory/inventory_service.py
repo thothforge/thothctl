@@ -672,6 +672,7 @@ class InventoryService:
             result = subprocess.run(
                 command,
                 cwd=abs_stack_path,
+                env=os.environ.copy(),  # Pass environment variables including WORKSPACE
                 check=False,  # Don't raise exception on non-zero exit
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -680,7 +681,11 @@ class InventoryService:
             )
             
             if result.returncode != 0:
-                logger.warning(f"Failed to get providers for {stack_path}: {result.stderr}")
+                logger.warning(f"Failed to get providers for {stack_path}")
+                logger.warning(f"Command: {' '.join(command)}")
+                logger.warning(f"Return code: {result.returncode}")
+                logger.warning(f"STDERR: {result.stderr}")
+                logger.warning(f"STDOUT: {result.stdout}")
                 return providers
                 
             # Get the stack name from the path
