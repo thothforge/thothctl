@@ -33,8 +33,9 @@ Options:
   -ft, --framework-type [auto|terraform|terragrunt|terraform-terragrunt]
                                   Framework type to analyze (auto for
                                   automatic detection)
-  -r, --report-type [html|json|all]
-                                  Type of report to generate
+  -r, --report-type [html|json|cyclonedx|all]
+                                  Type of report to generate (cyclonedx
+                                  generates OWASP CycloneDX SBOM format)
   -iact, --inventory-action [create|update|restore]
                                   Action for inventory tasks
   -auto, --auto-approve           Use with --update_dependencies option for
@@ -81,7 +82,10 @@ thothctl inventory iac --report-type html
 # JSON report for automation
 thothctl inventory iac --report-type json
 
-# Both HTML and JSON reports
+# CycloneDX SBOM report (OWASP standard)
+thothctl inventory iac --report-type cyclonedx
+
+# All report types (HTML, JSON, and CycloneDX)
 thothctl inventory iac --report-type all
 ```
 
@@ -97,6 +101,38 @@ thothctl inventory iac \
 ## Modern HTML Reports 🎨
 
 The new HTML reports feature:
+
+## CycloneDX SBOM Reports 🔒
+
+ThothCTL now supports generating **CycloneDX Software Bill of Materials (SBOM)** reports, following the OWASP CycloneDX standard:
+
+### Features:
+- ✅ **OWASP Standard Compliance**: Follows CycloneDX 1.4 specification
+- ✅ **Infrastructure Components**: Maps Terraform modules and providers to SBOM components
+- ✅ **Version Tracking**: Includes current and latest version information
+- ✅ **Security Integration**: Compatible with vulnerability scanning tools
+- ✅ **Supply Chain Visibility**: Provides complete infrastructure dependency mapping
+
+### Use Cases:
+- **Security Auditing**: Track all infrastructure dependencies for security reviews
+- **Compliance Reporting**: Meet regulatory requirements for software inventory
+- **Vulnerability Management**: Integration with security scanning tools
+- **Supply Chain Security**: Monitor infrastructure component sources and versions
+
+### Example:
+```bash
+# Generate CycloneDX SBOM for security audit
+thothctl inventory iac --check-versions --report-type cyclonedx
+
+# Complete analysis with all formats including SBOM
+thothctl inventory iac --check-versions --report-type all
+```
+
+The CycloneDX report includes:
+- Infrastructure components as SBOM components
+- Version information and update status
+- Source URLs and external references
+- Custom properties for ThothCTL-specific metadata
 
 ### **Professional Design**
 - **Inter Font Family**: Modern, readable typography

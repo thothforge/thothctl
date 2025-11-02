@@ -414,9 +414,9 @@ cli = IaCInvCommand.as_click_command(
     click.option(
         "--report-type",
         "-r",
-        type=click.Choice(["html", "json", "all"], case_sensitive=False),
+        type=click.Choice(["html", "json", "cyclonedx", "all"], case_sensitive=False),
         default="html",
-        help="Type of report to generate",
+        help="Type of report to generate (cyclonedx generates OWASP CycloneDX SBOM format)",
     ),
     click.option(
         "--framework-type",

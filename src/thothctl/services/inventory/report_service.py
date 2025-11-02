@@ -1164,21 +1164,131 @@ class ReportService:
             return f'<div class="error-message">Error generating components: {str(e)}</div>'
 
 
-    def create_json_report(
+    def create_cyclonedx_report(
         self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
-        """Create formatted JSON report from inventory data."""
+        """Create CycloneDX SBOM JSON report from inventory data."""
         try:
-            report_path = self._create_report_path(report_name, "json", reports_directory)
+            from datetime import datetime
+            import uuid
+            
+            report_path = self._create_report_path(report_name + "_cyclonedx", "json", reports_directory)
+            
+            # Generate CycloneDX SBOM structure
+            cyclonedx_data = {
+                "bomFormat": "CycloneDX",
+                "specVersion": "1.4",
+                "serialNumber": f"urn:uuid:{str(uuid.uuid4())}",
+                "version": 1,
+                "metadata": {
+                    "timestamp": datetime.now().isoformat() + "Z",
+                    "tools": [
+                        {
+                            "vendor": "ThothForge",
+                            "name": "thothctl",
+                            "version": "latest"
+                        }
+                    ],
+                    "component": {
+                        "type": "application",
+                        "bom-ref": inventory.get("projectName", "infrastructure-project"),
+                        "name": inventory.get("projectName", "Infrastructure Project"),
+                        "description": f"Infrastructure as Code project ({inventory.get('projectType', 'terraform')})"
+                    }
+                },
+                "components": []
+            }
+            
+            # Convert inventory components to CycloneDX components
+            for component_group in inventory.get("components", []):
+                stack_name = component_group.get("stack", "")
+                
+                for component in component_group.get("components", []):
+                    # Extract version (handle list format)
+                    version = component.get("version", ["latest"])
+                    if isinstance(version, list):
+                        version = version[0] if version else "latest"
+                    
+                    # Extract source (handle list format)
+                    source = component.get("source", [""])
+                    if isinstance(source, list):
+                        source = source[0] if source else ""
+                    
+                    cyclonedx_component = {
+                        "type": "library",
+                        "bom-ref": f"{stack_name}/{component.get('name', 'unknown')}",
+                        "name": component.get("name", "unknown"),
+                        "version": version,
+                        "scope": "required"
+                    }
+                    
+                    # Add source information if available
+                    if source and source != "Null":
+                        cyclonedx_component["purl"] = f"terraform/{source}@{version}"
+                        
+                    # Add external references
+                    external_refs = []
+                    if component.get("source_url") and component.get("source_url") != "Null":
+                        external_refs.append({
+                            "type": "vcs",
+                            "url": component.get("source_url")
+                        })
+                    
+                    if external_refs:
+                        cyclonedx_component["externalReferences"] = external_refs
+                    
+                    # Add properties for additional metadata
+                    properties = [
+                        {"name": "thothctl:stack", "value": stack_name},
+                        {"name": "thothctl:type", "value": component.get("type", "module")},
+                        {"name": "thothctl:file", "value": component.get("file", "")},
+                        {"name": "thothctl:status", "value": component.get("status", "Unknown")}
+                    ]
+                    
+                    if component.get("latest_version") and component.get("latest_version") != "Null":
+                        properties.append({"name": "thothctl:latest_version", "value": component.get("latest_version")})
+                    
+                    cyclonedx_component["properties"] = properties
+                    cyclonedx_data["components"].append(cyclonedx_component)
+                
+                # Add providers as components
+                for provider in component_group.get("providers", []):
+                    cyclonedx_provider = {
+                        "type": "library",
+                        "bom-ref": f"{stack_name}/provider-{provider.get('name', 'unknown')}",
+                        "name": f"terraform-provider-{provider.get('name', 'unknown')}",
+                        "version": provider.get("version", "latest"),
+                        "scope": "required",
+                        "properties": [
+                            {"name": "thothctl:stack", "value": stack_name},
+                            {"name": "thothctl:type", "value": "provider"},
+                            {"name": "thothctl:source", "value": provider.get("source", "")},
+                            {"name": "thothctl:status", "value": provider.get("status", "Unknown")}
+                        ]
+                    }
+                    
+                    if provider.get("latest_version") and provider.get("latest_version") != "Null":
+                        cyclonedx_provider["properties"].append({
+                            "name": "thothctl:latest_version", 
+                            "value": provider.get("latest_version")
+                        })
+                    
+                    if provider.get("source_url") and provider.get("source_url") != "Null":
+                        cyclonedx_provider["externalReferences"] = [{
+                            "type": "distribution",
+                            "url": provider.get("source_url")
+                        }]
+                    
+                    cyclonedx_data["components"].append(cyclonedx_provider)
 
             with open(report_path, "w", encoding="utf-8") as f:
-                json.dump(inventory, f, indent=2, default=str, ensure_ascii=False)
+                json.dump(cyclonedx_data, f, indent=2, ensure_ascii=False)
 
-            logger.info(f"JSON report created at: {report_path}")
+            logger.info(f"CycloneDX SBOM report created at: {report_path}")
             return report_path
 
         except Exception as e:
-            logger.error(f"Failed to create JSON report: {str(e)}")
+            logger.error(f"Failed to create CycloneDX report: {str(e)}")
             raise
 
     def print_inventory_console(self, inventory: Dict[str, Any]) -> None:
