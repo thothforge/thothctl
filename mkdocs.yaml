@@ -21,6 +21,7 @@ nav:
     - Project:
       - Overview: framework/commands/project/project_overview.md
       - Project Conversion: framework/commands/project/project_convert.md
+      - Project Upgrade: framework/commands/project/project_upgrade.md
       - Project Cleanup: framework/commands/project/project_cleanup.md
       - Use Cases: framework/commands/project/use_cases.md
     - Remove:
