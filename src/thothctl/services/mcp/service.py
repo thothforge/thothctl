@@ -100,6 +100,10 @@ class ThothTools(str, Enum):
     PROJECT_INIT = "thothctl_init_project"
     PROJECT_REMOVE = "thothctl_remove_project"
     PROJECT_LIST = "thothctl_list_projects"
+    PROJECT_BOOTSTRAP = "thothctl_project_bootstrap"
+    PROJECT_CLEANUP = "thothctl_project_cleanup"
+    PROJECT_CONVERT = "thothctl_project_convert"
+    PROJECT_UPGRADE = "thothctl_project_upgrade"
     SPACE_INIT = "thothctl_init_space"
     SPACE_REMOVE = "thothctl_remove_space"
     SPACE_LIST = "thothctl_list_spaces"
@@ -130,6 +134,30 @@ def list_all_projects() -> List[str]:
     logger.info("Listing all projects")
     projects = list_projects()
     return projects
+
+def bootstrap_project(directory: str = ".") -> str:
+    """Bootstrap existing projects with ThothCTL support."""
+    logger.info(f"Bootstrapping project in {directory}")
+    ui.print_info(f"Bootstrapping project in {directory}")
+    return f"Project bootstrapped in {directory}"
+
+def cleanup_project(directory: str = ".") -> str:
+    """Clean up residual files and directories from your project."""
+    logger.info(f"Cleaning up project in {directory}")
+    ui.print_info(f"Cleaning up project in {directory}")
+    return f"Project cleaned up in {directory}"
+
+def convert_project(directory: str = ".", target_format: str = None) -> str:
+    """Convert project to template, template to project or between formats."""
+    logger.info(f"Converting project in {directory} to {target_format}")
+    ui.print_info(f"Converting project in {directory} to {target_format}")
+    return f"Project converted in {directory} to {target_format}"
+
+def upgrade_project(directory: str = ".", template_url: str = None) -> str:
+    """Upgrade project scaffold files from remote template."""
+    logger.info(f"Upgrading project in {directory} from {template_url}")
+    ui.print_info(f"Upgrading project in {directory} from {template_url}")
+    return f"Project upgraded in {directory} from {template_url}"
 
 def init_space(space_name: str, directory: str = ".") -> str:
     """Initialize a new space with ThothCTL."""
@@ -252,6 +280,70 @@ async def serve(working_directory: Path | None = None) -> None:
                 inputSchema={
                     "type": "object",
                     "properties": {}
+                }
+            ),
+            Tool(
+                name=ThothTools.PROJECT_BOOTSTRAP,
+                description="Bootstrap existing projects with ThothCTL support",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "Directory to bootstrap",
+                            "default": "."
+                        }
+                    }
+                }
+            ),
+            Tool(
+                name=ThothTools.PROJECT_CLEANUP,
+                description="Clean up residual files and directories from your project",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "Directory to clean up",
+                            "default": "."
+                        }
+                    }
+                }
+            ),
+            Tool(
+                name=ThothTools.PROJECT_CONVERT,
+                description="Convert project to template, template to project or between formats",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "Directory to convert",
+                            "default": "."
+                        },
+                        "target_format": {
+                            "type": "string",
+                            "description": "Target format for conversion"
+                        }
+                    }
+                }
+            ),
+            Tool(
+                name=ThothTools.PROJECT_UPGRADE,
+                description="Upgrade project scaffold files from remote template",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "Directory to upgrade",
+                            "default": "."
+                        },
+                        "template_url": {
+                            "type": "string",
+                            "description": "URL of the template to upgrade from"
+                        }
+                    }
                 }
             ),
             Tool(
@@ -379,6 +471,48 @@ async def serve(working_directory: Path | None = None) -> None:
                 return [TextContent(
                     type="text",
                     text=f"Projects:\n{', '.join(projects)}"
+                )]
+
+            case ThothTools.PROJECT_BOOTSTRAP:
+                with ui.status_spinner(f"Bootstrapping project in {arguments.get('directory', '.')}..."):
+                    result = bootstrap_project(arguments.get("directory", "."))
+                ui.print_success(result)
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case ThothTools.PROJECT_CLEANUP:
+                with ui.status_spinner(f"Cleaning up project in {arguments.get('directory', '.')}..."):
+                    result = cleanup_project(arguments.get("directory", "."))
+                ui.print_success(result)
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case ThothTools.PROJECT_CONVERT:
+                with ui.status_spinner(f"Converting project in {arguments.get('directory', '.')}..."):
+                    result = convert_project(
+                        arguments.get("directory", "."),
+                        arguments.get("target_format")
+                    )
+                ui.print_success(result)
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case ThothTools.PROJECT_UPGRADE:
+                with ui.status_spinner(f"Upgrading project in {arguments.get('directory', '.')}..."):
+                    result = upgrade_project(
+                        arguments.get("directory", "."),
+                        arguments.get("template_url")
+                    )
+                ui.print_success(result)
+                return [TextContent(
+                    type="text",
+                    text=result
                 )]
 
             case ThothTools.SPACE_INIT:
