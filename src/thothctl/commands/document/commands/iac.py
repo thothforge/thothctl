@@ -57,12 +57,18 @@ class DocumentIaCCommand(ClickCommand):
             # Add your documentation generation logic here
             # This is a placeholder implementation
 
+            # Auto-enable recursive for terragrunt projects
+            framework = kwargs.get("framework", "terraform-terragrunt")
+            recursive = kwargs.get('recursive', False)
+            if not recursive and framework in ['terraform-terragrunt', 'terragrunt']:
+                recursive = True
+
             self._generate_documentation(directory= path,
                 mood= kwargs.get('mood', 'resources'),
                 t_docs_path= kwargs.get('config_file', None),
-                recursive= kwargs.get('recursive', False),
+                recursive= recursive,
                 exclude= kwargs.get('exclude', ['.terraform', '.git', '.terragrunt-cache']),
-                framework=kwargs.get("framework", "terraform-terragrunt")
+                framework=framework
                                          )
 
             self.logger.debug("Documentation generated successfully")
@@ -81,13 +87,18 @@ class DocumentIaCCommand(ClickCommand):
         """Internal method to generate the documentation"""
         try:
             with self.ui.status_spinner("Creating Documentation..."):
-                create_terraform_docs(directory,
+                success = create_terraform_docs(directory,
                 mood= mood,
                 t_docs_path= t_docs_path,
                 recursive= recursive,
                 exclude= exclude,
                 framework = framework)
-                self.ui.print_success("Documentation generated successfully!")
+                
+                if success:
+                    self.ui.print_success("Documentation generated successfully!")
+                else:
+                    self.ui.print_error("Failed to generate documentation")
+                    raise click.Abort()
 
         except Exception as e:
             self.ui.print_error(f"Failed to document Code: {str(e)}")

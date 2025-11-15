@@ -147,7 +147,8 @@ class TerraformDocsGenerator:
             return DocsResult(
                 success=len(processed_dirs) > 0,
                 processed_dirs=processed_dirs,
-                skipped_dirs=skipped_dirs
+                skipped_dirs=skipped_dirs,
+                error="No directories were processed for documentation generation" if len(processed_dirs) == 0 else None
             )
 
         except Exception as e:
@@ -400,15 +401,15 @@ def create_terraform_docs(
     print(f"{Fore.YELLOW}The framework is: {framework}")
     if mood== "resources":
         if framework.lower() in ["terraform-terragrunt", "terragrunt" ]:
-            result = graph_dependencies(
+            graph_result = graph_dependencies(
                 directory=Path(directory).absolute(),
                 suffix="resources",
             )
 
-            if result and result.success:
-                logging.debug(f"Graph generated successfully at: {result.path}")
+            if graph_result and graph_result.success:
+                logging.debug(f"Graph generated successfully at: {graph_result.path}")
                 # Access other result properties if needed
-                if result.content:
+                if graph_result.content:
                     logging.debug("Graph content available")
                     # Example with basic recursive usage
             graph_dependencies_recursive(
@@ -433,7 +434,7 @@ def create_terraform_docs(
                     recursive=True,
                     processor=process_terragrunt_file
                 )
-                if result:  # If terraform docs generation was successful
+                if graph_result and graph_result.success:  # If graph generation was successful
                     print(f"{Fore.GREEN}✨  Documentation generated successfully{Fore.RESET}")
                     print(f"{Fore.GREEN}✨  Generated .info.md files: {stats['processed']} {Fore.RESET}")
                     if stats['failed'] > 0:

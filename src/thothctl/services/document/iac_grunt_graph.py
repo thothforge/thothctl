@@ -142,7 +142,7 @@ class DependencyGraphGenerator:
 
     def _generate_graph(self, directory: Path) -> Optional[str]:
         """Generate graph using terragrunt."""
-        command = ["terragrunt", "graph-dependencies", "--non-interactive"]
+        command = ["terragrunt", "dag","graph", "--non-interactive"]
 
         stdout, stderr, return_code = self.executor.execute(command, directory)
 
