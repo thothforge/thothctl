@@ -33,13 +33,6 @@ content: |-
   
   ---
 
-  ## Example parameter options for each environment
-
-  ```hcl
-
-   {{ include "./parameters.tf" }}
-
-  ```
   {{ .Requirements }}
 
   {{ .Providers }}

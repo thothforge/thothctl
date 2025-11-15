@@ -59,7 +59,7 @@ def graph_dependencies(
         print(f"{Fore.GREEN}Creating dependencies graph for {dir_name}{Fore.RESET}")
 
         # Construct the command as a list for better security and handling
-        command = ["terragrunt", "graph-dependencies", "--terragrunt-non-interactive"]
+        command = ["terragrunt", "graph-dependencies", "--non-interactive"]
 
         # Execute the command using subprocess
         try:

@@ -31,7 +31,7 @@ def graph_dependencies_to_json(directory):
 
     logging.info(f"Getting dependencies graph for {d} ")
 
-    command = f"cd {full_path} && terragrunt graph-dependencies --terragrunt-non-interactive |  dot -Tdot_json "
+    command = f"cd {full_path} && terragrunt graph-dependencies --non-interactive |  dot -Tdot_json "
     run = os.popen(command)
     graph_json = run.read()
     logging.debug(graph_json)

@@ -485,7 +485,7 @@ class CheckIaCCommand(ClickCommand):
             
             # Check if workspace parameter should be added
             if os.path.exists(os.path.join(directory, "terragrunt.hcl")):
-                cmd.extend(["--terragrunt-working-dir", directory])
+                cmd.extend(["--working-dir", directory])
             
             # Run the command but don't print the running message
             result = subprocess.run(
