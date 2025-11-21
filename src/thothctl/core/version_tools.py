@@ -2,7 +2,7 @@
 version_tools = """[
   {
     "name": "terraform",
-    "version": "1.13.1"
+    "version": "1.14.0"
   },
   {
     "name": "tofu",
@@ -76,8 +76,8 @@ version_tools = """[
     "command": "tofu version"
   },
   {
-    "name": "amazon-q",
-    "version": "1.15.0",
-    "command": "q --version"
+    "name": "kiro-cli",
+    "version": "latest",
+    "command": "kiro --version"
   }
 ]"""

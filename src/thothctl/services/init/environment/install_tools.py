@@ -64,10 +64,25 @@ def install_terraform_linux(version):
     print(f"{Fore.MAGENTA}✅   Terraform already was installed {Fore.RESET}")
     print(f"{Fore.MAGENTA}✅   Changing to recommended version {Fore.RESET}")
     install_tfswich()
-    command = f"sudo tfswitch {version}"
+    
+    # Create local bin directory and add to PATH
+    os.system("mkdir -p $HOME/.local/bin")
+    
+    # Use tfswitch with custom bin directory
+    command = f"tfswitch -b $HOME/.local/bin/terraform {version}"
     _exit = os.system(command)
     check_result(result=_exit, tool="Terraform", version=version)
 
+    # Add ~/.local/bin to PATH if not already there
+    os.system('grep -q "$HOME/.local/bin" ~/.bashrc || echo "export PATH=\"$HOME/.local/bin:$PATH\"" >> ~/.bashrc')
+    
+    # Update PATH in current process
+    local_bin = os.path.expanduser("~/.local/bin")
+    if local_bin not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{local_bin}:{os.environ.get('PATH', '')}"
+    
+    print(f"{Fore.MAGENTA}✅ Terraform is now available in your PATH{Fore.RESET}")
+    
     os.system(
         "mkdir -p $HOME/.terraform.d/plugin-cache && echo 'plugin_cache_dir   = \"$HOME/.terraform.d/plugin-cache\"' > ~/.terraformrc"
     )
@@ -300,19 +315,15 @@ def install_thothctl():
     check_result(result=_exit, tool="thothctl")
 
 
-def install_amazon_q():
-    """Install Amazon Q CLI for Ubuntu using .deb package."""
-    print(f"{Fore.MAGENTA}Installing Amazon Q CLI {Fore.RESET}")
+def install_kiro_cli():
+    """Install Kiro CLI using the official installer."""
+    print(f"{Fore.MAGENTA}Installing Kiro CLI {Fore.RESET}")
     
     _exit = os.system(
-        "cd /tmp "
-        "&& wget https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb "
-        "&& sudo dpkg -i amazon-q.deb "
-        "&& sudo apt-get install -f "
-        "&& rm -f amazon-q.deb"
+        "curl -fsSL https://cli.kiro.dev/install | bash"
     )
     
-    check_result(result=_exit, tool="Amazon Q CLI")
+    check_result(result=_exit, tool="Kiro CLI")
 
 
 def install_tool(
@@ -338,7 +349,7 @@ def install_tool(
         "commitizen": lambda: install_commitizen(version=versions["commitizen"]),
         "open-tofu": install_open_tofu,
         "thothctl": install_thothctl,
-        "amazon-q": install_amazon_q,
+        "kiro-cli": install_kiro_cli,
         # "trivy": lambda: install_trivy(version=versions["trivy"]),
         "snyk": install_snyk,
         "tofu": install_open_tofu,
