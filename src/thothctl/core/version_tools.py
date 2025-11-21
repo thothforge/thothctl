@@ -6,15 +6,15 @@ version_tools = """[
   },
   {
     "name": "tofu",
-    "version": "1.10.6"
+    "version": "1.10.7"
   },
   {
     "name": "terragrunt",
-    "version": "0.87.0"
+    "version": "0.93.10"
   },
   {
     "name": "thothctl",
-    "version": "0.4.6"
+    "version": "0.7.3"
   },
   {
     "name": "pre-commit",
