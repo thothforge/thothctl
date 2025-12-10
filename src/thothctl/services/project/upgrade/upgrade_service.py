@@ -19,11 +19,7 @@ class ProjectUpgradeService:
 
     def __init__(self):
         """Initialize the upgrade service."""
-        self.amazonq_files = {
-            ".amazonq/project.json",
-            ".amazonq/chat_history.json", 
-            ".amazonq/workspace_state.json"
-        }
+        pass
 
     def upgrade_project(
         self,
@@ -214,9 +210,9 @@ class ProjectUpgradeService:
 
     def _has_local_modifications(self, file_path: Path) -> bool:
         """Check if file has local modifications (simplified check)."""
-        # For now, assume files in .amazonq don't have local modifications
+        # For now, assume files in .kiro don't have local modifications
         # This can be enhanced with git status checking
-        return ".amazonq" not in str(file_path)
+        return ".kiro" not in str(file_path)
 
     def _apply_changes(
         self, 
