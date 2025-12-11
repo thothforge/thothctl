@@ -141,7 +141,7 @@ class ProjectUpgradeService:
         if local_commit_hash == remote_commit_hash and local_commit_hash:
             return changes
         
-        # Focus on .amazonq folder and other scaffold files
+        # Focus on .kiro folder and other scaffold files
         target_files = self._get_target_files(remote_path)
         
         for rel_path in target_files:
