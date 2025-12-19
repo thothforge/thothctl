@@ -33,3 +33,4 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+          make_latest: true
