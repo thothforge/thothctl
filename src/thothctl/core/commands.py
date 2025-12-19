@@ -25,9 +25,29 @@ class ClickCommand(ABC):
         self.logger.addHandler(handler)
         self.logger.setLevel(logging.INFO)
 
-    @abstractmethod
     def execute(self, **kwargs) -> Any:
-        """Execute the command"""
+        """Execute the command with telemetry support."""
+        from .telemetry import telemetry
+        
+        command_name = self.__class__.__name__.replace('Command', '').lower()
+        
+        with telemetry.start_span(f"thothctl.{command_name}") as span:
+            try:
+                span.set_attribute("command.name", command_name)
+                span.set_attribute("command.args", str(kwargs))
+                
+                result = self._execute(**kwargs)
+                span.set_attribute("command.success", True)
+                return result
+                
+            except Exception as e:
+                span.set_attribute("command.success", False)
+                span.set_attribute("command.error", str(e))
+                raise
+
+    @abstractmethod
+    def _execute(self, **kwargs) -> Any:
+        """Execute the command implementation."""
         pass
 
     def validate(self, **kwargs) -> bool:

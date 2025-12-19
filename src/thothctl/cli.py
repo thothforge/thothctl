@@ -2,6 +2,7 @@
 import importlib.util
 import logging
 import os
+import sys
 from functools import wraps
 from pathlib import Path
 from typing import Optional
@@ -80,6 +81,11 @@ def cli(ctx, debug, verbose, code_directory):
     ctx.obj["DEBUG"] = debug
     ctx.obj["VERBOSE"] = verbose
     ctx.obj["CODE_DIRECTORY"] = code_directory
+    
+    # Initialize telemetry for non-interactive use
+    if not sys.stdin.isatty():
+        from .core.telemetry import telemetry
+        telemetry.initialize()
     
     # Configure logging based on flags
     if debug:
