@@ -17,7 +17,7 @@ class RemoveProjectCommand(ClickCommand):
 
         return True
 
-    def execute(self, project_name: str, **kwargs) -> None:
+    def _execute(self, project_name: str, **kwargs) -> None:
         """Execute Environment initialization"""
         ctx = click.get_current_context()
         debug = ctx.obj.get("DEBUG")

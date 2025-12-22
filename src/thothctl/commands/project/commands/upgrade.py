@@ -25,7 +25,7 @@ class ProjectUpgradeCommand(ClickCommand):
         """Validate upgrade parameters."""
         return True
 
-    def execute(
+    def _execute(
         self,
         project_path: str = ".",
         dry_run: bool = False,

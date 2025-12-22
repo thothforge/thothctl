@@ -15,7 +15,7 @@ class MCPStopCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
     
-    def execute(self, port, all_servers):
+    def _execute(self, port, all_servers):
         """Execute the MCP server stop command."""
         if all_servers:
             self._stop_all_servers()

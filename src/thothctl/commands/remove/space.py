@@ -15,7 +15,7 @@ class RemoveSpaceCommand(ClickCommand):
             raise ValueError("Space name is required and cannot be empty")
         return True
 
-    def execute(self, space_name: str, remove_projects: bool = False, **kwargs) -> None:
+    def _execute(self, space_name: str, remove_projects: bool = False, **kwargs) -> None:
         """Execute space removal"""
         space_name = space_name.strip()
         self._clean_up_space(space_name=space_name, remove_projects=remove_projects)

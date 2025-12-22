@@ -17,7 +17,7 @@ class MCPStatusCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
     
-    def execute(self, port):
+    def _execute(self, port):
         """Execute the status command."""
         self.ui.print_info(f"Checking MCP server status on port {port}...")
         

@@ -16,7 +16,7 @@ class EnvInitCommand(ClickCommand):
         """Validate project initialization parameters"""
         return True
 
-    def execute(self, operation_system: str, **kwargs) -> None:
+    def _execute(self, operation_system: str, **kwargs) -> None:
         """Execute Environment initialization"""
         self._init_env(operation_system)
 

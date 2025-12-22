@@ -168,7 +168,7 @@ class CheckProjectIaCCommand(ClickCommand):
         self.console.print()
         self.console.print(table)
 
-    def execute(self, **kwargs) -> None:
+    def _execute(self, **kwargs) -> None:
         """Execute IaC project structure check"""
         ctx = click.get_current_context()
         directory = ctx.obj.get("CODE_DIRECTORY", ".")

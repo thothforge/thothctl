@@ -17,7 +17,7 @@ class CleanUpProjectCommand(ClickCommand):
 
         return True
 
-    def execute(
+    def _execute(
         self, clean_additional_files: str, clean_additional_folders: str, **kwargs
     ) -> None:
         """Execute Environment initialization"""

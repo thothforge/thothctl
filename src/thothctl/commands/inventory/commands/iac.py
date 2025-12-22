@@ -42,7 +42,7 @@ class IaCInvCommand(ClickCommand):
         """Validate project initialization parameters"""
         return True
 
-    def execute(
+    def _execute(
         self,
         check_versions: bool,
         report_type: str,

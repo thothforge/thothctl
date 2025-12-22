@@ -25,7 +25,7 @@ class ProjectBootstrapCommand(ClickCommand):
         """Validate bootstrap parameters."""
         return True
 
-    def execute(
+    def _execute(
         self,
         project_path: str = ".",
         project_type: str = "auto",

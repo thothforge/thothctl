@@ -33,7 +33,7 @@ class GenComponentCommand(ClickCommand):
             return False
         return True
 
-    def execute(self, **kwargs) -> Any:
+    def _execute(self, **kwargs) -> Any:
         """Execute the check command """
         ctx = click.get_current_context()
         directory = ctx.obj.get("CODE_DIRECTORY")

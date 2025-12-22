@@ -24,7 +24,7 @@ class GenStacksCommand(ClickCommand):
             return False
         return True
 
-    def execute(self, **kwargs) -> None:
+    def _execute(self, **kwargs) -> None:
         """Execute the stacks generation command"""
         ctx = click.get_current_context()
         directory = Path(ctx.obj.get("CODE_DIRECTORY", "."))

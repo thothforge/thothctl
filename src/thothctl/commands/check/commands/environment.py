@@ -17,7 +17,7 @@ class CheckEnvironmentCommand(ClickCommand):
         """Validate environment check parameters"""
         return True
 
-    def execute(self, **kwargs) -> None:
+    def _execute(self, **kwargs) -> None:
         """Execute environment check"""
         results = self.environment_checker.check_environment()
         

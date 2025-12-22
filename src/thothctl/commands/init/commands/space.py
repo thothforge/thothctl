@@ -24,7 +24,7 @@ class SpaceInitCommand(ClickCommand):
             raise ValueError("Space name is required and cannot be empty")
         return True
 
-    def execute(
+    def _execute(
         self,
         space_name: str,
         description: Optional[str] = None,

@@ -15,7 +15,7 @@ class MCPRegisterCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
     
-    def execute(self, port, name, force, stdio):
+    def _execute(self, port, name, force, stdio):
         """Execute the register command."""
         with self.ui.status_spinner(f"Registering MCP server with Amazon Q as '{name}'..."):
             try:

@@ -16,7 +16,7 @@ class ListSpacesCommand(ClickCommand):
         """Validate list spaces parameters"""
         return True
 
-    def execute(self, **kwargs) -> None:
+    def _execute(self, **kwargs) -> None:
         """Execute list spaces command"""
         self.ui.print_info("🌌 Listing all available spaces:")
         print_list_spaces()

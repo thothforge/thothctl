@@ -13,7 +13,7 @@ class MCPServerCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
     
-    def execute(self, port, host, stdio):
+    def _execute(self, port, host, stdio):
         """Execute the MCP server command."""
         if stdio:
             import asyncio

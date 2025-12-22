@@ -11,7 +11,7 @@ class ListProjectsCommand(ClickCommand):
         """Validate list projects parameters"""
         return True
 
-    def execute(self, show_space: bool = True, **kwargs) -> None:
+    def _execute(self, show_space: bool = True, **kwargs) -> None:
         """Execute list projects command"""
         print_list_projects(show_space=show_space)
 

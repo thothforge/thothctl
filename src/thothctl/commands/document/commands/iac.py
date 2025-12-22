@@ -45,7 +45,7 @@ class DocumentIaCCommand(ClickCommand):
 
         return True
 
-    def execute(self, **kwargs) -> Any:
+    def _execute(self, **kwargs) -> Any:
         """Execute the documentation generation"""
         ctx = click.get_current_context()
         iac_type = kwargs['framework']

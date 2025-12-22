@@ -33,7 +33,7 @@ class RestoredIaCScanCommand(ClickCommand):
         """Validate scan parameters."""
         return True
 
-    def execute(
+    def _execute(
         self,
         tools: List[str],
         reports_dir: str,

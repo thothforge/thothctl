@@ -17,7 +17,7 @@ class ConvertProjectCommand(ClickCommand):
         """Validate conversion parameters."""
         return True
 
-    def execute(
+    def _execute(
         self,
         make_terramate_stacks: bool = False,
         make_project: bool = False,
