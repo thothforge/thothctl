@@ -202,6 +202,8 @@ def get_project_props(
     input_parameters = load_iac_conf(directory=directory).get(
         "template_input_parameters", {}
     )
+    print(f"{Fore.CYAN}DEBUG: Loaded input_parameters: {input_parameters}{Fore.RESET}")
+    
     if input_parameters == {}:
         if batch_mode:
             # Use default values in batch mode
@@ -330,6 +332,7 @@ def get_simple_project_props(
     :return:
     """
     print(f"{Fore.GREEN} Write project parameters for {project_name}")
+    print(f"{Fore.CYAN}DEBUG: input_parameters type: {type(input_parameters)}, content: {input_parameters}{Fore.RESET}")
     
     # Check if input_parameters is empty or not properly formatted
     if not input_parameters:
@@ -400,8 +403,8 @@ def get_simple_project_props(
                         pattern = input_parameters[k]["condition"]
                         validate = lambda _, x: re.match(pattern=pattern, string=x)
                     
-                    # Set up default if it exists
-                    default = input_parameters[k].get("default", None)
+                    # Set up default from template_value
+                    default = input_parameters[k].get("template_value")
                     
                     questions = [
                         inquirer.Text(

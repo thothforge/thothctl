@@ -10,7 +10,7 @@ version_tools = """[
   },
   {
     "name": "terragrunt",
-    "version": "0.93.10"
+    "version": "0.96.1"
   },
   {
     "name": "thothctl",
