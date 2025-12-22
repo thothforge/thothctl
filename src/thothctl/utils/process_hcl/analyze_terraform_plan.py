@@ -9,6 +9,7 @@ from pathlib import Path, PurePath
 
 import os
 from colorama import Fore
+from ...platform_utils import find_executable, get_executable_name
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table

@@ -81,6 +81,7 @@ Commands:
   project    Convert, clean up and manage the current project
   remove     Remove Projects manage by thothctl
   scan       Scan infrastructure code for security issues.
+  upgrade    Upgrade thothctl to the latest version
 
 ```
 

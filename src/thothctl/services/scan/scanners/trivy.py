@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from ....core.cli_ui import ScannerUI
+from ....utils.platform_utils import find_executable, get_executable_name
 from .scanners import ScannerPort
 
 
@@ -15,6 +16,13 @@ class TrivyScanner(ScannerPort):
         self.ui = ScannerUI("Trivy")
         self.report_filename = "trivy_report.txt"
         self.reports_path = "trivy"
+
+    def _get_trivy_executable(self) -> str:
+        """Get the Trivy executable with platform-specific handling."""
+        trivy_path = find_executable("trivy")
+        if not trivy_path:
+            raise FileNotFoundError("Trivy executable not found in PATH")
+        return trivy_path
 
     def scan(
         self,

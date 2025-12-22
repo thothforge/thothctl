@@ -8,6 +8,7 @@ import logging
 import glob
 
 from ....core.cli_ui import ScannerUI
+from ....utils.platform_utils import find_executable, get_executable_name
 from .scanners import ScannerPort
 
 
@@ -17,6 +18,13 @@ class CheckovScanner(ScannerPort):
         self.reports_path = "checkov"
         self.report_filename = "checkov_log_report.txt"
         self.logger = logging.getLogger(__name__)
+
+    def _get_checkov_executable(self) -> str:
+        """Get the Checkov executable with platform-specific handling."""
+        checkov_path = find_executable("checkov")
+        if not checkov_path:
+            raise FileNotFoundError("Checkov executable not found in PATH")
+        return checkov_path
 
     def scan(
         self,

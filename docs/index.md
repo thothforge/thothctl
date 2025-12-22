@@ -8,6 +8,20 @@ Thoth Framework is a framework to create and manage the [Internal Developer Plat
 4. ✔️ Enforce compliance
 5. ✔️ Reduce lock-in
 
+## Cross-Platform Support
+
+ThothCTL works seamlessly across all major platforms:
+
+| Platform | Support Level | Shell Integration | Installation |
+|----------|---------------|-------------------|--------------|
+| **Windows 10/11** | ✅ Full | PowerShell autocomplete | `pip install thothctl` |
+| **Linux** | ✅ Full | Bash/Zsh/Fish autocomplete | `pip install thothctl` |
+| **macOS** | ✅ Full | Bash/Zsh/Fish autocomplete | `pip install thothctl` |
+
+- **Native Windows Support**: PowerShell integration, Windows paths, `.exe` detection
+- **Universal Installation**: Single `pip install` command works everywhere
+- **Platform-Aware**: Automatic detection and adaptation to your environment
+
 ## Mapping Mechanisms 
 | Business Objective | Mechanism          | Implementation |
 |-------------------|--------------------|----------------|
@@ -81,6 +95,7 @@ Commands:
   project    Convert, clean up and manage the current project
   remove     Remove Projects manage by thothctl
   scan       Scan infrastructure code for security issues.
+  upgrade    Upgrade thothctl to the latest version
 
 
 ```

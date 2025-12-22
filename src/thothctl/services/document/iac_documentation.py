@@ -6,6 +6,7 @@ import logging
 import subprocess
 import os
 from colorama import Fore
+from ...utils.platform_utils import find_executable, get_executable_name
 from .files_content import terraform_docs_content_modules, terraform_docs_content_resources
 from .iac_grunt_graph import graph_dependencies,graph_dependencies_recursive
 from .iac_grunt_info import TerragruntInfoGenerator

@@ -95,6 +95,10 @@ class GetVersion(BaseModel):
     """Get ThothCTL version."""
     pass
 
+class UpgradeThothCTL(BaseModel):
+    """Upgrade thothctl to the latest version."""
+    check_only: bool = False
+
 # Define tool names as enum for consistency
 class ThothTools(str, Enum):
     PROJECT_INIT = "thothctl_init_project"
@@ -115,6 +119,7 @@ class ThothTools(str, Enum):
     CHECK_COMPLIANCE = "thothctl_check"
     MANAGE_PROJECT = "thothctl_project"
     GET_VERSION = "thothctl_version"
+    UPGRADE_THOTHCTL = "thothctl_upgrade"
 
 # Implementation of ThothCTL commands
 def init_project(project_name: str, directory: str = ".") -> str:
@@ -223,6 +228,22 @@ def get_version() -> str:
     """Get ThothCTL version."""
     ui.print_info(f"Getting ThothCTL version: {__version__}")
     return __version__
+
+def upgrade_thothctl(check_only: bool = False) -> str:
+    """Upgrade thothctl to the latest version."""
+    from ...commands.upgrade.cli import UpgradeCommand
+    
+    logger.info(f"Upgrading ThothCTL (check_only={check_only})")
+    ui.print_info(f"Upgrading ThothCTL (check_only={check_only})")
+    
+    try:
+        upgrade_cmd = UpgradeCommand()
+        upgrade_cmd._execute(check_only=check_only)
+        return "ThothCTL upgrade completed successfully"
+    except Exception as e:
+        error_msg = f"ThothCTL upgrade failed: {str(e)}"
+        ui.print_error(error_msg)
+        return error_msg
 
 async def serve(working_directory: Path | None = None) -> None:
     """Run the MCP server for ThothCTL in stdio mode.
@@ -414,6 +435,20 @@ async def serve(working_directory: Path | None = None) -> None:
                 name=ThothTools.GET_VERSION,
                 description="Get ThothCTL version",
                 inputSchema=GetVersion.schema(),
+            ),
+            Tool(
+                name=ThothTools.UPGRADE_THOTHCTL,
+                description="Upgrade thothctl to the latest version",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "check_only": {
+                            "type": "boolean",
+                            "description": "Only check for updates without installing",
+                            "default": False
+                        }
+                    }
+                }
             ),
         ]
 
@@ -619,6 +654,20 @@ async def serve(working_directory: Path | None = None) -> None:
                 return [TextContent(
                     type="text",
                     text=f"ThothCTL version: {version}"
+                )]
+
+            case ThothTools.UPGRADE_THOTHCTL:
+                check_only = arguments.get("check_only", False)
+                action = "Checking for updates" if check_only else "Upgrading ThothCTL"
+                with ui.status_spinner(f"{action}..."):
+                    result = upgrade_thothctl(check_only)
+                if "failed" in result.lower():
+                    ui.print_error(result)
+                else:
+                    ui.print_success(result)
+                return [TextContent(
+                    type="text",
+                    text=result
                 )]
 
             case _:

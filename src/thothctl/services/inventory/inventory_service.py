@@ -9,6 +9,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import hcl2
 
+from ...utils.platform_utils import find_executable, get_executable_name
 from .models import Component, ComponentGroup, Inventory, Provider
 from .module_compatibility_service import ModuleCompatibilityService
 from .report_service import ReportService

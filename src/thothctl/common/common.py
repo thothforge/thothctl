@@ -10,6 +10,8 @@ from colorama import Fore
 from rich.console import Console
 from rich.table import Table
 
+from ..utils.platform_utils import get_config_dir
+
 
 config_file_name = ".thothcf.toml"
 
@@ -22,9 +24,9 @@ def load_iac_conf(directory, file_name=config_file_name):
     :param directory:
     :return:
     """
-    config_path = Path(os.path.join(directory, file_name))
+    config_path = Path(directory) / file_name
 
-    if os.path.exists(config_path):
+    if config_path.exists():
         with open(config_path, mode="rt", encoding="utf-8") as fp:
             config = toml.load(fp)
 
@@ -43,10 +45,12 @@ def create_iac_conf(file_name=config_file_name):
     :param file_name:
     :return:
     """
-    config_path = PurePath(f"{Path.home()}/.thothcf/", file_name)
-    if not os.path.exists(PurePath(f"{Path.home()}/.thothcf/")):
-        os.makedirs(PurePath(f"{Path.home()}/.thothcf/"))
-        logging.debug(f"Folder {PurePath(f'{Path.home()}/.thothcf/')} created")
+    config_dir = get_config_dir()
+    config_path = config_dir / file_name
+    
+    if not config_dir.exists():
+        config_dir.mkdir(parents=True, exist_ok=True)
+        logging.debug(f"Folder {config_dir} created")
 
     if not os.path.exists(config_path):
         with open(config_path, mode="wt", encoding="utf-8") as fp:

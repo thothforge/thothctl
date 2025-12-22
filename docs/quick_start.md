@@ -1,5 +1,38 @@
 # Quick Start
 
+## Installation
+
+### Universal Installation (All Platforms)
+
+```bash
+pip install thothctl
+```
+
+### Platform-Specific Guides
+
+- **Windows**: [Windows Installation Guide](windows_installation.md)
+- **Linux**: Standard pip installation works on all distributions
+- **macOS**: Standard pip installation with Homebrew support
+
+### Verify Installation
+
+```bash
+thothctl --version
+```
+
+## Setup Autocomplete
+
+Enable command autocompletion for your shell:
+
+```bash
+# All platforms
+thothctl-register-autocomplete
+```
+
+This will configure:
+- **PowerShell** autocomplete on Windows
+- **Bash/Zsh/Fish** autocomplete on Linux/macOS
+
 ## Help Command
 
 For getting the use cases you can run `thothctl -h`

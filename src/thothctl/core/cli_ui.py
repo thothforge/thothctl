@@ -5,10 +5,23 @@ import subprocess
 import threading
 import time
 import os
-import fcntl
-import select
+import platform
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
+
+# Platform-specific imports
+if platform.system() == "Windows":
+    try:
+        import msvcrt
+    except ImportError:
+        msvcrt = None
+else:
+    try:
+        import fcntl
+        import select
+    except ImportError:
+        fcntl = None
+        select = None
 
 from rich import print as rprint
 from rich.console import Console, Group

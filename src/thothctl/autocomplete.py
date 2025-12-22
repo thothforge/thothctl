@@ -7,32 +7,38 @@ import os
 import sys
 import subprocess
 import shutil
+import platform
 from pathlib import Path
 
 def main():
     """Set up shell completion for thothctl using Click's completion mechanism."""
-    shell = os.environ.get("SHELL", "").split("/")[-1] or "bash"
+    system = platform.system()
     
-    if shell not in ["bash", "zsh", "fish"]:
-        print(f"Warning: Shell '{shell}' may not be fully supported. Defaulting to bash completion.")
-        shell = "bash"
-    
-    # Generate the completion script content
-    if shell == "bash":
-        completion_cmd = 'eval "$(_THOTHCTL_COMPLETE=bash_source thothctl)"'
-    elif shell == "zsh":
-        completion_cmd = 'eval "$(_THOTHCTL_COMPLETE=zsh_source thothctl)"'
-    elif shell == "fish":
-        completion_cmd = 'eval "$(_THOTHCTL_COMPLETE=fish_source thothctl)"'
-    
-    # Determine the appropriate config file
-    if shell == "bash":
-        config_file = os.path.expanduser("~/.bashrc")
-    elif shell == "zsh":
-        config_file = os.path.expanduser("~/.zshrc")
-    elif shell == "fish":
-        config_file = os.path.expanduser("~/.config/fish/config.fish")
-        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+    if system == "Windows":
+        # Windows PowerShell completion
+        shell = "powershell"
+        completion_cmd = 'Register-ArgumentCompleter -Native -CommandName thothctl -ScriptBlock { param($wordToComplete, $commandAst, $cursorPosition); $env:_THOTHCTL_COMPLETE="powershell_complete"; $env:COMP_WORDS=$commandAst.ToString(); $env:COMP_CWORD=$cursorPosition; thothctl 2>$null }'
+        config_file = Path.home() / "Documents" / "PowerShell" / "Microsoft.PowerShell_profile.ps1"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Unix shells
+        shell = os.environ.get("SHELL", "").split("/")[-1] or "bash"
+        
+        if shell not in ["bash", "zsh", "fish"]:
+            print(f"Warning: Shell '{shell}' may not be fully supported. Defaulting to bash completion.")
+            shell = "bash"
+        
+        # Generate the completion script content
+        if shell == "bash":
+            completion_cmd = 'eval "$(_THOTHCTL_COMPLETE=bash_source thothctl)"'
+            config_file = Path.home() / ".bashrc"
+        elif shell == "zsh":
+            completion_cmd = 'eval "$(_THOTHCTL_COMPLETE=zsh_source thothctl)"'
+            config_file = Path.home() / ".zshrc"
+        elif shell == "fish":
+            completion_cmd = 'eval "$(_THOTHCTL_COMPLETE=fish_source thothctl)"'
+            config_file = Path.home() / ".config" / "fish" / "config.fish"
+            config_file.parent.mkdir(parents=True, exist_ok=True)
     
     # Print instructions
     print(f"\nTo enable autocompletion for thothctl in {shell}, add the following line to {config_file}:")
