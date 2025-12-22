@@ -40,6 +40,23 @@ class ReportService:
             
         return reports_dir / f"{report_name}_{timestamp}.{extension}"
 
+    def create_json_report(
+        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
+    ) -> Path:
+        """Create formatted JSON report from inventory data."""
+        try:
+            report_path = self._create_report_path(report_name, "json", reports_directory)
+
+            with open(report_path, "w", encoding="utf-8") as f:
+                json.dump(inventory, f, indent=2, default=str, ensure_ascii=False)
+
+            logger.info(f"JSON report created at: {report_path}")
+            return report_path
+
+        except Exception as e:
+            logger.error(f"Failed to create JSON report: {str(e)}")
+            raise
+
     def create_html_report(
         self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
