@@ -330,8 +330,8 @@ def summary_inventory(
     local = 0
     list_outdated = []
     st = None
-    for components in inv["components"]:
-        for c in components["components"]:
+    for components in inv.get("components", []):
+        for c in components.get("components", []):
             logging.debug(c)
             local_version = c["version"]
 
