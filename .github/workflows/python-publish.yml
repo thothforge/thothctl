@@ -8,9 +8,6 @@ on:
 jobs:
   test-deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: test-release
-      url: https://test.pypi.org/p/${{ github.event.repository.name }}
     permissions:
       id-token: write
       contents: read
@@ -50,9 +47,6 @@ jobs:
   prod-deploy:
     needs: test-deploy
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://pypi.org/p/${{ github.event.repository.name }}
     permissions:
       id-token: write
       contents: read

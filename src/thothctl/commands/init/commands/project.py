@@ -73,11 +73,11 @@ class ProjectInitCommand(ClickCommand):
             
         return True
 
-    def execute(
+    def _execute(
         self,
         project_name: str,
         setup_conf: bool,
-        version_control_system_service: str = ProjectService.DEFAULT_VCS_SERVICE,
+        version_control_systems_service: str = ProjectService.DEFAULT_VCS_SERVICE,
         az_org_name: Optional[str] = None,
         github_username: Optional[str] = None,
         reuse: bool = False,
@@ -93,7 +93,7 @@ class ProjectInitCommand(ClickCommand):
         self.ui.print_info(f"🚀 Initializing project: {project_name}")
         
         # If space is provided, show info and get VCS provider
-        vcs_provider = version_control_system_service
+        vcs_provider = version_control_systems_service
         vcs_params = {}
         if space:
             self.ui.print_info(f"🌌 Using space: {space}")
