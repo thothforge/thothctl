@@ -1,0 +1,33 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: test-wrapper3
+    project_properties:
+      backend_bucket: test-wrapper3-backend_bucket
+      backend_region: test-wrapper3-backend_region
+      client: test-wrapper3-client
+      deployment_region: test-wrapper3-deployment_region
+      dynamodb_table: test-wrapper3-dynamodb_table
+      environment: test-wrapper3-environment
+      owner: test-wrapper3-owner
+      project: test-wrapper3-project
+  description: IaC project for test-wrapper3
+  name: test-wrapper3
+  tags:
+  - devops
+  - devsecops
+  - iac
+  - terraform
+  - terragrunt
+  - module
+  - aws
+  - cloud
+  - automation
+  - template
+spec:
+  lifecycle: production
+  owner: IaCPlatform
+  system: IaCPlatform
+  type: template

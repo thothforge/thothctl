@@ -1,0 +1,58 @@
+.md-typeset h1 {
+  color: var(--md-primary-fg-color);
+  font-weight: 700;
+}
+
+.md-nav__item .md-nav__link--active {
+  color: var(--md-primary-fg-color);
+  font-weight: bold;
+}
+
+.md-nav__title {
+  color: var(--md-primary-fg-color);
+}
+
+/* Add some spacing between navigation items */
+.md-nav__item {
+  margin: 0.2rem 0;
+}
+
+/* Make command names stand out */
+.md-nav__item .md-nav__link[href*="commands"] {
+  font-weight: 500;
+}
+
+/* Add some styling to the top-level navigation tabs */
+.md-tabs__link {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.md-tabs__link--active {
+  font-weight: 700;
+  opacity: 1;
+}
+
+/* Improve code block appearance */
+.md-typeset pre > code {
+  border-radius: 4px;
+}
+
+/* Add a subtle border to tables */
+.md-typeset table:not([class]) {
+  border: 1px solid rgba(0,0,0,.07);
+  border-radius: 4px;
+  box-shadow: 0 2px 2px 0 rgba(0,0,0,.03);
+}
+
+/* Improve admonition blocks */
+.md-typeset .admonition {
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+/* Add a subtle hover effect to navigation items */
+.md-nav__link:hover {
+  text-decoration: none;
+  opacity: 0.8;
+}
