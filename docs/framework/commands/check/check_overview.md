@@ -47,6 +47,42 @@ This command validates:
 - Template-based configuration compliance
 - Required vs optional components
 
+### [check iac](check_iac.md)
+
+Advanced IaC validation with multiple check types including terraform plans, dependencies, and blast radius assessment.
+
+```bash
+# Validate terraform plan
+thothctl check iac -type tfplan --recursive
+
+# Analyze dependencies
+thothctl check iac -type deps --recursive
+
+# Assess blast radius (ITIL v4 compliant)
+thothctl check iac -type blast-radius --recursive
+```
+
+Available check types:
+- **tfplan**: Validate terraform plan files
+- **module**: Check module structure
+- **deps**: Analyze dependency graph and visualize relationships
+- **blast-radius**: ITIL v4 compliant risk assessment combining dependency analysis with planned changes
+
+### [Blast Radius Assessment](blast-radius.md)
+
+ITIL v4 compliant risk assessment that combines dependency analysis with planned changes to assess deployment impact.
+
+```bash
+thothctl check iac -type blast-radius --recursive --plan-file tfplan.json
+```
+
+Features:
+- Risk scoring based on component complexity and dependencies
+- ITIL v4 change type classification (STANDARD, NORMAL, EMERGENCY)
+- Automated approval workflow recommendations
+- Mitigation steps and rollback planning
+- Visual risk assessment with color-coded components
+
 ## Command Structure
 
 The check commands follow a hierarchical structure:

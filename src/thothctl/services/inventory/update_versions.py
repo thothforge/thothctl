@@ -352,7 +352,7 @@ def summary_inventory(
     inv_summary["Outdated"] = outdated
     print(inv_summary)
 
-    inv_summary["UpdateStatus"] = f"{str((updated / total) * 100)} %"
+    inv_summary["UpdateStatus"] = f"{str((updated / total) * 100) if total > 0 else '0'} %"
 
     return inv_summary, list_outdated
 

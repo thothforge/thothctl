@@ -19,6 +19,7 @@ from ....core.cli_ui import CliUI
 
 from ....core.commands import ClickCommand
 from ....services.check.project.risk_assessment import calculate_component_risks
+from ....services.check.project.blast_radius_service import BlastRadiusService
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class CheckIaCCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
         self.console = Console()
-        self.supported_check_types = ["tfplan", "module", "deps"]
+        self.supported_check_types = ["tfplan", "module", "deps", "blast-radius"]
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
@@ -65,6 +66,10 @@ class CheckIaCCommand(ClickCommand):
                     directory=directory,
                     dagtool='terragrunt'  # Force terragrunt as the tool for dependencies
                 )
+                return result
+            elif kwargs['check_type'] == "blast-radius":
+                self.ui.print_info("💥 Running blast radius assessment...")
+                result = self._run_blast_radius_check(directory=directory, recursive=recursive, **kwargs)
                 return result
 
             self.logger.debug("Check completed successfully")
@@ -675,6 +680,139 @@ class CheckIaCCommand(ClickCommand):
         else:
             return "red"
 
+    def _run_blast_radius_check(self, directory: str, recursive: bool = False, **kwargs) -> bool:
+        """Run blast radius assessment combining deps and plan analysis."""
+        try:
+            blast_service = BlastRadiusService()
+            
+            # Get plan file if provided
+            plan_file = kwargs.get('plan_file')
+            
+            # Run blast radius assessment
+            assessment = blast_service.assess_blast_radius(
+                directory=directory,
+                recursive=recursive,
+                plan_file=plan_file
+            )
+            
+            # Display results
+            self._display_blast_radius_results(assessment)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Blast radius assessment failed: {str(e)}")
+            self.ui.print_error(f"Failed to assess blast radius: {str(e)}")
+            return False
+    
+    def _display_blast_radius_results(self, assessment) -> None:
+        """Display blast radius assessment results."""
+        from ....services.check.project.blast_radius_service import ChangeRisk, ChangeType
+        
+        # Main header
+        self.console.print("\n" + "="*80)
+        self.console.print("🎯 BLAST RADIUS ASSESSMENT (ITIL v4 Compliant)", style="bold cyan")
+        self.console.print("="*80)
+        
+        # Risk summary panel
+        risk_color = self._get_blast_radius_color(assessment.risk_level)
+        summary_text = f"""
+[bold]Risk Level:[/bold] [{risk_color}]{assessment.risk_level.value.upper()}[/{risk_color}]
+[bold]Change Type:[/bold] {assessment.change_type.value.upper()}
+[bold]Total Components:[/bold] {assessment.total_components}
+[bold]Affected Components:[/bold] {len(assessment.affected_components)}
+        """
+        
+        self.console.print(Panel(
+            summary_text.strip(),
+            title="📊 Risk Summary",
+            border_style=risk_color
+        ))
+        
+        # Affected components table
+        if assessment.affected_components:
+            table = Table(title="💥 Affected Components", box=box.ROUNDED)
+            table.add_column("Component", style="cyan")
+            table.add_column("Change Type", style="yellow")
+            table.add_column("Risk Score", justify="center")
+            table.add_column("Criticality", justify="center")
+            table.add_column("Dependencies", justify="center")
+            table.add_column("Dependents", justify="center")
+            
+            for comp in assessment.affected_components:
+                risk_color = self._get_risk_color(comp.risk_score * 100)
+                crit_color = self._get_criticality_color(comp.criticality)
+                
+                table.add_row(
+                    comp.name,
+                    comp.change_type,
+                    f"[{risk_color}]{comp.risk_score:.2f}[/{risk_color}]",
+                    f"[{crit_color}]{comp.criticality}[/{crit_color}]",
+                    str(len(comp.dependencies)),
+                    str(len(comp.dependents))
+                )
+            
+            self.console.print(table)
+        
+        # Recommendations
+        if assessment.recommendations:
+            rec_text = "\n".join(f"• {rec}" for rec in assessment.recommendations)
+            self.console.print(Panel(
+                rec_text,
+                title="📋 ITIL v4 Recommendations",
+                border_style="blue"
+            ))
+        
+        # Mitigation steps
+        if assessment.mitigation_steps:
+            mit_text = "\n".join(assessment.mitigation_steps)
+            self.console.print(Panel(
+                mit_text,
+                title="🛡️ Risk Mitigation Steps",
+                border_style="green"
+            ))
+        
+        # Rollback plan
+        if assessment.rollback_plan:
+            rollback_text = "\n".join(assessment.rollback_plan)
+            self.console.print(Panel(
+                rollback_text,
+                title="🔄 Rollback Plan",
+                border_style="orange3"
+            ))
+        
+        # Final recommendation based on risk level
+        if assessment.risk_level in [ChangeRisk.HIGH, ChangeRisk.CRITICAL]:
+            self.console.print(Panel(
+                "⚠️ HIGH/CRITICAL RISK DETECTED ⚠️\n\n"
+                "This change requires additional approval and careful planning.\n"
+                "Consider implementing changes in phases or during maintenance windows.",
+                title="🚨 Action Required",
+                border_style="red"
+            ))
+    
+    def _get_blast_radius_color(self, risk_level) -> str:
+        """Get color for blast radius risk level."""
+        from ....services.check.project.blast_radius_service import ChangeRisk
+        
+        color_map = {
+            ChangeRisk.LOW: "green",
+            ChangeRisk.MEDIUM: "yellow", 
+            ChangeRisk.HIGH: "orange3",
+            ChangeRisk.CRITICAL: "red"
+        }
+        return color_map.get(risk_level, "white")
+    
+    def _get_criticality_color(self, criticality: str) -> str:
+        """Get color for component criticality."""
+        color_map = {
+            "low": "green",
+            "medium": "yellow",
+            "high": "orange3", 
+            "critical": "red"
+        }
+        return color_map.get(criticality, "white")
+
 
 cli = CheckIaCCommand.as_click_command(
     help="Check Infrastructure as code artifacts like tfplan and dependencies"
@@ -711,7 +849,7 @@ cli = CheckIaCCommand.as_click_command(
     ),
     click.option("-type", "--check_type",
                  help="Check tfplan, module structure, or visualize dependencies",
-                 type=click.Choice(["tfplan", "module", "deps"], case_sensitive=True),
+                 type=click.Choice(["tfplan", "module", "deps", "blast-radius"], case_sensitive=True),
                  default="tfplan",
                  ),
     # click.option("--tfplan",
