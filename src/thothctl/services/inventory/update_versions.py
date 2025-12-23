@@ -333,17 +333,32 @@ def summary_inventory(
     for components in inv.get("components", []):
         for c in components.get("components", []):
             logging.debug(c)
-            local_version = c["version"]
+            local_version = c.get("version")
+            st = c.get("status", None)
 
             if isinstance(local_version, list):
-                st = c.get("status", None)
+                # When version is a list, check status
                 if st == "Updated":
                     updated += 1
                 elif st == "Outdated":
                     outdated += 1
                     list_outdated.append(c)
-            elif st is None and local_version == "Null":
+                else:
+                    # If status is not set but version is a list, count as local
+                    local += 1
+            elif local_version == "Null" or local_version is None:
+                # Local modules with no version
                 local += 1
+            else:
+                # Single version string - could be outdated or updated based on status
+                if st == "Updated":
+                    updated += 1
+                elif st == "Outdated":
+                    outdated += 1
+                    list_outdated.append(c)
+                else:
+                    # Default to local if no status
+                    local += 1
     total = local + updated + outdated
     inv_summary["TotalModules"] = total
     inv_summary["LocalModules"] = local
