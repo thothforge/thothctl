@@ -37,12 +37,12 @@ content = [
 ]
 type = "root"
 [[project_structure.folders]]
-name = "resources"
+name = "stacks"
 mandatory = true
 content = [
     "main.tf",
     "outputs.tf",
-    "parameters.tf",
+    "variables.tf",
     "README.md",
     "terragrunt.hcl",
     "graph.svg",
