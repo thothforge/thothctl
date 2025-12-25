@@ -69,7 +69,7 @@ class CheckIaCCommand(ClickCommand):
                 return result
             elif kwargs['check_type'] == "blast-radius":
                 self.ui.print_info("💥 Running blast radius assessment...")
-                result = self._run_blast_radius_check(directory=directory, recursive=recursive, **kwargs)
+                result = self._run_blast_radius_check(directory=directory, recursive=kwargs.get('recursive', False), **kwargs)
                 return result
 
             self.logger.debug("Check completed successfully")
