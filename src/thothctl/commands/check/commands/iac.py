@@ -31,7 +31,7 @@ class CheckIaCCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
         self.console = Console()
-        self.supported_check_types = ["tfplan", "module", "deps", "blast-radius"]
+        self.supported_check_types = ["tfplan", "module", "deps", "blast-radius", "cost-analysis"]
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
@@ -70,6 +70,10 @@ class CheckIaCCommand(ClickCommand):
             elif kwargs['check_type'] == "blast-radius":
                 self.ui.print_info("💥 Running blast radius assessment...")
                 result = self._run_blast_radius_check(directory=directory, **kwargs)
+                return result
+            elif kwargs['check_type'] == "cost-analysis":
+                self.ui.print_info("💰 Running cost analysis...")
+                result = self._run_cost_analysis(directory=directory, **kwargs)
                 return result
 
             self.logger.debug("Check completed successfully")
@@ -683,10 +687,19 @@ class CheckIaCCommand(ClickCommand):
     def _run_blast_radius_check(self, directory: str, recursive: bool = False, **kwargs) -> bool:
         """Run blast radius assessment combining deps and plan analysis."""
         try:
+            # Find existing tfplan.json files instead of generating new ones
+            tfplan_files = self._find_tfplan_files(directory, recursive)
+            
+            if not tfplan_files:
+                self.ui.print_warning("No tfplan.json files found. Run 'terraform plan -out=tfplan && terraform show -json tfplan > tfplan.json' first.")
+                return False
+            
             blast_service = BlastRadiusService()
             
-            # Get plan file if provided
-            plan_file = kwargs.get('plan_file')
+            # Use the first tfplan file found (or could process all)
+            plan_file = tfplan_files[0]
+            if len(tfplan_files) > 1:
+                self.ui.print_info(f"Found {len(tfplan_files)} tfplan files, using: {plan_file}")
             
             # Run blast radius assessment
             assessment = blast_service.assess_blast_radius(
@@ -704,6 +717,130 @@ class CheckIaCCommand(ClickCommand):
             self.logger.error(f"Blast radius assessment failed: {str(e)}")
             self.ui.print_error(f"Failed to assess blast radius: {str(e)}")
             return False
+
+    def _run_cost_analysis(self, directory: str, recursive: bool = False, **kwargs) -> bool:
+        """Run cost analysis using the new service"""
+        try:
+            from ....services.check.project.cost.cost_analyzer import CostAnalyzer
+            
+            # Find Terraform plan files
+            tfplan_files = self._find_tfplan_files(directory, recursive)
+            
+            # Find CloudFormation templates
+            cf_templates = self._find_cloudformation_templates(directory, recursive)
+            
+            if not tfplan_files and not cf_templates:
+                self.ui.print_warning("No tfplan.json files or CloudFormation templates found.")
+                self.ui.print_info("For Terraform: Run 'terraform plan -out=tfplan && terraform show -json tfplan > tfplan.json'")
+                self.ui.print_info("For CloudFormation: Ensure .yaml, .yml, or .json template files are present")
+                return False
+            
+            analyzer = CostAnalyzer()
+            
+            # Analyze Terraform plans
+            if tfplan_files:
+                self.ui.print_info(f"Analyzing Terraform plan: {tfplan_files[0]}")
+                analysis = analyzer.analyze_terraform_plan(tfplan_files[0])
+                self._display_cost_analysis(analysis)
+            
+            # Analyze CloudFormation templates
+            if cf_templates:
+                for template in cf_templates[:3]:  # Limit to first 3 templates
+                    self.ui.print_info(f"Analyzing CloudFormation template: {template}")
+                    analysis = analyzer.analyze_cloudformation_template(template)
+                    self._display_cost_analysis(analysis)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Cost analysis failed: {e}")
+            self.ui.print_error(f"Failed to run cost analysis: {str(e)}")
+            return False
+
+    def _find_cloudformation_templates(self, directory: str, recursive: bool) -> List[str]:
+        """Find CloudFormation template files"""
+        import os
+        templates = []
+        
+        extensions = ['.yaml', '.yml', '.json']
+        cf_indicators = ['AWSTemplateFormatVersion', 'Resources', 'aws::']
+        
+        if recursive:
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    if any(file.lower().endswith(ext) for ext in extensions):
+                        file_path = os.path.join(root, file)
+                        if self._is_cloudformation_template(file_path, cf_indicators):
+                            templates.append(file_path)
+        else:
+            for file in os.listdir(directory):
+                if any(file.lower().endswith(ext) for ext in extensions):
+                    file_path = os.path.join(directory, file)
+                    if self._is_cloudformation_template(file_path, cf_indicators):
+                        templates.append(file_path)
+        
+        return templates
+    
+    def _is_cloudformation_template(self, file_path: str, indicators: List[str]) -> bool:
+        """Check if file is a CloudFormation template"""
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read().lower()
+                return any(indicator.lower() in content for indicator in indicators)
+        except Exception:
+            return False
+
+    def _display_cost_analysis(self, analysis) -> None:
+        """Display cost analysis results"""
+        from ....services.check.project.cost.models.cost_models import CostAnalysis
+        
+        # Main header
+        self.console.print("\n" + "="*80)
+        self.console.print("💰 AWS COST ANALYSIS", style="bold cyan")
+        self.console.print("="*80)
+        
+        # Cost summary
+        self.console.print(f"\n📊 [bold]Total Monthly Cost:[/bold] [green]${analysis.total_monthly_cost:.2f}[/green]")
+        self.console.print(f"📅 [bold]Total Annual Cost:[/bold] [green]${analysis.total_annual_cost:.2f}[/green]")
+        
+        # Service breakdown
+        if analysis.cost_breakdown_by_service:
+            self.console.print(f"\n🏗️ [bold]Cost by Service:[/bold]")
+            for service, cost in analysis.cost_breakdown_by_service.items():
+                self.console.print(f"  • {service}: [green]${cost:.2f}/month[/green]")
+        
+        # Action breakdown
+        if analysis.cost_breakdown_by_action:
+            self.console.print(f"\n⚡ [bold]Cost by Action:[/bold]")
+            for action, cost in analysis.cost_breakdown_by_action.items():
+                color = "green" if action == "create" else "yellow" if action == "update" else "red"
+                self.console.print(f"  • {action}: [{color}]${cost:.2f}/month[/{color}]")
+        
+        # Resource details
+        if analysis.resource_costs:
+            self.console.print(f"\n📋 [bold]Resource Details:[/bold]")
+            for resource in analysis.resource_costs[:10]:  # Show first 10
+                confidence_color = "green" if resource.confidence_level == "high" else "yellow"
+                self.console.print(f"  • {resource.resource_address}")
+                self.console.print(f"    Type: {resource.resource_type} | Cost: [green]${resource.monthly_cost:.2f}/month[/green] | Confidence: [{confidence_color}]{resource.confidence_level}[/{confidence_color}]")
+        
+        # Recommendations
+        if analysis.recommendations:
+            self.console.print(f"\n💡 [bold]Recommendations:[/bold]")
+            for rec in analysis.recommendations:
+                self.console.print(f"  {rec}")
+        
+        # Warnings
+        if analysis.warnings:
+            self.console.print(f"\n⚠️ [bold]Warnings:[/bold]")
+            for warning in analysis.warnings:
+                self.console.print(f"  • [yellow]{warning}[/yellow]")
+        
+        # Metadata
+        metadata = analysis.analysis_metadata
+        api_status = "✅ Online" if metadata.get('api_available') else "⚠️ Offline (using estimates)"
+        self.console.print(f"\n📈 [bold]Analysis Info:[/bold] Region: {metadata.get('region')} | API: {api_status}")
+        self.console.print("="*80)
     
     def _display_blast_radius_results(self, assessment) -> None:
         """Display blast radius assessment results."""
@@ -848,8 +985,8 @@ cli = CheckIaCCommand.as_click_command(
         default='tofu',
     ),
     click.option("-type", "--check_type",
-                 help="Check tfplan, module structure, or visualize dependencies",
-                 type=click.Choice(["tfplan", "module", "deps", "blast-radius"], case_sensitive=True),
+                 help="Check tfplan, module structure, visualize dependencies, or analyze costs",
+                 type=click.Choice(["tfplan", "module", "deps", "blast-radius", "cost-analysis"], case_sensitive=True),
                  default="tfplan",
                  ),
     # click.option("--tfplan",

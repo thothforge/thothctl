@@ -77,7 +77,7 @@ version_tools = """[
   },
   {
     "name": "kiro-cli",
-    "version": "latest",
-    "command": "kiro --version"
+    "version": "1.21.0",
+    "command": "kiro-cli --version"
   }
 ]"""

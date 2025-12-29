@@ -213,6 +213,17 @@ class DependencyGraphGenerator:
             if project_root:
                 processed_content = processed_content.replace(str(project_root), "")
 
+            
+            # Replace dot (.) with actual directory name for current stack
+            # This handles the case where terragrunt graph shows "." for current directory
+            stack_name = dir_path.name
+            processed_content = processed_content.replace('"."', f'"{stack_name}"')
+            processed_content = processed_content.replace("'.'", f"'{stack_name}'")
+            # Also handle cases without quotes
+            processed_content = processed_content.replace(" . ", f" {stack_name} ")
+            processed_content = processed_content.replace(" .\n", f" {stack_name}\n")
+            processed_content = processed_content.replace(" .;", f" {stack_name};")
+
             return processed_content
 
         except Exception as e:

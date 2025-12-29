@@ -142,7 +142,7 @@ class BlastRadiusService:
                     plan_data = json.load(f)
             else:
                 # Generate plan
-                plan_data = self._generate_terraform_plan(directory)
+                plan_data = self._generate_terraform_plan(directory, plan_file)
             
             return self._parse_plan_changes(plan_data)
         except Exception as e:
@@ -307,19 +307,19 @@ class BlastRadiusService:
         # This should integrate with your existing deps check logic
         return [], []
     
-    def _generate_terraform_plan(self, directory: str) -> Dict[str, Any]:
-        """Generate terraform plan."""
-        try:
-            result = subprocess.run(
-                ["terraform", "plan", "-out=tfplan", "-json"],
-                cwd=directory,
-                capture_output=True,
-                text=True
-            )
-            return json.loads(result.stdout) if result.stdout else {}
-        except Exception as e:
-            logger.error(f"Failed to generate terraform plan: {e}")
-            return {}
+    def _generate_terraform_plan(self, directory: str, plan_file: str = None) -> Dict[str, Any]:
+        """Load existing terraform plan from file."""
+        if plan_file and os.path.exists(plan_file):
+            try:
+                with open(plan_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Failed to load plan file {plan_file}: {e}")
+                return {}
+        
+        # If no plan file provided, return empty dict
+        logger.warning("No plan file provided or file doesn't exist")
+        return {}
     
     def _parse_plan_changes(self, plan_data: Dict[str, Any]) -> Dict[str, Any]:
         """Parse terraform plan changes."""

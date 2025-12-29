@@ -6,6 +6,8 @@ site_url: 'https://thothctl.readthedocs.io/'
 nav:
   - Home: index.md
   - Quick Start: quick_start.md
+  - Installation:
+    - Windows: installation/windows_installation.md
   - Framework:
     - Overview: index.md
     - Concepts: framework/concepts.md
@@ -31,6 +33,11 @@ nav:
     - Check: 
       - Overview: framework/commands/check/check_overview.md
       - IaC Check: framework/commands/check/check_iac.md
+      - Cost Analysis: framework/commands/check/cost-analysis.md
+      - Cost Analysis Quick Reference: framework/commands/check/cost-analysis-quick-reference.md
+      - Blast Radius: framework/commands/check/blast-radius.md
+      - Dependencies: framework/commands/check/deps.md
+      - Plan Validation: framework/commands/check/plan.md
     - Scan:
       - Overview: framework/commands/scan/scan_overview.md
       - IaC Scanning: framework/commands/scan/scan_iac.md
@@ -58,6 +65,11 @@ nav:
     - Template Engine: template_engine/template_engine.md
     - Tasks:
       - Create Template: framework/use_cases/tasks/create_template.md
+  - Troubleshooting:
+    - General: troubleshooting/troubleshooting.md
+    - Linux: troubleshooting/linux_troubleshooting.md
+    - macOS: troubleshooting/macos_troubleshooting.md
+    - Windows: troubleshooting/windows_troubleshooting.md
   - IaC DevSecOps: iac_devsecops_use_case.md
   - MCP Integration: mcp.md
 
