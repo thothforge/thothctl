@@ -35,6 +35,8 @@ dependencies = [
     "requests",
     "cryptography>=41.0.0",
     "mcp>=1.9.4",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
     # Windows-specific dependencies
     "pywin32>=306; sys_platform == 'win32'",
 ]
