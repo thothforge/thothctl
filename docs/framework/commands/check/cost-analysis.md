@@ -16,7 +16,7 @@ The cost analysis check examines your `tfplan.json` files and CloudFormation tem
 ThothCTL provides two confidence levels for cost estimates:
 
 - **🟢 High Confidence**: Real-time pricing from AWS Pricing API
-  - Services: EC2, RDS, Aurora, Lambda, S3, ELB/ALB/NLB, EBS, DynamoDB, VPC, CloudWatch, EKS
+  - Services: EC2, RDS, Aurora, Lambda, S3, ELB/ALB/NLB, EBS, DynamoDB, VPC, CloudWatch, EKS, ECS, Secrets Manager, API Gateway
   - Most accurate, reflects current AWS pricing
   - Requires internet connectivity
 
@@ -62,7 +62,7 @@ thothctl check iac -type cost-analysis -d /path/to/infrastructure
 - **EC2**: All instance types with accurate hourly/monthly costs from AWS API
 - **Lambda**: Function pricing based on memory, timeout, and execution estimates from AWS API
 - **EKS**: Cluster pricing ($0.10/hour) from AWS API, node groups and Fargate profiles (offline estimates)
-- **ECS**: Container services with Fargate pricing
+- **ECS**: Fargate pricing (vCPU + memory) from AWS API, EC2 launch type is free
 
 ### Storage Services (Real-Time Pricing ✅)
 - **EBS**: All volume types (gp2, gp3, io1, io2, st1, sc1) with per-GB pricing from AWS API
@@ -77,10 +77,10 @@ thothctl check iac -type cost-analysis -d /path/to/infrastructure
 ### Networking Services (Real-Time Pricing ✅)
 - **ELB/ALB/NLB**: Application, Network, and Gateway Load Balancer pricing from AWS API
 - **VPC**: NAT Gateway, VPC Endpoints, VPN connections, Transit Gateway from AWS API
-- **API Gateway**: REST, HTTP, and WebSocket API pricing
+- **API Gateway**: REST, HTTP, and WebSocket API pricing from AWS API (per-request estimates)
 
 ### Security & Management (Real-Time Pricing ✅)
-- **Secrets Manager**: Secret storage and API costs
+- **Secrets Manager**: Secret storage ($0.40/secret/month) from AWS API
 - **CloudWatch**: Metrics, alarms, and log groups from AWS API
 
 ### AI/ML Services

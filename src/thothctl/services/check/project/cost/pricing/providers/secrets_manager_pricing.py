@@ -27,7 +27,37 @@ class SecretsManagerPricingProvider(BasePricingProvider):
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
-        """Calculate Secrets Manager cost"""
+        """Calculate Secrets Manager cost with real-time pricing"""
+        if not self.pricing_client.is_available():
+            return self.get_offline_estimate(resource_change, region)
+        
+        try:
+            resource_type = resource_change['type']
+            
+            if resource_type == 'aws_secretsmanager_secret':
+                filters = (
+                    ('TERM_MATCH', 'location', self._region_to_location(region)),
+                    ('TERM_MATCH', 'productFamily', 'Secret')
+                )
+                
+                products = self.pricing_client.get_products(self.get_service_code(), filters)
+                
+                if products:
+                    # Secrets Manager charges per secret per month
+                    monthly_cost = self.secret_cost
+                    hourly_cost = monthly_cost / (24 * 30)
+                    
+                    return self._create_resource_cost(
+                        resource_change, 'secret', region, 
+                        hourly_cost, 'high'
+                    )
+            else:
+                # Secret versions use offline estimate
+                return self.get_offline_estimate(resource_change, region)
+                
+        except Exception as e:
+            logger.warning(f"Secrets Manager API pricing failed: {e}")
+        
         return self.get_offline_estimate(resource_change, region)
     
     def get_offline_estimate(self, resource_change: Dict[str, Any], 

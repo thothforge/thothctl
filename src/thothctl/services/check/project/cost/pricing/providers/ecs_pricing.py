@@ -29,7 +29,44 @@ class ECSPricingProvider(BasePricingProvider):
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
-        """Calculate ECS/Fargate cost"""
+        """Calculate ECS/Fargate cost with real-time pricing"""
+        if not self.pricing_client.is_available():
+            return self.get_offline_estimate(resource_change, region)
+        
+        try:
+            resource_type = resource_change['type']
+            config = resource_change['change'].get('after', {})
+            
+            # Only Fargate has pricing, ECS on EC2 is free
+            if resource_type == 'aws_ecs_service':
+                launch_type = config.get('launch_type', 'EC2')
+                
+                if launch_type == 'FARGATE':
+                    filters = (
+                        ('TERM_MATCH', 'location', self._region_to_location(region)),
+                        ('TERM_MATCH', 'productFamily', 'Compute')
+                    )
+                    
+                    products = self.pricing_client.get_products(self.get_service_code(), filters)
+                    
+                    if products:
+                        # Fargate pricing: estimate 0.25 vCPU, 0.5 GB
+                        vcpu_cost = 0.25 * self.fargate_vcpu_cost * 24 * 30
+                        memory_cost = 0.5 * self.fargate_memory_cost * 24 * 30
+                        monthly_cost = vcpu_cost + memory_cost
+                        hourly_cost = monthly_cost / (24 * 30)
+                        
+                        return self._create_resource_cost(
+                            resource_change, 'service_fargate', region, 
+                            hourly_cost, 'high'
+                        )
+            
+            # ECS cluster and task definitions are free
+            return self.get_offline_estimate(resource_change, region)
+            
+        except Exception as e:
+            logger.warning(f"ECS API pricing failed: {e}")
+        
         return self.get_offline_estimate(resource_change, region)
     
     def get_offline_estimate(self, resource_change: Dict[str, Any], 

@@ -44,7 +44,55 @@ class APIGatewayPricingProvider(BasePricingProvider):
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
-        """Calculate API Gateway cost"""
+        """Calculate API Gateway cost with real-time pricing"""
+        if not self.pricing_client.is_available():
+            return self.get_offline_estimate(resource_change, region)
+        
+        try:
+            resource_type = resource_change['type']
+            config = resource_change['change'].get('after', {})
+            
+            # Determine API type
+            if resource_type in ['aws_api_gateway_rest_api', 'aws_api_gateway_deployment']:
+                api_type = 'rest_api'
+                group = 'API Calls'
+            elif resource_type in ['aws_apigatewayv2_api', 'aws_apigatewayv2_stage']:
+                protocol_type = config.get('protocol_type', 'HTTP')
+                if protocol_type == 'WEBSOCKET':
+                    api_type = 'websocket_api'
+                    group = 'WebSocket'
+                else:
+                    api_type = 'http_api'
+                    group = 'API Calls'
+            else:
+                return self.get_offline_estimate(resource_change, region)
+            
+            filters = (
+                ('TERM_MATCH', 'location', self._region_to_location(region)),
+                ('TERM_MATCH', 'group', group)
+            )
+            
+            products = self.pricing_client.get_products(self.get_service_code(), filters)
+            
+            if products:
+                # API Gateway pricing is per-request, estimate 100K requests/month
+                if api_type == 'rest_api':
+                    monthly_cost = 0.1 * self.rest_api_costs['requests']
+                elif api_type == 'websocket_api':
+                    monthly_cost = 0.05 * self.websocket_costs['messages']
+                else:
+                    monthly_cost = 0.1 * self.http_api_costs['requests']
+                
+                hourly_cost = monthly_cost / (24 * 30)
+                
+                return self._create_resource_cost(
+                    resource_change, api_type, region, 
+                    hourly_cost, 'high'
+                )
+                
+        except Exception as e:
+            logger.warning(f"API Gateway API pricing failed: {e}")
+        
         return self.get_offline_estimate(resource_change, region)
     
     def get_offline_estimate(self, resource_change: Dict[str, Any], 
