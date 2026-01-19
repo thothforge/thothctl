@@ -16,7 +16,7 @@ The cost analysis check examines your `tfplan.json` files and CloudFormation tem
 ThothCTL provides two confidence levels for cost estimates:
 
 - **🟢 High Confidence**: Real-time pricing from AWS Pricing API
-  - Services: EC2, RDS, Aurora, Lambda, S3, ELB/ALB/NLB, EBS, DynamoDB
+  - Services: EC2, RDS, Aurora, Lambda, S3, ELB/ALB/NLB, EBS, DynamoDB, VPC, CloudWatch, EKS
   - Most accurate, reflects current AWS pricing
   - Requires internet connectivity
 
@@ -61,7 +61,7 @@ thothctl check iac -type cost-analysis -d /path/to/infrastructure
 ### Compute Services (Real-Time Pricing ✅)
 - **EC2**: All instance types with accurate hourly/monthly costs from AWS API
 - **Lambda**: Function pricing based on memory, timeout, and execution estimates from AWS API
-- **EKS**: Cluster, node groups, and Fargate profiles
+- **EKS**: Cluster pricing ($0.10/hour) from AWS API, node groups and Fargate profiles (offline estimates)
 - **ECS**: Container services with Fargate pricing
 
 ### Storage Services (Real-Time Pricing ✅)
@@ -76,12 +76,12 @@ thothctl check iac -type cost-analysis -d /path/to/infrastructure
 
 ### Networking Services (Real-Time Pricing ✅)
 - **ELB/ALB/NLB**: Application, Network, and Gateway Load Balancer pricing from AWS API
-- **VPC**: NAT Gateway, VPC Endpoints, VPN connections, Transit Gateway
+- **VPC**: NAT Gateway, VPC Endpoints, VPN connections, Transit Gateway from AWS API
 - **API Gateway**: REST, HTTP, and WebSocket API pricing
 
-### Security & Management
+### Security & Management (Real-Time Pricing ✅)
 - **Secrets Manager**: Secret storage and API costs
-- **CloudWatch**: Metrics, alarms, and log groups
+- **CloudWatch**: Metrics, alarms, and log groups from AWS API
 
 ### AI/ML Services
 - **Bedrock**: Foundation models, knowledge bases, agents, custom models

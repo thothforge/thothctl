@@ -27,7 +27,48 @@ class CloudWatchPricingProvider(BasePricingProvider):
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
-        """Calculate CloudWatch cost"""
+        """Calculate CloudWatch cost with real-time pricing"""
+        if not self.pricing_client.is_available():
+            return self.get_offline_estimate(resource_change, region)
+        
+        try:
+            resource_type = resource_change['type']
+            
+            # Map resource type to CloudWatch group
+            group_map = {
+                'aws_cloudwatch_metric_alarm': 'Alarms',
+                'aws_cloudwatch_log_group': 'Logs'
+            }
+            
+            group = group_map.get(resource_type)
+            if not group:
+                return self.get_offline_estimate(resource_change, region)
+            
+            filters = (
+                ('TERM_MATCH', 'location', self._region_to_location(region)),
+                ('TERM_MATCH', 'group', group)
+            )
+            
+            products = self.pricing_client.get_products(self.get_service_code(), filters)
+            
+            if products:
+                # CloudWatch pricing is often per-unit, convert to monthly
+                unit_cost = self._extract_hourly_cost(products[0])
+                
+                if resource_type == 'aws_cloudwatch_metric_alarm':
+                    monthly_cost = self.alarm_cost  # Use fixed alarm cost
+                else:
+                    monthly_cost = 0.50  # Base log group cost
+                
+                hourly_cost = monthly_cost / (24 * 30)
+                
+                return self._create_resource_cost(
+                    resource_change, resource_type, region, 
+                    hourly_cost, 'high'
+                )
+        except Exception as e:
+            logger.warning(f"CloudWatch API pricing failed: {e}")
+        
         return self.get_offline_estimate(resource_change, region)
     
     def get_offline_estimate(self, resource_change: Dict[str, Any], 

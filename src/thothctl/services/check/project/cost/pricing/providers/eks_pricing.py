@@ -28,7 +28,38 @@ class EKSPricingProvider(BasePricingProvider):
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
-        """Calculate EKS cost"""
+        """Calculate EKS cost with real-time pricing"""
+        if not self.pricing_client.is_available():
+            return self.get_offline_estimate(resource_change, region)
+        
+        try:
+            resource_type = resource_change['type']
+            
+            # EKS cluster has fixed hourly rate
+            if resource_type == 'aws_eks_cluster':
+                filters = (
+                    ('TERM_MATCH', 'location', self._region_to_location(region)),
+                    ('TERM_MATCH', 'productFamily', 'Compute')
+                )
+                
+                products = self.pricing_client.get_products(self.get_service_code(), filters)
+                
+                if products:
+                    hourly_cost = self._extract_hourly_cost(products[0])
+                    if hourly_cost == 0.0:
+                        hourly_cost = 0.10  # Fixed $0.10/hour for EKS cluster
+                    
+                    return self._create_resource_cost(
+                        resource_change, 'cluster', region, 
+                        hourly_cost, 'high'
+                    )
+            else:
+                # Node groups and Fargate profiles use offline estimates
+                return self.get_offline_estimate(resource_change, region)
+                
+        except Exception as e:
+            logger.warning(f"EKS API pricing failed: {e}")
+        
         return self.get_offline_estimate(resource_change, region)
     
     def get_offline_estimate(self, resource_change: Dict[str, Any], 

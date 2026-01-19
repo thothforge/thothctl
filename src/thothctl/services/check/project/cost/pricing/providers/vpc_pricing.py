@@ -31,7 +31,41 @@ class VPCPricingProvider(BasePricingProvider):
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
-        """Calculate VPC component cost"""
+        """Calculate VPC component cost with real-time pricing"""
+        if not self.pricing_client.is_available():
+            return self.get_offline_estimate(resource_change, region)
+        
+        try:
+            resource_type = resource_change['type']
+            
+            # Map resource type to product family
+            product_family_map = {
+                'aws_nat_gateway': 'NAT Gateway',
+                'aws_vpc_endpoint': 'VpcEndpoint',
+                'aws_vpn_connection': 'VPN',
+                'aws_ec2_transit_gateway': 'Transit Gateway'
+            }
+            
+            product_family = product_family_map.get(resource_type)
+            if not product_family:
+                return self.get_offline_estimate(resource_change, region)
+            
+            filters = (
+                ('TERM_MATCH', 'location', self._region_to_location(region)),
+                ('TERM_MATCH', 'productFamily', product_family)
+            )
+            
+            products = self.pricing_client.get_products(self.get_service_code(), filters)
+            
+            if products:
+                hourly_cost = self._extract_hourly_cost(products[0])
+                return self._create_resource_cost(
+                    resource_change, resource_type, region, 
+                    hourly_cost, 'high'
+                )
+        except Exception as e:
+            logger.warning(f"VPC API pricing failed: {e}")
+        
         return self.get_offline_estimate(resource_change, region)
     
     def get_offline_estimate(self, resource_change: Dict[str, Any], 
