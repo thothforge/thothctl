@@ -48,7 +48,20 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
 - **[Template Engine](template_engine/template_engine.md)**:
   - Build and configure any kind of template
   - Handling templates to create, add, remove or update components
-  - Code generation
+  - Code generation from scaffold projects
+  
+- **[AI-Powered Development Lifecycle (AI-DLC)](framework/use_cases/ai_dlc.md)**:
+  - MCP Integration with Kiro CLI (Amazon Q)
+  - AI orchestrates ThothCTL commands or analyzes results
+  - Natural language interface for IaC operations
+  - Scaffold templates from [ThothForge GitHub](https://github.com/thothforge)
+
+- **[DevSecOps SDLC for IaC](framework/use_cases/devsecops_sdlc.md)**:
+  - 8-phase lifecycle (Plan → Deploy → Monitor)
+  - Security scanning (Checkov, Trivy, TFSec)
+  - AWS cost analysis with real-time pricing
+  - Blast radius assessment (ITIL v4)
+  - [Quick Start Guide](framework/use_cases/devsecops_quickstart.md)
   
 - **Automate tasks**:
   - Create and bootstrap local development environment
@@ -57,70 +70,18 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
 
 - **Check and compliance**:
   - Check project structure
-    - DevSecOps for IaC (Terraform, tofu)
-      - Scan your IaC terraform,tofu templates
-      - Generate reports 
+    - DevSecOps for IaC (Terraform, OpenTofu, Terragrunt)
+      - Scan your IaC templates
+      - Generate professional reports
       - Manage inventory and dependencies
       - Review IaC changes and make suggestions (Generative AI)
+      - **AWS Cost Analysis** - Estimate infrastructure costs from Terraform plans
       
 - **Internal Developer Platform CLI**
   - Create projects from your templates
-  - Source control setup
-  - Scaffold - quickly set up the structure of a project.
+  - Source control setup (GitHub, GitLab, Azure DevOps)
+  - Scaffold - quickly set up the structure of a project
+  - Space management for organizational structure
   
-
-
-# Getting Started
-
-```bash
-$ thothctl -h
-thothctl --help
-Usage: thothctl [OPTIONS] COMMAND [ARGS]...
-
-  ThothForge CLI - The Internal Developer Platform CLI
-
-Options:
-  --version                  Show the version and exit.
-  --debug                    Enable debug mode
-  -d, --code-directory PATH  Configuration file path
-  --help                     Show this message and exit.
-
-Commands:
-  check      Initialize and setup project configurations
-  document   Initialize and setup project configurations
-  generate   Generate IaC from rules, use cases, and components
-  init       Initialize and setup project configurations
-  inventory  Create Inventory for the iac composition.
-  list       List Projects manage by thothctl locally
-  project    Convert, clean up and manage the current project
-  remove     Remove Projects manage by thothctl
-  scan       Scan infrastructure code for security issues.
-  upgrade    Upgrade thothctl to the latest version
-
-
-```
-
-
-## Third Party Tools
-
-### [OpenTofu](https://opentofu.org/)
-OpenTofu is a fork of Terraform that is open-source, community-driven, and managed by the Linux Foundation.
-
-### [Backstage](https://backstage.io/)
-An open source framework for building developer portals.
-
-### [Terragrunt](https://terragrunt.gruntwork.io/)
-Terragrunt is a flexible orchestration tool that allows Infrastructure as Code to scale. 
-
-### [Terraform-docs](https://terraform-docs.io/)
-Generate Terraform modules documentation in various formats.
-
-### [Checkov](https://www.checkov.io/)
-Checkov scans cloud infrastructure configurations to find misconfigurations before they're deployed.
-
-### [Trivy](https://trivy.dev/latest/)
-Use Trivy to find vulnerabilities (CVE) & misconfigurations (IaC) across code repositories, binary artifacts, container images, Kubernetes clusters, and more. All in one tool! 
-
-
 
 

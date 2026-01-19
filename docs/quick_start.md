@@ -10,7 +10,7 @@ pip install thothctl
 
 ### Platform-Specific Guides
 
-- **Windows**: [Windows Installation Guide](windows_installation.md)
+- **Windows**: [Windows Installation Guide](installation/windows_installation.md)
 - **Linux**: Standard pip installation works on all distributions
 - **macOS**: Standard pip installation with Homebrew support
 
@@ -49,16 +49,17 @@ Options:
   --help                     Show this message and exit.
 
 Commands:
-  check      Initialize and setup project configurations
-  document   Initialize and setup project configurations
+  check      Validate environment, IaC, cost analysis, and blast radius
+  document   Generate documentation for IaC projects with AI support
   generate   Generate IaC from rules, use cases, and components
-  init       Initialize and setup project configurations
-  inventory  Create Inventory for the iac composition.
-  list       List Projects and Spaces managed by thothctl locally
-  mcp        Model Context Protocol (MCP) server for ThothCTL
+  init       Initialize and setup project configurations and environments
+  inventory  Create inventory for IaC composition with version tracking
+  list       List projects and spaces managed by thothctl locally
+  mcp        Model Context Protocol (MCP) server for AI integration
   project    Convert, clean up and manage the current project
-  remove     Remove Projects manage by thothctl
-  scan       Scan infrastructure code for security issues.
+  remove     Remove projects and spaces managed by thothctl
+  scan       Scan infrastructure code for security issues and compliance
+  upgrade    Upgrade thothctl to the latest version
 ```
 ## Initialize a space
 
@@ -110,7 +111,7 @@ Initialize project based on templates, custom framework or void template.
 You can create a project without content, just a void template with base structure. For example:
 
 ```commandline
-$  thothctl init -pj <project_name>
+$  thothctl init project --project-name <project_name>
 
 ```
 

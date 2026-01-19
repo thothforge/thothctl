@@ -60,5 +60,5 @@ thothctl list spaces
 ## Related Commands
 
 - [`init project`](../init/init.md) - Initialize projects
-- [`list spaces`](../list/spaces.md) - List available spaces
-- [`remove space`](../remove/space.md) - Remove spaces
+- [`list spaces`](../list/list_spaces.md) - List available spaces
+- [`remove space`](../remove/remove_space.md) - Remove spaces

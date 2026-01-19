@@ -284,5 +284,5 @@ ThothCTL's modular architecture allows for easy extension of check commands:
 
 - [Environment Setup](../init/init.md): Setting up development environments
 - [Project Initialization](../init/init.md): Creating new projects with proper structure
-- [Template Engine](../../template_engine/template_engine.md): Understanding ThothCTL templates
+- [Template Engine](../../../template_engine/template_engine.md): Understanding ThothCTL templates
 - [Best Practices](../../use_cases/check_command.md): Infrastructure code best practices

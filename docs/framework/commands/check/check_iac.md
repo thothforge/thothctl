@@ -425,6 +425,6 @@ thothctl --debug check project iac
 
 ## Related Commands
 
-- [thothctl check environment](../check_environment.md): Check development environment setup
-- [thothctl init project](../../init/init.md): Initialize a new project with correct structure
-- [thothctl inventory iac](../../inventory/inventory_overview.md): Create inventory of infrastructure components
+- [thothctl check environment](check_environment.md): Check development environment setup
+- [thothctl init project](../init/init.md): Initialize a new project with correct structure
+- [thothctl inventory iac](../inventory/inventory_overview.md): Create inventory of infrastructure components

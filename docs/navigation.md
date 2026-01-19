@@ -3,25 +3,25 @@
 ## Getting Started
 
 - [Quick Start](quick_start.md) - Universal installation and setup
-- [Windows Installation](windows_installation.md) - Windows-specific setup guide
-- [Windows Troubleshooting](windows_troubleshooting.md) - Windows-specific issues
+- [Windows Installation](installation/windows_installation.md) - Windows-specific setup guide
+- [Windows Troubleshooting](troubleshooting/windows_troubleshooting.md) - Windows-specific issues
 
 ## Framework Documentation
 
-- [Framework Overview](framework/) - Core concepts and architecture
+- [Framework Overview](index.md) - Core concepts and architecture
 - [Cross-Platform Support](framework/cross_platform_support.md) - Platform compatibility details
-- [Commands Reference](framework/commands/) - All available commands
-  - [Check Commands](framework/commands/check/) - Validation and compliance
+- [Commands Reference](index.md#commands) - All available commands
+  - [Check Commands](framework/commands/check/check_overview.md) - Validation and compliance
     - [Blast Radius Assessment](framework/commands/check/blast-radius.md) - ITIL v4 risk assessment
-  - [Scan Commands](framework/commands/scan/) - Security scanning
-  - [Inventory Commands](framework/commands/inventory/) - Infrastructure inventory
-- [Use Cases](framework/use_cases/) - Common usage scenarios
+  - [Scan Commands](framework/commands/scan/scan_overview.md) - Security scanning
+  - [Inventory Commands](framework/commands/inventory/inventory_overview.md) - Infrastructure inventory
+- [Use Cases](framework/use_cases/README.md) - Common usage scenarios
 
 ## Platform-Specific Guides
 
 ### Windows
-- [Installation Guide](windows_installation.md)
-- [Troubleshooting](windows_troubleshooting.md)
+- [Installation Guide](installation/windows_installation.md)
+- [Troubleshooting](troubleshooting/windows_troubleshooting.md)
 - [PowerShell Integration](framework/cross_platform_support.md#windows-support)
 
 ### Linux
@@ -35,7 +35,7 @@
 ## Advanced Topics
 
 - [MCP Integration](mcp.md) - Model Context Protocol server
-- [Template Engine](template_engine/) - Template system documentation
+- [Template Engine](template_engine/template_engine.md) - Template system documentation
 - [Telemetry](telemetry.md) - Usage analytics and privacy
 
 ## Support

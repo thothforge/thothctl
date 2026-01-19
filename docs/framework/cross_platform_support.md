@@ -258,6 +258,6 @@ ThothCTL projects are fully portable:
 ## Troubleshooting
 
 For platform-specific issues, see:
-- [Windows Troubleshooting](../windows_troubleshooting.md)
-- [Linux Troubleshooting](../linux_troubleshooting.md)
-- [macOS Troubleshooting](../macos_troubleshooting.md)
+- [Windows Troubleshooting](../troubleshooting/windows_troubleshooting.md)
+- [Linux Troubleshooting](../troubleshooting/linux_troubleshooting.md)
+- [macOS Troubleshooting](../troubleshooting/macos_troubleshooting.md)

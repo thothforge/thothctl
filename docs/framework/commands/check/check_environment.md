@@ -214,7 +214,6 @@ chmod +x $(which terraform)
 
 ## Related Documentation
 
-- [Installation Guide](../../installation.md): Setting up ThothCTL and dependencies
-- [Tool Requirements](../../requirements.md): Detailed tool requirements and versions
-- [CI/CD Integration](../../ci_cd.md): Using ThothCTL in continuous integration
-- [Troubleshooting](../../troubleshooting.md): Common environment issues and solutions
+- [Quick Start Guide](../../../quick_start.md): Getting started with ThothCTL
+- [Installation Guide](../../../installation/windows_installation.md): Platform-specific installation
+- [Troubleshooting](../../../troubleshooting/troubleshooting.md): Common environment issues and solutions

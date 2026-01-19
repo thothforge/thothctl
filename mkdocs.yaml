@@ -3,41 +3,47 @@ site_description: 'ThothForge CLI - The Internal Developer Platform CLI'
 site_author: 'ThothForge Team'
 site_url: 'https://thothctl.readthedocs.io/'
 
+# Repository
+repo_url: https://github.com/thothforge/thothctl
+repo_name: thothforge/thothctl
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: 'Copyright &copy; 2025 ThothForge'
+
+# Configuration
+docs_dir: 'docs'
+site_dir: 'site'
+
+# Navigation
 nav:
   - Home: index.md
   - Quick Start: quick_start.md
   - Installation:
     - Windows: installation/windows_installation.md
-  - Framework:
-    - Overview: index.md
-    - Concepts: framework/concepts.md
-    - Infrastructure Composition:  framework/infrasctructure_composition.md
-    - Space Configuration: framework/space_configuration.md
   - Commands:
-    - Init: 
-      - Overview: framework/commands/init/init.md
+    - Init: framework/commands/init/init.md
     - List:
       - Overview: framework/commands/list/list_overview.md
-      - Listing Projects: framework/commands/list/list_projects.md
-      - Listing Spaces: framework/commands/list/list_spaces.md
+      - Projects: framework/commands/list/list_projects.md
+      - Spaces: framework/commands/list/list_spaces.md
     - Project:
       - Overview: framework/commands/project/project_overview.md
-      - Project Conversion: framework/commands/project/project_convert.md
-      - Project Upgrade: framework/commands/project/project_upgrade.md
-      - Project Cleanup: framework/commands/project/project_cleanup.md
+      - Convert: framework/commands/project/project_convert.md
+      - Upgrade: framework/commands/project/project_upgrade.md
+      - Cleanup: framework/commands/project/project_cleanup.md
       - Use Cases: framework/commands/project/use_cases.md
     - Remove:
       - Overview: framework/commands/remove/remove_overview.md
-      - Removing Projects: framework/commands/remove/remove_project.md
-      - Removing Spaces: framework/commands/remove/remove_space.md
+      - Projects: framework/commands/remove/remove_project.md
+      - Spaces: framework/commands/remove/remove_space.md
     - Check: 
       - Overview: framework/commands/check/check_overview.md
       - IaC Check: framework/commands/check/check_iac.md
       - Cost Analysis: framework/commands/check/cost-analysis.md
-      - Cost Analysis Quick Reference: framework/commands/check/cost-analysis-quick-reference.md
       - Blast Radius: framework/commands/check/blast-radius.md
       - Dependencies: framework/commands/check/deps.md
-      - Plan Validation: framework/commands/check/plan.md
+      - Plan: framework/commands/check/plan.md
     - Scan:
       - Overview: framework/commands/scan/scan_overview.md
       - IaC Scanning: framework/commands/scan/scan_iac.md
@@ -49,16 +55,23 @@ nav:
     - Inventory:
       - Overview: framework/commands/inventory/inventory_overview.md
       - IaC Inventory: framework/commands/inventory/inventory_iac.md
-      - Framework Support:
+      - Frameworks:
         - Terraform: framework/commands/inventory/frameworks/terraform.md
         - Terragrunt: framework/commands/inventory/frameworks/terragrunt.md
     - Generate:
       - Components: framework/commands/generate/generate_components.md
       - Stacks: framework/commands/generate/generate_stacks.md
-    - MCP:
-      - Overview: framework/commands/mcp/mcp.md
+    - MCP: framework/commands/mcp/mcp.md
+  - Framework:
+    - Concepts: framework/concepts.md
+    - Infrastructure Composition: framework/infrasctructure_composition.md
+    - Space Configuration: framework/space_configuration.md
+    - Cross-Platform Support: framework/cross_platform_support.md
   - Use Cases:
     - Overview: framework/use_cases/README.md
+    - AI Development Lifecycle (AI-DLC): framework/use_cases/ai_dlc.md
+    - DevSecOps SDLC Guide: framework/use_cases/devsecops_sdlc.md
+    - DevSecOps Quick Start: framework/use_cases/devsecops_quickstart.md
     - Space Management: framework/use_cases/space_management.md
     - Check Command: framework/use_cases/check_command.md
     - Inventory Command: framework/use_cases/inventory_command.md
@@ -70,75 +83,194 @@ nav:
     - Linux: troubleshooting/linux_troubleshooting.md
     - macOS: troubleshooting/macos_troubleshooting.md
     - Windows: troubleshooting/windows_troubleshooting.md
-  - IaC DevSecOps: iac_devsecops_use_case.md
-  - MCP Integration: mcp.md
+  - Reference:
+    - IaC DevSecOps Use Case: iac_devsecops_use_case.md
+    - MCP Integration: mcp.md
+    - Telemetry: telemetry.md
 
+# Theme Configuration
 theme:
   name: material
-  features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.expand
-    - navigation.indexes
-    - navigation.top
-    - navigation.sections
-    - navigation.tabs
-    - navigation.tabs.sticky
-    - toc.integrate
+  language: en
+  
+  # Logo and favicon
+  logo: img/framework/thothforge-framework.svg
+  favicon: img/framework/thothforge-framework.svg
+  
+  # Color palette
   palette:
-    - scheme: default
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    - scheme: slate
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+  
+  # Font configuration
+  font:
+    text: Roboto
+    code: Roboto Mono
+  
+  # Features
+  features:
+    # Navigation
+    - navigation.instant        # Instant loading
+    - navigation.instant.prefetch  # Prefetch pages
+    - navigation.instant.progress  # Progress indicator
+    - navigation.tracking       # Anchor tracking
+    - navigation.tabs           # Top-level tabs
+    - navigation.tabs.sticky    # Sticky tabs
+    - navigation.sections       # Section navigation
+    - navigation.expand         # Expand navigation by default
+    - navigation.path           # Breadcrumbs
+    - navigation.indexes        # Section index pages
+    - navigation.top            # Back to top button
+    - navigation.footer         # Footer navigation
+    
+    # Search
+    - search.suggest            # Search suggestions
+    - search.highlight          # Highlight search terms
+    - search.share              # Share search results
+    
+    # Table of contents
+    - toc.follow                # Follow TOC
+    - toc.integrate             # Integrate TOC
+    
+    # Content
+    - content.code.copy         # Copy code button
+    - content.code.annotate     # Code annotations
+    - content.tabs.link         # Link content tabs
+    - content.tooltips          # Tooltips
+    
+    # Header
+    - header.autohide           # Auto-hide header
 
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+      lang:
+        - en
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      cache_safe: true
+
+# Extensions
 markdown_extensions:
+  # Python Markdown
+  - abbr
   - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
   - tables
   - toc:
       permalink: true
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.inlinehilite
-  - pymdownx.snippets
-  - pymdownx.superfences
-  - pymdownx.tabbed:
-      alternate_style: true
-  - attr_list
-  - md_in_html
+      permalink_title: Anchor link to this section
+      toc_depth: 3
+  
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
   - pymdownx.tasklist:
       custom_checkbox: true
+      clickable_checkbox: true
+  - pymdownx.tilde
 
-plugins:
-  - search
-  # Removed mkdocstrings and git-revision-date-localized plugins
-  # to avoid dependency issues
-
-extra:
-  version:
-    provider: mike
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/thothforge/thothctl
-
+# Extra CSS and JavaScript
 extra_css:
   - stylesheets/extra.css
 
-repo_url: https://github.com/thothforge/thothctl
-repo_name: thothforge/thothctl
-edit_uri: edit/main/docs/
+extra_javascript:
+  - https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js
+  - javascripts/tablesort.js
 
-copyright: 'Copyright &copy; ThothForge'
+# Extra configuration
+extra:
+  version:
+    provider: mike
+    default: latest
+  
+  # Social links
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/thothforge/thothctl
+      name: ThothCTL on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/thothctl/
+      name: ThothCTL on PyPI
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/thothforge/thothctl
+      name: ThothCTL on Docker Hub
+  
+  # Analytics (optional - uncomment and configure)
+  # analytics:
+  #   provider: google
+  #   property: G-XXXXXXXXXX
+  
+  # Consent (optional - for GDPR compliance)
+  consent:
+    title: Cookie consent
+    description: >- 
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+    actions:
+      - accept
+      - reject
+      - manage
 
-# Required for Read the Docs
-docs_dir: 'docs'
+# Validation
+validation:
+  nav:
+    omitted_files: info
+    not_found: warn
+    absolute_links: info
+  links:
+    not_found: warn
+    absolute_links: info
+    unrecognized_links: info

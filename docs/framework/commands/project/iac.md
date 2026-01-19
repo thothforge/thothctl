@@ -57,4 +57,4 @@ thothctl project iac clean
 
 - [`init`](../init/init.md) - Initialize ThothCTL projects
 - [`check iac`](../check/check_iac.md) - Validate structure
-- [`generate stacks`](../generate/stacks.md) - Generate infrastructure stacks
+- [`generate stacks`](../generate/generate_stacks.md) - Generate infrastructure stacks

@@ -1,8 +1,8 @@
 # ThothCTL MCP Integration
 
-![ThothCTL MCP](./img/framework/thothctl_mcp.png)
+![ThothCTL MCP](./img/framework/thothfr.png)
 
-ThothCTL supports the Model Context Protocol (MCP), allowing AI assistants like Amazon Q to interact with ThothCTL functionality directly. This integration enhances developer productivity by enabling natural language interactions with your Internal Developer Platform.
+ThothCTL supports the Model Context Protocol (MCP), allowing AI assistants like Kiro CLI (Amazon Q) to interact with ThothCTL functionality directly. This integration enhances developer productivity by enabling natural language interactions with your Internal Developer Platform.
 
 ## What is MCP?
 
@@ -34,18 +34,18 @@ thothctl mcp server -p 8080
 
 This will start the MCP server on port 8080 (default).
 
-### Registering with Amazon Q
+### Registering with Kiro CLI
 
-To use ThothCTL with Amazon Q, you need to register the MCP server with the Q CLI:
+To use ThothCTL with Kiro CLI (Amazon Q), you need to register the MCP server:
 
 ```bash
-q mcp add --name thothctl --command "thothctl mcp server"
+kiro mcp add thothctl --command "thothctl mcp server"
 ```
 
-Once registered, you can interact with ThothCTL through Amazon Q using natural language:
+Once registered, you can interact with ThothCTL through Kiro CLI using natural language:
 
 ```bash
-q chat "List all ThothCTL projects using the MCP integration"
+kiro chat "List all ThothCTL projects using the MCP integration"
 ```
 
 ### Checking Server Status

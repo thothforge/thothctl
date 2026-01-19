@@ -56,5 +56,5 @@ thothctl check iac -type tfplan --outmd security-report.md
 ## Related Commands
 
 - [`check deps`](deps.md) - Analyze dependencies
-- [`check cost-analysis`](../cost-analysis.md) - Estimate costs
+- [`check cost-analysis`](cost-analysis.md) - Estimate costs
 - [`scan iac`](../scan/iac.md) - Security scanning
