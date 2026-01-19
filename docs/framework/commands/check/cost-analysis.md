@@ -5,11 +5,25 @@ The AWS Cost Analysis feature provides comprehensive cost estimation and optimiz
 ## Overview
 
 The cost analysis check examines your `tfplan.json` files and CloudFormation templates and provides:
-- **Real-time cost estimates** using AWS Pricing API
+- **Real-time cost estimates** using AWS Pricing API with high confidence
 - **Service-by-service breakdown** of monthly and annual costs
 - **Action-based cost analysis** (create, update, delete operations)
 - **Optimization recommendations** based on your infrastructure
 - **Offline fallback estimates** when AWS API is unavailable
+
+### Confidence Levels
+
+ThothCTL provides two confidence levels for cost estimates:
+
+- **🟢 High Confidence**: Real-time pricing from AWS Pricing API
+  - Services: EC2, RDS, Aurora, Lambda, S3, ELB/ALB/NLB, EBS, DynamoDB
+  - Most accurate, reflects current AWS pricing
+  - Requires internet connectivity
+
+- **🟡 Medium Confidence**: Offline estimates from cached pricing data
+  - Used when AWS API is unavailable
+  - Based on recent pricing snapshots
+  - May not reflect latest price changes
 
 ## Usage
 
@@ -44,22 +58,24 @@ thothctl check iac -type cost-analysis -d /path/to/infrastructure
 
 ## Supported AWS Services
 
-### Compute Services
-- **EC2**: All instance types with accurate hourly/monthly costs
-- **Lambda**: Function pricing based on memory, timeout, and execution estimates
+### Compute Services (Real-Time Pricing ✅)
+- **EC2**: All instance types with accurate hourly/monthly costs from AWS API
+- **Lambda**: Function pricing based on memory, timeout, and execution estimates from AWS API
 - **EKS**: Cluster, node groups, and Fargate profiles
 - **ECS**: Container services with Fargate pricing
 
-### Storage Services
-- **EBS**: All volume types (gp2, gp3, io1, io2, st1, sc1)
-- **S3**: Bucket management costs
+### Storage Services (Real-Time Pricing ✅)
+- **EBS**: All volume types (gp2, gp3, io1, io2, st1, sc1) with per-GB pricing from AWS API
+- **S3**: Bucket management costs with 100GB storage estimate from AWS API
 
-### Database Services
-- **RDS**: All instance classes with detailed pricing
-- **DynamoDB**: On-demand and provisioned capacity pricing
+### Database Services (Real-Time Pricing ✅)
+- **RDS**: All instance classes with engine-specific pricing (MySQL, PostgreSQL, Aurora, Oracle, SQL Server, MariaDB)
+  - Single-AZ and Multi-AZ deployment options
+  - Engine-specific pricing from AWS API
+- **DynamoDB**: Provisioned (RCU/WCU) and On-Demand capacity pricing from AWS API
 
-### Networking Services
-- **ELB/ALB/NLB**: Load balancer costs
+### Networking Services (Real-Time Pricing ✅)
+- **ELB/ALB/NLB**: Application, Network, and Gateway Load Balancer pricing from AWS API
 - **VPC**: NAT Gateway, VPC Endpoints, VPN connections, Transit Gateway
 - **API Gateway**: REST, HTTP, and WebSocket API pricing
 
@@ -246,6 +262,47 @@ Options:
 3. **Regional Variations**: Some services have region-specific pricing
 4. **New Services**: Recently launched AWS services may not be supported immediately
 
+## Troubleshooting
+
+### AWS Pricing API Issues
+
+**Problem**: Cost analysis shows "medium confidence" or offline estimates
+
+**Solutions**:
+1. **Check Internet Connectivity**: AWS Pricing API requires internet access
+   ```bash
+   curl -I https://pricing.us-east-1.amazonaws.com
+   ```
+
+2. **Verify AWS Credentials** (optional but recommended):
+   ```bash
+   aws sts get-caller-identity
+   ```
+
+3. **Check Logs**: Enable debug mode to see API errors
+   ```bash
+   thothctl --debug check iac -type cost-analysis
+   ```
+
+**Problem**: "API pricing failed" warnings in logs
+
+**Common Causes**:
+- Network connectivity issues
+- AWS API rate limiting (rare)
+- Unsupported region or service configuration
+- Invalid resource configuration in Terraform
+
+**Solution**: The tool automatically falls back to offline estimates. Check logs for specific error messages.
+
+### CloudFormation Template Detection
+
+**Problem**: YAML files not recognized as CloudFormation templates
+
+**Solution**: Ensure templates contain one of these indicators:
+- `AWSTemplateFormatVersion: '2010-09-09'`
+- `Resources:` section
+- AWS resource types (e.g., `AWS::EC2::Instance`)
+
 ## Contributing
 
 To add support for new AWS services:
@@ -263,6 +320,31 @@ class NewServicePricingProvider(BasePricingProvider):
     
     def get_supported_resources(self) -> List[str]:
         return ['aws_new_service_resource']
+    
+    def calculate_cost(self, resource_change: Dict[str, Any], 
+                      region: str) -> Optional[ResourceCost]:
+        """Calculate cost using AWS Pricing API"""
+        if not self.pricing_client.is_available():
+            return self.get_offline_estimate(resource_change, region)
+        
+        try:
+            filters = (
+                ('TERM_MATCH', 'location', self._region_to_location(region)),
+                # Add service-specific filters
+            )
+            products = self.pricing_client.get_products(
+                self.get_service_code(), filters
+            )
+            if products:
+                hourly_cost = self._extract_hourly_cost(products[0])
+                return self._create_resource_cost(
+                    resource_change, config_param, region, 
+                    hourly_cost, 'high'  # high confidence for API pricing
+                )
+        except Exception as e:
+            logger.warning(f"API pricing failed: {e}")
+        
+        return self.get_offline_estimate(resource_change, region)
     
     # Implement other required methods...
 ```

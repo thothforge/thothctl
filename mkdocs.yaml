@@ -63,6 +63,8 @@ nav:
       - Stacks: framework/commands/generate/generate_stacks.md
     - MCP: framework/commands/mcp/mcp.md
   - Framework:
+    - Framework Architecture: framework/framework_architecture.md
+    - Software Architecture: framework/software_architecture.md
     - Concepts: framework/concepts.md
     - Infrastructure Composition: framework/infrasctructure_composition.md
     - Space Configuration: framework/space_configuration.md

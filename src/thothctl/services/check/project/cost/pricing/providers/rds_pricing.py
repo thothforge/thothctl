@@ -30,14 +30,55 @@ class RDSPricingProvider(BasePricingProvider):
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
-        """Calculate RDS instance cost"""
+        """Calculate RDS instance cost using AWS Pricing API"""
         config = resource_change['change'].get('after', {})
         instance_class = config.get('instance_class', 'db.t3.micro')
+        engine = config.get('engine', 'mysql')
+        multi_az = config.get('multi_az', False)
         
         if not self.pricing_client.is_available():
             return self.get_offline_estimate(resource_change, region)
         
-        # For now, use offline estimates (AWS RDS pricing API is more complex)
+        try:
+            # Map engine to AWS pricing engine name
+            engine_map = {
+                'mysql': 'MySQL',
+                'postgres': 'PostgreSQL',
+                'mariadb': 'MariaDB',
+                'oracle-se2': 'Oracle',
+                'oracle-ee': 'Oracle',
+                'sqlserver-ex': 'SQL Server',
+                'sqlserver-web': 'SQL Server',
+                'sqlserver-se': 'SQL Server',
+                'sqlserver-ee': 'SQL Server',
+                'aurora-mysql': 'Aurora MySQL',
+                'aurora-postgresql': 'Aurora PostgreSQL',
+                'aurora': 'Aurora MySQL'
+            }
+            
+            database_engine = engine_map.get(engine, 'MySQL')
+            deployment_option = 'Multi-AZ' if multi_az else 'Single-AZ'
+            
+            filters = (
+                ('TERM_MATCH', 'instanceType', instance_class),
+                ('TERM_MATCH', 'location', self._region_to_location(region)),
+                ('TERM_MATCH', 'databaseEngine', database_engine),
+                ('TERM_MATCH', 'deploymentOption', deployment_option)
+            )
+            
+            products = self.pricing_client.get_products(
+                self.get_service_code(), filters
+            )
+            
+            if products:
+                hourly_cost = self._extract_hourly_cost(products[0])
+                return self._create_resource_cost(
+                    resource_change, instance_class, region, 
+                    hourly_cost, 'high'
+                )
+        except Exception as e:
+            logger.warning(f"API pricing failed for RDS {instance_class}: {e}")
+        
         return self.get_offline_estimate(resource_change, region)
     
     def get_offline_estimate(self, resource_change: Dict[str, Any], 
@@ -73,3 +114,28 @@ class RDSPricingProvider(BasePricingProvider):
             pricing_details={'instance_class': instance_class},
             confidence_level=confidence
         )
+
+    def _extract_hourly_cost(self, product: Dict) -> float:
+        """Extract hourly cost from AWS pricing product"""
+        try:
+            on_demand = product['terms']['OnDemand']
+            price_dimensions = list(on_demand.values())[0]['priceDimensions']
+            return float(list(price_dimensions.values())[0]['pricePerUnit']['USD'])
+        except (KeyError, ValueError):
+            return 0.0
+    
+    def _region_to_location(self, region: str) -> str:
+        """Convert AWS region to location name for pricing API"""
+        region_map = {
+            'us-east-1': 'US East (N. Virginia)',
+            'us-east-2': 'US East (Ohio)',
+            'us-west-1': 'US West (N. California)',
+            'us-west-2': 'US West (Oregon)',
+            'eu-west-1': 'Europe (Ireland)',
+            'eu-west-2': 'Europe (London)',
+            'eu-central-1': 'Europe (Frankfurt)',
+            'ap-southeast-1': 'Asia Pacific (Singapore)',
+            'ap-southeast-2': 'Asia Pacific (Sydney)',
+            'ap-northeast-1': 'Asia Pacific (Tokyo)'
+        }
+        return region_map.get(region, 'US East (N. Virginia)')
