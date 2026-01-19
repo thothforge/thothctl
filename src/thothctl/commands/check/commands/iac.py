@@ -722,6 +722,8 @@ class CheckIaCCommand(ClickCommand):
         """Run cost analysis using the new service"""
         try:
             from ....services.check.project.cost.cost_analyzer import CostAnalyzer
+            from pathlib import Path
+            from datetime import datetime
             
             # Find Terraform plan files
             tfplan_files = self._find_tfplan_files(directory, recursive)
@@ -742,6 +744,20 @@ class CheckIaCCommand(ClickCommand):
                 self.ui.print_info(f"Analyzing Terraform plan: {tfplan_files[0]}")
                 analysis = analyzer.analyze_terraform_plan(tfplan_files[0])
                 self._display_cost_analysis(analysis)
+                
+                # Generate reports
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                reports_dir = Path("Reports")
+                
+                json_path = reports_dir / f"cost_analysis_{timestamp}.json"
+                html_path = reports_dir / f"cost_analysis_{timestamp}.html"
+                
+                analyzer.generate_json_report(analysis, json_path)
+                analyzer.generate_html_report(analysis, html_path)
+                
+                self.ui.print_success(f"\n📄 Reports generated:")
+                self.ui.print_info(f"  JSON: {json_path}")
+                self.ui.print_info(f"  HTML: {html_path}")
             
             # Analyze CloudFormation templates
             if cf_templates:
@@ -749,6 +765,21 @@ class CheckIaCCommand(ClickCommand):
                     self.ui.print_info(f"Analyzing CloudFormation template: {template}")
                     analysis = analyzer.analyze_cloudformation_template(template)
                     self._display_cost_analysis(analysis)
+                    
+                    # Generate reports for CloudFormation
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    reports_dir = Path("Reports")
+                    template_name = Path(template).stem
+                    
+                    json_path = reports_dir / f"cost_analysis_{template_name}_{timestamp}.json"
+                    html_path = reports_dir / f"cost_analysis_{template_name}_{timestamp}.html"
+                    
+                    analyzer.generate_json_report(analysis, json_path)
+                    analyzer.generate_html_report(analysis, html_path)
+                    
+                    self.ui.print_success(f"\n📄 Reports generated:")
+                    self.ui.print_info(f"  JSON: {json_path}")
+                    self.ui.print_info(f"  HTML: {html_path}")
             
             return True
             

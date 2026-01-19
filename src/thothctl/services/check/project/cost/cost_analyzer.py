@@ -334,3 +334,288 @@ class CostAnalyzer:
             recommendations.append("🏗️ Consider containerization with ECS/EKS for better resource utilization")
         
         return recommendations
+    
+    def generate_json_report(self, analysis: CostAnalysis, output_path: Path) -> None:
+        """Generate JSON cost analysis report"""
+        report_data = {
+            'summary': {
+                'total_monthly_cost': round(analysis.total_monthly_cost, 2),
+                'total_annual_cost': round(analysis.total_annual_cost, 2),
+                'region': analysis.analysis_metadata.get('region', 'us-east-1'),
+                'api_available': analysis.analysis_metadata.get('api_available', False),
+                'plan_file': analysis.analysis_metadata.get('plan_file', 'N/A')
+            },
+            'cost_by_service': {
+                service: round(cost, 2) 
+                for service, cost in analysis.cost_breakdown_by_service.items()
+            },
+            'cost_by_action': {
+                action: round(cost, 2) 
+                for action, cost in analysis.cost_breakdown_by_action.items()
+            },
+            'resources': [
+                {
+                    'address': cost.resource_address,
+                    'type': cost.resource_type,
+                    'service': cost.service_name,
+                    'region': cost.region,
+                    'action': cost.action.value,
+                    'hourly_cost': round(cost.hourly_cost, 4),
+                    'monthly_cost': round(cost.monthly_cost, 2),
+                    'annual_cost': round(cost.annual_cost, 2),
+                    'confidence': cost.confidence_level,
+                    'details': cost.pricing_details
+                }
+                for cost in analysis.resource_costs
+            ],
+            'recommendations': analysis.recommendations,
+            'warnings': analysis.warnings
+        }
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, 'w') as f:
+            json.dump(report_data, f, indent=2)
+        
+        logger.info(f"JSON report saved to: {output_path}")
+    
+    def generate_html_report(self, analysis: CostAnalysis, output_path: Path) -> None:
+        """Generate HTML cost analysis report"""
+        html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Cost Analysis Report</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }}
+        .container {{ 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }}
+        .header {{ 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }}
+        .header h1 {{ font-size: 2.5em; margin-bottom: 10px; }}
+        .header p {{ font-size: 1.1em; opacity: 0.9; }}
+        .content {{ padding: 40px; }}
+        .summary {{ 
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+        .summary-card {{ 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }}
+        .summary-card h3 {{ font-size: 0.9em; opacity: 0.9; margin-bottom: 10px; }}
+        .summary-card .value {{ font-size: 2em; font-weight: bold; }}
+        .section {{ margin-bottom: 40px; }}
+        .section h2 {{ 
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }}
+        table {{ 
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        th {{ 
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }}
+        td {{ 
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        tr:hover {{ background: #f5f5f5; }}
+        .badge {{ 
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }}
+        .badge-high {{ background: #4caf50; color: white; }}
+        .badge-medium {{ background: #ff9800; color: white; }}
+        .badge-create {{ background: #2196f3; color: white; }}
+        .badge-update {{ background: #ff9800; color: white; }}
+        .badge-delete {{ background: #f44336; color: white; }}
+        .recommendations {{ 
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }}
+        .recommendations li {{ 
+            margin: 10px 0;
+            padding-left: 10px;
+        }}
+        .chart-container {{ 
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }}
+        .bar {{ 
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }}
+        .bar-label {{ 
+            width: 150px;
+            font-weight: 600;
+        }}
+        .bar-fill {{ 
+            height: 30px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            color: white;
+            font-weight: 600;
+            min-width: 60px;
+        }}
+        @media print {{
+            body {{ background: white; padding: 0; }}
+            .container {{ box-shadow: none; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 AWS Cost Analysis Report</h1>
+            <p>Infrastructure Cost Estimation</p>
+        </div>
+        
+        <div class="content">
+            <div class="summary">
+                <div class="summary-card">
+                    <h3>📊 Monthly Cost</h3>
+                    <div class="value">${analysis.total_monthly_cost:,.2f}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>📅 Annual Cost</h3>
+                    <div class="value">${analysis.total_annual_cost:,.2f}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>🏗️ Resources</h3>
+                    <div class="value">{len(analysis.resource_costs)}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>🌍 Region</h3>
+                    <div class="value">{analysis.analysis_metadata.get('region', 'N/A')}</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🏗️ Cost by Service</h2>
+                <div class="chart-container">
+                    {''.join(f'''
+                    <div class="bar">
+                        <div class="bar-label">{service}</div>
+                        <div class="bar-fill" style="width: {min(cost / max(analysis.cost_breakdown_by_service.values()) * 500, 500)}px">
+                            ${cost:,.2f}/mo
+                        </div>
+                    </div>
+                    ''' for service, cost in sorted(analysis.cost_breakdown_by_service.items(), key=lambda x: x[1], reverse=True))}
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>⚡ Cost by Action</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Monthly Cost</th>
+                            <th>Annual Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {''.join(f'''
+                        <tr>
+                            <td><span class="badge badge-{action}">{action.upper()}</span></td>
+                            <td>${cost:,.2f}</td>
+                            <td>${cost * 12:,.2f}</td>
+                        </tr>
+                        ''' for action, cost in analysis.cost_breakdown_by_action.items())}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h2>📋 Resource Details</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Resource</th>
+                            <th>Service</th>
+                            <th>Action</th>
+                            <th>Monthly Cost</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {''.join(f'''
+                        <tr>
+                            <td><code>{cost.resource_address}</code></td>
+                            <td>{cost.service_name}</td>
+                            <td><span class="badge badge-{cost.action.value}">{cost.action.value}</span></td>
+                            <td>${cost.monthly_cost:,.2f}</td>
+                            <td><span class="badge badge-{cost.confidence_level}">{cost.confidence_level}</span></td>
+                        </tr>
+                        ''' for cost in analysis.resource_costs)}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h2>💡 Recommendations</h2>
+                <div class="recommendations">
+                    <ul>
+                        {''.join(f'<li>{rec}</li>' for rec in analysis.recommendations)}
+                    </ul>
+                </div>
+            </div>
+            
+            {'<div class="section"><h2>⚠️ Warnings</h2><div class="recommendations"><ul>' + ''.join(f'<li>{warning}</li>' for warning in analysis.warnings) + '</ul></div></div>' if analysis.warnings else ''}
+            
+            <div class="section" style="text-align: center; color: #666; font-size: 0.9em; margin-top: 40px;">
+                <p>Generated by ThothCTL Cost Analysis</p>
+                <p>API Status: {'✅ Online' if analysis.analysis_metadata.get('api_available') else '⚠️ Offline'}</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, 'w') as f:
+            f.write(html_content)
+        
+        logger.info(f"HTML report saved to: {output_path}")
