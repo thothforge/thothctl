@@ -154,7 +154,7 @@ Multi-tool security scanning with Checkov, Trivy, TFSec, and Snyk.
 
 **Commands:** `thothctl scan iac`, `thothctl scan iac -t checkov -t trivy -t tfsec`
 
-📖 **Details:** [Security Scanning](commands/scan/security-scanning.md)
+📖 **Details:** [Security Scanning](commands/scan/scan_overview.md)
 
 #### Cost Analysis
 Real-time AWS cost estimation with 14 services, automated HTML/JSON reports.
@@ -168,21 +168,21 @@ Dependency tracking, version checking, professional HTML reports.
 
 **Commands:** `thothctl inventory iac --check-versions`
 
-📖 **Details:** [Inventory Management](commands/inventory/inventory-management.md)
+📖 **Details:** [Inventory Management](commands/inventory/inventory_overview.md)
 
 #### Validation
 Environment validation, IaC checks, blast radius analysis.
 
 **Commands:** `thothctl check environment`, `thothctl check iac -type blast-radius`
 
-📖 **Details:** [Validation](commands/check/validation.md)
+📖 **Details:** [Validation](commands/check/check_overview.md)
 
 #### Code Generation
 Stack generation, component creation, boilerplate automation.
 
 **Commands:** `thothctl generate`
 
-📖 **Details:** [Code Generation](commands/generate/code-generation.md)
+📖 **Details:** [Code Generation](commands/generate/generate_stacks.md)
 
 ---
 
@@ -215,7 +215,7 @@ Automated documentation with AI-powered content generation.
 
 **Commands:** `thothctl document iac`, `thothctl document iac --ai`
 
-📖 **Details:** [Documentation](commands/document/documentation.md)
+📖 **Details:** [Documentation](commands/document/document_overview.md)
 
 #### Template Engine
 Jinja2-based code generation with scaffolding support.
