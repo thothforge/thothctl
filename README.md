@@ -49,10 +49,10 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
       - Manage inventory and dependencies
       - Review IaC changes and make suggestions (Generative AI)
       - **AWS Cost Analysis** - Estimate infrastructure costs from Terraform plans
-        - Real-time pricing using AWS API
+        - Offline pricing estimates (regularly updated)
         - Service-by-service cost breakdown
         - Optimization recommendations
-        - Support for 12+ AWS services (EC2, RDS, S3, Lambda, EKS, Bedrock, etc.)
+        - Support for 14 AWS services (EC2, RDS, S3, Lambda, EKS, ECS, etc.)
       
 - **Internal Developer Platform CLI**
   - Create projects from your templates
@@ -90,22 +90,22 @@ Commands:
 
 ## 💰 AWS Cost Analysis
 
-ThothCTL now includes comprehensive AWS cost analysis capabilities:
+ThothCTL includes comprehensive AWS cost analysis capabilities:
 
 ```bash
 # Analyze Terraform plan costs
 thothctl check iac -type cost-analysis --recursive
 
 # Features:
-# ✅ Real-time AWS pricing via API
-# ✅ 12+ AWS services supported (EC2, RDS, S3, Lambda, EKS, Bedrock, etc.)
+# ✅ 14 AWS services supported (EC2, RDS, S3, Lambda, EKS, ECS, etc.)
 # ✅ Monthly/annual cost projections
 # ✅ Service-by-service breakdown
 # ✅ Optimization recommendations
-# ✅ Offline fallback estimates
+# ✅ No AWS credentials required
+# ✅ Works offline
 ```
 
-**Supported Services**: EC2, RDS, S3, Lambda, ELB, VPC, EBS, CloudWatch, EKS, ECS, Secrets Manager, Bedrock
+**Supported Services**: EC2, RDS, S3, Lambda, ELB/ALB/NLB, VPC, EBS, DynamoDB, CloudWatch, EKS, ECS, Secrets Manager, API Gateway, Bedrock
 
 ```
 
