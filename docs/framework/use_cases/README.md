@@ -145,8 +145,8 @@ kiro-cli chat --agent thoth
 - `thothctl check iac --type blast-radius` - Change impact assessment
 
 ### Security & Compliance
-- `thothctl scan iac` - Security scanning
-- `thothctl scan iac --compliance` - Compliance testing
+- `thothctl scan iac` - Security scanning with Checkov (default)
+- `thothctl scan iac -t checkov -t trivy -t tfsec` - Multi-tool scanning
 
 ### Documentation
 - `thothctl document iac` - Generate documentation

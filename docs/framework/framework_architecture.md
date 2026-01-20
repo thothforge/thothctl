@@ -248,31 +248,41 @@ terragrunt_version = "0.54.0"
 
 thothctl scan iac --path ./terraform
 
-# Compliance review
-thothctl scan iac --compliance --policies ./policies
+# Compliance review with security tools
+thothctl scan iac -t checkov -t trivy
 ```
 
 ### Cost Analysis
 
-Real-time AWS cost estimation and optimization.
+Real-time AWS cost estimation and optimization with automated report generation.
 
 **Capabilities:**
-- **Real-time Pricing**: AWS Pricing API integration
-- **12+ AWS Services**: EC2, RDS, S3, Lambda, EKS, Bedrock, etc.
-- **Cost Breakdown**: Service-by-service analysis
-- **Optimization**: Cost-saving recommendations
-- **Projections**: Monthly and annual estimates
+- **Real-time Pricing**: AWS Pricing API integration for 14 AWS services
+- **Comprehensive Coverage**: EC2, RDS, S3, Lambda, EKS, ECS, DynamoDB, ELB, VPC, CloudWatch, Secrets Manager, API Gateway, and more
+- **Cost Breakdown**: Service-by-service and action-based analysis
+- **Optimization**: Intelligent cost-saving recommendations
+- **Projections**: Hourly, monthly, and annual cost estimates
+- **Report Generation**: Automatic HTML and JSON reports
 
 **Cost Analysis Features:**
-- Pre-deployment cost estimation
-- Cost comparison (current vs. planned)
-- Budget alerts
-- Cost optimization suggestions
+- Pre-deployment cost estimation from Terraform plans
+- CloudFormation template cost analysis
+- Confidence levels (high for API pricing, medium for offline estimates)
+- Resource-level cost details
+- Service-specific optimization recommendations
+- Automated report generation with timestamps
 
 **Usage:**
 ```bash
-# Analyze costs from Terraform plan
-thothctl check iac --type cost-analysis --recursive
+# Analyze costs from Terraform plan (generates HTML + JSON reports)
+thothctl check iac -type cost-analysis
+
+# Recursive analysis across multiple directories
+thothctl check iac -type cost-analysis --recursive
+
+# Reports are automatically saved to:
+# - Reports/cost_analysis_YYYYMMDD_HHMMSS.json
+# - Reports/cost_analysis_YYYYMMDD_HHMMSS.html
 ```
 
 ### Inventory & Dependencies
