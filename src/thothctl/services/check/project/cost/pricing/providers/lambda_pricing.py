@@ -74,12 +74,12 @@ class LambdaPricingProvider(BasePricingProvider):
         
         return self._create_resource_cost(
             resource_change, f"{memory_size}MB", region, 
-            hourly_cost, 'medium'
+            hourly_cost, 'low'
         )
     
     def _create_resource_cost(self, resource_change: Dict, memory_config: str,
                             region: str, hourly_cost: float, 
-                            confidence: str) -> ResourceCost:
+                            confidence: str, note: str = None) -> ResourceCost:
         """Create ResourceCost object"""
         actions = resource_change['change']['actions']
         action = CostAction(actions[0] if actions else 'no-change')
@@ -93,7 +93,7 @@ class LambdaPricingProvider(BasePricingProvider):
             hourly_cost=hourly_cost,
             monthly_cost=hourly_cost * 24 * 30,
             annual_cost=hourly_cost * 24 * 365,
-            pricing_details={'memory_config': memory_config},
+            pricing_details={'memory_config': memory_config, 'note': note or f'Estimated at 1000 executions/month'},
             confidence_level=confidence
         )
 

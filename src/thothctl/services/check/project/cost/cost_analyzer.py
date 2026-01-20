@@ -267,16 +267,22 @@ class CostAnalyzer:
     
     def _generate_recommendations(self, total_cost: float, 
                                 costs: List[ResourceCost]) -> List[str]:
-        """Generate cost optimization recommendations"""
+        """Generate cost optimization recommendations based on actual resources"""
         recommendations = []
         
-        # General cost recommendations
+        # Always provide baseline recommendations
+        if total_cost > 0:
+            recommendations.append("💡 Review this cost estimate against your actual usage patterns")
+            
+        # General cost recommendations based on total
         if total_cost > 1000:
-            recommendations.append("💰 Consider Reserved Instances for 1-3 year commitments")
+            recommendations.append("💰 Consider Reserved Instances or Savings Plans for 1-3 year commitments (up to 72% savings)")
         if total_cost > 500:
-            recommendations.append("📊 Review instance sizing - right-size resources")
+            recommendations.append("📊 Right-size resources based on actual utilization metrics")
         if total_cost > 100:
-            recommendations.append("🔍 Set up AWS Cost Explorer and billing alerts")
+            recommendations.append("🔍 Set up AWS Cost Explorer, budgets, and billing alerts")
+        elif total_cost > 10:
+            recommendations.append("📈 Monitor costs monthly to identify trends and anomalies")
         
         # Service-specific recommendations
         service_costs = self._breakdown_by_service(costs)
@@ -297,8 +303,13 @@ class CostAnalyzer:
             recommendations.append("🗂️ Review S3 lifecycle policies for older data")
         
         # Lambda recommendations
-        if service_costs.get('Lambda', 0) > 20:
+        lambda_cost = service_costs.get('Lambda', 0)
+        if lambda_cost > 0:
+            recommendations.append("⚠️ Lambda costs are estimated at 1,000 executions/month per function")
+            recommendations.append("💡 Actual Lambda costs depend on invocation rate and execution duration")
+        if lambda_cost > 20:
             recommendations.append("⚡ Optimize Lambda memory allocation and timeout settings")
+            recommendations.append("📊 Review CloudWatch metrics for actual usage patterns")
         
         # EBS recommendations
         if service_costs.get('EBS', 0) > 100:
@@ -346,10 +357,24 @@ class CostAnalyzer:
             recommendations.append("💾 Optimize storage allocation per broker to avoid over-provisioning")
             recommendations.append("🔄 Consider MSK Serverless for variable workloads")
         
-        # Multi-service recommendations
+        # Multi-service recommendations based on resource counts
         ec2_count = len([c for c in costs if c.service_name == 'EC2'])
+        lambda_count = len([c for c in costs if c.service_name == 'Lambda'])
+        rds_count = len([c for c in costs if c.service_name == 'RDS'])
+        
         if ec2_count > 5:
             recommendations.append("🏗️ Consider containerization with ECS/EKS for better resource utilization")
+        
+        if lambda_count > 10:
+            recommendations.append("⚡ Consider consolidating Lambda functions to reduce cold starts and costs")
+        
+        if rds_count > 3:
+            recommendations.append("🗄️ Evaluate database consolidation opportunities to reduce RDS instance count")
+        
+        # Always add general best practices if no specific recommendations
+        if len(recommendations) == 0:
+            recommendations.append("✅ Infrastructure costs look reasonable for current configuration")
+            recommendations.append("📊 Continue monitoring usage patterns for optimization opportunities")
         
         return recommendations
     
