@@ -72,6 +72,7 @@ nav:
   - Use Cases:
     - Overview: framework/use_cases/README.md
     - AI Development Lifecycle (AI-DLC): framework/use_cases/ai_dlc.md
+    - Platform Engineering Templates: framework/use_cases/platform_engineering_templates.md
     - DevSecOps SDLC Guide: framework/use_cases/devsecops_sdlc.md
     - DevSecOps Quick Start: framework/use_cases/devsecops_quickstart.md
     - Space Management: framework/use_cases/space_management.md
