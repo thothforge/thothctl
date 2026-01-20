@@ -1,43 +1,56 @@
-# ThothCTL Framework Architecture
+# ThothCTL Software Architecture
+
+> **Note**: This document describes the technical implementation. For conceptual framework overview, see [Framework Architecture](framework_architecture.md).
 
 ThothCTL follows a **4-layer software architecture** based on Clean Architecture principles, designed for extensibility, maintainability, and clear separation of concerns.
 
 ## Architecture Overview
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#2563eb','primaryTextColor':'#fff','primaryBorderColor':'#1d4ed8','lineColor':'#64748b','secondaryColor':'#10b981','tertiaryColor':'#f59e0b'}}}%%
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
 graph TB
-    subgraph "Layer 1: Presentation - CLI Interface"
-        CLI[Click CLI Framework]
-        CMD[Command Groups]
-        UI[Rich UI Components]
+    subgraph layer1["<b>Layer 1: Presentation</b><br/><i>CLI Interface</i>"]
+        CLI["Click CLI<br/>Framework"]
+        CMD["Command<br/>Groups"]
+        UI["Rich UI<br/>Components"]
     end
     
-    subgraph "Layer 2: Application - Business Logic"
-        SVC1[Scan Service]
-        SVC2[Inventory Service]
-        SVC3[Check Service]
-        SVC4[Document Service]
-        SVC5[Project Service]
-        SVC6[Init Service]
-        SVC7[Generate Service]
-        ORCH[Service Orchestrator]
+    subgraph layer2["<b>Layer 2: Application</b><br/><i>Business Logic</i>"]
+        ORCH["Service<br/>Orchestrator"]
+        SVC1["Scan<br/>Service"]
+        SVC2["Check<br/>Service"]
+        SVC3["Inventory<br/>Service"]
     end
     
-    subgraph "Layer 3: Domain - Core Models"
-        CFG[Configuration Manager]
-        TPL[Template Engine]
-        PROJ[Project Model]
-        SPACE[Space Model]
-        ENV[Environment Model]
+    subgraph layer3["<b>Layer 3: Domain</b><br/><i>Core Models</i>"]
+        CFG["Configuration<br/>Manager"]
+        TPL["Template<br/>Engine"]
+        PROJ["Project<br/>Model"]
     end
     
-    subgraph "Layer 4: Infrastructure - External Systems"
-        VCS[VCS Adapters]
-        TOOLS[Tool Integrations]
-        CLOUD[Cloud APIs]
-        MCP[MCP Server]
-        FS[File System]
+    subgraph layer4["<b>Layer 4: Infrastructure</b><br/><i>External Systems</i>"]
+        VCS["VCS<br/>Adapters"]
+        TOOLS["Tool<br/>Integrations"]
+        FS["File<br/>System"]
     end
     
     CLI --> CMD
@@ -48,16 +61,135 @@ graph TB
     
     SVC1 --> CFG
     SVC2 --> PROJ
-    SVC3 --> ENV
-    SVC4 --> TPL
-    SVC5 --> SPACE
+    SVC3 --> TPL
     
     CFG --> FS
-    TPL --> FS
     PROJ --> VCS
     SVC1 --> TOOLS
-    SVC3 --> CLOUD
-    ORCH --> MCP
+    
+    classDef layer1Style fill:#3b82f6,stroke:#60a5fa,stroke-width:2px,color:#fff
+    classDef layer2Style fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
+    classDef layer3Style fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
+    classDef layer4Style fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
+    
+    class CLI,CMD,UI layer1Style
+    class ORCH,SVC1,SVC2,SVC3 layer2Style
+    class CFG,TPL,PROJ layer3Style
+    class VCS,TOOLS,FS layer4Style
+```
+
+## Command Execution Flow
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Command
+    participant Service
+    participant Domain
+    participant Infrastructure
+    
+    User->>CLI: thothctl scan iac
+    CLI->>Command: Load scan command
+    Command->>Command: Parse arguments
+    Command->>Service: Execute scan_service
+    Service->>Domain: Load configuration
+    Domain->>Infrastructure: Read config files
+    Infrastructure-->>Domain: Config data
+    Domain-->>Service: Configuration
+    Service->>Infrastructure: Execute Checkov
+    Infrastructure-->>Service: Scan results
+    Service->>Domain: Process results
+    Service->>Infrastructure: Write reports
+    Infrastructure-->>Service: Success
+    Service-->>Command: Execution result
+    Command->>CLI: Display results
+    CLI-->>User: Rich formatted output
+```
+
+## Service Interaction Flow
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
+graph LR
+    subgraph services["<b>Application Services</b>"]
+        SCAN["Scan<br/>Service"]
+        CHECK["Check<br/>Service"]
+        INV["Inventory<br/>Service"]
+        DOC["Document<br/>Service"]
+    end
+    
+    subgraph domain["<b>Domain Models</b>"]
+        CFG["Configuration"]
+        PROJ["Project"]
+        TPL["Template"]
+    end
+    
+    subgraph infra["<b>Infrastructure</b>"]
+        TOOLS["External<br/>Tools"]
+        VCS["VCS<br/>APIs"]
+        FS["File<br/>System"]
+    end
+    
+    SCAN --> CFG
+    SCAN --> TOOLS
+    CHECK --> PROJ
+    CHECK --> TOOLS
+    INV --> PROJ
+    INV --> FS
+    DOC --> TPL
+    DOC --> FS
+    
+    CFG --> FS
+    PROJ --> VCS
+    TPL --> FS
+    
+    classDef serviceStyle fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
+    classDef domainStyle fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
+    classDef infraStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
+    
+    class SCAN,CHECK,INV,DOC serviceStyle
+    class CFG,PROJ,TPL domainStyle
+    class TOOLS,VCS,FS infraStyle
 ```
 
 ## Architectural Principles
