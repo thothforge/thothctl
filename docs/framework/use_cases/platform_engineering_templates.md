@@ -97,11 +97,23 @@ Use ThothCTL to convert your project into a reusable template:
 # Convert project to template
 thothctl project convert --make-template --template-project-type terraform
 
+# Or for Terraform with Terragrunt
+thothctl project convert --make-template --template-project-type terraform-terragrunt
+
+# Or for standalone Terragrunt
+thothctl project convert --make-template --template-project-type terragrunt
+
 # Or for OpenTofu
 thothctl project convert --make-template --template-project-type tofu
 
 # Or for CDK v2
 thothctl project convert --make-template --template-project-type cdkv2
+
+# Or for Terraform modules
+thothctl project convert --make-template --template-project-type terraform_module
+
+# Or for custom project types
+thothctl project convert --make-template --template-project-type custom
 ```
 
 **What This Does:**
@@ -148,7 +160,7 @@ resource "aws_vpc" "main" {
 name: microservices-platform
 description: Production-ready microservices platform on AWS
 version: 1.0.0
-type: terraform
+type: terraform  # Options: terraform, terraform-terragrunt, terragrunt, tofu, cdkv2, terraform_module, custom
 
 parameters:
   project_name:
