@@ -192,6 +192,97 @@ graph LR
     class TOOLS,VCS,FS infraStyle
 ```
 
+## Data Flow
+
+### Command Execution Flow
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
+graph TD
+    A["User Input"] --> B["CLI Parser<br/><i>(Presentation)</i>"]
+    B --> C["Command Handler<br/><i>(Presentation)</i>"]
+    C --> D["Service Orchestrator<br/><i>(Application)</i>"]
+    D --> E["Business Service<br/><i>(Application)</i>"]
+    E --> F["Domain Model<br/><i>(Domain)</i>"]
+    F --> G["Infrastructure Adapter<br/><i>(Infrastructure)</i>"]
+    G --> H["External System"]
+    
+    classDef presentationStyle fill:#3b82f6,stroke:#60a5fa,stroke-width:2px,color:#fff
+    classDef applicationStyle fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
+    classDef domainStyle fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
+    classDef infraStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
+    
+    class A,B,C presentationStyle
+    class D,E applicationStyle
+    class F domainStyle
+    class G,H infraStyle
+```
+
+### Example: Scan Command Flow
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
+graph TD
+    A["$ thothctl scan iac<br/>--path ./terraform"] --> B["CLI: Parse arguments"]
+    B --> C["Command:<br/>scan_iac_command()"]
+    C --> D["Orchestrator:<br/>coordinate_scan()"]
+    D --> E["Scan Service:<br/>scan_iac(path, scanners)"]
+    E --> F["Project Model:<br/>load_project(path)"]
+    F --> G["Tool Adapter:<br/>execute_checkov()"]
+    G --> H["Checkov:<br/>Scan files"]
+    H --> I["Results aggregation"]
+    I --> J["Report generation"]
+    J --> K["Display to user"]
+    
+    classDef presentationStyle fill:#3b82f6,stroke:#60a5fa,stroke-width:2px,color:#fff
+    classDef applicationStyle fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
+    classDef domainStyle fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
+    classDef infraStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
+    
+    class A,B,C,K presentationStyle
+    class D,E,I,J applicationStyle
+    class F domainStyle
+    class G,H infraStyle
+```
+
 ## Architectural Principles
 
 1. **Separation of Concerns**: Each layer has distinct responsibilities
