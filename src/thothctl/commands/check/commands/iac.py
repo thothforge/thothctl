@@ -522,6 +522,13 @@ class CheckIaCCommand(ClickCommand):
             # Only display the enhanced visualization with risk percentages
             self._display_dependency_graph(dot_graph, risks)
             
+            # Generate unified index page
+            if tfplan_files:
+                reports_dir = Path("Reports") / "cost-analysis"
+                index_path = unified_report.generate_unified_index(reports_dir, "Infrastructure")
+                self.ui.print_success(f"\n🌐 Unified cost analysis index generated:")
+                self.ui.print_info(f"  {index_path}")
+            
             return True
             
         except Exception as e:
@@ -711,6 +718,13 @@ class CheckIaCCommand(ClickCommand):
             # Display results
             self._display_blast_radius_results(assessment)
             
+            # Generate unified index page
+            if tfplan_files:
+                reports_dir = Path("Reports") / "cost-analysis"
+                index_path = unified_report.generate_unified_index(reports_dir, "Infrastructure")
+                self.ui.print_success(f"\n🌐 Unified cost analysis index generated:")
+                self.ui.print_info(f"  {index_path}")
+            
             return True
             
         except Exception as e:
@@ -722,6 +736,7 @@ class CheckIaCCommand(ClickCommand):
         """Run cost analysis using the new service"""
         try:
             from ....services.check.project.cost.cost_analyzer import CostAnalyzer
+            from ....services.check.project.cost.unified_cost_report import UnifiedCostReportGenerator
             from pathlib import Path
             from datetime import datetime
             
@@ -738,26 +753,33 @@ class CheckIaCCommand(ClickCommand):
                 return False
             
             analyzer = CostAnalyzer()
+            unified_report = UnifiedCostReportGenerator()
             
             # Analyze Terraform plans
             if tfplan_files:
-                self.ui.print_info(f"Analyzing Terraform plan: {tfplan_files[0]}")
-                analysis = analyzer.analyze_terraform_plan(tfplan_files[0])
-                self._display_cost_analysis(analysis)
-                
-                # Generate reports
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                reports_dir = Path("Reports") / "cost-analysis"
-                
-                json_path = reports_dir / f"cost_analysis_{timestamp}.json"
-                html_path = reports_dir / f"cost_analysis_{timestamp}.html"
-                
-                analyzer.generate_json_report(analysis, json_path)
-                analyzer.generate_html_report(analysis, html_path)
-                
-                self.ui.print_success(f"\n📄 Reports generated:")
-                self.ui.print_info(f"  JSON: {json_path}")
-                self.ui.print_info(f"  HTML: {html_path}")
+                for tfplan_file in tfplan_files:
+                    self.ui.print_info(f"Analyzing Terraform plan: {tfplan_file}")
+                    analysis = analyzer.analyze_terraform_plan(tfplan_file)
+                    self._display_cost_analysis(analysis)
+                    
+                    # Generate reports
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    reports_dir = Path("Reports") / "cost-analysis"
+                    
+                    # Use directory name in report filename for clarity
+                    plan_dir = Path(tfplan_file).parent.name
+                    json_path = reports_dir / f"cost_analysis_{plan_dir}_{timestamp}.json"
+                    html_path = reports_dir / f"cost_analysis_{plan_dir}_{timestamp}.html"
+                    
+                    analyzer.generate_json_report(analysis, json_path)
+                    analyzer.generate_html_report(analysis, html_path)
+                    
+                    # Add to unified report
+                    unified_report.add_stack_report(plan_dir, analysis, html_path)
+                    
+                    self.ui.print_success(f"\n📄 Reports generated:")
+                    self.ui.print_info(f"  JSON: {json_path}")
+                    self.ui.print_info(f"  HTML: {html_path}")
             
             # Analyze CloudFormation templates
             if cf_templates:
@@ -777,9 +799,19 @@ class CheckIaCCommand(ClickCommand):
                     analyzer.generate_json_report(analysis, json_path)
                     analyzer.generate_html_report(analysis, html_path)
                     
+                    # Add to unified report
+                    unified_report.add_stack_report(plan_dir, analysis, html_path)
+                    
                     self.ui.print_success(f"\n📄 Reports generated:")
                     self.ui.print_info(f"  JSON: {json_path}")
                     self.ui.print_info(f"  HTML: {html_path}")
+            
+            # Generate unified index page
+            if tfplan_files:
+                reports_dir = Path("Reports") / "cost-analysis"
+                index_path = unified_report.generate_unified_index(reports_dir, "Infrastructure")
+                self.ui.print_success(f"\n🌐 Unified cost analysis index generated:")
+                self.ui.print_info(f"  {index_path}")
             
             return True
             
@@ -794,30 +826,65 @@ class CheckIaCCommand(ClickCommand):
         templates = []
         
         extensions = ['.yaml', '.yml', '.json']
-        cf_indicators = ['AWSTemplateFormatVersion', 'Resources', 'aws::']
+        
+        # Exclude patterns for non-CloudFormation files
+        exclude_patterns = [
+            'cost_analysis',  # Our own cost reports
+            'tfstate',
+            'terraform.tfstate'
+        ]
         
         if recursive:
             for root, _, files in os.walk(directory):
                 for file in files:
+                    # Skip excluded files
+                    if any(pattern in file.lower() for pattern in exclude_patterns):
+                        continue
+                    
                     if any(file.lower().endswith(ext) for ext in extensions):
                         file_path = os.path.join(root, file)
-                        if self._is_cloudformation_template(file_path, cf_indicators):
+                        if self._is_cloudformation_template(file_path):
                             templates.append(file_path)
         else:
             for file in os.listdir(directory):
+                # Skip excluded files
+                if any(pattern in file.lower() for pattern in exclude_patterns):
+                    continue
+                    
                 if any(file.lower().endswith(ext) for ext in extensions):
                     file_path = os.path.join(directory, file)
-                    if self._is_cloudformation_template(file_path, cf_indicators):
+                    if self._is_cloudformation_template(file_path):
                         templates.append(file_path)
         
         return templates
     
-    def _is_cloudformation_template(self, file_path: str, indicators: List[str]) -> bool:
+    def _is_cloudformation_template(self, file_path: str, indicators: List[str] = None) -> bool:
         """Check if file is a CloudFormation template"""
         try:
+            import json
+            import yaml
+            
             with open(file_path, 'r') as f:
-                content = f.read().lower()
-                return any(indicator.lower() in content for indicator in indicators)
+                if file_path.endswith('.json'):
+                    data = json.load(f)
+                else:
+                    data = yaml.safe_load(f)
+            
+            # CloudFormation templates must have AWSTemplateFormatVersion or be a dict with Resources
+            if isinstance(data, dict):
+                # Strong indicator: AWSTemplateFormatVersion
+                if 'AWSTemplateFormatVersion' in data:
+                    return True
+                
+                # Check for Resources section with CloudFormation resource types
+                if 'Resources' in data and isinstance(data['Resources'], dict):
+                    # Verify at least one resource has CloudFormation type (AWS::*)
+                    for resource in data['Resources'].values():
+                        if isinstance(resource, dict) and 'Type' in resource:
+                            if resource['Type'].startswith('AWS::'):
+                                return True
+            
+            return False
         except Exception:
             return False
 

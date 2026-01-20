@@ -17,16 +17,22 @@ class RDSPricingProvider(BasePricingProvider):
         
         # Offline pricing estimates (monthly USD)
         self.offline_estimates = {
+            # Standard RDS
             'db.t3.micro': 12.4, 'db.t3.small': 24.8, 'db.t3.medium': 49.6,
             'db.t3.large': 99.2, 'db.m5.large': 140.2, 'db.m5.xlarge': 280.4,
-            'db.r5.large': 162.0, 'db.r5.xlarge': 324.0
+            'db.r5.large': 162.0, 'db.r5.xlarge': 324.0,
+            # Aurora (Graviton)
+            'db.t4g.micro': 14.6, 'db.t4g.small': 29.2, 'db.t4g.medium': 58.4,
+            'db.t4g.large': 116.8, 'db.r6g.large': 158.4, 'db.r6g.xlarge': 316.8,
+            # Aurora (x86)
+            'db.t3.medium': 49.6, 'db.r5.large': 162.0, 'db.r5.xlarge': 324.0
         }
     
     def get_service_code(self) -> str:
         return 'AmazonRDS'
     
     def get_supported_resources(self) -> List[str]:
-        return ['aws_db_instance']
+        return ['aws_db_instance', 'aws_rds_cluster_instance', 'aws_rds_cluster']
     
     def calculate_cost(self, resource_change: Dict[str, Any], 
                       region: str) -> Optional[ResourceCost]:
@@ -84,7 +90,15 @@ class RDSPricingProvider(BasePricingProvider):
     def get_offline_estimate(self, resource_change: Dict[str, Any], 
                            region: str) -> Optional[ResourceCost]:
         """Provide offline estimate"""
+        resource_type = resource_change['type']
         config = resource_change['change'].get('after', {})
+        
+        # Aurora cluster itself has no cost (only instances do)
+        if resource_type == 'aws_rds_cluster':
+            return self._create_resource_cost(
+                resource_change, 'cluster', region, 0.0, 'high'
+            )
+        
         instance_class = config.get('instance_class', 'db.t3.micro')
         
         monthly_cost = self.offline_estimates.get(instance_class, 12.4)

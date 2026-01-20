@@ -22,6 +22,9 @@ from .pricing.providers.bedrock_pricing import BedrockPricingProvider
 from .pricing.providers.dynamodb_pricing import DynamoDBPricingProvider
 from .pricing.providers.apigateway_pricing import APIGatewayPricingProvider
 from .pricing.providers.msk_pricing import MSKPricingProvider
+from .pricing.providers.kms_pricing import KMSPricingProvider
+from .pricing.providers.eip_pricing import EIPPricingProvider
+from .pricing.providers.free_resources_pricing import FreeResourcesPricingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +116,21 @@ class CostAnalyzer:
         msk_provider = MSKPricingProvider(self.pricing_client)
         for resource in msk_provider.get_supported_resources():
             providers[resource] = msk_provider
+        
+        # KMS
+        kms_provider = KMSPricingProvider(self.pricing_client)
+        for resource in kms_provider.get_supported_resources():
+            providers[resource] = kms_provider
+        
+        # EIP
+        eip_provider = EIPPricingProvider(self.pricing_client)
+        for resource in eip_provider.get_supported_resources():
+            providers[resource] = eip_provider
+        
+        # Free resources (IAM, VPC components, etc.)
+        free_provider = FreeResourcesPricingProvider(self.pricing_client)
+        for resource in free_provider.get_supported_resources():
+            providers[resource] = free_provider
         
         return providers
     
@@ -538,7 +556,7 @@ class CostAnalyzer:
                     {''.join(f'''
                     <div class="bar">
                         <div class="bar-label">{service}</div>
-                        <div class="bar-fill" style="width: {min(cost / max(analysis.cost_breakdown_by_service.values()) * 500, 500)}px">
+                        <div class="bar-fill" style="width: {max(min(cost / max(analysis.cost_breakdown_by_service.values()) * 100, 100), 15)}%">
                             ${cost:,.2f}/mo
                         </div>
                     </div>

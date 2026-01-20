@@ -50,16 +50,31 @@ class MSKPricingProvider(BasePricingProvider):
         
         if resource_type == 'aws_msk_cluster':
             # Get broker configuration
-            broker_node_group_info = config.get('broker_node_group_info', {})
-            instance_type = broker_node_group_info.get('instance_type', 'kafka.m5.large')
+            broker_node_group_info = config.get('broker_node_group_info', [])
+            
+            # Handle both list and dict formats
+            if isinstance(broker_node_group_info, list):
+                broker_info = broker_node_group_info[0] if broker_node_group_info else {}
+            else:
+                broker_info = broker_node_group_info
+            
+            instance_type = broker_info.get('instance_type', 'kafka.m5.large')
             number_of_broker_nodes = config.get('number_of_broker_nodes', 3)
             
             # Calculate broker costs
             broker_cost_per_node = self.broker_costs.get(instance_type, 146.00)
             total_broker_cost = broker_cost_per_node * number_of_broker_nodes
             
-            # Estimate storage costs (assume 100GB per broker)
-            storage_per_broker = broker_node_group_info.get('storage_info', {}).get('ebs_storage_info', {}).get('volume_size', 100)
+            # Estimate storage costs
+            storage_info = broker_info.get('storage_info', {})
+            if isinstance(storage_info, list):
+                storage_info = storage_info[0] if storage_info else {}
+            
+            ebs_storage_info = storage_info.get('ebs_storage_info', {})
+            if isinstance(ebs_storage_info, list):
+                ebs_storage_info = ebs_storage_info[0] if ebs_storage_info else {}
+            
+            storage_per_broker = ebs_storage_info.get('volume_size', 100)
             total_storage_cost = storage_per_broker * number_of_broker_nodes * self.storage_cost
             
             monthly_cost = total_broker_cost + total_storage_cost
