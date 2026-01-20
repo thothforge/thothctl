@@ -1889,6 +1889,41 @@ class ReportService:
                             </div>
                     """
                 
+                # Add changelog data section
+                changelog_data = report.get("changelog_data")
+                if changelog_data and changelog_data.get("breaking_changes"):
+                    compatibility_html += """
+                            <div style="margin: 15px 0;">
+                                <h5 style="color: #6f42c1; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                    <span>📜</span>
+                                    <span>Official CHANGELOG</span>
+                                </h5>
+                                <div style="background: rgba(111,66,193,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #6f42c1;">
+                    """
+                    
+                    for change in changelog_data.get("breaking_changes", [])[:3]:
+                        compatibility_html += f"""
+                                <div style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.8); border-radius: 3px;">
+                                    <strong style="color: #495057;">{change.get("version", "")}</strong>
+                                    <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 0.9em;">{change.get("description", "")}</p>
+                                </div>
+                        """
+                    
+                    upgrade_url = changelog_data.get("upgrade_guide_url")
+                    if upgrade_url:
+                        compatibility_html += f"""
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(111,66,193,0.2);">
+                                    <a href="{upgrade_url}" target="_blank" style="color: #6f42c1; text-decoration: none; font-weight: 500;">
+                                        📖 View Full Upgrade Guide →
+                                    </a>
+                                </div>
+                        """
+                    
+                    compatibility_html += """
+                                </div>
+                            </div>
+                    """
+                
                 # Add recommendations section
                 recommendations = report.get("recommendations", [])
                 if recommendations:
@@ -2095,6 +2130,41 @@ class ReportService:
                     
                     compatibility_html += """
                                 </ul>
+                            </div>
+                    """
+                
+                # Add changelog data section
+                changelog_data = report.get("changelog_data")
+                if changelog_data and changelog_data.get("breaking_changes"):
+                    compatibility_html += """
+                            <div style="margin: 15px 0;">
+                                <h5 style="color: #6f42c1; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                    <span>📜</span>
+                                    <span>Official CHANGELOG</span>
+                                </h5>
+                                <div style="background: rgba(111,66,193,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #6f42c1;">
+                    """
+                    
+                    for change in changelog_data.get("breaking_changes", [])[:3]:
+                        compatibility_html += f"""
+                                <div style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.8); border-radius: 3px;">
+                                    <strong style="color: #495057;">{change.get("version", "")}</strong>
+                                    <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 0.9em;">{change.get("description", "")}</p>
+                                </div>
+                        """
+                    
+                    upgrade_url = changelog_data.get("upgrade_guide_url")
+                    if upgrade_url:
+                        compatibility_html += f"""
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(111,66,193,0.2);">
+                                    <a href="{upgrade_url}" target="_blank" style="color: #6f42c1; text-decoration: none; font-weight: 500;">
+                                        📖 View Full Upgrade Guide →
+                                    </a>
+                                </div>
+                        """
+                    
+                    compatibility_html += """
+                                </div>
                             </div>
                     """
                 

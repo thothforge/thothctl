@@ -14,6 +14,8 @@ from enum import Enum
 import json
 import re
 
+from .changelog_parser import ProviderChangelogParser
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,6 +51,7 @@ class CompatibilityReport:
     warnings: List[SchemaChange]
     summary: str
     recommendations: List[str]
+    changelog_data: Optional[Dict] = None  # Real breaking changes from CHANGELOG
 
 
 class SchemaCompatibilityService:
@@ -59,6 +62,7 @@ class SchemaCompatibilityService:
         self.session.headers.update({
             'User-Agent': 'ThothCTL/0.4.0 Schema Compatibility Checker'
         })
+        self.changelog_parser = ProviderChangelogParser()
         self.cache = {}
     
     async def check_provider_compatibility(
@@ -66,7 +70,8 @@ class SchemaCompatibilityService:
         provider_name: str,
         current_version: str,
         latest_version: str,
-        used_resources: Optional[List[str]] = None
+        used_resources: Optional[List[str]] = None,
+        namespace: str = 'hashicorp'
     ) -> CompatibilityReport:
         """
         Check compatibility between two provider versions
@@ -94,11 +99,11 @@ class SchemaCompatibilityService:
                 return self._create_latest_version_report(provider_name, latest_version)
             
             # Get schemas for both versions
-            logger.debug(f"Fetching schema for {provider_name} {current_version}")
-            current_schema = await self._get_provider_schema(provider_name, current_version)
+            logger.debug(f"Fetching schema for {namespace}/{provider_name} {current_version}")
+            current_schema = await self._get_provider_schema(provider_name, current_version, namespace)
             
-            logger.debug(f"Fetching schema for {provider_name} {latest_version}")
-            latest_schema = await self._get_provider_schema(provider_name, latest_version)
+            logger.debug(f"Fetching schema for {namespace}/{provider_name} {latest_version}")
+            latest_schema = await self._get_provider_schema(provider_name, latest_version, namespace)
             
             if not current_schema and not latest_schema:
                 logger.warning(f"Could not retrieve schemas for {provider_name}")
@@ -123,9 +128,20 @@ class SchemaCompatibilityService:
             
             logger.debug(f"Found {len(changes)} schema changes for {provider_name}")
             
+            # Fetch real breaking changes from CHANGELOG
+            logger.debug(f"Fetching CHANGELOG data for {provider_name}")
+            # Extract namespace from provider name if present (e.g., 'hashicorp/aws' -> 'hashicorp')
+            namespace = 'hashicorp'  # Default
+            if '/' in provider_name:
+                namespace, provider_name = provider_name.split('/', 1)
+            
+            changelog_data = self.changelog_parser.get_breaking_changes_summary(
+                provider_name, current_version, latest_version, namespace
+            )
+            
             # Create compatibility report
             report = self._create_compatibility_report(
-                provider_name, current_version, latest_version, changes
+                provider_name, current_version, latest_version, changes, changelog_data
             )
             
             logger.info(f"Compatibility analysis completed for {provider_name}: {report.compatibility_level.value}")
@@ -181,17 +197,15 @@ class SchemaCompatibilityService:
             ]
         )
     
-    async def _get_provider_schema(self, provider_name: str, version: str) -> Optional[Dict]:
+    async def _get_provider_schema(self, provider_name: str, version: str, namespace: str = "hashicorp") -> Optional[Dict]:
         """Get provider schema from Terraform Registry"""
-        cache_key = f"{provider_name}:{version}"
+        cache_key = f"{namespace}/{provider_name}:{version}"
         
         if cache_key in self.cache:
             return self.cache[cache_key]
         
         try:
-            # First, get provider metadata to find the correct namespace
-            provider_info = await self._get_provider_info(provider_name)
-            namespace = provider_info.get('namespace', 'hashicorp')
+            # Use provided namespace
             
             logger.info(f"🔍 Fetching schema for {namespace}/{provider_name} v{version}")
             
@@ -216,8 +230,8 @@ class SchemaCompatibilityService:
                         break
             
             if not download_url:
-                logger.warning(f"No download URL found for {provider_name} {version}")
-                return await self._get_fallback_schema(provider_name, version, namespace)
+                logger.debug(f"No download URL found for {provider_name} {version}, using docs API")
+                # Continue anyway - we use docs API, not binary download
             
             # For now, we'll use the provider documentation API as a proxy for schema information
             # This is more reliable than trying to download and extract the binary
@@ -941,7 +955,8 @@ class SchemaCompatibilityService:
         provider_name: str,
         current_version: str,
         latest_version: str,
-        changes: List[SchemaChange]
+        changes: List[SchemaChange],
+        changelog_data: Optional[Dict] = None
     ) -> CompatibilityReport:
         """Create a comprehensive compatibility report"""
         
@@ -980,7 +995,8 @@ class SchemaCompatibilityService:
             new_features=new_features,
             warnings=warnings,
             summary=summary,
-            recommendations=recommendations
+            recommendations=recommendations,
+            changelog_data=changelog_data
         )
     
     def _generate_summary(

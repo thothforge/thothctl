@@ -456,15 +456,22 @@ class InventoryService:
                                 processed_providers.add(provider_key)
                                 logger.info(f"🔍 Processing compatibility for {provider['name']}")
                                 
+                                # Extract namespace from provider source
+                                source_value = provider.get('source', provider['name'])
+                                logger.info(f"🔍 Provider source value: {source_value}")
+                                namespace, provider_name = self._extract_provider_namespace(source_value)
+                                logger.info(f"🔍 Extracted namespace: {namespace}, provider: {provider_name}")
+                                
                                 # Get resources used by this provider (optional enhancement)
                                 used_resources = None  # Could be extracted from IaC files
                                 
                                 # Check compatibility
                                 compatibility_report = await self.schema_compatibility_service.check_provider_compatibility(
-                                    provider_name=provider['name'],
+                                    provider_name=provider_name,
                                     current_version=provider.get('version', 'latest'),
                                     latest_version=provider.get('latest_version', provider.get('version', 'latest')),
-                                    used_resources=used_resources
+                                    used_resources=used_resources,
+                                    namespace=namespace
                                 )
                                 
                                 compatibility_reports.append(compatibility_report)
@@ -495,6 +502,7 @@ class InventoryService:
                                 "new_features_count": len(report.new_features),
                                 "summary": report.summary,
                                 "recommendations": report.recommendations,
+                                "changelog_data": report.changelog_data,
                                 "breaking_changes": [
                                     {
                                         "type": change.type,
@@ -735,6 +743,29 @@ class InventoryService:
             
         return providers
         
+
+    def _extract_provider_namespace(self, source: str) -> tuple:
+        """
+        Extract namespace and provider name from source string.
+        
+        Args:
+            source: Provider source (e.g., 'registry.terraform.io/hashicorp/aws' or 'spotinst/spotinst')
+            
+        Returns:
+            Tuple of (namespace, provider_name)
+        """
+        # Remove registry prefix if present
+        if '/' in source:
+            parts = source.split('/')
+            if len(parts) >= 2:
+                # Last part is provider name, second-to-last is namespace
+                provider_name = parts[-1]
+                namespace = parts[-2]
+                return (namespace, provider_name)
+        
+        # Fallback: assume hashicorp
+        return ('hashicorp', source)
+
     def _parse_providers_output(self, output: str, stack_path: str = "") -> List[Provider]:
         """
         Parse the output of terraform/tofu providers command.

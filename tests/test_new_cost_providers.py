@@ -349,3 +349,87 @@ class TestRecommendationsEngine:
         
         assert any('Reserved Instances' in r or 'Savings Plans' in r for r in recommendations)
         assert any('Cost Explorer' in r for r in recommendations)
+
+
+class TestChangelogParser:
+    """Test provider changelog parser."""
+    
+    def test_changelog_url_generation(self):
+        """Test CHANGELOG URL generation for known providers."""
+        from thothctl.services.inventory.changelog_parser import ProviderChangelogParser
+        
+        parser = ProviderChangelogParser()
+        
+        # Test known providers
+        aws_url = parser.get_changelog_url('aws')
+        assert 'hashicorp/terraform-provider-aws' in aws_url
+        assert 'CHANGELOG.md' in aws_url
+        
+        azure_url = parser.get_changelog_url('azurerm')
+        assert 'hashicorp/terraform-provider-azurerm' in azure_url
+    
+    def test_upgrade_guide_url(self):
+        """Test upgrade guide URL generation."""
+        from thothctl.services.inventory.changelog_parser import ProviderChangelogParser
+        
+        parser = ProviderChangelogParser()
+        
+        url = parser.get_upgrade_guide_url('aws', '5')
+        assert 'registry.terraform.io' in url
+        assert 'version-5-upgrade' in url
+    
+    def test_version_parsing(self):
+        """Test version string parsing."""
+        from thothctl.services.inventory.changelog_parser import ProviderChangelogParser
+        
+        parser = ProviderChangelogParser()
+        
+        # Test version comparison
+        assert parser._parse_version('5.30.0') == (5, 30, 0)
+        assert parser._parse_version('v5.30.0') == (5, 30, 0)
+        assert parser._version_less_than('5.0.0', '5.30.0')
+        assert not parser._version_less_than('5.30.0', '5.0.0')
+    
+    def test_version_range_check(self):
+        """Test version range checking."""
+        from thothctl.services.inventory.changelog_parser import ProviderChangelogParser
+        
+        parser = ProviderChangelogParser()
+        
+        # Version in range
+        assert parser._is_version_in_range('5.15.0', '5.0.0', '5.30.0')
+        
+        # Version outside range
+        assert not parser._is_version_in_range('4.67.0', '5.0.0', '5.30.0')
+        assert not parser._is_version_in_range('6.0.0', '5.0.0', '5.30.0')
+    
+    def test_changelog_entry_parsing(self):
+        """Test parsing of changelog entries."""
+        from thothctl.services.inventory.changelog_parser import ProviderChangelogParser
+        
+        parser = ProviderChangelogParser()
+        
+        sample_section = [
+            "BREAKING CHANGES:",
+            "* resource/aws_instance: Removed `network_interface_id` attribute",
+            "",
+            "DEPRECATIONS:",
+            "* resource/aws_db_instance: The `name` attribute is deprecated",
+            "",
+            "FEATURES:",
+            "* **New Resource:** `aws_bedrock_agent`"
+        ]
+        
+        entries = parser._parse_version_section('5.15.0', sample_section)
+        
+        # Should have entries
+        assert len(entries) > 0
+        
+        # Check breaking change
+        breaking = [e for e in entries if e.type == 'breaking']
+        assert len(breaking) > 0
+        assert 'aws_instance' in breaking[0].resource_name or 'network_interface' in breaking[0].description
+        
+        # Check deprecation
+        deprecated = [e for e in entries if e.type == 'deprecated']
+        assert len(deprecated) > 0
