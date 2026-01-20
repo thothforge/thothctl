@@ -4,6 +4,10 @@
 
 Platform engineers can create reusable infrastructure templates from existing projects (blueprints, POCs, or reference architectures) and publish them for consumption through Internal Developer Platforms like Backstage.
 
+**Template Format**: ThothCTL uses `#{ }#` placeholder expressions for parameterization, not Jinja2 syntax.
+
+**Example Blueprint**: [terragrunt_ecs_blueprint](https://github.com/velez94/terragrunt_ecs_blueprint) - Production-ready ECS Fargate architecture with ALB, RDS, and multi-AZ deployment.
+
 ## Use Case: From Project to Template
 
 ### Scenario
@@ -11,7 +15,7 @@ Platform engineers can create reusable infrastructure templates from existing pr
 A platform engineering team has developed a production-ready reference architecture for a microservices platform. They want to:
 
 1. Convert the working project into a reusable template
-2. Parameterize environment-specific values
+2. Parameterize environment-specific values using `#{ }#` expressions
 3. Publish to a Git repository
 4. Make it available in Backstage for self-service
 
@@ -118,14 +122,14 @@ thothctl project convert --make-template --template-project-type custom
 
 **What This Does:**
 - Identifies hardcoded values
-- Creates Jinja2 template variables
+- Creates `#{ }#` placeholder expressions
 - Generates `template.yaml` configuration
 - Preserves project structure
 - Creates parameterized files
 
 ### Step 3: Review Generated Template
 
-The conversion creates template files with Jinja2 variables:
+The conversion creates template files with `#{ }#` placeholder expressions:
 
 **Before (Project):**
 ```hcl
@@ -143,17 +147,45 @@ resource "aws_vpc" "main" {
 
 **After (Template):**
 ```hcl
-# environments/{{ environment }}/main.tf
+# environments/#{environment}#/main.tf
 resource "aws_vpc" "main" {
-  cidr_block = "{{ vpc_cidr }}"
+  cidr_block = "#{vpc_cidr}#"
   
   tags = {
-    Name        = "{{ project_name }}-vpc"
-    Environment = "{{ environment }}"
-    Team        = "{{ team_name }}"
+    Name        = "#{project_name}#-vpc"
+    Environment = "#{environment}#"
+    Team        = "#{team_name}#"
   }
 }
 ```
+
+**Example from Blueprint:**
+```hcl
+# common/common.tfvars
+project_name = "#{project}#"
+environment  = "#{environment}#"
+region       = "#{backend_region}#"
+dynamodb_table = "#{dynamodb_backend}#"
+backend_bucket = "#{backend_bucket}#"
+```
+
+### Step 3.1: Manual Replacement (Alternative)
+
+You can also manually replace values using your IDE or shell script:
+
+```bash
+# Example replacements from terragrunt_ecs_blueprint
+project_name = "#{project}#"
+environment  = "#{environment}#"
+region       = "#{backend_region}#"
+dynamodb_table = "#{dynamodb_backend}#"
+backend_bucket = "#{backend_bucket}#"
+```
+
+**Using find and replace in your IDE:**
+1. Find: `"my-project-name"` → Replace: `"#{project}#"`
+2. Find: `"production"` → Replace: `"#{environment}#"`
+3. Find: `"us-east-1"` → Replace: `"#{backend_region}#"`
 
 **Generated `template.yaml`:**
 ```yaml
@@ -163,7 +195,7 @@ version: 1.0.0
 type: terraform  # Options: terraform, terraform-terragrunt, terragrunt, tofu, cdkv2, terraform_module, custom
 
 parameters:
-  project_name:
+  project:
     type: string
     description: Name of the project
     required: true
@@ -184,10 +216,20 @@ parameters:
     description: Team responsible for the infrastructure
     required: true
   
-  aws_region:
+  backend_region:
     type: string
-    description: AWS region
+    description: AWS region for backend
     default: us-east-1
+  
+  backend_bucket:
+    type: string
+    description: S3 bucket for Terraform state
+    required: true
+  
+  dynamodb_backend:
+    type: string
+    description: DynamoDB table for state locking
+    required: true
 
 stacks:
   - networking
