@@ -17,13 +17,21 @@ class AWSPricingClient:
     
     @property
     def client(self):
-        """Lazy initialization of boto3 client"""
+        """Lazy initialization of boto3 client
+        
+        Note: AWS Pricing API requires valid AWS credentials even though
+        it's a read-only public API. Configure credentials via:
+        - AWS CLI: aws configure
+        - Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+        - IAM role (for EC2/Lambda)
+        """
         if self._client is None:
             try:
                 import boto3
                 self._client = boto3.client('pricing', region_name='us-east-1')
             except Exception as e:
                 logger.warning(f"Failed to initialize AWS pricing client: {e}")
+                logger.info("AWS Pricing API requires credentials. Configure with: aws configure")
                 raise
         return self._client
     

@@ -52,9 +52,31 @@ thothctl check iac -type cost-analysis -d /path/to/infrastructure
    # Must contain AWSTemplateFormatVersion or Resources section
    ```
 
-3. **AWS Credentials** (optional): For real-time pricing
-   - Configure AWS CLI or use IAM roles
-   - Pricing API access (usually available by default)
+3. **AWS Credentials** (required for real-time pricing): 
+   
+   **Important**: AWS Pricing API requires valid AWS credentials even though it's read-only.
+   
+   Configure credentials using one of these methods:
+   
+   ```bash
+   # Option 1: AWS CLI (recommended)
+   aws configure
+   # Enter your AWS Access Key ID and Secret Access Key
+   
+   # Option 2: Environment variables
+   export AWS_ACCESS_KEY_ID="your-access-key"
+   export AWS_SECRET_ACCESS_KEY="your-secret-key"
+   export AWS_DEFAULT_REGION="us-east-1"
+   
+   # Option 3: IAM Role (for EC2/Lambda/ECS)
+   # Automatically uses instance/task role
+   ```
+   
+   **Without credentials**: ThothCTL will use offline estimates (medium confidence)
+   
+   **With credentials**: Real-time AWS Pricing API (high confidence)
+   
+   **Required IAM Permission**: `pricing:GetProducts` (read-only, no cost)
 
 ## Supported AWS Services
 
