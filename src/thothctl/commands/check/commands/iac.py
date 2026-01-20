@@ -747,7 +747,7 @@ class CheckIaCCommand(ClickCommand):
                 
                 # Generate reports
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                reports_dir = Path("Reports")
+                reports_dir = Path("Reports") / "cost-analysis"
                 
                 json_path = reports_dir / f"cost_analysis_{timestamp}.json"
                 html_path = reports_dir / f"cost_analysis_{timestamp}.html"
@@ -768,7 +768,7 @@ class CheckIaCCommand(ClickCommand):
                     
                     # Generate reports for CloudFormation
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    reports_dir = Path("Reports")
+                    reports_dir = Path("Reports") / "cost-analysis"
                     template_name = Path(template).stem
                     
                     json_path = reports_dir / f"cost_analysis_{template_name}_{timestamp}.json"
