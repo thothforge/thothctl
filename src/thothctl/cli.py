@@ -9,6 +9,8 @@ from typing import Optional
 from importlib.metadata import version
 import click
 
+from .utils.banner import get_banner
+
 
 def global_options(f):
     @click.option("--debug", is_flag=True, help="Enable debug mode (most verbose)")
@@ -70,7 +72,7 @@ class ThothCLI(click.MultiCommand):
 @click.command(cls=ThothCLI)
 @click.version_option(version=version('thothctl'),
     prog_name='thothctl',
-    message='%(prog)s version %(version)s',
+    message=get_banner() + '\n   Version: %(version)s\n',
     help='Show the version and exit.')
 @global_options
 @click.pass_context

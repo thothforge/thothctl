@@ -162,28 +162,20 @@ class DashboardService:
     
     def _display_banner(self, debug: bool = False):
         """Display professional ThothCTL banner."""
+        from ...utils.banner import get_banner
+        
         mode = "DEBUG" if debug else "PRODUCTION"
         mode_color = "\033[93m" if debug else "\033[92m"  # Yellow for debug, Green for prod
         reset_color = "\033[0m"
-        blue = "\033[94m"
         cyan = "\033[96m"
         bold = "\033[1m"
         
-        banner = f"""
-{blue}╔══════════════════════════════════════════════════════════════════════════════╗
-║                                                                              ║
-║  {bold}🚀 ThothCTL Dashboard v{__version__}{reset_color}{blue} - Internal Developer Platform CLI        ║
-║                                                                              ║
-║  {cyan}📊 Unified Infrastructure Management Console{reset_color}{blue}                          ║
-║  {cyan}🔍 Inventory • Security • Costs • Risk Analysis{reset_color}{blue}                      ║
-║                                                                              ║
-║  {bold}Mode:{reset_color} {mode_color}{mode}{reset_color}{blue}                    {bold}URL:{reset_color} {cyan}http://{self.host}:{self.port}{reset_color}{blue}                ║
-║                                                                              ║
-║  {bold}Powered by:{reset_color} {cyan}Flask • Python • Modern Web Technologies{reset_color}{blue}                ║
-║                                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════╝{reset_color}
+        banner = f"""{get_banner()}
+   
+   🚀 {bold}Dashboard v{__version__}{reset_color} - {mode_color}{mode} Mode{reset_color}
+   🌐 URL: {cyan}http://{self.host}:{self.port}{reset_color}
 
-{bold}{cyan}🎯 ThothCTL Dashboard Features:{reset_color}
+{bold}{cyan}🎯 Dashboard Features:{reset_color}
    • 📦 Infrastructure Inventory (SBOM) with version tracking
    • 🔒 Security scan results from Checkov, Trivy & more  
    • 💰 AWS cost analysis with optimization recommendations

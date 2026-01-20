@@ -632,9 +632,9 @@ class InventoryService:
         # Determine the command to use based on project type
         if self.is_terragrunt_project:
             # For Terragrunt projects, use terragrunt run providers
-            command = ["terragrunt"]
+            command = ["terragrunt", "run"]
             
-            # Add custom terragrunt arguments if provided
+            # Add custom terragrunt arguments if provided (after 'run')
             if terragrunt_args.strip():
                 # Split the arguments string and add them to the command
                 # Handle both space-separated and quoted arguments
@@ -646,8 +646,8 @@ class InventoryService:
                     args = terragrunt_args.split()
                     command.extend(args)
             
-            # Add the run providers command
-            command.extend(["run", "providers"])
+            # Add the providers command
+            command.append("providers")
             tool_name = "terragrunt"
         else:
             # For regular Terraform projects, use the specified provider tool
