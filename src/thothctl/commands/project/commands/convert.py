@@ -79,7 +79,7 @@ cli = ConvertProjectCommand.as_click_command(
         "-tpt",
         "--template-project-type",
         help="Project type according to Internal Developer Portal",
-        type=click.Choice(["terraform", "tofu", "cdkv2"], case_sensitive=True),
+        type=click.Choice(["terraform", "terraform-terragrunt", "terragrunt", "tofu", "cdkv2", "terraform_module", "custom"], case_sensitive=True),
         default="terraform",
     ),
     click.option(
