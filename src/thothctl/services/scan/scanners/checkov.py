@@ -15,7 +15,7 @@ from .scanners import ScannerPort
 class CheckovScanner(ScannerPort):
     def __init__(self):
         self.ui = ScannerUI("Checkov")
-        self.reports_path = "checkov"
+        self.reports_path = "security-scan"
         self.report_filename = "checkov_log_report.txt"
         self.logger = logging.getLogger(__name__)
 

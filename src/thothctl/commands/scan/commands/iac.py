@@ -117,7 +117,7 @@ class RestoredIaCScanCommand(ClickCommand):
                         elif tool_results.get("status") == "COMPLETE":
                             # Try multiple possible locations for XML files
                             possible_paths = [
-                                os.path.join(reports_dir, tool_name),  # Reports/checkov/
+                                os.path.join(reports_dir, "security-scan"),  # Reports/security-scan/
                                 tool_results.get("report_path", ""),  # Direct report path
                             ]
                             

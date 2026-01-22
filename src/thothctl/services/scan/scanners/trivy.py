@@ -15,7 +15,7 @@ class TrivyScanner(ScannerPort):
     def __init__(self):
         self.ui = ScannerUI("Trivy")
         self.report_filename = "trivy_report.txt"
-        self.reports_path = "trivy"
+        self.reports_path = "security-scan"
 
     def _get_trivy_executable(self) -> str:
         """Get the Trivy executable with platform-specific handling."""
