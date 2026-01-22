@@ -430,23 +430,63 @@ class CostAnalyzer:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AWS Cost Analysis Report</title>
     <style>
+        :root {{
+            --thoth-primary: #667eea;
+            --thoth-secondary: #764ba2;
+            --status-success: #10b981;
+            --status-warning: #f59e0b;
+            --status-error: #ef4444;
+            --status-info: #3b82f6;
+            --action-create: #06b6d4;
+            --action-update: #f59e0b;
+            --action-delete: #ef4444;
+            --confidence-high: #10b981;
+            --confidence-medium: #f59e0b;
+            --confidence-low: #ef4444;
+            
+            /* Light theme (default) */
+            --bg-body: #f5f7fa;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+            --border-light: #e5e7eb;
+            --border-medium: #d1d5db;
+        }}
+        
+        /* Dark theme */
+        @media (prefers-color-scheme: dark) {{
+            :root {{
+                --bg-body: #0f172a;
+                --bg-primary: #1e293b;
+                --bg-secondary: #334155;
+                --bg-tertiary: #475569;
+                --text-primary: #f1f5f9;
+                --text-secondary: #cbd5e1;
+                --border-light: #334155;
+                --border-medium: #475569;
+            }}
+        }}
+        
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--bg-body);
             padding: 20px;
             line-height: 1.6;
         }}
         .container {{ 
-            max-width: 1200px; 
+            max-width: 1600px; 
             margin: 0 auto; 
-            background: white;
+            background: var(--bg-primary);
             border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             overflow: hidden;
         }}
         .header {{ 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--thoth-primary) 0%, var(--thoth-secondary) 100%);
             color: white;
             padding: 40px;
             text-align: center;
@@ -461,7 +501,7 @@ class CostAnalyzer:
             margin-bottom: 40px;
         }}
         .summary-card {{ 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--thoth-primary) 0%, var(--thoth-secondary) 100%);
             color: white;
             padding: 25px;
             border-radius: 10px;
@@ -471,10 +511,10 @@ class CostAnalyzer:
         .summary-card .value {{ font-size: 2em; font-weight: bold; }}
         .section {{ margin-bottom: 40px; }}
         .section h2 {{ 
-            color: #667eea;
+            color: var(--thoth-primary);
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid var(--thoth-primary);
         }}
         table {{ 
             width: 100%;
@@ -483,7 +523,7 @@ class CostAnalyzer:
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }}
         th {{ 
-            background: #667eea;
+            background: var(--thoth-primary);
             color: white;
             padding: 15px;
             text-align: left;
@@ -491,9 +531,10 @@ class CostAnalyzer:
         }}
         td {{ 
             padding: 12px 15px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-primary);
         }}
-        tr:hover {{ background: #f5f5f5; }}
+        tr:hover {{ background: var(--bg-tertiary); }}
         .badge {{ 
             display: inline-block;
             padding: 4px 12px;
@@ -501,26 +542,30 @@ class CostAnalyzer:
             font-size: 0.85em;
             font-weight: 600;
         }}
-        .badge-high {{ background: #4caf50; color: white; }}
-        .badge-medium {{ background: #ff9800; color: white; }}
-        .badge-create {{ background: #2196f3; color: white; }}
-        .badge-update {{ background: #ff9800; color: white; }}
-        .badge-delete {{ background: #f44336; color: white; }}
+        .badge-high {{ background: var(--confidence-high); color: white; }}
+        .badge-medium {{ background: var(--confidence-medium); color: white; }}
+        .badge-low {{ background: var(--confidence-low); color: white; }}
+        .badge-create {{ background: var(--action-create); color: white; }}
+        .badge-update {{ background: var(--action-update); color: white; }}
+        .badge-delete {{ background: var(--action-delete); color: white; }}
         .recommendations {{ 
-            background: #f8f9fa;
+            background: var(--bg-secondary);
             padding: 20px;
             border-radius: 8px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid var(--thoth-primary);
+            color: var(--text-primary);
         }}
         .recommendations li {{ 
             margin: 10px 0;
             padding-left: 10px;
+            color: var(--text-primary);
         }}
         .chart-container {{ 
             margin: 20px 0;
             padding: 20px;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
             border-radius: 8px;
+            color: var(--text-primary);
         }}
         .bar {{ 
             display: flex;
@@ -530,10 +575,11 @@ class CostAnalyzer:
         .bar-label {{ 
             width: 150px;
             font-weight: 600;
+            color: var(--text-primary);
         }}
         .bar-fill {{ 
             height: 30px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, var(--thoth-primary) 0%, var(--thoth-secondary) 100%);
             border-radius: 4px;
             display: flex;
             align-items: center;
@@ -542,8 +588,28 @@ class CostAnalyzer:
             font-weight: 600;
             min-width: 60px;
         }}
+        /* Table wrapper for horizontal scroll */
+        .table-wrapper {{
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 20px 0;
+            background: var(--bg-primary);
+        }}
+        /* Responsive adjustments */
+        @media (max-width: 1650px) {{
+            .container {{ max-width: 95%; }}
+        }}
+        @media (max-width: 768px) {{
+            body {{ padding: 10px; }}
+            .container {{ max-width: 100%; border-radius: 8px; }}
+            table {{ font-size: 0.85em; min-width: 600px; }}
+            th, td {{ padding: 8px 10px; white-space: nowrap; }}
+            .bar-label {{ width: 100px; font-size: 0.9em; }}
+            .summary-card .value {{ font-size: 1.5em; }}
+            code {{ font-size: 0.8em; }}
+        }}
         @media print {{
-            body {{ background: white; padding: 0; }}
+            body {{ background: var(--bg-primary); padding: 0; }}
             .container {{ box-shadow: none; }}
         }}
     </style>
@@ -609,10 +675,12 @@ class CostAnalyzer:
                         ''' for action, cost in analysis.cost_breakdown_by_action.items())}
                     </tbody>
                 </table>
+                </div>
             </div>
             
             <div class="section">
                 <h2>📋 Resource Details</h2>
+                <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
@@ -626,15 +694,16 @@ class CostAnalyzer:
                     <tbody>
                         {''.join(f'''
                         <tr>
-                            <td><code>{cost.resource_address}</code></td>
-                            <td>{cost.service_name}</td>
-                            <td><span class="badge badge-{cost.action.value}">{cost.action.value}</span></td>
-                            <td>${cost.monthly_cost:,.2f}</td>
-                            <td><span class="badge badge-{cost.confidence_level}">{cost.confidence_level}</span></td>
+                            <td data-label="Resource"><code>{cost.resource_address}</code></td>
+                            <td data-label="Service">{cost.service_name}</td>
+                            <td data-label="Action"><span class="badge badge-{cost.action.value}">{cost.action.value}</span></td>
+                            <td data-label="Monthly Cost">${cost.monthly_cost:,.2f}</td>
+                            <td data-label="Confidence"><span class="badge badge-{cost.confidence_level}">{cost.confidence_level}</span></td>
                         </tr>
                         ''' for cost in analysis.resource_costs)}
                     </tbody>
                 </table>
+                </div>
             </div>
             
             <div class="section">

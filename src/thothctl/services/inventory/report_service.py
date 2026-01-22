@@ -73,14 +73,26 @@ class ReportService:
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
                 <style>
                     :root {{
-                        --primary-color: #007bff;
-                        --secondary-color: #6c757d;
-                        --success-color: #28a745;
-                        --warning-color: #ffc107;
-                        --danger-color: #dc3545;
-                        --info-color: #17a2b8;
-                        --light-color: #f8f9fa;
-                        --dark-color: #343a40;
+                        /* ThothCTL Brand Colors */
+                        --thoth-primary: #667eea;
+                        --thoth-secondary: #764ba2;
+                        
+                        /* Status Colors */
+                        --status-success: #10b981;
+                        --status-warning: #f59e0b;
+                        --status-error: #ef4444;
+                        --status-info: #3b82f6;
+                        --status-neutral: #6b7280;
+                        
+                        /* Legacy compatibility */
+                        --primary-color: #667eea;
+                        --secondary-color: #6b7280;
+                        --success-color: #10b981;
+                        --warning-color: #f59e0b;
+                        --danger-color: #ef4444;
+                        --info-color: #3b82f6;
+                        --light-color: #f9fafb;
+                        --dark-color: #111827;
                         --border-radius: 8px;
                         --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                         --transition: all 0.3s ease;
@@ -96,7 +108,7 @@ class ReportService:
                         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                         line-height: 1.6;
                         color: var(--dark-color);
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        background: #f5f7fa;
                         min-height: 100vh;
                         padding: 20px;
                     }}
