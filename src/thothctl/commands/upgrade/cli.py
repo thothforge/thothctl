@@ -86,8 +86,16 @@ class UpgradeCommand(ClickCommand):
         self.ui.print_info("🚀 Upgrading thothctl...")
         
         try:
-            # Use pip to upgrade thothctl
-            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "thothctl"]
+            # Use pip to upgrade thothctl with --break-system-packages flag
+            cmd = [
+                sys.executable, 
+                "-m", 
+                "pip", 
+                "install", 
+                "--upgrade", 
+                "--break-system-packages",
+                "thothctl"
+            ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             
             self.ui.print_success("✅ ThothCTL upgraded successfully!")
