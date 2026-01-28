@@ -563,7 +563,10 @@ def validate(directory: str, mode: str, check_type: str = "project"):
             return True
         else:
             print(f"{Fore.RED}Project structure is invalid{Fore.RESET}")
-            sys.exit(1)
+            # Only exit with error code in strict mode
+            if mode == "strict":
+                sys.exit(1)
+            return False
 
     except Exception as e:
         print(f"{Fore.RED}Error: {e}{Fore.RESET}")

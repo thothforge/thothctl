@@ -224,7 +224,8 @@ class CheckProjectIaCCommand(ClickCommand):
             self.console.print()
             self.console.print(summary_panel)
             
-            if not result:
+            # Only exit with error code in strict mode
+            if not result and kwargs.get('mode') == 'strict':
                 exit(1)
                 
         except Exception as e:
