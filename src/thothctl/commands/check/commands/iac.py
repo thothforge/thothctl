@@ -31,7 +31,7 @@ class CheckIaCCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
         self.console = Console()
-        self.supported_check_types = ["tfplan", "module", "deps", "blast-radius", "cost-analysis"]
+        self.supported_check_types = ["tfplan", "deps", "blast-radius", "cost-analysis"]
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
@@ -1050,14 +1050,8 @@ class CheckIaCCommand(ClickCommand):
 
 
 cli = CheckIaCCommand.as_click_command(
-    help="Check Infrastructure as code artifacts like tfplan and dependencies"
+    help="Analyze IaC artifacts: plans, dependencies, costs, and blast radius"
 )(
-    click.option(
-        '--mode',
-        type=click.Choice(['soft', 'hard']),
-        default='soft',
-        help='Validation mode'
-    ),
     click.option(
         "-deps", '--dependencies',
         is_flag=True,
@@ -1083,13 +1077,8 @@ cli = CheckIaCCommand.as_click_command(
         default='tofu',
     ),
     click.option("-type", "--check_type",
-                 help="Check tfplan, module structure, visualize dependencies, or analyze costs",
-                 type=click.Choice(["tfplan", "module", "deps", "blast-radius", "cost-analysis"], case_sensitive=True),
+                 help="tfplan: analyze plans | deps: view dependencies | blast-radius: impact analysis | cost-analysis: estimate costs",
+                 type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis"], case_sensitive=True),
                  default="tfplan",
                  ),
-    # click.option("--tfplan",
-    #             help="Validate terraform plan",
-    #             is_flag=True,
-    #             default=False,
-    #             )
 )

@@ -2,15 +2,15 @@
 version_tools = """[
   {
     "name": "terraform",
-    "version": "1.14.0"
+    "version": "1.14.4"
   },
   {
     "name": "tofu",
-    "version": "1.10.7"
+    "version": "1.11.4"
   },
   {
     "name": "terragrunt",
-    "version": "0.96.1"
+    "version": "0.97.2"
   },
   {
     "name": "thothctl",
@@ -18,7 +18,7 @@ version_tools = """[
   },
   {
     "name": "pre-commit",
-    "version": "3.7.1"
+    "version": "4.5.1"
   },
   {
     "name": "tflint",
@@ -38,11 +38,11 @@ version_tools = """[
   },
   {
     "name": "terraform-compliance",
-    "version": "1.12.3"
+    "version": "1.13.0"
   },
   {
     "name": "terramate",
-    "version": "0.14.5"
+    "version": "0.15.5"
   },
   {
     "name": "tfswitch",
@@ -71,13 +71,8 @@ version_tools = """[
     "command": "snyk --version"
   },
   {
-    "name": "open-tofu",
-    "version": "1.10.6",
-    "command": "tofu version"
-  },
-  {
     "name": "kiro-cli",
-    "version": "1.21.0",
+    "version": "1.24.0",
     "command": "kiro-cli --version"
   }
 ]"""

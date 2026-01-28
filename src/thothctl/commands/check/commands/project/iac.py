@@ -172,11 +172,13 @@ class CheckProjectIaCCommand(ClickCommand):
         """Execute IaC project structure check"""
         ctx = click.get_current_context()
         directory = ctx.obj.get("CODE_DIRECTORY", ".")
+        project_type = kwargs.get('project_type', 'stack')
         
-        # Create header
+        # Create header with project type
+        header_text = f"🏗️ Infrastructure as Code {'Module' if project_type == 'module' else 'Stack'} Structure Check"
         self.console.print()
         self.console.print(Panel(
-            "🏗️ Infrastructure as Code Project Structure Check",
+            header_text,
             style="bold blue",
             box=box.ROUNDED
         ))
@@ -190,7 +192,8 @@ class CheckProjectIaCCommand(ClickCommand):
                     result = self._validate_project_structure(
                         directory=directory, 
                         mode=kwargs.get('mode', 'soft'),
-                        check_type=kwargs.get('check_type', 'structure')
+                        check_type=kwargs.get('check_type', 'structure'),
+                        project_type=project_type
                     )
                 except SystemExit as e:
                     # Handle sys.exit() from validation service
@@ -229,9 +232,18 @@ class CheckProjectIaCCommand(ClickCommand):
             self.logger.error(f"Failed to execute IaC project check: {str(e)}")
             raise
 
-    def _validate_project_structure(self, directory: str, mode: str = "soft", check_type: str = "structure") -> bool:
-        """Validate the IaC project structure"""
-        return validate(directory=directory, check_type=check_type, mode=mode)
+    def _validate_project_structure(self, directory: str, mode: str = "soft", check_type: str = "structure", project_type: str = "stack") -> bool:
+        """Validate the IaC project structure
+        
+        Args:
+            directory: Directory to validate
+            mode: Validation mode (soft/strict)
+            check_type: Type of check (structure/metadata/compliance)
+            project_type: Type of project (stack/module) - determines which template to use
+        """
+        # Map project_type to check_type for the validation service
+        validation_check_type = "module" if project_type == "module" else "project"
+        return validate(directory=directory, check_type=validation_check_type, mode=mode)
 
 
 # Create the Click command
@@ -249,5 +261,11 @@ cli = CheckProjectIaCCommand.as_click_command(
         help="Type of IaC check to perform",
         type=click.Choice(["structure", "metadata", "compliance"], case_sensitive=False),
         default="structure"
+    ),
+    click.option(
+        "-p", "--project-type",
+        help="Project type: stack (full project with modules/environments) or module (single reusable module)",
+        type=click.Choice(["stack", "module"], case_sensitive=False),
+        default="stack"
     ),
 )

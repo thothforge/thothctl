@@ -33,12 +33,16 @@ This command validates:
 - Credential status and security
 - Project usage and associations
 
-### [check project iac](check_iac.md)
+### [check project iac](check_project_iac.md)
 
-Validates Infrastructure as Code (IaC) project structure against predefined rules and best practices.
+Validates Infrastructure as Code (IaC) project **source code structure** against predefined rules and best practices.
 
 ```bash
-thothctl check project iac [OPTIONS]
+# Validate full stack project
+thothctl check project iac -p stack
+
+# Validate single module
+thothctl check project iac -p module
 ```
 
 This command validates:
@@ -47,12 +51,18 @@ This command validates:
 - Template-based configuration compliance
 - Required vs optional components
 
+**Project Types**:
+- `stack` - Full project with modules, environments, etc. (default)
+- `module` - Single reusable Terraform module
+
+See [detailed documentation](check_project_iac.md) for complete usage guide.
+
 ### [check iac](check_iac.md)
 
-Advanced IaC validation with multiple check types including terraform plans, dependencies, and blast radius assessment.
+Analyzes IaC **generated artifacts** including terraform plans, dependencies, costs, and blast radius.
 
 ```bash
-# Validate terraform plan
+# Analyze terraform plan
 thothctl check iac -type tfplan --recursive
 
 # Analyze dependencies
@@ -60,13 +70,18 @@ thothctl check iac -type deps --recursive
 
 # Assess blast radius (ITIL v4 compliant)
 thothctl check iac -type blast-radius --recursive
+
+# Estimate infrastructure costs
+thothctl check iac -type cost-analysis --recursive
 ```
 
 Available check types:
-- **tfplan**: Validate terraform plan files
-- **module**: Check module structure
-- **deps**: Analyze dependency graph and visualize relationships
+- **tfplan**: Analyze terraform plan files (tfplan.json)
+- **deps**: Visualize dependency graph and relationships
 - **blast-radius**: ITIL v4 compliant risk assessment combining dependency analysis with planned changes
+- **cost-analysis**: Estimate AWS infrastructure costs from Terraform plans
+
+See [detailed documentation](check_iac.md) for complete usage guide.
 
 ### [Blast Radius Assessment](blast-radius.md)
 

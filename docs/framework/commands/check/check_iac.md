@@ -2,22 +2,21 @@
 
 ## Overview
 
-The `thothctl check iac` command provides comprehensive Infrastructure as Code validation with multiple check types including terraform plans, dependency analysis, and blast radius assessment. This command helps ensure infrastructure changes are safe, compliant, and follow best practices.
+The `thothctl check iac` command analyzes Infrastructure as Code **generated artifacts** including terraform plans, dependency graphs, cost estimates, and blast radius assessments. This command helps ensure infrastructure changes are safe, cost-effective, and compliant before deployment.
 
 ## Command Structure
 
 ```
 Usage: thothctl check iac [OPTIONS]
 
-  Check Infrastructure as code artifacts like tfplan and dependencies
+  Analyze IaC artifacts: plans, dependencies, costs, and blast radius
 
 Options:
-  --mode [soft|hard]              Validation mode [default: soft]
+  -deps, --dependencies           Visualize dependency graph
   --recursive                     Check recursively through subdirectories
-  --dependencies                  Visualize dependency graph
   --outmd TEXT                    Output markdown file [default: tfplan_check_results.md]
   --tftool [terraform|tofu]       Terraform tool to use [default: tofu]
-  -type, --check_type [tfplan|module|deps|blast-radius]
+  -type, --check_type [tfplan|deps|blast-radius|cost-analysis]
                                   Check type to perform [default: tfplan]
   --plan-file TEXT                Path to terraform plan JSON file (for blast-radius)
   --help                          Show this message and exit.
@@ -25,105 +24,135 @@ Options:
 
 ## Check Types
 
-### 1. Terraform Plan Validation (`tfplan`)
+### 1. Terraform Plan Analysis (`tfplan`)
 
-Validates terraform plan files and analyzes planned changes.
+Analyzes terraform plan files and validates planned changes.
 
 ```bash
 thothctl check iac -type tfplan --recursive
 ```
 
-Features:
-- Plan file validation
-- Resource change analysis
-- Compliance checking
-- Output formatting
+**What it does**:
+- Parses tfplan.json files
+- Analyzes resource changes (create/update/delete)
+- Extracts dependencies between resources
+- Generates summary reports
 
-### 2. Module Structure (`module`)
+**Requirements**:
+- Must have `tfplan.json` files (generate with `tofu show -json tfplan.bin > tfplan.json`)
 
-Validates terraform module structure and organization.
+### 2. Dependency Analysis (`deps`)
 
-```bash
-thothctl check iac -type module --recursive
-```
-
-Features:
-- Module structure validation
-- Required file checking
-- Best practices compliance
-
-### 3. Dependency Analysis (`deps`)
-
-Analyzes and visualizes infrastructure dependencies.
+Visualizes infrastructure dependencies and relationships.
 
 ```bash
 thothctl check iac -type deps --recursive
 ```
 
-Features:
-- Dependency graph generation
-- Risk assessment for components
-- Visual dependency tree
-- Component relationship analysis
+**What it does**:
+- Generates dependency graphs using Terragrunt
+- Displays ASCII tree visualization
+- Calculates component risk scores
+- Shows resource relationships
 
-### 4. Blast Radius Assessment (`blast-radius`)
+**Requirements**:
+- Terragrunt project structure
+- Valid terragrunt.hcl files
 
-**NEW**: ITIL v4 compliant risk assessment combining dependency analysis with planned changes.
+### 3. Blast Radius Assessment (`blast-radius`)
+
+ITIL v4 compliant risk assessment combining dependency analysis with planned changes.
 
 ```bash
 thothctl check iac -type blast-radius --recursive
 thothctl check iac -type blast-radius --recursive --plan-file tfplan.json
 ```
 
-Features:
-- **Risk Scoring**: Component-level risk assessment
-- **ITIL v4 Compliance**: Change type classification and approval workflows
-- **Impact Analysis**: Complete blast radius calculation
-- **Mitigation Planning**: Automated risk reduction recommendations
-- **Rollback Planning**: Emergency recovery procedures
+**What it does**:
+- Component-level risk scoring
+- ITIL v4 change type classification
+- Impact analysis across dependencies
+- Automated approval workflow recommendations
+- Mitigation and rollback planning
 
 See [Blast Radius Assessment](blast-radius.md) for detailed documentation.
 
+### 4. Cost Analysis (`cost-analysis`)
+
+Estimates AWS infrastructure costs from Terraform plans.
+
+```bash
+thothctl check iac -type cost-analysis --recursive
+```
+
+**What it does**:
+- Analyzes Terraform plans for AWS resources
+- Estimates monthly and annual costs
+- Provides service-by-service breakdown
+- Offers optimization recommendations
+- Works offline with regularly updated pricing data
+
+**Supported AWS Services**: EC2, RDS, S3, Lambda, ELB/ALB/NLB, VPC, EBS, DynamoDB, CloudWatch, EKS, ECS, Secrets Manager, API Gateway, Bedrock
+
+See [Cost Analysis](cost-analysis.md) for detailed documentation.
+
 ## Basic Usage Examples
 
-### Quick Plan Validation
+### Quick Plan Analysis
 ```bash
+# Generate plan first
+tofu plan -out=tfplan.bin
+tofu show -json tfplan.bin > tfplan.json
+
+# Analyze the plan
 thothctl check iac -type tfplan --recursive
 ```
 
-### Dependency Analysis with Risk Assessment
+### Dependency Visualization
 ```bash
 thothctl check iac -type deps --recursive
 ```
 
-### Complete Blast Radius Assessment
+### Complete Pre-Deployment Analysis
 ```bash
 # Generate terraform plan first
-terraform plan -out=tfplan.json
+tofu plan -out=tfplan.bin
+tofu show -json tfplan.bin > tfplan.json
+
+# Analyze plan
+thothctl check iac -type tfplan --recursive
+
+# Estimate costs
+thothctl check iac -type cost-analysis --recursive
 
 # Assess blast radius with plan
 thothctl check iac -type blast-radius --recursive --plan-file tfplan.json
 ```
 
-### Recursive Module Validation
-```bash
-thothctl check iac -type module --recursive
-```
-
 ## Integration Workflow
 
-### Pre-Deployment Risk Assessment
+### Complete Pre-Deployment Workflow
 ```bash
-# 1. Analyze dependencies
-thothctl check iac -type deps --recursive
+# 1. Validate source structure first
+thothctl check project iac -p stack -m strict
 
 # 2. Generate terraform plan
-terraform plan -out=tfplan.json
+tofu plan -out=tfplan.bin
+tofu show -json tfplan.bin > tfplan.json
 
-# 3. Assess blast radius and risk
+# 3. Analyze plan
+thothctl check iac -type tfplan --recursive
+
+# 4. Estimate costs
+thothctl check iac -type cost-analysis --recursive
+
+# 5. Analyze dependencies
+thothctl check iac -type deps --recursive
+
+# 6. Assess blast radius and risk
 thothctl check iac -type blast-radius --recursive --plan-file tfplan.json
 
-# 4. Follow ITIL v4 recommendations from output
+# 7. Follow ITIL v4 recommendations from output
 ```
 
 ## Output Examples
@@ -175,11 +204,8 @@ thothctl check iac -type tfplan --tftool terraform
 # Custom output file
 thothctl check iac -type tfplan --outmd custom_results.md
 
-# Soft validation mode
-thothctl check iac -type tfplan --mode soft
-
-# Hard validation mode  
-thothctl check iac -type tfplan --mode hard
+# Recursive analysis
+thothctl check iac -type tfplan --recursive
 ```
 
 ## Best Practices
@@ -425,6 +451,38 @@ thothctl --debug check project iac
 
 ## Related Commands
 
+- [thothctl check project iac](check_project_iac.md): Validate source code structure
 - [thothctl check environment](check_environment.md): Check development environment setup
-- [thothctl init project](../init/init.md): Initialize a new project with correct structure
 - [thothctl inventory iac](../inventory/inventory_overview.md): Create inventory of infrastructure components
+
+## Comparison: `check iac` vs `check project iac`
+
+Understanding when to use each command:
+
+| Aspect | `check iac` | `check project iac` |
+|--------|-------------|---------------------|
+| **Purpose** | Analyze generated artifacts | Validate source structure |
+| **Focus** | Runtime analysis | Code organization |
+| **Input** | tfplan.json, graphs | Source .tf files |
+| **Validates** | Plans, costs, dependencies, impact | Folders, files, structure |
+| **When to use** | Pre-deployment | Development, CI/CD |
+| **Output** | Analysis reports | Structure validation |
+| **Validation mode** | N/A (informational only) | `--mode soft/strict` |
+| **Exit on issues** | No (always informational) | Yes (in strict mode) |
+
+**Recommended workflow**:
+```bash
+# Step 1: Validate source structure (development/CI)
+thothctl check project iac -p stack -m strict
+
+# Step 2: Generate plan
+tofu plan -out=tfplan.bin
+tofu show -json tfplan.bin > tfplan.json
+
+# Step 3: Analyze artifacts (pre-deployment)
+thothctl check iac -type tfplan
+thothctl check iac -type cost-analysis
+thothctl check iac -type blast-radius
+```
+
+See [check project iac documentation](check_project_iac.md) for source structure validation.
