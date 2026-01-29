@@ -224,12 +224,20 @@ class DependencyGraphGenerator:
             target_id = target.replace("-", "_").replace("/", "_")
             
             # Find what inputs the target gets from source
+            # target depends on source, so check target's dependencies
             edge_label = ""
             if target in dep_info:
+                self.logger.debug(f"Checking edge {target} -> {source}")
                 for dep_name, dep_config in dep_info[target].items():
-                    # Check if this dependency matches the source
-                    if dep_name in source or source in dep_name:
+                    # Match dependency name with source node
+                    source_clean = source.replace("/", "").replace("-", "").lower()
+                    dep_clean = dep_name.replace("/", "").replace("-", "").lower()
+                    
+                    self.logger.debug(f"  Comparing dep '{dep_name}' (clean: {dep_clean}) with source '{source}' (clean: {source_clean})")
+                    
+                    if dep_clean in source_clean or source_clean in dep_clean:
                         mock_keys = list(dep_config['mock_outputs'].keys()) if dep_config['mock_outputs'] else []
+                        self.logger.debug(f"  Match found! Mock keys: {mock_keys}")
                         if mock_keys:
                             edge_label = ', '.join(mock_keys[:2])
                             if len(mock_keys) > 2:
@@ -237,8 +245,10 @@ class DependencyGraphGenerator:
                         break
             
             if edge_label:
+                self.logger.debug(f"Edge label: {edge_label}")
                 lines.append(f'    {target_id} -->|{edge_label}| {source_id}')
             else:
+                self.logger.debug(f"No edge label found for {target} -> {source}")
                 lines.append(f'    {target_id} --> {source_id}')
         
         # Add professional styling classes
