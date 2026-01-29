@@ -522,13 +522,6 @@ class CheckIaCCommand(ClickCommand):
             # Only display the enhanced visualization with risk percentages
             self._display_dependency_graph(dot_graph, risks)
             
-            # Generate unified index page
-            if tfplan_files:
-                reports_dir = Path("Reports") / "cost-analysis"
-                index_path = unified_report.generate_unified_index(reports_dir, "Infrastructure")
-                self.ui.print_success(f"\n🌐 Unified cost analysis index generated:")
-                self.ui.print_info(f"  {index_path}")
-            
             return True
             
         except Exception as e:
