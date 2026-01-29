@@ -123,8 +123,11 @@ class DependencyGraphGenerator:
                 self.logger.error("Terragrunt command failed: %s", stderr)
                 return GraphResult(success=False, error=stderr)
             
+            # Process DOT content same as SVG generation (replace paths, handle ".")
+            processed_stdout = self._process_graph_paths(stdout, directory)
+            
             # Parse DOT graph to get nodes and edges
-            nodes, edges = self._parse_dot_for_mermaid(stdout)
+            nodes, edges = self._parse_dot_for_mermaid(processed_stdout)
             self.logger.debug(f"Parsed nodes: {nodes}")
             self.logger.debug(f"Parsed edges: {edges}")
             
