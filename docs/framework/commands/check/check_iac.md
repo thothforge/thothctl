@@ -55,6 +55,19 @@ thothctl check iac -type deps --recursive
 - Calculates component risk scores
 - Shows resource relationships
 
+**Advanced Option**:
+```bash
+# Show explicit input variables from other stacks
+thothctl check iac -type deps --show-inputs
+```
+
+The `--show-inputs` flag enables advanced visualization that shows:
+- Input variables passed between stacks
+- Output values consumed by dependent stacks
+- External dependencies outside current directory
+
+See [Advanced Dependency Visualization](deps-advanced.md) for detailed documentation.
+
 **Requirements**:
 - Terragrunt project structure
 - Valid terragrunt.hcl files

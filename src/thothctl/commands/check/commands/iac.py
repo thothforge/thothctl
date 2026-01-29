@@ -485,18 +485,19 @@ class CheckIaCCommand(ClickCommand):
                         f.write("\n")
 
     def _visualize_dependencies(self, directory: str, dagtool: str = 'terragrunt') -> bool:
-        """Visualize infrastructure dependencies using terragrunt dag graph"""
+        """Visualize infrastructure dependencies using terragrunt graph commands"""
         self.logger.info(f"Visualizing dependencies in {directory} using {dagtool}")
         
         try:
-            # Run terragrunt dag graph command
+            # Use terragrunt dag graph command
             cmd = [dagtool, "dag", "graph"]
+            self.console.print("[blue]📊 Generating dependency graph...[/blue]")
             
             # Check if workspace parameter should be added
             if os.path.exists(os.path.join(directory, "terragrunt.hcl")):
                 cmd.extend(["--working-dir", directory])
             
-            # Run the command but don't print the running message
+            # Run the command
             result = subprocess.run(
                 cmd,
                 cwd=directory,
@@ -506,7 +507,7 @@ class CheckIaCCommand(ClickCommand):
             )
             
             if result.returncode != 0:
-                self.console.print(f"[red]Error running {dagtool} dag graph:[/red]")
+                self.console.print(f"[red]Error running {dagtool} command:[/red]")
                 self.console.print(result.stderr)
                 return False
             
@@ -519,8 +520,11 @@ class CheckIaCCommand(ClickCommand):
             # Calculate risk percentages for each component
             risks = calculate_component_risks(nodes, edges, directory)
             
-            # Only display the enhanced visualization with risk percentages
-            self._display_dependency_graph(dot_graph, risks)
+            # Parse terragrunt.hcl files to get dependency details
+            dep_info = self._parse_terragrunt_dependencies(directory)
+            
+            # Display the enhanced visualization with risk percentages and dependency info
+            self._display_dependency_graph(dot_graph, risks, dep_info)
             
             return True
             
@@ -529,13 +533,64 @@ class CheckIaCCommand(ClickCommand):
             self.console.print(f"[red]Error: {str(e)}[/red]")
             return False
     
-    def _display_dependency_graph(self, dot_graph: str, risks: Dict[str, float] = None) -> None:
+    def _parse_terragrunt_dependencies(self, directory: str) -> Dict[str, Dict]:
+        """Parse terragrunt.hcl files to extract dependency and mock_outputs information.
+        
+        Args:
+            directory: Directory to search for terragrunt.hcl files
+            
+        Returns:
+            Dictionary mapping stack paths to their dependency information
+        """
+        import hcl2
+        dependencies_info = {}
+        
+        try:
+            # Find all terragrunt.hcl files
+            for root, dirs, files in os.walk(directory):
+                # Skip excluded directories
+                dirs[:] = [d for d in dirs if d not in ['.terraform', '.terragrunt-cache', '.git']]
+                
+                if 'terragrunt.hcl' in files:
+                    hcl_path = os.path.join(root, 'terragrunt.hcl')
+                    try:
+                        with open(hcl_path, 'r') as f:
+                            content = f.read()
+                            # Parse HCL
+                            parsed = hcl2.loads(content)
+                            
+                            # Extract dependency blocks
+                            if 'dependency' in parsed:
+                                stack_name = os.path.relpath(root, directory)
+                                dependencies_info[stack_name] = {
+                                    'dependencies': {},
+                                    'path': root
+                                }
+                                
+                                for dep_name, dep_config in parsed['dependency'].items():
+                                    dep_info = {
+                                        'config_path': dep_config[0].get('config_path', ''),
+                                        'mock_outputs': dep_config[0].get('mock_outputs', {})
+                                    }
+                                    dependencies_info[stack_name]['dependencies'][dep_name] = dep_info
+                    
+                    except Exception as e:
+                        self.logger.debug(f"Could not parse {hcl_path}: {e}")
+                        continue
+        
+        except Exception as e:
+            self.logger.error(f"Error parsing terragrunt files: {e}")
+        
+        return dependencies_info
+    
+    def _display_dependency_graph(self, dot_graph: str, risks: Dict[str, float] = None, dep_info: Dict = None) -> None:
         """
         Display the dependency graph in a visually appealing way
         
         Args:
             dot_graph: DOT graph string
             risks: Dictionary mapping component names to risk percentages
+            dep_info: Dictionary with parsed dependency and mock_outputs information
         """
         self.console.print(Panel("[bold blue]🔄 Enhanced Dependency Visualization 🔄[/bold blue]", box=box.ROUNDED))
         
@@ -547,6 +602,38 @@ class CheckIaCCommand(ClickCommand):
         
         # Display the tree visualization
         self.console.print(tree)
+        
+        # Display dependency details if available
+        if dep_info:
+            self._display_dependency_details(dep_info)
+    
+    def _display_dependency_details(self, dep_info: Dict) -> None:
+        """Display detailed dependency information from terragrunt.hcl files.
+        
+        Args:
+            dep_info: Dictionary with parsed dependency and mock_outputs information
+        """
+        self.console.print("\n")
+        self.console.print(Panel("[bold cyan]📋 Dependency Details (from terragrunt.hcl)[/bold cyan]", box=box.ROUNDED))
+        
+        for stack_name, info in dep_info.items():
+            if info['dependencies']:
+                self.console.print(f"\n[bold yellow]{stack_name}[/bold yellow]")
+                
+                for dep_name, dep_config in info['dependencies'].items():
+                    self.console.print(f"  └─ [cyan]{dep_name}[/cyan]")
+                    self.console.print(f"     Path: [dim]{dep_config['config_path']}[/dim]")
+                    
+                    # Display mock_outputs if available
+                    if dep_config['mock_outputs']:
+                        self.console.print(f"     Mock Outputs:")
+                        for key, value in dep_config['mock_outputs'].items():
+                            # Truncate long values
+                            value_str = str(value)
+                            if len(value_str) > 50:
+                                value_str = value_str[:47] + "..."
+                            self.console.print(f"       • {key} = [green]{value_str}[/green]")
+
         
         # Display summary
         self.console.print(f"\n[green]✅ Found {len(nodes)} modules with {len(edges)} dependencies[/green]")

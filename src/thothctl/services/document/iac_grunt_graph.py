@@ -152,7 +152,69 @@ class DependencyGraphGenerator:
 
         # Process the graph content to simplify paths
         processed_content = self._process_graph_paths(stdout, directory)
-        return processed_content
+        
+        # Enhance graph with dependency information
+        enhanced_content = self._enhance_graph_with_dependencies(processed_content, directory)
+        
+        return enhanced_content
+    
+    def _parse_terragrunt_hcl(self, hcl_path: Path) -> dict:
+        """Parse a terragrunt.hcl file to extract dependency information."""
+        import hcl2
+        
+        try:
+            with open(hcl_path, 'r') as f:
+                content = f.read()
+                parsed = hcl2.loads(content)
+                
+                dependencies = {}
+                if 'dependency' in parsed:
+                    for dep_name, dep_config in parsed['dependency'].items():
+                        dependencies[dep_name] = {
+                            'config_path': dep_config[0].get('config_path', ''),
+                            'mock_outputs': dep_config[0].get('mock_outputs', {})
+                        }
+                
+                return dependencies
+        except Exception as e:
+            self.logger.debug(f"Could not parse {hcl_path}: {e}")
+            return {}
+    
+    def _enhance_graph_with_dependencies(self, dot_content: str, directory: Path) -> str:
+        """Enhance DOT graph with dependency and mock_outputs information."""
+        try:
+            lines = dot_content.split('\n')
+            enhanced_lines = []
+            
+            for line in lines:
+                enhanced_lines.append(line)
+                
+                # Look for node definitions
+                if '"' in line and '->' not in line and '{' not in line and '}' not in line:
+                    node_name = line.strip().strip('"').strip(';').strip()
+                    if node_name:
+                        node_path = directory / node_name
+                        hcl_file = node_path / 'terragrunt.hcl'
+                        
+                        if hcl_file.exists():
+                            deps = self._parse_terragrunt_hcl(hcl_file)
+                            
+                            if deps:
+                                dep_labels = []
+                                for dep_name, dep_info in deps.items():
+                                    mock_keys = list(dep_info['mock_outputs'].keys()) if dep_info['mock_outputs'] else []
+                                    if mock_keys:
+                                        dep_labels.append(f"{dep_name}: {', '.join(mock_keys[:3])}")
+                                
+                                if dep_labels:
+                                    label_text = f"{node_name}\\n({'; '.join(dep_labels[:2])})"
+                                    enhanced_lines[-1] = f'  "{node_name}" [label="{label_text}"];'
+            
+            return '\n'.join(enhanced_lines)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to enhance graph: {e}")
+            return dot_content
 
     def _create_svg(self, directory: Path, graph_content: str) -> GraphResult:
         """Create SVG from graph content."""
