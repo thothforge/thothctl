@@ -383,7 +383,8 @@ def create_terraform_docs(
         t_docs_path: Optional[str] = None,
         recursive: bool = False,
         exclude: List[str] = None,
-        framework: str = "terraform-terragrunt"
+        framework: str = "terraform-terragrunt",
+        graph_type: str = "dot"
 ) -> bool:
     """Backward-compatible function for generating Terraform documentation."""
     logger = logging.getLogger("TerraformDocs")
@@ -400,11 +401,13 @@ def create_terraform_docs(
         max_workers=4
     )
     print(f"{Fore.YELLOW}The framework is: {framework}")
+    print(f"{Fore.CYAN}Graph type: {graph_type}")
     if mood== "resources":
         if framework.lower() in ["terraform-terragrunt", "terragrunt" ]:
             graph_result = graph_dependencies(
                 directory=Path(directory).absolute(),
                 suffix="resources",
+                graph_type=graph_type
             )
 
             if graph_result and graph_result.success:
@@ -417,7 +420,8 @@ def create_terraform_docs(
                 directory=Path(directory).absolute(),
                 suffix="stacks",
                 exclude_patterns=exclude,
-                max_workers=4
+                max_workers=4,
+                graph_type=graph_type
             )
 
             if framework.lower() == 'terragrunt':

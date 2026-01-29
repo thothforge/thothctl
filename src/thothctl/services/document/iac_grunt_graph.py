@@ -69,6 +69,7 @@ class GraphConfig:
     suffix: str = "resources"
     project_root: Optional[Path] = None
     replace_path: Optional[Path] = None
+    graph_type: str = "dot"
 
 
 @dataclass
@@ -97,17 +98,141 @@ class DependencyGraphGenerator:
             if not dir_path:
                 return GraphResult(success=False, error="Invalid directory path")
 
-            # Generate graph
-            processed_output = self._generate_graph(dir_path)
-            if not processed_output:
-                return GraphResult(success=False, error="Failed to generate graph")
-
-            # Create SVG
-            return self._create_svg(dir_path, processed_output)
+            if config.graph_type == "mermaid":
+                # Generate mermaid diagram
+                return self._generate_mermaid(dir_path)
+            else:
+                # Generate DOT/SVG graph
+                processed_output = self._generate_graph(dir_path)
+                if not processed_output:
+                    return GraphResult(success=False, error="Failed to generate graph")
+                return self._create_svg(dir_path, processed_output)
 
         except Exception as e:
             self.logger.error("Unexpected error: %s", e)
             return GraphResult(success=False, error=str(e))
+    
+    def _generate_mermaid(self, directory: Path) -> GraphResult:
+        """Generate mermaid diagram with dependency details."""
+        try:
+            # Run terragrunt dag graph to get dependencies
+            command = ["terragrunt", "dag", "graph", "--non-interactive"]
+            stdout, stderr, return_code = self.executor.execute(command, directory)
+            
+            if return_code != 0:
+                self.logger.error("Terragrunt command failed: %s", stderr)
+                return GraphResult(success=False, error=stderr)
+            
+            # Parse DOT graph to get nodes and edges
+            nodes, edges = self._parse_dot_for_mermaid(stdout)
+            
+            # Parse terragrunt.hcl files for dependency details
+            dep_info = {}
+            for node in nodes:
+                node_path = directory / node
+                hcl_file = node_path / 'terragrunt.hcl'
+                if hcl_file.exists():
+                    dep_info[node] = self._parse_terragrunt_hcl(hcl_file)
+            
+            # Generate mermaid content
+            mermaid_content = self._create_mermaid_content(nodes, edges, dep_info)
+            
+            # Save to file
+            mermaid_path = directory / "graph.mmd"
+            mermaid_path.write_text(mermaid_content)
+            
+            self.logger.debug("Successfully created mermaid diagram at: %s", mermaid_path)
+            return GraphResult(
+                success=True,
+                content=mermaid_content,
+                path=mermaid_path
+            )
+            
+        except Exception as e:
+            self.logger.error("Failed to create mermaid diagram: %s", e)
+            return GraphResult(success=False, error=str(e))
+    
+    def _parse_dot_for_mermaid(self, dot_content: str) -> tuple:
+        """Parse DOT content to extract nodes and edges."""
+        import re
+        nodes = set()
+        edges = []
+        
+        for line in dot_content.split('\n'):
+            # Match node definitions
+            node_match = re.match(r'\s*"([^"]+)"\s*;', line)
+            if node_match:
+                nodes.add(node_match.group(1))
+            
+            # Match edges
+            edge_match = re.match(r'\s*"([^"]+)"\s*->\s*"([^"]+)"', line)
+            if edge_match:
+                edges.append((edge_match.group(1), edge_match.group(2)))
+        
+        return list(nodes), edges
+    
+    def _create_mermaid_content(self, nodes: list, edges: list, dep_info: dict) -> str:
+        """Create professional mermaid diagram with ThothCTL styling."""
+        lines = [
+            "%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e3f2fd','primaryTextColor':'#1565c0','primaryBorderColor':'#1976d2','lineColor':'#42a5f5','secondaryColor':'#fff3e0','tertiaryColor':'#f3e5f5','fontSize':'14px'}}}%%",
+            "graph LR"
+        ]
+        
+        # Classify nodes by dependency count
+        node_deps = {}
+        for node in nodes:
+            dep_count = len(dep_info.get(node, {}))
+            node_deps[node] = dep_count
+        
+        # Add nodes with professional styling
+        for node in nodes:
+            node_id = node.replace("-", "_").replace("/", "_")
+            label_parts = [f"<b>{node}</b>"]
+            
+            # Add dependency details if available
+            if node in dep_info and dep_info[node]:
+                dep_labels = []
+                for dep_name, dep_config in dep_info[node].items():
+                    mock_keys = list(dep_config['mock_outputs'].keys()) if dep_config['mock_outputs'] else []
+                    if mock_keys:
+                        keys_str = ', '.join(mock_keys[:3])
+                        if len(mock_keys) > 3:
+                            keys_str += "..."
+                        dep_labels.append(f"📥 {dep_name}: {keys_str}")
+                
+                if dep_labels:
+                    label_parts.append("<br/><small>" + "<br/>".join(dep_labels[:2]) + "</small>")
+                    if len(dep_labels) > 2:
+                        label_parts.append(f"<br/><small>+{len(dep_labels)-2} more...</small>")
+            
+            label = "".join(label_parts)
+            
+            # Style based on dependency count
+            if node_deps[node] == 0:
+                # No dependencies - root node
+                lines.append(f'    {node_id}["{label}"]:::rootNode')
+            elif node_deps[node] <= 2:
+                # Few dependencies
+                lines.append(f'    {node_id}["{label}"]:::normalNode')
+            else:
+                # Many dependencies
+                lines.append(f'    {node_id}["{label}"]:::complexNode')
+        
+        # Add edges with labels
+        for source, target in edges:
+            source_id = source.replace("-", "_").replace("/", "_")
+            target_id = target.replace("-", "_").replace("/", "_")
+            lines.append(f'    {target_id} -->|depends on| {source_id}')
+        
+        # Add professional styling classes
+        lines.extend([
+            "",
+            "    classDef rootNode fill:#4caf50,stroke:#2e7d32,stroke-width:3px,color:#fff",
+            "    classDef normalNode fill:#2196f3,stroke:#1565c0,stroke-width:2px,color:#fff",
+            "    classDef complexNode fill:#ff9800,stroke:#e65100,stroke-width:2px,color:#fff"
+        ])
+        
+        return '\n'.join(lines)
 
     def _prepare_paths(self, config: GraphConfig) -> Optional[Path]:
         """Prepare and validate paths."""
@@ -383,7 +508,8 @@ def graph_dependencies(
         directory: Union[Path, str],
         suffix: str = "resources",
         project_root: Optional[Path] = None,
-        replace_path: Optional[Path] = None
+        replace_path: Optional[Path] = None,
+        graph_type: str = "dot"
 ) -> Optional[GraphResult]:
     """
     Generate dependency graph for the specified directory.
@@ -414,7 +540,8 @@ def graph_dependencies(
             directory=dir_path,
             suffix=suffix,
             project_root=project_root,
-            replace_path=replace_path
+            replace_path=replace_path,
+            graph_type=graph_type
         )
 
         # Generate graph
@@ -490,7 +617,8 @@ def process_single_directory(
         directory: Path,
         suffix: str,
         project_root: Optional[Path] = None,
-        replace_path: Optional[Path] = None
+        replace_path: Optional[Path] = None,
+        graph_type: str = "dot"
 ) -> RecursiveGraphResult:
     """
     Process a single directory for graph generation.
@@ -509,7 +637,8 @@ def process_single_directory(
             directory=directory,
             suffix=suffix,
             project_root=project_root,
-            replace_path=replace_path
+            replace_path=replace_path,
+            graph_type=graph_type
         )
         return RecursiveGraphResult(directory=directory, result=result)
     except Exception as e:
@@ -526,7 +655,8 @@ def graph_dependencies_recursive(
         project_root: Optional[Path] = None,
         replace_path: Optional[Path] = None,
         exclude_patterns: List[str] = None,
-        max_workers: int = 4
+        max_workers: int = 4,
+        graph_type: str = "dot"
 ) -> List[RecursiveGraphResult]:
     """
     Recursively generate dependency graphs for all terragrunt.hcl files.
@@ -572,7 +702,8 @@ def graph_dependencies_recursive(
                 directory=d,
                 suffix=suffix,
                 project_root=project_root,
-                replace_path=replace_path
+                replace_path=replace_path,
+                graph_type=graph_type
             ): d for d in terragrunt_dirs
         }
 

@@ -68,7 +68,8 @@ class DocumentIaCCommand(ClickCommand):
                 t_docs_path= kwargs.get('config_file', None),
                 recursive= recursive,
                 exclude= kwargs.get('exclude', ['.terraform', '.git', '.terragrunt-cache']),
-                framework=framework
+                framework=framework,
+                graph_type=kwargs.get('graph_type', 'dot')
                                          )
 
             self.logger.debug("Documentation generated successfully")
@@ -83,7 +84,8 @@ class DocumentIaCCommand(ClickCommand):
         t_docs_path: Optional[str] = None,
         recursive: bool = False,
         exclude: List[str] = None,
-        framework: str = "terraform-terragrunt") -> None:
+        framework: str = "terraform-terragrunt",
+        graph_type: str = "dot") -> None:
         """Internal method to generate the documentation"""
         try:
             with self.ui.status_spinner("Creating Documentation..."):
@@ -92,7 +94,8 @@ class DocumentIaCCommand(ClickCommand):
                 t_docs_path= t_docs_path,
                 recursive= recursive,
                 exclude= exclude,
-                framework = framework)
+                framework = framework,
+                graph_type = graph_type)
                 
                 if success:
                     self.ui.print_success("Documentation generated successfully!")
@@ -143,5 +146,11 @@ click.option(
     '--recursive/--no-recursive',
     default=False,
     help='Generate documentation recursively'
+),
+    click.option(
+    '--graph-type',
+    type=click.Choice(['dot', 'mermaid'], case_sensitive=False),
+    default='dot',
+    help='Graph format: dot (SVG) or mermaid (with dependency details)'
 )
 )
