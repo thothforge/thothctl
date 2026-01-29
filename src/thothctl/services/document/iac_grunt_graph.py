@@ -125,14 +125,23 @@ class DependencyGraphGenerator:
             
             # Parse DOT graph to get nodes and edges
             nodes, edges = self._parse_dot_for_mermaid(stdout)
+            self.logger.debug(f"Parsed nodes: {nodes}")
+            self.logger.debug(f"Parsed edges: {edges}")
             
             # Parse terragrunt.hcl files for dependency details
             dep_info = {}
             for node in nodes:
                 node_path = directory / node
                 hcl_file = node_path / 'terragrunt.hcl'
+                self.logger.debug(f"Looking for HCL at: {hcl_file}")
                 if hcl_file.exists():
-                    dep_info[node] = self._parse_terragrunt_hcl(hcl_file)
+                    parsed = self._parse_terragrunt_hcl(hcl_file)
+                    self.logger.debug(f"Parsed dependencies for {node}: {parsed}")
+                    dep_info[node] = parsed
+                else:
+                    self.logger.debug(f"HCL file not found: {hcl_file}")
+            
+            self.logger.debug(f"Final dep_info structure: {dep_info}")
             
             # Generate mermaid content
             mermaid_content = self._create_mermaid_content(nodes, edges, dep_info)
@@ -223,19 +232,19 @@ class DependencyGraphGenerator:
             source_id = source.replace("-", "_").replace("/", "_")
             target_id = target.replace("-", "_").replace("/", "_")
             
-            # Find what inputs the target gets from source
-            # target depends on source, so check target's dependencies
+            # Find what inputs the source gets from target
+            # source depends on target, so check source's dependencies
             edge_label = ""
-            if target in dep_info:
-                self.logger.debug(f"Checking edge {target} -> {source}")
-                for dep_name, dep_config in dep_info[target].items():
-                    # Match dependency name with source node
-                    source_clean = source.replace("/", "").replace("-", "").lower()
+            if source in dep_info:
+                self.logger.debug(f"Checking edge {source} -> {target}")
+                for dep_name, dep_config in dep_info[source].items():
+                    # Match dependency name with target node
+                    target_clean = target.replace("/", "").replace("-", "").lower()
                     dep_clean = dep_name.replace("/", "").replace("-", "").lower()
                     
-                    self.logger.debug(f"  Comparing dep '{dep_name}' (clean: {dep_clean}) with source '{source}' (clean: {source_clean})")
+                    self.logger.debug(f"  Comparing dep '{dep_name}' (clean: {dep_clean}) with target '{target}' (clean: {target_clean})")
                     
-                    if dep_clean in source_clean or source_clean in dep_clean:
+                    if dep_clean in target_clean or target_clean in dep_clean:
                         mock_keys = list(dep_config['mock_outputs'].keys()) if dep_config['mock_outputs'] else []
                         self.logger.debug(f"  Match found! Mock keys: {mock_keys}")
                         if mock_keys:
@@ -246,10 +255,10 @@ class DependencyGraphGenerator:
             
             if edge_label:
                 self.logger.debug(f"Edge label: {edge_label}")
-                lines.append(f'    {target_id} -->|{edge_label}| {source_id}')
+                lines.append(f'    {source_id} -->|{edge_label}| {target_id}')
             else:
-                self.logger.debug(f"No edge label found for {target} -> {source}")
-                lines.append(f'    {target_id} --> {source_id}')
+                self.logger.debug(f"No edge label found for {source} -> {target}")
+                lines.append(f'    {source_id} --> {target_id}')
         
         # Add professional styling classes
         lines.extend([
