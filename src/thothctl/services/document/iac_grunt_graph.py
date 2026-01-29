@@ -218,11 +218,28 @@ class DependencyGraphGenerator:
                 # Many dependencies
                 lines.append(f'    {node_id}["{label}"]:::complexNode')
         
-        # Add edges with labels
+        # Add edges with input labels
         for source, target in edges:
             source_id = source.replace("-", "_").replace("/", "_")
             target_id = target.replace("-", "_").replace("/", "_")
-            lines.append(f'    {target_id} -->|depends on| {source_id}')
+            
+            # Find what inputs the target gets from source
+            edge_label = ""
+            if target in dep_info:
+                for dep_name, dep_config in dep_info[target].items():
+                    # Check if this dependency matches the source
+                    if dep_name in source or source in dep_name:
+                        mock_keys = list(dep_config['mock_outputs'].keys()) if dep_config['mock_outputs'] else []
+                        if mock_keys:
+                            edge_label = ', '.join(mock_keys[:2])
+                            if len(mock_keys) > 2:
+                                edge_label += "..."
+                        break
+            
+            if edge_label:
+                lines.append(f'    {target_id} -->|{edge_label}| {source_id}')
+            else:
+                lines.append(f'    {target_id} --> {source_id}')
         
         # Add professional styling classes
         lines.extend([
