@@ -321,11 +321,17 @@ class DependencyGraphGenerator:
                 
                 dependencies = {}
                 if 'dependency' in parsed:
-                    for dep_name, dep_config in parsed['dependency'].items():
-                        dependencies[dep_name] = {
-                            'config_path': dep_config[0].get('config_path', ''),
-                            'mock_outputs': dep_config[0].get('mock_outputs', {})
-                        }
+                    # hcl2 returns dependency as a list of dicts
+                    for dep_block in parsed['dependency']:
+                        for dep_name, dep_config in dep_block.items():
+                            config_path = dep_config.get('config_path', [''])[0] if isinstance(dep_config.get('config_path'), list) else dep_config.get('config_path', '')
+                            mock_outputs_list = dep_config.get('mock_outputs', [])
+                            mock_outputs = mock_outputs_list[0] if mock_outputs_list else {}
+                            
+                            dependencies[dep_name] = {
+                                'config_path': config_path,
+                                'mock_outputs': mock_outputs
+                            }
                 
                 return dependencies
         except Exception as e:

@@ -567,12 +567,18 @@ class CheckIaCCommand(ClickCommand):
                                     'path': root
                                 }
                                 
-                                for dep_name, dep_config in parsed['dependency'].items():
-                                    dep_info = {
-                                        'config_path': dep_config[0].get('config_path', ''),
-                                        'mock_outputs': dep_config[0].get('mock_outputs', {})
-                                    }
-                                    dependencies_info[stack_name]['dependencies'][dep_name] = dep_info
+                                # hcl2 returns dependency as a list of dicts
+                                for dep_block in parsed['dependency']:
+                                    for dep_name, dep_config in dep_block.items():
+                                        config_path = dep_config.get('config_path', [''])[0] if isinstance(dep_config.get('config_path'), list) else dep_config.get('config_path', '')
+                                        mock_outputs_list = dep_config.get('mock_outputs', [])
+                                        mock_outputs = mock_outputs_list[0] if mock_outputs_list else {}
+                                        
+                                        dep_info = {
+                                            'config_path': config_path,
+                                            'mock_outputs': mock_outputs
+                                        }
+                                        dependencies_info[stack_name]['dependencies'][dep_name] = dep_info
                     
                     except Exception as e:
                         self.logger.debug(f"Could not parse {hcl_path}: {e}")
