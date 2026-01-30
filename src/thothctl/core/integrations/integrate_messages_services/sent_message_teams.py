@@ -5,7 +5,7 @@ import logging
 import time
 
 import os
-import pdfkit
+# pdfkit removed - not needed
 import pymsteams
 import xmltodict
 from colorama import Fore
@@ -495,7 +495,7 @@ def create_report(report, reports_dir):
         "orientation": "Landscape",
     }
     logging.info("Creating PDF Report...")
-    pdfkit.from_file(
+    # pdfkit.from_file  # REMOVED(
         f"{reports_dir}/{file_name}.html",
         f"{reports_dir}/{file_name}.pdf",
         options=options,

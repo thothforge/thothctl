@@ -18,6 +18,7 @@ thothctl document iac [OPTIONS]
 | `--suffix TEXT` | Suffix for project root path (terragrunt only) |
 | `--mood [resources\|modules]` | Type of documentation to generate |
 | `-f, --framework [terraform\|terragrunt\|terraform-terragrunt]` | Type of IaC framework to document (required) |
+| `--graph-type [dot\|mermaid]` | Type of dependency graph to generate (terragrunt only, default: dot) |
 | `--help` | Show help message and exit |
 
 ## Supported Frameworks
@@ -45,6 +46,57 @@ thothctl document iac -f terragrunt
 # Generate documentation recursively for all Terragrunt modules
 thothctl document iac -f terragrunt --recursive
 ```
+
+#### Dependency Graphs
+
+Terragrunt projects support automatic dependency graph generation to visualize module relationships.
+
+**SVG Graph (Default)**:
+```bash
+# Generate SVG dependency graph
+thothctl document iac -f terragrunt --graph-type dot
+```
+
+Output: `graph.svg` - Interactive SVG diagram showing module dependencies
+
+**Mermaid Graph**:
+```bash
+# Generate Mermaid dependency graph
+thothctl document iac -f terragrunt --graph-type mermaid
+```
+
+Output: `graph.mmd` - Text-based Mermaid diagram with:
+- **Professional styling** with ThothCTL brand colors
+- **Color-coded nodes** by complexity:
+  - 🟢 Green: Root nodes (no dependencies)
+  - 🔵 Blue: Normal nodes (1-2 dependencies)
+  - 🟠 Orange: Complex nodes (3+ dependencies)
+- **Edge labels** showing input keys from `mock_outputs`
+- **Dependency details** in node labels
+
+**Example Mermaid Output**:
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {...}}}%%
+graph LR
+    vpc["<b>vpc</b>"]:::rootNode
+    sg["<b>security-groups</b><br/><small>📥 vpc: vpc_id, subnet_ids</small>"]:::normalNode
+    app["<b>app</b><br/><small>📥 vpc: vpc_id<br/>📥 sg: sg_id</small>"]:::normalNode
+    
+    sg -->|vpc_id, subnet_ids| vpc
+    app -->|vpc_id| vpc
+    app -->|sg_id| sg
+
+    classDef rootNode fill:#4caf50,stroke:#2e7d32,stroke-width:3px,color:#fff
+    classDef normalNode fill:#2196f3,stroke:#1565c0,stroke-width:2px,color:#fff
+    classDef complexNode fill:#ff9800,stroke:#e65100,stroke-width:2px,color:#fff
+```
+
+**Mermaid Benefits**:
+- ✅ Text-based (easy to version control and diff)
+- ✅ Renders in GitHub, GitLab, and documentation sites
+- ✅ Shows explicit data flow between modules
+- ✅ Professional appearance for presentations
+- ✅ Editable without regenerating
 
 ### Terraform-Terragrunt
 
@@ -229,3 +281,62 @@ jobs:
 5. **Include usage examples**: Add examples to help users understand how to use your modules
 6. **Document all variables**: Ensure all input variables have clear descriptions
 7. **Update documentation before releases**: Always regenerate documentation before creating a new release
+8. **Use Mermaid for presentations**: Generate mermaid graphs for architecture documentation and presentations
+9. **Leverage dependency graphs**: Use graphs to understand and communicate module relationships
+
+## Dependency Graph Examples
+
+### Simple Stack
+
+**Structure**:
+```
+stacks/
+├── vpc/
+│   └── terragrunt.hcl
+└── security-groups/
+    └── terragrunt.hcl (depends on vpc)
+```
+
+**Command**:
+```bash
+cd stacks
+thothctl document iac -f terragrunt --graph-type mermaid
+```
+
+**Result** (`graph.mmd`):
+```mermaid
+graph LR
+    vpc["<b>vpc</b>"]:::rootNode
+    security_groups["<b>security-groups</b><br/><small>📥 vpc: vpc_id, subnet_ids</small>"]:::normalNode
+    security_groups -->|vpc_id, subnet_ids| vpc
+```
+
+### Complex Stack
+
+**Structure**:
+```
+stacks/
+├── vpc/
+├── rds/ (depends on vpc)
+├── security-groups/ (depends on vpc)
+└── app/ (depends on vpc, rds, security-groups)
+```
+
+**Command**:
+```bash
+cd stacks
+thothctl document iac -f terragrunt --graph-type mermaid
+```
+
+**Result**: Multi-level dependency graph with color-coded complexity
+
+### From Subdirectory
+
+When running from a subdirectory, the graph shows relative paths:
+
+```bash
+cd stacks/app
+thothctl document iac -f terragrunt --graph-type mermaid
+```
+
+**Result**: Shows `app` and its dependencies like `..vpc`, `..rds`

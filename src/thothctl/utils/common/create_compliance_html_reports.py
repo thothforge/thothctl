@@ -3,36 +3,13 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-# infrastructure/report_generator.py
 import os
-import pdfkit
 from json2html import json2html
 
 
 @dataclass
 class ReportConfig:
-    page_size: str = "A0"
-    orientation: str = "Landscape"
-    margins: Dict[str, str] = None
     encoding: str = "UTF-8"
-
-    def __post_init__(self):
-        if self.margins is None:
-            self.margins = {
-                "top": "0.7in",
-                "right": "0.7in",
-                "bottom": "0.7in",
-                "left": "0.7in",
-            }
-
-    @property
-    def pdf_options(self) -> Dict:
-        return {
-            "page-size": self.page_size,
-            "orientation": self.orientation,
-            "encoding": self.encoding,
-            **{f"margin-{k}": v for k, v in self.margins.items()},
-        }
 
 
 class ComplianceReportGenerator:
@@ -43,7 +20,7 @@ class ComplianceReportGenerator:
 
     def generate_report(self, summary_data: Dict) -> List[str]:
         """
-        Generate HTML and PDF reports from compliance scan results.
+        Generate HTML report from compliance scan results.
         Returns list of generated file paths.
         """
         try:
@@ -51,12 +28,10 @@ class ComplianceReportGenerator:
             base_filename = f"SummaryComplianceFindings_{timestamp}"
 
             html_path = self._generate_html_report(base_filename, summary_data)
-            pdf_path = self._generate_pdf_report(html_path, base_filename)
-
-            return [html_path, pdf_path]
+            return [html_path]
 
         except Exception as e:
-            logging.error(f"Failed to generate reports: {str(e)}")
+            logging.error(f"Failed to generate report: {str(e)}")
             return []
 
     def _generate_html_report(self, base_filename: str, summary_data: Dict) -> str:
@@ -72,19 +47,6 @@ class ComplianceReportGenerator:
 
         except Exception as e:
             logging.error(f"Failed to create HTML report: {str(e)}")
-            raise
-
-    def _generate_pdf_report(self, html_path: str, base_filename: str) -> str:
-        """Generate PDF from HTML report"""
-        pdf_path = os.path.join(self.output_dir, f"{base_filename}.pdf")
-
-        try:
-            pdfkit.from_file(html_path, pdf_path, options=self.config.pdf_options)
-            logging.info(f"Created PDF report: {pdf_path}")
-            return pdf_path
-
-        except Exception as e:
-            logging.error(f"Failed to create PDF report: {str(e)}")
             raise
 
     def _create_html_content(self, summary_data: Dict) -> str:
