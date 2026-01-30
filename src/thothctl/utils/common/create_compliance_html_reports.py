@@ -10,6 +10,8 @@ from json2html import json2html
 @dataclass
 class ReportConfig:
     encoding: str = "UTF-8"
+    page_size: str = "A4"
+    orientation: str = "Portrait"
 
 
 class ComplianceReportGenerator:
