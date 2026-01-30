@@ -15,15 +15,19 @@ class MCPRegisterCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
     
-    def _execute(self, port, name, force, stdio):
+    def _execute(self, port, name, force, stdio, scope):
         """Execute the register command."""
-        with self.ui.status_spinner(f"Registering MCP server with Amazon Q as '{name}'..."):
+        scope_label = "workspace" if scope == "workspace" else "global"
+        with self.ui.status_spinner(f"Registering MCP server with Kiro CLI ({scope_label}) as '{name}'..."):
             try:
-                # Create the .amazonq directory if it doesn't exist
-                amazonq_dir = os.path.expanduser("~/.amazonq")
-                os.makedirs(amazonq_dir, exist_ok=True)
+                # Determine config path based on scope
+                if scope == "workspace":
+                    config_dir = os.path.join(os.getcwd(), ".kiro", "settings")
+                else:  # global
+                    config_dir = os.path.expanduser("~/.kiro/settings")
                 
-                config_path = os.path.join(amazonq_dir, "mcp.json")
+                os.makedirs(config_dir, exist_ok=True)
+                config_path = os.path.join(config_dir, "mcp.json")
                 
                 # Load existing configuration if it exists
                 existing_config = {}
@@ -55,23 +59,18 @@ class MCPRegisterCommand(ClickCommand):
                 
                 # Create the new server configuration
                 if stdio:
-                    # Stdio mode configuration (recommended for Amazon Q)
+                    # Stdio mode configuration (recommended for Kiro CLI)
                     server_config = {
                         "command": "thothctl",
                         "args": ["mcp", "server", "--stdio"],
-                        "env": {},
-                        "description": "ThothCTL MCP Server for Internal Developer Platform tasks (stdio mode)"
+                        "env": {}
                     }
                 else:
                     # HTTP mode configuration
                     server_config = {
-                        "command": "thothctl",
-                        "args": ["mcp", "server", "--port", str(port)],
-                        "env": {},
-                        "timeout": 120000,
-                        "healthCheckUrl": f"http://localhost:{port}/health",
                         "url": f"http://localhost:{port}/mcp/v1",
-                        "description": "ThothCTL MCP Server for Internal Developer Platform tasks (HTTP mode)"
+                        "headers": {},
+                        "env": {}
                     }
                 
                 # Add the new server to existing configuration
@@ -85,7 +84,8 @@ class MCPRegisterCommand(ClickCommand):
                 total_servers = len(existing_config["mcpServers"])
                 mode = "stdio" if stdio else f"HTTP (port {port})"
                 
-                self.ui.print_success(f"Successfully registered '{name}' MCP server with Amazon Q")
+                self.ui.print_success(f"Successfully registered '{name}' MCP server with Kiro CLI")
+                self.ui.print_info(f"Scope: {scope_label}")
                 self.ui.print_info(f"Mode: {mode}")
                 self.ui.print_info(f"Configuration: {config_path}")
                 self.ui.print_info(f"Total servers in config: {total_servers}")
@@ -98,7 +98,7 @@ class MCPRegisterCommand(ClickCommand):
                         self.ui.print_info(f"  • {server_name} {marker}")
                 
             except Exception as e:
-                self.ui.print_error(f"Failed to register MCP server with Amazon Q")
+                self.ui.print_error(f"Failed to register MCP server with Kiro CLI")
                 self.ui.print_error(f"Error: {str(e)}")
                 raise
 
@@ -128,6 +128,12 @@ cli = MCPRegisterCommand.as_click_command(name="register")(
         "--stdio",
         is_flag=True,
         default=True,
-        help="Register for stdio mode (recommended for Amazon Q)",
+        help="Register for stdio mode (recommended for Kiro CLI)",
+    ),
+    click.option(
+        "--scope",
+        type=click.Choice(["workspace", "global"]),
+        default="global",
+        help="Configuration scope: workspace (.kiro/settings/mcp.json) or global (~/.kiro/settings/mcp.json)",
     )
 )
