@@ -187,6 +187,107 @@ backend_bucket = "#{backend_bucket}#"
 2. Find: `"production"` → Replace: `"#{environment}#"`
 3. Find: `"us-east-1"` → Replace: `"#{backend_region}#"`
 
+### Step 3.5: Configure .thothcf.toml
+
+The `.thothcf.toml` file is **critical** for template functionality. It maps `#{ }#` placeholders to parameters with validation rules and defines project structure requirements.
+
+**Create `.thothcf.toml` in your template root:**
+
+```toml
+[thothcf]
+project_id = "microservices-platform"
+project_type = "terraform"
+
+# Define template parameters with validation
+[template_input_parameters.project_name]
+template_value = "#{project}#"
+condition = "^[a-zA-Z0-9_-]+$"
+description = "Project Name"
+
+[template_input_parameters.environment]
+template_value = "#{environment}#"
+condition = "(dev|qa|stg|staging|test|prod)"
+description = "Environment name (dev|qa|stg|staging|test|prod)"
+
+[template_input_parameters.deployment_region]
+template_value = "#{backend_region}#"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
+description = "AWS Region for deployment"
+
+[template_input_parameters.backend_bucket]
+template_value = "#{backend_bucket}#"
+condition = "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+description = "S3 bucket for Terraform state"
+
+[template_input_parameters.backend_region]
+template_value = "#{backend_region}#"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
+description = "Backend AWS Region"
+
+[template_input_parameters.backend_dynamodb]
+template_value = "#{dynamodb_backend}#"
+condition = "^[a-zA-Z0-9_.-]{3,255}$"
+description = "DynamoDB table for state locking"
+
+[template_input_parameters.owner]
+template_value = "#{team_name}#"
+condition = "^[a-zA-Z0-9_-]+$"
+description = "Team or role owner for this deployment"
+
+[template_input_parameters.vpc_cidr]
+template_value = "#{vpc_cidr}#"
+condition = "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$"
+description = "VPC CIDR block"
+
+[template_input_parameters.cloud_provider]
+template_value = "aws"
+condition = "(aws|azure|oci|gcp)"
+description = "Cloud provider (aws|azure|oci|gcp)"
+
+[template_input_parameters.deployment_profile]
+template_value = "default"
+condition = "^[a-zA-Z0-9_.-]{3,255}$"
+description = "AWS CLI deployment profile"
+
+# Define project structure requirements
+[project_structure]
+root_files = [
+   ".gitignore",
+   "README.md",
+   ".thothcf.toml"
+]
+ignore_folders = [
+    ".git",
+    ".terraform",
+    "Reports"
+]
+
+[[project_structure.folders]]
+name = "common"
+mandatory = true
+type = "root"
+content = ["backend.tf", "variables.tf"]
+
+[[project_structure.folders]]
+name = "environments"
+mandatory = true
+type = "root"
+
+[[project_structure.folders]]
+name = "stacks"
+mandatory = true
+type = "root"
+```
+
+**Key Components:**
+
+1. **Project Metadata**: Identifies template type and ID
+2. **Template Parameters**: Maps each `#{ }#` placeholder to a parameter with:
+   - `template_value`: The placeholder used in files
+   - `condition`: Regex validation pattern
+   - `description`: Human-readable description
+3. **Project Structure**: Defines required files and folders for validation
+
 **Generated `template.yaml`:**
 ```yaml
 name: microservices-platform
