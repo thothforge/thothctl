@@ -125,6 +125,15 @@ class ProjectService:
         selected_template: Optional[dict] = None,
     ) -> None:
         """Setup Azure Repos configuration"""
+        # Extract credentials from selected_template if provided
+        if selected_template:
+            if not pat and 'pat' in selected_template:
+                pat = selected_template['pat']
+            if not az_org_name and 'org_url' in selected_template:
+                # Extract org name from org_url
+                org_url = selected_template['org_url']
+                az_org_name = org_url.rstrip('/').split('/')[-1]
+        
         # Try to load credentials from space if provided
         if space:
             try:
@@ -169,8 +178,14 @@ class ProjectService:
             
             self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
             
+            # Embed PAT in URL for authentication
+            repo_url = selected_template["repo_url"]
+            if pat and '@dev.azure.com' in repo_url:
+                # Insert PAT into Azure DevOps URL
+                repo_url = repo_url.replace('https://', f'https://{pat}@')
+            
             repo = git.Repo.clone_from(
-                url=selected_template["repo_url"],
+                url=repo_url,
                 to_path=str(project_path)
             )
             
@@ -244,6 +259,13 @@ class ProjectService:
         selected_template: Optional[dict] = None,
     ) -> None:
         """Setup GitHub configuration"""
+        # Extract credentials from selected_template if provided
+        if selected_template:
+            if not token and 'token' in selected_template:
+                token = selected_template['token']
+            if not github_username and 'username' in selected_template:
+                github_username = selected_template['username']
+        
         # Try to load credentials from space if provided
         if space:
             try:
@@ -324,8 +346,14 @@ class ProjectService:
             
             self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
             
+            # Embed token in URL for authentication if available
+            repo_url = selected_template["repo_url"]
+            if token and 'github.com' in repo_url:
+                # Insert token into GitHub URL
+                repo_url = repo_url.replace('https://', f'https://{token}@')
+            
             repo = git.Repo.clone_from(
-                url=selected_template["repo_url"],
+                url=repo_url,
                 to_path=str(project_path)
             )
             
