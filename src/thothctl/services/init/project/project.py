@@ -163,14 +163,47 @@ class ProjectService:
         
         # Use selected template if provided, otherwise get template
         if selected_template:
-            repo_meta = selected_template
+            # Clone the pre-selected template to project directory
+            import git
+            from ....core.integrations.azure_devops.get_azure_devops import get_latest_tag_info
+            
+            self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
+            
+            repo = git.Repo.clone_from(
+                url=selected_template["repo_url"],
+                to_path=str(project_path)
+            )
+            
+            # Get tag and commit info
+            tag, sha = get_latest_tag_info(repo)
+            
+            if tag:
+                self.ui.print_success(f"✨ Latest tag: {tag}")
+            else:
+                self.ui.print_info("No tags found. Using main branch.")
+            
+            # Clean up git metadata
+            self.ui.print_info("🧹 Cleaning up metadata...")
+            g_path = project_path / ".git"
+            if g_path.exists():
+                import shutil
+                shutil.rmtree(g_path)
+            git.Repo.init(path=str(project_path), mkdir=False)
+            
+            # Create repo metadata
+            repo_meta = {
+                "repo_name": selected_template["repo_name"],
+                "repo_url": selected_template["repo_url"],
+                "commit": f"{sha}".replace('"', "'"),
+                "tag": tag,
+            }
         else:
             # Fallback to original behavior if no template was pre-selected
             org_url = f"{self.AZURE_DEVOPS_URL}/{az_org_name}/"
             repo_meta = get_pattern_from_azure(
                 pat=pat,
                 org_url=org_url,
-                directory=project_name,
+                directory=str(project_path),
                 action="reuse",
             )
 
@@ -285,13 +318,46 @@ class ProjectService:
         
         # Use selected template if provided, otherwise get template
         if selected_template:
-            repo_meta = selected_template
+            # Clone the pre-selected template to project directory
+            import git
+            from ....core.integrations.github.get_github import get_latest_tag_info
+            
+            self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
+            
+            repo = git.Repo.clone_from(
+                url=selected_template["repo_url"],
+                to_path=str(project_path)
+            )
+            
+            # Get tag and commit info
+            tag, sha = get_latest_tag_info(repo)
+            
+            if tag:
+                self.ui.print_success(f"✨ Latest tag: {tag}")
+            else:
+                self.ui.print_info("No tags found. Using main branch.")
+            
+            # Clean up git metadata
+            self.ui.print_info("🧹 Cleaning up metadata...")
+            g_path = project_path / ".git"
+            if g_path.exists():
+                import shutil
+                shutil.rmtree(g_path)
+            git.Repo.init(path=str(project_path), mkdir=False)
+            
+            # Create repo metadata
+            repo_meta = {
+                "repo_name": selected_template["repo_name"],
+                "repo_url": selected_template["repo_url"],
+                "commit": f"{sha}".replace('"', "'"),
+                "tag": tag,
+            }
         else:
             # Fallback to original behavior if no template was pre-selected
             repo_meta = get_pattern_from_github(
                 token=token,
                 username=github_username,
-                directory=project_name,
+                directory=str(project_path),
                 action="reuse",
             )
 

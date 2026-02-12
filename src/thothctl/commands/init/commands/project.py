@@ -1,4 +1,7 @@
 import getpass
+import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Optional, List, Any
 
@@ -170,7 +173,14 @@ class ProjectInitCommand(ClickCommand):
         """Select template from Azure Repos"""
         try:
             from ....utils.crypto import get_credentials_with_password, save_credentials
-            from ....core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
+            from ....core.integrations.azure_devops.get_azure_devops import (
+                create_connection,
+                get_repos_patterns,
+                allowed_pattern_prefixes,
+                allowed_pattern_suffixes
+            )
+            import inquirer
+            from colorama import Fore
             
             pat = None
             org_name = None
@@ -225,16 +235,66 @@ class ProjectInitCommand(ClickCommand):
 
             org_url = f"https://dev.azure.com/{org_name}/"
             
-            # Try to list templates
+            # Get connection and list projects
             self.ui.print_info("🔍 Fetching available templates...")
-            template_info = get_pattern_from_azure(
-                pat=pat,
-                org_url=org_url,
-                directory="temp",  # Dummy directory for listing
-                action="list",
+            conn = create_connection(personal_access_token=pat, organization_url=org_url)
+            core_client = conn.clients.get_core_client()
+            get_projects_response = core_client.get_projects()
+            
+            projects = [project.name for project in get_projects_response]
+            
+            if not projects:
+                self.ui.print_error("No projects found in Azure DevOps organization")
+                return None
+            
+            # Ask user to select project
+            questions = [
+                inquirer.List(
+                    "project",
+                    message=f"{Fore.GREEN} What is the templates project?",
+                    choices=projects,
+                ),
+            ]
+            tmp_project = inquirer.prompt(questions)
+            project_name = tmp_project["project"]
+            self.ui.print_success(f"✅ {project_name} was selected.")
+            
+            # Get repositories from selected project
+            git_client = conn.clients.get_git_client()
+            repositories = get_repos_patterns(
+                project_name=project_name,
+                git_client=git_client,
+                allowed_pattern_names=allowed_pattern_prefixes,
+                allowed_pattern_names_end=allowed_pattern_suffixes,
             )
             
-            return template_info
+            if not repositories:
+                self.ui.print_error("No template repositories found")
+                return None
+            
+            # Ask user to select repository
+            repository_names = [r["Name"] for r in repositories]
+            questions = [
+                inquirer.List(
+                    "repository",
+                    message=f"{Fore.GREEN} Select a pattern to reuse: {Fore.RESET} 🔍 ",
+                    choices=repository_names,
+                ),
+            ]
+            tmp_repo = inquirer.prompt(questions)
+            repository_name = tmp_repo["repository"]
+            repository = [r for r in repositories if r["Name"] == repository_name][0]
+            
+            self.ui.print_success(f"✅ Selected template: {repository_name}")
+            
+            # Return repository metadata for later cloning
+            return {
+                "repo_name": repository["Name"],
+                "repo_url": repository["RemoteUrl"],
+                "pat": pat,
+                "org_url": org_url,
+                "project_name": project_name,
+            }
             
         except Exception as e:
             self.ui.print_error(f"Failed to select Azure template: {e}")
@@ -299,16 +359,57 @@ class ProjectInitCommand(ClickCommand):
                 self.ui.print_error("GitHub username is required")
                 return None
 
-            # Try to list templates
+            # Get list of template repositories
             self.ui.print_info("🔍 Fetching available templates...")
-            template_info = get_pattern_from_github(
-                token=token,  # Can be None for public repos
+            
+            from ....core.integrations.github.get_github import (
+                get_repos_patterns,
+                allowed_pattern_prefixes,
+                allowed_pattern_suffixes
+            )
+            import inquirer
+            from colorama import Fore
+            import requests
+            
+            # Create session for GitHub API
+            session = requests.Session()
+            if token:
+                session.headers.update({"Authorization": f"token {token}"})
+            
+            # Get repositories matching patterns
+            repositories = get_repos_patterns(
+                session=session,
                 username=username,
-                directory="temp",  # Dummy directory for listing
-                action="list",
+                allowed_pattern_prefixes=allowed_pattern_prefixes,
+                allowed_pattern_suffixes=allowed_pattern_suffixes,
             )
             
-            return template_info
+            if not repositories:
+                self.ui.print_error("No template repositories found")
+                return None
+            
+            # Ask user to select repository
+            repository_names = [r["Name"] for r in repositories]
+            questions = [
+                inquirer.List(
+                    "repository",
+                    message=f"{Fore.GREEN} Select a pattern to reuse: {Fore.RESET} 🔍 ",
+                    choices=repository_names,
+                ),
+            ]
+            tmp_repo = inquirer.prompt(questions)
+            repository_name = tmp_repo["repository"]
+            repository = [r for r in repositories if r["Name"] == repository_name][0]
+            
+            self.ui.print_success(f"✅ Selected template: {repository_name}")
+            
+            # Return repository metadata for later cloning
+            return {
+                "repo_name": repository["Name"],
+                "repo_url": repository["RemoteUrl"],
+                "token": token,
+                "username": username,
+            }
             
         except Exception as e:
             self.ui.print_error(f"Failed to select GitHub template: {e}")
