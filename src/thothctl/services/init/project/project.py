@@ -179,11 +179,19 @@ class ProjectService:
             self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
             
             # Embed PAT in URL for authentication
-            # Azure DevOps format: https://anything:PAT@dev.azure.com/org/...
+            # Azure DevOps URLs from API may already have org@dev.azure.com format
+            # We need to replace that with pat:PAT@dev.azure.com
             repo_url = selected_template["repo_url"]
             if pat and 'dev.azure.com' in repo_url:
-                # Insert PAT into Azure DevOps URL with proper format
-                repo_url = repo_url.replace('https://', f'https://pat:{pat}@')
+                parts = repo_url.split('://', 1)
+                if len(parts) == 2:
+                    protocol = parts[0]
+                    rest = parts[1]
+                    # Remove any existing username@ part
+                    if '@' in rest:
+                        rest = rest.split('@', 1)[1]
+                    # Add PAT authentication
+                    repo_url = f'{protocol}://pat:{pat}@{rest}'
             
             repo = git.Repo.clone_from(
                 url=repo_url,
