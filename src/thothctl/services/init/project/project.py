@@ -182,6 +182,8 @@ class ProjectService:
             # Azure DevOps URLs from API may already have org@dev.azure.com format
             # We need to replace that with pat:PAT@dev.azure.com
             repo_url = selected_template["repo_url"]
+            self.logger.debug(f"Original repo URL: {repo_url}")
+            
             if pat and 'dev.azure.com' in repo_url:
                 parts = repo_url.split('://', 1)
                 if len(parts) == 2:
@@ -190,8 +192,9 @@ class ProjectService:
                     # Remove any existing username@ part
                     if '@' in rest:
                         rest = rest.split('@', 1)[1]
-                    # Add PAT authentication
-                    repo_url = f'{protocol}://pat:{pat}@{rest}'
+                    # Add PAT authentication - use empty username with PAT as password
+                    repo_url = f'{protocol}://:{pat}@{rest}'
+                    self.logger.debug(f"Modified repo URL format: {protocol}://:***@{rest}")
             
             repo = git.Repo.clone_from(
                 url=repo_url,
