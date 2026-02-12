@@ -403,8 +403,21 @@ def get_simple_project_props(
                         pattern = input_parameters[k]["condition"]
                         validate = lambda _, x: re.match(pattern=pattern, string=x)
                     
-                    # Set up default from template_value
-                    default = input_parameters[k].get("template_value")
+                    # Provide sensible defaults based on parameter name
+                    default = None
+                    if k in ['project', 'project_name']:
+                        default = project_name
+                    elif k in ['environment']:
+                        default = 'dev'
+                    elif 'region' in k.lower() and 'backend' not in k.lower():
+                        default = 'us-east-1'
+                    elif 'backend_region' in k.lower():
+                        default = 'us-east-2'
+                    elif 'bucket' in k.lower():
+                        default = f"{project_name}-tfstate"
+                    elif 'dynamodb' in k.lower():
+                        default = 'db-terraform-lock'
+                    # Don't use template_value as default since it's a placeholder like '#{project}#'
                     
                     questions = [
                         inquirer.Text(
