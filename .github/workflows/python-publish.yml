@@ -54,6 +54,7 @@ jobs:
         verify-metadata: true
         verbose: true
         print-hash: true
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
 
   publish-to-pypi:
     name: Publish Python 🐍 distribution 📦 to PyPI
@@ -78,6 +79,7 @@ jobs:
         verify-metadata: true
         verbose: true
         print-hash: true
+        password: ${{ secrets.PYPI_API_TOKEN }}
 
   github-release:
     name: Sign the Python 🐍 distribution 📦 with Sigstore and upload to GitHub Release
