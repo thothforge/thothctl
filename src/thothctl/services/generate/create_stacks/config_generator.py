@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader
-from .....utils.modules_ops.terraform_module_details import TerraformModuleDetails
+from thothctl.utils.modules_ops.terraform_module_details import TerraformModuleDetails
 
 
 @dataclass

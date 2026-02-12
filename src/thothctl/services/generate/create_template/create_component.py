@@ -8,7 +8,6 @@ from colorama import Fore
 from ....common.common import load_iac_conf
 from .files_content import (
     main_tf_content,
-    parameters_tf_content,
     terragrunt_hcl_resource_content,
 )
 
@@ -126,9 +125,6 @@ def create_file(directory, folder_name, file_name):
     """
     path = Path(os.path.join(directory, folder_name, file_name)).resolve().absolute()
     with open(path, "w") as fp:
-        if file_name == "parameters.tf":
-            fp.write(f"#{folder_name}-{file_name}")
-            fp.write(parameters_tf_content)
         elif file_name == "terragrunt.hcl":
             fp.write(f"#{folder_name}-{file_name}")
             fp.write(terragrunt_hcl_resource_content)

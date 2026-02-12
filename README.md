@@ -189,6 +189,13 @@ Generate Terraform modules documentation in various formats.
 ### [Checkov](https://www.checkov.io/)
 Checkov scans cloud infrastructure configurations to find misconfigurations before they're deployed.
 
+### [KICS](https://docs.kics.io/latest/)
+KICS (Keeping Infrastructure as Code Secure) by Checkmarx finds security vulnerabilities, compliance issues, and infrastructure misconfigurations in IaC.
+
+**Requirements**: Docker must be installed and running to use KICS scanner.
+- Install Docker: https://docs.docker.com/get-docker/
+- KICS runs via Docker container (checkmarx/kics:latest)
+
 ### [Trivy](https://trivy.dev/latest/)
 Use Trivy to find vulnerabilities (CVE) & misconfigurations (IaC) across code repositories, binary artifacts, container images, Kubernetes clusters, and more. All in one tool! 
 

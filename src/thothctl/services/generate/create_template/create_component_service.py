@@ -9,7 +9,6 @@ from concurrent.futures import ThreadPoolExecutor
 from ....common.common import load_iac_conf
 from .files_content import (
     main_tf_content,
-    parameters_tf_content,
     terragrunt_hcl_resource_content,
 )
 
@@ -42,12 +41,11 @@ class ComponentConfig:
 class FileTemplates:
     """Mapping of file templates to their content with template preprocessing."""
     TEMPLATES = {
-        "parameters.tf": parameters_tf_content,
         "terragrunt.hcl": terragrunt_hcl_resource_content,
         "main.tf": main_tf_content
     }
 
-    HEADER_TEMPLATES = {"parameters.tf", "terragrunt.hcl"}
+    HEADER_TEMPLATES = {"terragrunt.hcl"}
 
     @classmethod
     def get_content(cls, file_name: str, folder_name: str) -> str:

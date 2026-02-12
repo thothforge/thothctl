@@ -68,6 +68,22 @@ variable "project" {
   description = "Project tool"
 }
 """
+
+terragrunt_hcl_resource_content = """
+include "root" {
+  path = find_in_parent_folders("root.hcl")
+  expose = true
+}
+
+terraform {
+  source = "..//"
+}
+
+inputs = {
+  # Add your inputs here
+}
+"""
+
 main_tf_content = """
 resource "aws_s3_bucket" "bucket" {
   bucket = var.project

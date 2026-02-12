@@ -17,6 +17,7 @@ from ...utils.common.create_html_reports import HTMLReportGenerator
 from ...utils.common.delete_directory import DirectoryManager
 # from .scanners.tfsec import TFSecScanner
 from .scanners.checkov import CheckovScanner
+from .scanners.kics import KICSScanner
 from .scanners.scan_reports import ReportProcessor, ReportScanner
 
 
@@ -43,6 +44,7 @@ class ScanService:
             "trivy": Scanner("trivy", TrivyScanner()),
             #           'tfsec': Scanner('tfsec', TFSecScanner()),
             "checkov": Scanner("checkov", CheckovScanner()),
+            "kics": Scanner("kics", KICSScanner()),
             # Add other scanners
         }
         self.logger = logging.getLogger(__name__)

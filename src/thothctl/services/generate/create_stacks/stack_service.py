@@ -416,6 +416,9 @@ inputs = {{
   # Add your module inputs here
 }}
 """)
+
+    def generate_stacks_from_config(self, config_file: Path, output_dir: Path) -> None:
+        """
         Generate stacks from a YAML configuration file.
         
         Args:

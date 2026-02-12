@@ -52,6 +52,7 @@ class ReportScanner:
                     "tfsec": self._scan_tfsec_report,
                     "trivy": self._scan_trivy_report,
                     "terraform-compliance": self._scan_terraform_compliance_report,
+                    "kics": self._scan_kics_report,
                 }
 
                 if report_type in scanner_map:
@@ -174,6 +175,29 @@ class ReportScanner:
             logging.error(f"Error scanning Trivy report: {str(e)}")
             return None
 
+    def _scan_kics_report(self, data: Dict) -> Optional[ScanResult]:
+        """Scan KICS JSON reports."""
+        try:
+            total_issues = data.get("total_counter", 0)
+            severity_counters = data.get("severity_counters", {})
+            high = severity_counters.get("HIGH", 0)
+            medium = severity_counters.get("MEDIUM", 0)
+            low = severity_counters.get("LOW", 0)
+            tests = total_issues
+            failures = high + medium + low
+            status = self._determine_status(failures, tests)
+            message = self._create_message(failures, tests, "KICS")
+            return ScanResult(
+                module_name="kics-scan",
+                failures=failures,
+                total_tests=tests,
+                status=status,
+                message=message,
+            )
+        except Exception as e:
+            logging.error(f"Error scanning KICS report: {str(e)}")
+            return None
+
     def _determine_status(self, failures: int, tests: int) -> ReportStatus:
         if failures == 0 and tests == 0:
             return ReportStatus.SKIPPED
@@ -262,3 +286,4 @@ class ReportProcessor:
             "fails": result.fails,
             "tests": result.tests,
         }
+

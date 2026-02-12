@@ -320,6 +320,7 @@ class RestoredIaCScanCommand(ClickCommand):
                         "checkov": "🔒",
                         "trivy": "🛡️",
                         "tfsec": "🔐",
+                        "kics": "🔍",
                         "terraform-compliance": "📋"
                     }
                     icon = tool_icons.get(tool_name, "🔍")
@@ -465,8 +466,8 @@ class RestoredIaCScanCommand(ClickCommand):
     "-t",
     multiple=True,
     default=["checkov"],
-    help="Security scanning tools to use",
-    type=click.Choice(["checkov", "trivy", "tfsec", "terraform-compliance"]),
+    help="Security scanning tools to use (Note: KICS requires Docker)",
+    type=click.Choice(["checkov", "trivy", "tfsec", "kics", "terraform-compliance"]),
 )
 @click.option(
     "--reports-dir",
