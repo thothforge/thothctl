@@ -401,23 +401,27 @@ def get_simple_project_props(
                     validate = None
                     if 'condition' in input_parameters[k]:
                         pattern = input_parameters[k]["condition"]
-                        validate = lambda _, x: re.match(pattern=pattern, string=x)
+                        validate = lambda _, x, p=pattern: re.match(pattern=p, string=x) is not None
                     
-                    # Provide sensible defaults based on parameter name
+                    # Provide smart defaults based on parameter name, but don't use template_value
+                    # template_value is the placeholder (e.g., '#{project}#'), not a default value
                     default = None
-                    if k in ['project', 'project_name']:
+                    k_lower = k.lower()
+                    if 'project' in k_lower and 'name' in k_lower:
                         default = project_name
-                    elif k in ['environment']:
+                    elif k_lower in ['project', 'project_name']:
+                        default = project_name
+                    elif k_lower in ['environment', 'env']:
                         default = 'dev'
-                    elif 'region' in k.lower() and 'backend' not in k.lower():
+                    elif 'region' in k_lower and 'backend' not in k_lower:
                         default = 'us-east-1'
-                    elif 'backend_region' in k.lower():
+                    elif 'backend' in k_lower and 'region' in k_lower:
                         default = 'us-east-2'
-                    elif 'bucket' in k.lower():
+                    elif 'bucket' in k_lower and 'backend' in k_lower:
                         default = f"{project_name}-tfstate"
-                    elif 'dynamodb' in k.lower():
+                    elif 'dynamodb' in k_lower or 'lock' in k_lower:
                         default = 'db-terraform-lock'
-                    # Don't use template_value as default since it's a placeholder like '#{project}#'
+                    # For other parameters, leave default as None to force user input
                     
                     questions = [
                         inquirer.Text(
