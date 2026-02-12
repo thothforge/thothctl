@@ -42,7 +42,10 @@ def replace_template_placeholders(directory, project_properties, project_name, a
     parameter_mapping = {
         "deployment_region": project_properties.get("region", "us-east-2"),
         "project_name": project_properties.get("project", project_name),
+        "project": project_properties.get("project_name", project_properties.get("project", project_name)),
+        "client": project_properties.get("client_name", project_properties.get("client", "")),
         "backend_dynamodb": project_properties.get("dynamodb_backend", "db-terraform-lock"),
+        "dynamodb_backend": project_properties.get("backend_dynamodb", project_properties.get("dynamodb_backend", "db-terraform-lock")),
         "cloud_provider": "aws",  # Default value
         "project_code": project_name,  # Use project name as default
         "deployment_profile": "default",  # Default value
