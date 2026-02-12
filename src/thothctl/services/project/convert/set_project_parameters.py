@@ -152,16 +152,25 @@ def create_project_conf(
         new_config["origin_metadata"] = existing_config["origin_metadata"]
 
     # Write the complete configuration
-    with open(file_path, "w") as file:
-        toml.dump(new_config, file)
+    try:
+        with open(file_path, "w") as file:
+            toml.dump(new_config, file)
+    except Exception as e:
+        logging.error(f"Failed to write .thothcf.toml: {e}")
+        raise
 
     # Create catalog info
-    create_catalog_info(
-        directory=PurePath.joinpath(directory, "docs/catalog/"),
-        project_properties=project_properties,
-        project_name=project_name,
-        space=space,
-    )
+    try:
+        create_catalog_info(
+            directory=PurePath.joinpath(directory, "docs/catalog/"),
+            project_properties=project_properties,
+            project_name=project_name,
+            space=space,
+        )
+    except Exception as e:
+        logging.error(f"Failed to create catalog info: {e}")
+        # Don't fail the whole process if catalog creation fails
+        logging.warning("Continuing without catalog info")
 
 
 def set_project_conf(
