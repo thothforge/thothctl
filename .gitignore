@@ -252,3 +252,35 @@ cython_debug/
 #.idea/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm+all
+
+# Kiro AI assistant files
+.kiro/
+
+# Test and debug files
+test_*.py
+test_*.html
+debug_*.html
+*_test/
+dashboard_fix.js
+
+# Backup files
+*.backup
+*bkp.py
+*.py.backup
+
+# Reports directory
+Reports/
+
+# Documentation drafts
+TODO_*.md
+IMPLEMENTATION_SUMMARY.md
+UPGRADE_DOCS.md
+*_SUMMARY.md
+.readthedocs-check.md
+mkdocs-upgraded.yml
+
+# Registry cache
+.registry_cache/
+
+# Shell scripts (unless explicitly needed)
+upgrade-docs.sh
