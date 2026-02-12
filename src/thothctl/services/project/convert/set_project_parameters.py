@@ -110,6 +110,10 @@ def create_project_conf(
     :param project_type: Type of project (terraform, terragrunt, etc.)
     :return:
     """
+    # Ensure directory exists
+    if not os.path.exists(directory):
+        os.makedirs(directory, exist_ok=True)
+    
     file_path = os.path.join(directory, ".thothcf.toml")
     if project_name is None:
         project_name = set_project_id()
