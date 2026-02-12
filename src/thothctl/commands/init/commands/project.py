@@ -166,10 +166,12 @@ class ProjectInitCommand(ClickCommand):
                 self.ui.print_error(f"Template selection not supported for {vcs_provider}")
                 return None
         except Exception as e:
+            import traceback
+            self.logger.error(f"Template selection failed: {traceback.format_exc()}")
             self.ui.print_error(f"Failed to select template: {e}")
             return None
 
-    def _select_azure_template(self, space: str, **kwargs) -> Optional[dict]:
+    def _select_azure_template(self, space: Optional[str], **kwargs) -> Optional[dict]:
         """Select template from Azure Repos"""
         try:
             from ....utils.crypto import get_credentials_with_password, save_credentials
@@ -183,29 +185,33 @@ class ProjectInitCommand(ClickCommand):
             from colorama import Fore
             
             pat = None
-            org_name = None
+            org_name = kwargs.get("az_org_name")
             
-            # Try to get credentials from space first
-            try:
-                credentials, _ = get_credentials_with_password(space, "vcs")
-                
-                if credentials.get("type") == "azure_repos":
-                    pat = credentials.get("pat")
-                    org_name = credentials.get("organization")
-                    self.ui.print_info(f"✅ Using Azure DevOps credentials from space '{space}'")
-                else:
-                    self.ui.print_warning(f"Space '{space}' has non-Azure Repos VCS credentials")
+            # Try to get credentials from space if provided
+            if space:
+                try:
+                    credentials, _ = get_credentials_with_password(space, "vcs")
                     
-            except FileNotFoundError:
-                self.ui.print_info(f"No Azure DevOps credentials found for space '{space}'")
-                
-                # Ask user if they want to set up credentials
-                if self.ui.confirm("Would you like to set up Azure DevOps credentials for this space?"):
+                    if credentials.get("type") == "azure_repos":
+                        pat = credentials.get("pat")
+                        if not org_name:
+                            org_name = credentials.get("organization")
+                        self.ui.print_info(f"✅ Using Azure DevOps credentials from space '{space}'")
+                    else:
+                        self.ui.print_warning(f"Space '{space}' has non-Azure Repos VCS credentials")
+                        
+                except FileNotFoundError:
+                    self.ui.print_info(f"No Azure DevOps credentials found for space '{space}'")
+            
+            # If no credentials found, prompt user
+            if not pat or not org_name:
+                if not org_name:
                     org_name = input("Enter Azure DevOps organization name: ")
-                    self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
-                    pat = getpass.getpass("Enter your Azure DevOps Personal Access Token: ")
-                    
-                    # Create and save credentials
+                self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
+                pat = getpass.getpass("Enter your Azure DevOps Personal Access Token: ")
+                
+                # Optionally save credentials if space is provided
+                if space and self.ui.confirm(f"Would you like to save these credentials for space '{space}'?"):
                     credentials = {
                         "type": "azure_repos",
                         "organization": org_name,
@@ -224,10 +230,6 @@ class ProjectInitCommand(ClickCommand):
                         self.ui.print_success("🔒 Azure DevOps credentials saved securely for future use")
                     except Exception as e:
                         self.ui.print_error(f"Failed to save credentials: {e}")
-                        # Continue without saving, use credentials for this session only
-                else:
-                    self.ui.print_error("Azure DevOps credentials are required for template access")
-                    return None
             
             if not pat or not org_name:
                 self.ui.print_error("Missing PAT or organization name")
