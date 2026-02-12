@@ -126,22 +126,11 @@ class ProjectInitCommand(ClickCommand):
                 self.ui.print_error("No template selected. Project creation cancelled.")
                 return
         
-        # Initialize project
+        # Initialize project (creates metadata but not directory when reuse=True)
         with self.ui.status_spinner("🏗️ Creating project structure..."):
             repo_metadata = self.project_service.initialize_project(project_name, project_type=project_type, reuse=reuse, space=space)
 
-        # Setup configuration if requested - NO SPINNER for interactive prompts
-        if setup_conf:
-            self.ui.print_info("📝 Setting up project configuration...")
-            self.project_service.setup_project_config(
-                project_name, 
-                space=space, 
-                batch_mode=batch, 
-                project_type=project_type,
-                repo_metadata=repo_metadata
-            )
-
-        # Setup version control if reuse is enabled
+        # Setup version control if reuse is enabled (this clones the template and sets up config)
         if reuse and selected_template:
             self.ui.print_info("🔄 Setting up version control with selected template...")
             self.project_service.setup_version_control(
@@ -151,6 +140,16 @@ class ProjectInitCommand(ClickCommand):
                 space=space,
                 selected_template=selected_template,
                 **vcs_params
+            )
+        # Setup configuration if requested and not reusing (reuse handles config internally)
+        elif setup_conf:
+            self.ui.print_info("📝 Setting up project configuration...")
+            self.project_service.setup_project_config(
+                project_name, 
+                space=space, 
+                batch_mode=batch, 
+                project_type=project_type,
+                repo_metadata=repo_metadata
             )
         
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
