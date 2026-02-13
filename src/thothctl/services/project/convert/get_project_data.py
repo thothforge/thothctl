@@ -205,7 +205,7 @@ def get_project_props(
     input_parameters = load_iac_conf(directory=directory).get(
         "template_input_parameters", {}
     )
-    print(f"{Fore.CYAN}DEBUG: Loaded input_parameters: {input_parameters}{Fore.RESET}")
+    logging.debug(f"Loaded input_parameters: {input_parameters}")
     
     if input_parameters == {}:
         if batch_mode:
@@ -335,7 +335,7 @@ def get_simple_project_props(
     :return:
     """
     print(f"{Fore.GREEN} Write project parameters for {project_name}")
-    print(f"{Fore.CYAN}DEBUG: input_parameters type: {type(input_parameters)}, content: {input_parameters}{Fore.RESET}")
+    logging.debug(f"input_parameters type: {type(input_parameters)}, content: {input_parameters}")
     
     # Check if input_parameters is empty or not properly formatted
     if not input_parameters:
