@@ -273,8 +273,28 @@ class ProjectInitCommand(ClickCommand):
                 self.ui.print_error("No template repositories found")
                 return None
             
-            # Ask user to select repository
-            repository_names = [r["Name"] for r in repositories]
+            # Ask user to select repository with search capability
+            repository_names = sorted([r["Name"] for r in repositories])
+            
+            # If there are many repositories, allow filtering
+            if len(repository_names) > 10:
+                self.ui.print_info(f"Found {len(repository_names)} templates. You can type to filter...")
+                questions = [
+                    inquirer.Text(
+                        "search",
+                        message="🔍 Search templates (press Enter to see all)",
+                    ),
+                ]
+                search_result = inquirer.prompt(questions)
+                search_term = search_result.get("search", "").lower() if search_result else ""
+                
+                if search_term:
+                    repository_names = [name for name in repository_names if search_term in name.lower()]
+                    if not repository_names:
+                        self.ui.print_error(f"No templates found matching '{search_term}'")
+                        return None
+                    self.ui.print_info(f"Found {len(repository_names)} matching templates")
+            
             questions = [
                 inquirer.List(
                     "repository",
@@ -389,8 +409,28 @@ class ProjectInitCommand(ClickCommand):
                 self.ui.print_error("No template repositories found")
                 return None
             
-            # Ask user to select repository
-            repository_names = [r["Name"] for r in repositories]
+            # Ask user to select repository with search capability
+            repository_names = sorted([r["Name"] for r in repositories])
+            
+            # If there are many repositories, allow filtering
+            if len(repository_names) > 10:
+                self.ui.print_info(f"Found {len(repository_names)} templates. You can type to filter...")
+                questions = [
+                    inquirer.Text(
+                        "search",
+                        message="🔍 Search templates (press Enter to see all)",
+                    ),
+                ]
+                search_result = inquirer.prompt(questions)
+                search_term = search_result.get("search", "").lower() if search_result else ""
+                
+                if search_term:
+                    repository_names = [name for name in repository_names if search_term in name.lower()]
+                    if not repository_names:
+                        self.ui.print_error(f"No templates found matching '{search_term}'")
+                        return None
+                    self.ui.print_info(f"Found {len(repository_names)} matching templates")
+            
             questions = [
                 inquirer.List(
                     "repository",
