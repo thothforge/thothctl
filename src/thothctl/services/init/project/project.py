@@ -222,7 +222,7 @@ class ProjectService:
                 "repo_name": selected_template["repo_name"],
                 "repo_url": selected_template["repo_url"],
                 "commit": f"{sha}".replace('"', "'"),
-                "tag": tag,
+                "tag": tag if tag else "",
             }
         else:
             # Fallback to original behavior if no template was pre-selected
@@ -390,7 +390,7 @@ class ProjectService:
                 "repo_name": selected_template["repo_name"],
                 "repo_url": selected_template["repo_url"],
                 "commit": f"{sha}".replace('"', "'"),
-                "tag": tag,
+                "tag": tag if tag else "",
             }
         else:
             # Fallback to original behavior if no template was pre-selected
