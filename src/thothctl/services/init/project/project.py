@@ -217,10 +217,17 @@ class ProjectService:
                 shutil.rmtree(g_path)
             git.Repo.init(path=str(project_path), mkdir=False)
             
-            # Create repo metadata
+            # Create repo metadata - clean URL by removing any embedded credentials
+            clean_url = selected_template["repo_url"]
+            if '@dev.azure.com' in clean_url:
+                # Remove username@ from Azure DevOps URLs
+                parts = clean_url.split('://', 1)
+                if len(parts) == 2 and '@' in parts[1]:
+                    clean_url = f"{parts[0]}://{parts[1].split('@', 1)[1]}"
+            
             repo_meta = {
                 "repo_name": selected_template["repo_name"],
-                "repo_url": selected_template["repo_url"],
+                "repo_url": clean_url,
                 "commit": f"{sha}".replace('"', "'"),
                 "tag": tag if tag else "",
             }
@@ -385,10 +392,17 @@ class ProjectService:
                 shutil.rmtree(g_path)
             git.Repo.init(path=str(project_path), mkdir=False)
             
-            # Create repo metadata
+            # Create repo metadata - clean URL by removing any embedded credentials
+            clean_url = selected_template["repo_url"]
+            if '@github.com' in clean_url:
+                # Remove token@ from GitHub URLs
+                parts = clean_url.split('://', 1)
+                if len(parts) == 2 and '@' in parts[1]:
+                    clean_url = f"{parts[0]}://{parts[1].split('@', 1)[1]}"
+            
             repo_meta = {
                 "repo_name": selected_template["repo_name"],
-                "repo_url": selected_template["repo_url"],
+                "repo_url": clean_url,
                 "commit": f"{sha}".replace('"', "'"),
                 "tag": tag if tag else "",
             }
