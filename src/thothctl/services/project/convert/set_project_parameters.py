@@ -199,9 +199,8 @@ def set_project_conf(
     :param project_type: Type of project (terraform, terragrunt, etc.)
     :return:
     """
-    # If directory is not provided or is current directory, use project_name as directory
-    if directory == PurePath(".") and project_name:
-        directory = PurePath(project_name)
+    # Don't change directory - use what's provided
+    # The caller should pass the correct directory
     
     if project_properties is None:
         project_properties = get_project_props(project_name=project_name, batch_mode=batch_mode)
