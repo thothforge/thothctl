@@ -60,13 +60,12 @@ def inv_parse_project(
                 with open(file_name, "w") as file:
                     file.write(data)
 
-                # Printing Text replaced
-                logging.info(
-                    f"{Fore.MAGENTA}Text {search} replaced in {file_name} by {replace} {Fore.RESET}"
+                # Log replacement at debug level
+                logging.debug(
+                    f"Text {search} replaced in {file_name} by {replace}"
                 )
     else:
         print(f"{Fore.RED}No project properties found. {Fore.RESET} ")
-
 
 def set_project_id():
     """

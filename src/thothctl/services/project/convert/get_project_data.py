@@ -9,9 +9,12 @@ from pathlib import Path, PurePath
 import inquirer
 import os
 from colorama import Fore
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from ....common.common import load_iac_conf, update_info_project
 from .project_defaults import g_project_properties_parse
+
+logger = logging.getLogger(__name__)
 
 
 def replace_template_placeholders(directory, project_properties, project_name, action="make_project"):
@@ -54,85 +57,106 @@ def replace_template_placeholders(directory, project_properties, project_name, a
     
     print(f"{Fore.LIGHTBLUE_EX}👷 Replacing template placeholders... {Fore.RESET}")
     
+    # Count total files to process
+    total_files = 0
     for dirpath, dirnames, filenames in os.walk(directory):
-        # Skip not allowed folders
         if any(x in dirpath for x in not_allowed_folders):
             continue
-            
         for f in filenames:
-            # Skip files with binary extensions
-            if f.split(".")[-1] in allowed_extensions or f in allowed_extensions:
+            if f.split(".")[-1] not in allowed_extensions and f not in allowed_extensions:
+                total_files += 1
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(f"Processing {total_files} files...", total=total_files)
+        
+        for dirpath, dirnames, filenames in os.walk(directory):
+            # Skip not allowed folders
+            if any(x in dirpath for x in not_allowed_folders):
                 continue
                 
-            file_path = os.path.join(dirpath, f)
-            try:
-                # Try to detect if file is binary
-                is_binary = False
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as test_file:
-                        test_file.read(1024)  # Try to read a small chunk
-                except UnicodeDecodeError:
-                    is_binary = True
-                
-                if is_binary:
+            for f in filenames:
+                # Skip files with binary extensions
+                if f.split(".")[-1] in allowed_extensions or f in allowed_extensions:
                     continue
-                
-                # Read file content
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    data = file.read()
-                
-                # Track if any replacements were made
-                replaced = False
-                
-                if action == "make_template":
-                    # Convert values to placeholders
-                    print(f"✅ Converting values to template parameters in {os.path.relpath(file_path, directory)}")
                     
-                    # Replace project properties values with placeholders
-                    for param, value in project_properties.items():
-                        if value and str(value) in data:
-                            placeholder = f"#{{{param}}}#"
-                            data = data.replace(str(value), placeholder)
-                            replaced = True
-                            print(f"  • {param}: {value} → {placeholder}")
+                file_path = os.path.join(dirpath, f)
+                try:
+                    # Try to detect if file is binary
+                    is_binary = False
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as test_file:
+                            test_file.read(1024)  # Try to read a small chunk
+                    except UnicodeDecodeError:
+                        is_binary = True
                     
-                    # Replace parameter mapping values with placeholders
-                    for param, value in parameter_mapping.items():
-                        if value and str(value) in data and param not in project_properties:
-                            placeholder = f"#{{{param}}}#"
-                            data = data.replace(str(value), placeholder)
-                            replaced = True
-                            print(f"  • {param}: {value} → {placeholder}")
-                            
-                else:
-                    # Original logic: Replace placeholders with values
-                    # Find all placeholders in the format #{parameter}#
-                    placeholders = re.findall(r'#\{([^}]+)\}#', data)
+                    if is_binary:
+                        progress.advance(task)
+                        continue
                     
-                    # Replace each found placeholder
-                    for param in placeholders:
-                        placeholder = f"#{{{param}}}#"
+                    # Read file content
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        data = file.read()
+                    
+                    # Track if any replacements were made
+                    replaced = False
+                    
+                    if action == "make_template":
+                        # Convert values to placeholders
+                        logger.debug(f"Converting values to template parameters in {os.path.relpath(file_path, directory)}")
                         
-                        # First check if the parameter exists in project_properties
-                        if param in project_properties:
-                            value = project_properties[param]
-                            data = data.replace(placeholder, str(value))
-                            replaced = True
-                            print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
-                        # Then check if it's in our mapping
-                        elif param in parameter_mapping:
-                            value = parameter_mapping[param]
-                            data = data.replace(placeholder, str(value))
-                            replaced = True
-                            print(f"  • Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
-                
-                # Write updated content back to file if replacements were made
-                if replaced:
-                    with open(file_path, 'w', encoding='utf-8') as file:
-                        file.write(data)
-            except Exception as e:
-                # Log errors but continue processing
-                logging.debug(f"Error processing {os.path.relpath(file_path, directory)}: {str(e)}")
+                        # Replace project properties values with placeholders
+                        for param, value in project_properties.items():
+                            if value and str(value) in data:
+                                placeholder = f"#{{{param}}}#"
+                                data = data.replace(str(value), placeholder)
+                                replaced = True
+                                logger.debug(f"  • {param}: {value} → {placeholder}")
+                        
+                        # Replace parameter mapping values with placeholders
+                        for param, value in parameter_mapping.items():
+                            if value and str(value) in data and param not in project_properties:
+                                placeholder = f"#{{{param}}}#"
+                                data = data.replace(str(value), placeholder)
+                                replaced = True
+                                logger.debug(f"  • {param}: {value} → {placeholder}")
+                                
+                    else:
+                        # Original logic: Replace placeholders with values
+                        # Find all placeholders in the format #{parameter}#
+                        placeholders = re.findall(r'#\{([^}]+)\}#', data)
+                        
+                        # Replace each found placeholder
+                        for param in placeholders:
+                            placeholder = f"#{{{param}}}#"
+                            
+                            # First check if the parameter exists in project_properties
+                            if param in project_properties:
+                                value = project_properties[param]
+                                data = data.replace(placeholder, str(value))
+                                replaced = True
+                                logger.debug(f"Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
+                            # Then check if it's in our mapping
+                            elif param in parameter_mapping:
+                                value = parameter_mapping[param]
+                                data = data.replace(placeholder, str(value))
+                                replaced = True
+                                logger.debug(f"Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
+                    
+                    # Write updated content back to file if replacements were made
+                    if replaced:
+                        with open(file_path, 'w', encoding='utf-8') as file:
+                            file.write(data)
+                    
+                    progress.advance(task)
+                    
+                except Exception as e:
+                    # Log errors but continue processing
+                    logger.debug(f"Error processing {os.path.relpath(file_path, directory)}: {str(e)}")
+                    progress.advance(task)
     
     print(f"{Fore.GREEN}✅ Template placeholders replaced successfully!{Fore.RESET}")
 
