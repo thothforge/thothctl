@@ -1582,6 +1582,81 @@ class ReportService:
             
             summary_html += "</div>"
             
+            # Add technical debt metrics section if available
+            if "technical_debt" in inventory:
+                tech_debt = inventory["technical_debt"]
+                debt_score = tech_debt.get("debt_score", 0)
+                risk_level = tech_debt.get("risk_level", "low")
+                
+                # Determine color based on risk level
+                if risk_level == "critical":
+                    risk_color = "var(--danger-color)"
+                elif risk_level == "high":
+                    risk_color = "var(--warning-color)"
+                elif risk_level == "medium":
+                    risk_color = "#3b82f6"
+                else:
+                    risk_color = "var(--success-color)"
+                
+                summary_html += f"""
+                <div style="margin-top: 2rem;">
+                    <h3 style="color: var(--dark-color); margin-bottom: 1rem;">📊 Technical Debt Metrics</h3>
+                    <div class="summary-grid">
+                        <div class="summary-card" style="border-left: 4px solid {risk_color};">
+                            <div class="summary-number" style="color: {risk_color};">{debt_score:.1f}%</div>
+                            <div class="summary-label">Debt Score ({risk_level.upper()} Risk)</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number" style="color: var(--danger-color);">{tech_debt.get('outdated_modules', 0)}</div>
+                            <div class="summary-label">Outdated Modules</div>
+                        </div>
+                """
+                
+                if tech_debt.get("outdated_providers", 0) > 0:
+                    summary_html += f"""
+                        <div class="summary-card">
+                            <div class="summary-number" style="color: var(--danger-color);">{tech_debt.get('outdated_providers', 0)}</div>
+                            <div class="summary-label">Outdated Providers</div>
+                        </div>
+                    """
+                
+                if tech_debt.get("modules_with_breaking_changes", 0) > 0:
+                    summary_html += f"""
+                        <div class="summary-card">
+                            <div class="summary-number" style="color: var(--warning-color);">{tech_debt.get('modules_with_breaking_changes', 0)}</div>
+                            <div class="summary-label">⚠️ Modules with Breaking Changes</div>
+                        </div>
+                    """
+                
+                if tech_debt.get("providers_with_breaking_changes", 0) > 0:
+                    summary_html += f"""
+                        <div class="summary-card">
+                            <div class="summary-number" style="color: var(--warning-color);">{tech_debt.get('providers_with_breaking_changes', 0)}</div>
+                            <div class="summary-label">⚠️ Providers with Breaking Changes</div>
+                        </div>
+                    """
+                
+                summary_html += """
+                    </div>
+                """
+                
+                # Add recommendations if available
+                recommendations = tech_debt.get("recommendations", [])
+                if recommendations:
+                    summary_html += """
+                    <div style="margin-top: 1.5rem; padding: 1rem; background: #f0f9ff; border-left: 4px solid var(--info-color); border-radius: 4px;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: var(--dark-color);">💡 Recommendations</h4>
+                        <ul style="margin: 0; padding-left: 1.5rem;">
+                    """
+                    for rec in recommendations:
+                        summary_html += f"<li style='margin: 0.25rem 0;'>{rec}</li>"
+                    summary_html += """
+                        </ul>
+                    </div>
+                    """
+                
+                summary_html += "</div>"
+            
             return summary_html
 
         except Exception as e:

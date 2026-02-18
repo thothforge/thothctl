@@ -358,6 +358,37 @@ class IaCInvCommand(ClickCommand):
         if "version_checks" in inventory:
             self.ui.print_info(f"Outdated Components: {outdated_components}")
 
+        # Display technical debt metrics
+        if "technical_debt" in inventory:
+            tech_debt = inventory["technical_debt"]
+            self.ui.print_info("\n📊 Technical Debt Metrics:")
+            
+            # Color-code risk level
+            risk_level = tech_debt.get("risk_level", "low")
+            debt_score = tech_debt.get("debt_score", 0)
+            
+            if risk_level == "critical":
+                risk_color = Fore.RED
+            elif risk_level == "high":
+                risk_color = Fore.YELLOW
+            elif risk_level == "medium":
+                risk_color = Fore.CYAN
+            else:
+                risk_color = Fore.GREEN
+            
+            self.ui.print_info(f"Debt Score: {risk_color}{debt_score:.1f}%{Fore.RESET} ({risk_level.upper()} risk)")
+            self.ui.print_info(f"Outdated Modules: {tech_debt.get('outdated_modules', 0)}/{tech_debt.get('total_components', 0)}")
+            
+            if tech_debt.get("outdated_providers", 0) > 0:
+                self.ui.print_info(f"Outdated Providers: {tech_debt.get('outdated_providers', 0)}")
+            
+            if tech_debt.get("modules_with_breaking_changes", 0) > 0:
+                self.ui.print_info(f"⚠️  Modules with Breaking Changes: {tech_debt.get('modules_with_breaking_changes', 0)}")
+            
+            if tech_debt.get("providers_with_breaking_changes", 0) > 0:
+                self.ui.print_info(f"⚠️  Providers with Breaking Changes: {tech_debt.get('providers_with_breaking_changes', 0)}")
+
+
     def _is_local_source(self, source: str) -> bool:
         """Check if a source is a local path."""
         if not source or source == "Null":

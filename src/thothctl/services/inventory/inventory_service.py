@@ -578,6 +578,13 @@ class InventoryService:
                     "reports": []
                 }
 
+
+        # Calculate technical debt metrics
+        if check_versions and inventory_dict:
+            logger.info("📊 Calculating technical debt metrics...")
+            tech_debt_metrics = self._calculate_technical_debt_metrics(inventory_dict)
+            inventory_dict["technical_debt"] = tech_debt_metrics
+            logger.info(f"Technical debt score: {tech_debt_metrics.get('debt_score', 0):.1f}%")
         # Generate reports
         reports_path = Path(reports_directory)
         if not reports_path.is_absolute():
@@ -1085,3 +1092,96 @@ class InventoryService:
             logger.warning(f"Could not parse resources from {file_path}: {e}")
             
         return resources
+
+    def _calculate_technical_debt_metrics(self, inventory: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Calculate technical debt metrics based on outdated components and providers.
+        
+        Args:
+            inventory: Inventory dictionary with version information
+            
+        Returns:
+            Dictionary with technical debt metrics
+        """
+        metrics = {
+            "total_components": 0,
+            "outdated_modules": 0,
+            "outdated_providers": 0,
+            "current_modules": 0,
+            "current_providers": 0,
+            "modules_with_breaking_changes": 0,
+            "providers_with_breaking_changes": 0,
+            "debt_score": 0.0,
+            "risk_level": "low",
+            "recommendations": []
+        }
+        
+        # Count module status
+        for component_group in inventory.get("components", []):
+            for component in component_group.get("components", []):
+                metrics["total_components"] += 1
+                status = component.get("status", "Unknown")
+                
+                if status == "Outdated":
+                    metrics["outdated_modules"] += 1
+                elif status == "Updated" or status == "Current":
+                    metrics["current_modules"] += 1
+        
+        # Count provider status
+        provider_stats = inventory.get("provider_version_stats", {})
+        metrics["outdated_providers"] = provider_stats.get("outdated_providers", 0)
+        metrics["current_providers"] = provider_stats.get("current_providers", 0)
+        
+        # Count breaking changes
+        module_compat = inventory.get("module_compatibility", {})
+        metrics["modules_with_breaking_changes"] = module_compat.get("breaking_changes", 0)
+        
+        schema_compat = inventory.get("schema_compatibility", {})
+        metrics["providers_with_breaking_changes"] = schema_compat.get("providers_with_breaking_changes", 0)
+        
+        # Calculate debt score (0-100, higher is worse)
+        total_items = metrics["total_components"] + metrics["outdated_providers"]
+        if total_items > 0:
+            outdated_items = metrics["outdated_modules"] + metrics["outdated_providers"]
+            metrics["debt_score"] = (outdated_items / total_items) * 100
+            
+            # Add weight for breaking changes
+            breaking_weight = (metrics["modules_with_breaking_changes"] + 
+                             metrics["providers_with_breaking_changes"]) * 5
+            metrics["debt_score"] = min(100, metrics["debt_score"] + breaking_weight)
+        
+        # Determine risk level
+        if metrics["debt_score"] >= 70:
+            metrics["risk_level"] = "critical"
+        elif metrics["debt_score"] >= 50:
+            metrics["risk_level"] = "high"
+        elif metrics["debt_score"] >= 30:
+            metrics["risk_level"] = "medium"
+        else:
+            metrics["risk_level"] = "low"
+        
+        # Generate recommendations
+        if metrics["outdated_modules"] > 0:
+            metrics["recommendations"].append(
+                f"Update {metrics['outdated_modules']} outdated module(s) to latest versions"
+            )
+        
+        if metrics["outdated_providers"] > 0:
+            metrics["recommendations"].append(
+                f"Update {metrics['outdated_providers']} outdated provider(s) to latest versions"
+            )
+        
+        if metrics["modules_with_breaking_changes"] > 0:
+            metrics["recommendations"].append(
+                f"Review {metrics['modules_with_breaking_changes']} module(s) with breaking changes before upgrading"
+            )
+        
+        if metrics["providers_with_breaking_changes"] > 0:
+            metrics["recommendations"].append(
+                f"Review {metrics['providers_with_breaking_changes']} provider(s) with breaking changes before upgrading"
+            )
+        
+        if metrics["debt_score"] < 20:
+            metrics["recommendations"].append("Infrastructure is well-maintained. Continue regular updates.")
+        
+        return metrics
