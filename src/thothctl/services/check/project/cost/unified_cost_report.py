@@ -117,7 +117,7 @@ class UnifiedCostReportGenerator:
                 </div>
                 <div class="summary-card">
                     <div class="summary-icon">📊</div>
-                    <div class="summary-number">${total_monthly / len(reports) if reports else 0:,.2f}</div>
+                    <div class="summary-number">${(total_monthly / len(reports)) if len(reports) > 0 else 0:,.2f}</div>
                     <div class="summary-label">Average Stack Cost</div>
                 </div>
             </div>
