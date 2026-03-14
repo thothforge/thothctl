@@ -47,6 +47,13 @@ Options:
                                   providers (includes provider version
                                   checking)
   -iph, --inventory-path PATH     Path for saving inventory reports
+  --post-to-pr                    Post inventory summary as a PR comment
+                                  (Azure DevOps or GitHub)
+  --vcs-provider [auto|azure_repos|github]
+                                  VCS provider for PR comments (default:
+                                  auto-detect from CI environment)
+  --space TEXT                    Space name for credential resolution
+                                  (Azure DevOps)
   --help                          Show this message and exit.
 ```
 
@@ -290,7 +297,28 @@ thothctl inventory iac \
   --check-versions \
   --report-type json \
   --inventory-path ./reports/$(date +%Y-%m-%d)
+
+# Post inventory summary as a PR comment
+thothctl inventory iac --check-versions --post-to-pr
 ```
+
+#### PR Comment Integration
+
+The `--post-to-pr` flag posts an inventory summary table directly to the pull request, including component counts, provider stats, and technical debt metrics.
+
+```yaml
+# GitHub Actions example
+- run: thothctl inventory iac --check-versions --post-to-pr
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Azure Pipelines example
+- script: thothctl inventory iac --check-versions --post-to-pr --space my-space
+  env:
+    AZDO_PERSONAL_ACCESS_TOKEN: $(AZDO_PERSONAL_ACCESS_TOKEN)
+```
+
+Platform comment size limits (GitHub: 65K chars, Azure DevOps: 150K chars) are enforced automatically with truncation. See [check iac PR comment docs](../check/check_iac.md#pr-comment-integration) for full platform setup details.
 
 ### Complete Analysis with All Options
 

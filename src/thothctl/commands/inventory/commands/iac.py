@@ -81,12 +81,18 @@ class IaCInvCommand(ClickCommand):
                 "code_directory": ctx.obj.get("CODE_DIRECTORY"),
             }
 
+            # Store for post_execute
+            self._post_to_pr = kwargs.get('post_to_pr', False)
+            self._space = kwargs.get('space')
+            self._vcs_provider = kwargs.get('vcs_provider', 'auto')
+            self._inventory = None
+
             action = InventoryAction(inventory_action.lower())
             print(f"👷 {Fore.GREEN}{self._get_action_message(action)}{Fore.RESET}")
 
             if action == InventoryAction.CREATE:
                 print("📦 Creating inventory...")
-                asyncio.run(
+                self._inventory = asyncio.run(
                     self.create_inventory(
                         source_dir=config["code_directory"],
                         check_versions=check_versions,
@@ -389,6 +395,76 @@ class IaCInvCommand(ClickCommand):
                 self.ui.print_info(f"⚠️  Providers with Breaking Changes: {tech_debt.get('providers_with_breaking_changes', 0)}")
 
 
+    def post_execute(self, **kwargs) -> None:
+        """Post inventory summary to PR if --post-to-pr flag is set."""
+        if not getattr(self, '_post_to_pr', False):
+            return
+
+        inventory = getattr(self, '_inventory', None)
+        if not inventory or not inventory.get("components"):
+            return
+
+        from ....core.integrations.pr_comments.pr_comment_publisher import publish_to_pr
+
+        content = self._build_inventory_markdown(inventory)
+        if publish_to_pr(
+            content=content,
+            vcs_provider=getattr(self, '_vcs_provider', 'auto'),
+            space=getattr(self, '_space', None),
+        ):
+            self.ui.print_success("✅ Inventory summary posted to PR")
+        else:
+            self.ui.print_warning("⚠️ Could not post inventory summary to PR")
+
+    def _build_inventory_markdown(self, inventory: dict) -> str:
+        """Build a markdown summary from the inventory dict."""
+        total_components = len(inventory["components"])
+        project_type = inventory.get('projectType', 'terraform')
+
+        lines = [
+            "## 📦 ThothCTL Inventory Summary\n",
+            f"| Metric | Value |",
+            f"|--------|-------|",
+            f"| Project Type | {project_type} |",
+            f"| Total Components | {total_components} |",
+        ]
+
+        # Providers
+        total_providers = inventory.get("unique_providers_count", 0)
+        if total_providers == 0:
+            for comp_group in inventory["components"]:
+                total_providers += len(comp_group.get("providers", []))
+        if total_providers > 0:
+            lines.append(f"| Providers | {total_providers} |")
+
+        # Terragrunt stacks
+        if project_type == 'terraform-terragrunt':
+            lines.append(f"| Terragrunt Stacks | {inventory.get('terragrunt_stacks_count', 0)} |")
+
+        # Outdated
+        outdated = sum(
+            1 for comp in inventory["components"] if comp.get("status") == "Outdated"
+        )
+        if "version_checks" in inventory:
+            lines.append(f"| Outdated Components | {outdated} |")
+
+        # Technical debt
+        tech_debt = inventory.get("technical_debt")
+        if tech_debt:
+            risk_level = tech_debt.get("risk_level", "low").upper()
+            debt_score = tech_debt.get("debt_score", 0)
+            lines.append(f"| Debt Score | {debt_score:.1f}% ({risk_level}) |")
+            lines.append(f"| Outdated Modules | {tech_debt.get('outdated_modules', 0)}/{tech_debt.get('total_components', 0)} |")
+            if tech_debt.get("modules_with_breaking_changes", 0) > 0:
+                lines.append(f"| ⚠️ Breaking Changes (Modules) | {tech_debt['modules_with_breaking_changes']} |")
+            if tech_debt.get("providers_with_breaking_changes", 0) > 0:
+                lines.append(f"| ⚠️ Breaking Changes (Providers) | {tech_debt['providers_with_breaking_changes']} |")
+
+        lines.append("\n---")
+        lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
+
+        return "\n".join(lines)
+
     def _is_local_source(self, source: str) -> bool:
         """Check if a source is a local path."""
         if not source or source == "Null":
@@ -491,4 +567,22 @@ cli = IaCInvCommand.as_click_command(
         "-tg-args",
         help="Additional arguments to pass to terragrunt commands (e.g., '--feature=ci=false'). Only used for terragrunt and terraform-terragrunt projects.",
         default="",
-    ),)
+    ),
+    click.option(
+        "--post-to-pr",
+        is_flag=True,
+        default=False,
+        help="Post inventory summary as a PR comment (Azure DevOps or GitHub)",
+    ),
+    click.option(
+        "--vcs-provider",
+        type=click.Choice(["auto", "azure_repos", "github"], case_sensitive=False),
+        default="auto",
+        help="VCS provider for PR comments (default: auto-detect from CI environment)",
+    ),
+    click.option(
+        "--space",
+        help="Space name for credential resolution (Azure DevOps)",
+        default=None,
+    ),
+)
