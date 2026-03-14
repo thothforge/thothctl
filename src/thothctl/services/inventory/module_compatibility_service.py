@@ -247,10 +247,23 @@ class ModuleCompatibilityService:
         except:
             # Fallback for non-standard versions
             return (0, 0, 0)
-    
+
+    @staticmethod
+    def _clean_version_constraint(version: str) -> str:
+        """Strip Terraform version constraint operators from a version string.
+
+        Examples: '~> 5.0' -> '5.0', '>= 3.1.0' -> '3.1.0', '= 2.0' -> '2.0'
+        """
+        import re
+        return re.sub(r'^[~><=!]+\s*', '', version.strip())
+
     def compare_module_schemas(self, namespace: str, name: str, provider: str, 
                              old_version: str, new_version: str) -> ModuleCompatibilityReport:
         """Compare two module schema versions and identify compatibility issues."""
+        
+        # Clean version constraints before using
+        old_version = self._clean_version_constraint(old_version)
+        new_version = self._clean_version_constraint(new_version)
         
         module_name = f"{namespace}/{name}/{provider}"
         logger.info(f"Comparing module schemas: {module_name} {old_version} -> {new_version}")
@@ -536,6 +549,9 @@ class ModuleCompatibilityService:
     def check_module_compatibility(self, module_source: str, current_version: str, 
                                  target_version: str = "latest") -> Optional[ModuleCompatibilityReport]:
         """Check compatibility for a single module upgrade."""
+        
+        # Strip Terraform version constraint operators (e.g. "~> 5.0" -> "5.0")
+        current_version = self._clean_version_constraint(current_version)
         
         parsed = self.parse_module_source(module_source)
         if not parsed:
