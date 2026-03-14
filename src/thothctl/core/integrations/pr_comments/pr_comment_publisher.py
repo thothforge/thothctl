@@ -22,7 +22,7 @@ AZURE_PIPELINES_VARS = {
     "project": "SYSTEM_TEAMPROJECT",
     "repo": "BUILD_REPOSITORY_NAME",
     "pr_id": "SYSTEM_PULLREQUEST_PULLREQUESTID",
-    "pat": "AZURE_DEVOPS_PAT",
+    "pat": "AZDO_PERSONAL_ACCESS_TOKEN",
 }
 
 GITHUB_ACTIONS_VARS = {
@@ -154,7 +154,7 @@ def _publish_azure_devops(content: str, space: Optional[str] = None) -> bool:
         logger.error(
             f"Missing Azure DevOps context: {', '.join(missing)}. "
             "Set env vars: SYSTEM_TEAMFOUNDATIONCOLLECTIONURI, SYSTEM_TEAMPROJECT, "
-            "BUILD_REPOSITORY_NAME, SYSTEM_PULLREQUEST_PULLREQUESTID, AZURE_DEVOPS_PAT"
+            "BUILD_REPOSITORY_NAME, SYSTEM_PULLREQUEST_PULLREQUESTID, AZDO_PERSONAL_ACCESS_TOKEN"
         )
         return False
 

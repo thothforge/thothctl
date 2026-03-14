@@ -220,7 +220,7 @@ Required environment variables (set automatically by Azure Pipelines, except PAT
 - `SYSTEM_TEAMPROJECT` — project name
 - `BUILD_REPOSITORY_NAME` — repository name
 - `SYSTEM_PULLREQUEST_PULLREQUESTID` — PR ID
-- `AZURE_DEVOPS_PAT` — personal access token (set as pipeline secret)
+- `AZDO_PERSONAL_ACCESS_TOKEN` — personal access token (set as pipeline secret)
 
 Alternatively, credentials can be resolved from an encrypted thothctl space:
 
@@ -238,7 +238,7 @@ steps:
       tofu show -json tfplan.bin > tfplan.json
   - script: thothctl check iac -type tfplan --recursive --post-to-pr --space my-space
     env:
-      AZURE_DEVOPS_PAT: $(AZURE_DEVOPS_PAT)
+      AZDO_PERSONAL_ACCESS_TOKEN: $(AZDO_PERSONAL_ACCESS_TOKEN)
 ```
 
 ### VCS Provider Selection

@@ -124,7 +124,7 @@ class TestTruncateComment:
             "SYSTEM_TEAMPROJECT": "proj",
             "BUILD_REPOSITORY_NAME": "repo",
             "SYSTEM_PULLREQUEST_PULLREQUESTID": "42",
-            "AZURE_DEVOPS_PAT": "pat123",
+            "AZDO_PERSONAL_ACCESS_TOKEN": "pat123",
         }
         with patch.dict(os.environ, env, clear=True), patch(
             "thothctl.core.integrations.azure_devops.pull_request_comments.post_comment_to_azure_devops_pr",
@@ -216,7 +216,7 @@ class TestResolveAzureCredentials:
             "SYSTEM_TEAMPROJECT": "myproject",
             "BUILD_REPOSITORY_NAME": "myrepo",
             "SYSTEM_PULLREQUEST_PULLREQUESTID": "99",
-            "AZURE_DEVOPS_PAT": "secret-pat",
+            "AZDO_PERSONAL_ACCESS_TOKEN": "secret-pat",
         }
 
         with patch.dict(os.environ, env, clear=True):
@@ -253,7 +253,7 @@ class TestResolveAzureCredentials:
         space_creds = {"type": "azure_repos", "pat": "space-pat", "organization": "space-org"}
         env = {
             "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI": "https://dev.azure.com/env-org/",
-            "AZURE_DEVOPS_PAT": "env-pat",
+            "AZDO_PERSONAL_ACCESS_TOKEN": "env-pat",
         }
 
         with patch.dict(os.environ, env, clear=True):
@@ -283,7 +283,7 @@ class TestPublishAzureDevops:
             "SYSTEM_TEAMPROJECT": "proj",
             "BUILD_REPOSITORY_NAME": "repo",
             "SYSTEM_PULLREQUEST_PULLREQUESTID": "7",
-            "AZURE_DEVOPS_PAT": "pat",
+            "AZDO_PERSONAL_ACCESS_TOKEN": "pat",
         }
 
         with patch.dict(os.environ, env, clear=True):
