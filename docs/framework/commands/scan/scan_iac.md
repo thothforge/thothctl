@@ -23,6 +23,9 @@ thothctl scan iac [OPTIONS]
 | `--features-dir PATH` | Directory containing terraform-compliance features |
 | `-t, --tools [trivy\|tfsec\|checkov\|terraform-compliance]` | Specify which security scanning tools to use |
 | `--reports-dir PATH` | Directory to store scan reports |
+| `--post-to-pr` | Post scan summary as a PR comment (Azure DevOps or GitHub) |
+| `--vcs-provider [auto\|azure_repos\|github]` | VCS provider for PR comments (default: auto-detect) |
+| `--space TEXT` | Space name for credential resolution (Azure DevOps) |
 | `--help` | Show help message and exit |
 
 ## Scanning Tools
@@ -168,7 +171,9 @@ jobs:
         run: pip install thothctl
         
       - name: Run Security Scan
-        run: thothctl scan iac -t checkov -t trivy --output-format json --reports-dir ./reports
+        run: thothctl scan iac -t checkov -t trivy --reports-dir ./reports --post-to-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
       - name: Upload Scan Results
         uses: actions/upload-artifact@v3
@@ -176,6 +181,17 @@ jobs:
           name: security-scan-results
           path: ./reports
 ```
+
+### Azure Pipelines
+
+```yaml
+- script: thothctl scan iac -t checkov --post-to-pr
+  displayName: 'Security Scan'
+  env:
+    AZDO_PERSONAL_ACCESS_TOKEN: $(System.AccessToken)
+```
+
+The `--post-to-pr` flag posts a scan results summary table (tool, status, passed/failed/errors, success rate) directly to the pull request. See [check iac PR comment docs](../check/check_iac.md#pr-comment-integration) for full platform setup details and required Azure DevOps permissions.
 
 ## Best Practices
 

@@ -200,6 +200,7 @@ class RestoredIaCScanCommand(ClickCommand):
             
             # Display results using enhanced display method
             self._display_original_results(results)
+            self._scan_results = results
 
             finish_time = time.perf_counter()
             scan_time = finish_time - start_time
@@ -459,6 +460,46 @@ class RestoredIaCScanCommand(ClickCommand):
                 border_style="green"
             ))
 
+    def _build_scan_markdown(self, results: dict) -> str:
+        """Build a markdown summary from scan results."""
+        lines = [
+            "## 🔒 ThothCTL Scan Results\n",
+            "| Tool | Status | Total | Passed | Failed | Errors | Skipped | Success Rate |",
+            "|------|--------|-------|--------|--------|--------|---------|-------------|",
+        ]
+
+        total_tests = total_passed = total_failed = total_errors = total_skipped = 0
+
+        for tool_name, tool_results in results.items():
+            if tool_name == "summary" or not isinstance(tool_results, dict):
+                continue
+            status = tool_results.get("status", "UNKNOWN")
+            rd = tool_results.get("report_data", {})
+            passed = rd.get("passed_count", 0)
+            failed = rd.get("failed_count", 0)
+            errors = rd.get("error_count", 0)
+            skipped = rd.get("skipped_count", 0)
+            total = passed + failed + errors + skipped
+            rate = f"{(passed / total * 100):.1f}%" if total > 0 else "N/A"
+            lines.append(f"| {tool_name} | {status} | {total} | {passed} | {failed} | {errors} | {skipped} | {rate} |")
+            total_tests += total
+            total_passed += passed
+            total_failed += failed
+            total_errors += errors
+            total_skipped += skipped
+
+        if total_tests > 0:
+            overall_rate = f"{(total_passed / total_tests * 100):.1f}%"
+            lines.append(f"| **TOTAL** | | **{total_tests}** | **{total_passed}** | **{total_failed}** | **{total_errors}** | **{total_skipped}** | **{overall_rate}** |")
+
+        total_issues = results.get("summary", {}).get("total_issues", 0)
+        if total_issues > 0:
+            lines.append(f"\n🚨 **Security Issues Found: {total_issues}**")
+
+        lines.append("\n---")
+        lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
+        return "\n".join(lines)
+
 
 @click.command()
 @click.option(
@@ -507,8 +548,25 @@ class RestoredIaCScanCommand(ClickCommand):
     help="Format for HTML reports",
     type=click.Choice(["simple", "xunit"]),
 )
+@click.option(
+    "--post-to-pr",
+    is_flag=True,
+    default=False,
+    help="Post scan summary as a PR comment (Azure DevOps or GitHub)",
+)
+@click.option(
+    "--vcs-provider",
+    type=click.Choice(["auto", "azure_repos", "github"], case_sensitive=False),
+    default="auto",
+    help="VCS provider for PR comments (default: auto-detect from CI environment)",
+)
+@click.option(
+    "--space",
+    help="Space name for credential resolution (Azure DevOps)",
+    default=None,
+)
 @click.pass_context
-def cli(ctx, tools, reports_dir, project_name, options, tftool, verbose, html_reports_format):
+def cli(ctx, tools, reports_dir, project_name, options, tftool, verbose, html_reports_format, post_to_pr, vcs_provider, space):
     """
     Scan IaC using security tools with original functionality and unified HTML styling.
     
@@ -551,3 +609,11 @@ def cli(ctx, tools, reports_dir, project_name, options, tftool, verbose, html_re
         verbose=verbose,
         html_reports_format=html_reports_format,
     )
+
+    if post_to_pr and hasattr(command, '_scan_results') and command._scan_results:
+        from ....core.integrations.pr_comments.pr_comment_publisher import publish_to_pr
+        content = command._build_scan_markdown(command._scan_results)
+        if publish_to_pr(content=content, vcs_provider=vcs_provider, space=space):
+            command.console.print("[green]✅ Scan summary posted to PR[/green]")
+        else:
+            command.console.print("[yellow]⚠️ Could not post scan summary to PR[/yellow]")
