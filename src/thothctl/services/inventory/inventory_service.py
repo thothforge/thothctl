@@ -645,7 +645,10 @@ class InventoryService:
             return providers
         
         # Determine the command to use based on project type
-        if self.is_terragrunt_project:
+        # Check if this specific stack has a terragrunt.hcl (not just the global project flag)
+        stack_has_terragrunt = (abs_stack_path / "terragrunt.hcl").exists()
+        
+        if self.is_terragrunt_project and stack_has_terragrunt:
             # For Terragrunt projects, use terragrunt run providers
             command = ["terragrunt", "run"]
             
