@@ -312,13 +312,13 @@ The `--post-to-pr` flag posts an inventory summary table directly to the pull re
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-# Azure Pipelines example
-- script: thothctl inventory iac --check-versions --post-to-pr --space my-space
+# Azure Pipelines example (uses built-in System.AccessToken, no PAT needed)
+- script: thothctl inventory iac --check-versions --post-to-pr
   env:
-    AZDO_PERSONAL_ACCESS_TOKEN: $(AZDO_PERSONAL_ACCESS_TOKEN)
+    AZDO_PERSONAL_ACCESS_TOKEN: $(System.AccessToken)
 ```
 
-Platform comment size limits (GitHub: 65K chars, Azure DevOps: 150K chars) are enforced automatically with truncation. See [check iac PR comment docs](../check/check_iac.md#pr-comment-integration) for full platform setup details.
+Platform comment size limits (GitHub: 65K chars, Azure DevOps: 150K chars) are enforced automatically with truncation. See [check iac PR comment docs](../check/check_iac.md#pr-comment-integration) for full platform setup details, including required Azure DevOps build service permissions.
 
 ### Complete Analysis with All Options
 

@@ -215,14 +215,25 @@ jobs:
 
 ### Azure Pipelines
 
-Required environment variables (set automatically by Azure Pipelines, except PAT):
-- `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI` — organization URL
-- `SYSTEM_TEAMPROJECT` — project name
-- `BUILD_REPOSITORY_NAME` — repository name
-- `SYSTEM_PULLREQUEST_PULLREQUESTID` — PR ID
-- `AZDO_PERSONAL_ACCESS_TOKEN` — personal access token (set as pipeline secret)
+Required environment variables — all are set automatically by Azure Pipelines except the PAT:
 
-Alternatively, credentials can be resolved from an encrypted thothctl space:
+| Env Var | Source | Notes |
+|---------|--------|-------|
+| `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI` | Built-in | Organization URL |
+| `SYSTEM_TEAMPROJECT` | Built-in | Project name |
+| `BUILD_REPOSITORY_NAME` | Built-in | Repository name |
+| `SYSTEM_PULLREQUEST_PULLREQUESTID` | Built-in | PR ID (only present on PR-triggered builds) |
+| `AZDO_PERSONAL_ACCESS_TOKEN` | **You must map it** | Use `$(System.AccessToken)` — no PAT creation needed |
+
+#### Pipeline permissions
+
+The build service identity needs one permission to post PR comments:
+
+1. Go to **Project Settings** → **Repositories** → your repo → **Security**
+2. Find **`<ProjectName> Build Service (<OrgName>)`**
+3. Set **Contribute to pull requests** → **Allow**
+
+No other permissions, PAT creation, or admin access is required.
 
 ```yaml
 # azure-pipelines.yml
@@ -232,10 +243,20 @@ pr:
     include: [main]
 
 steps:
+  - checkout: self
   - script: pip install thothctl
   - script: |
       tofu plan -out=tfplan.bin
       tofu show -json tfplan.bin > tfplan.json
+  - script: thothctl check iac -type tfplan --recursive --post-to-pr
+    displayName: 'Plan Summary Report'
+    env:
+      AZDO_PERSONAL_ACCESS_TOKEN: $(System.AccessToken)
+```
+
+Alternatively, credentials can be resolved from an encrypted thothctl space instead of `System.AccessToken`:
+
+```yaml
   - script: thothctl check iac -type tfplan --recursive --post-to-pr --space my-space
     env:
       AZDO_PERSONAL_ACCESS_TOKEN: $(AZDO_PERSONAL_ACCESS_TOKEN)
