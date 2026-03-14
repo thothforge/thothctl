@@ -45,6 +45,12 @@ class RestoredIaCScanCommand(ClickCommand):
         **kwargs,
     ) -> None:
         """Execute original IaC security scan with unified HTML styling."""
+        # Store for post_execute
+        self._post_to_pr = kwargs.get('post_to_pr', False)
+        self._vcs_provider = kwargs.get('vcs_provider', 'auto')
+        self._space = kwargs.get('space')
+        self._scan_results = None
+
         try:
             ctx = click.get_current_context()
             code_directory = ctx.obj.get("CODE_DIRECTORY")
@@ -500,120 +506,92 @@ class RestoredIaCScanCommand(ClickCommand):
         lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
         return "\n".join(lines)
 
+    def post_execute(self, **kwargs) -> None:
+        """Post scan summary to PR if --post-to-pr flag is set."""
+        if not getattr(self, '_post_to_pr', False):
+            return
+        results = getattr(self, '_scan_results', None)
+        if not results:
+            return
 
-@click.command()
-@click.option(
-    "--tools",
-    "-t",
-    multiple=True,
-    default=["checkov"],
-    help="Security scanning tools to use (Note: KICS requires Docker)",
-    type=click.Choice(["checkov", "trivy", "tfsec", "kics", "terraform-compliance"]),
-)
-@click.option(
-    "--reports-dir",
-    "-r",
-    default="Reports",
-    help="Directory to save scan reports",
-    type=click.Path(),
-)
-@click.option(
-    "--project-name",
-    "-p",
-    default="Security Scan",
-    help="Name of the project being scanned",
-    type=str,
-)
-@click.option(
-    "--options",
-    "-o",
-    help="Additional options for scanning tools (key=value,key2=value2)",
-    type=str,
-)
-@click.option(
-    "--tftool",
-    default="tofu",
-    help="Terraform tool to use (terraform or tofu)",
-    type=click.Choice(["terraform", "tofu"]),
-)
-@click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Enable verbose output",
-)
-@click.option(
-    "--html-reports-format",
-    default="simple",
-    help="Format for HTML reports",
-    type=click.Choice(["simple", "xunit"]),
-)
-@click.option(
-    "--post-to-pr",
-    is_flag=True,
-    default=False,
-    help="Post scan summary as a PR comment (Azure DevOps or GitHub)",
-)
-@click.option(
-    "--vcs-provider",
-    type=click.Choice(["auto", "azure_repos", "github"], case_sensitive=False),
-    default="auto",
-    help="VCS provider for PR comments (default: auto-detect from CI environment)",
-)
-@click.option(
-    "--space",
-    help="Space name for credential resolution (Azure DevOps)",
-    default=None,
-)
-@click.pass_context
-def cli(ctx, tools, reports_dir, project_name, options, tftool, verbose, html_reports_format, post_to_pr, vcs_provider, space):
-    """
-    Scan IaC using security tools with original functionality and unified HTML styling.
-    
-    This is the restored original scan command that:
-    - Uses the original recursive scanning logic
-    - Maintains the original report structure
-    - Applies unified HTML styling to generated reports
-    - Preserves backward compatibility
-    
-    The scan will:
-    - Recursively find Terraform files in subdirectories
-    - Generate individual reports for each directory/stack
-    - Apply modern unified styling to all HTML reports
-    - Maintain the original file structure and organization
-    
-    Examples:
-    
-        # Original scan with Checkov (default)
-        thothctl scan iac
-        
-        # Original scan with multiple tools
-        thothctl scan iac -t checkov -t trivy -t tfsec
-        
-        # Original scan with custom project name
-        thothctl scan iac -p "Production Infrastructure"
-        
-        # Original scan with custom reports directory
-        thothctl scan iac -r /path/to/reports
-        
-        # Original scan with additional options
-        thothctl scan iac -o "verbose=true,format=json"
-    """
-    command = RestoredIaCScanCommand()
-    command.execute(
-        tools=list(tools),
-        reports_dir=reports_dir,
-        project_name=project_name,
-        options=options,
-        tftool=tftool,
-        verbose=verbose,
-        html_reports_format=html_reports_format,
-    )
-
-    if post_to_pr and hasattr(command, '_scan_results') and command._scan_results:
         from ....core.integrations.pr_comments.pr_comment_publisher import publish_to_pr
-        content = command._build_scan_markdown(command._scan_results)
-        if publish_to_pr(content=content, vcs_provider=vcs_provider, space=space):
-            command.console.print("[green]✅ Scan summary posted to PR[/green]")
+
+        content = self._build_scan_markdown(results)
+        if publish_to_pr(
+            content=content,
+            vcs_provider=getattr(self, '_vcs_provider', 'auto'),
+            space=getattr(self, '_space', None),
+        ):
+            self.console.print("[green]✅ Scan summary posted to PR[/green]")
         else:
-            command.console.print("[yellow]⚠️ Could not post scan summary to PR[/yellow]")
+            self.console.print("[yellow]⚠️ Could not post scan summary to PR[/yellow]")
+
+
+# Create the Click command
+cli = RestoredIaCScanCommand.as_click_command(
+    help="Scan IaC using security tools with original functionality and unified HTML styling."
+)(
+    click.option(
+        "--tools",
+        "-t",
+        multiple=True,
+        default=["checkov"],
+        help="Security scanning tools to use (Note: KICS requires Docker)",
+        type=click.Choice(["checkov", "trivy", "tfsec", "kics", "terraform-compliance"]),
+    ),
+    click.option(
+        "--reports-dir",
+        "-r",
+        default="Reports",
+        help="Directory to save scan reports",
+        type=click.Path(),
+    ),
+    click.option(
+        "--project-name",
+        "-p",
+        default="Security Scan",
+        help="Name of the project being scanned",
+        type=str,
+    ),
+    click.option(
+        "--options",
+        "-o",
+        help="Additional options for scanning tools (key=value,key2=value2)",
+        type=str,
+    ),
+    click.option(
+        "--tftool",
+        default="tofu",
+        help="Terraform tool to use (terraform or tofu)",
+        type=click.Choice(["terraform", "tofu"]),
+    ),
+    click.option(
+        "--verbose",
+        "-v",
+        is_flag=True,
+        help="Enable verbose output",
+    ),
+    click.option(
+        "--html-reports-format",
+        default="simple",
+        help="Format for HTML reports",
+        type=click.Choice(["simple", "xunit"]),
+    ),
+    click.option(
+        "--post-to-pr",
+        is_flag=True,
+        default=False,
+        help="Post scan summary as a PR comment (Azure DevOps or GitHub)",
+    ),
+    click.option(
+        "--vcs-provider",
+        type=click.Choice(["auto", "azure_repos", "github"], case_sensitive=False),
+        default="auto",
+        help="VCS provider for PR comments (default: auto-detect from CI environment)",
+    ),
+    click.option(
+        "--space",
+        help="Space name for credential resolution (Azure DevOps)",
+        default=None,
+    ),
+)
