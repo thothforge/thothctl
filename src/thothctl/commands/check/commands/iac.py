@@ -99,12 +99,17 @@ class CheckIaCCommand(ClickCommand):
             publish_to_pr,
         )
 
+        # Try markdown file first (tfplan, deps, blast-radius)
         outmd = getattr(self, '_outmd', None)
-        if not outmd or not os.path.exists(outmd):
-            self.ui.print_warning("No markdown output file found to post")
+        if outmd and os.path.exists(outmd):
+            content = format_check_results(outmd)
+        # Fall back to cost analysis results
+        elif getattr(self, '_cost_results', None):
+            content = self._build_cost_markdown(self._cost_results)
+        else:
+            self.ui.print_warning("No results found to post to PR")
             return
 
-        content = format_check_results(outmd)
         if publish_to_pr(
             content=content,
             vcs_provider=getattr(self, '_vcs_provider', 'auto'),
@@ -113,6 +118,40 @@ class CheckIaCCommand(ClickCommand):
             self.ui.print_success("✅ Results posted to PR")
         else:
             self.ui.print_warning("⚠️ Could not post results to PR")
+
+    def _build_cost_markdown(self, cost_results: list) -> str:
+        """Build markdown summary from cost analysis results."""
+        total_monthly = sum(r["analysis"].total_monthly_cost for r in cost_results)
+        total_annual = sum(r["analysis"].total_annual_cost for r in cost_results)
+
+        lines = [
+            "## 💰 ThothCTL Cost Analysis Summary\n",
+            f"| Stack | Monthly Cost | Annual Cost |",
+            f"|-------|-------------|-------------|",
+        ]
+
+        for r in cost_results:
+            a = r["analysis"]
+            lines.append(f"| {r['stack']} | ${a.total_monthly_cost:.2f} | ${a.total_annual_cost:.2f} |")
+
+        lines.append(f"| **TOTAL** | **${total_monthly:.2f}** | **${total_annual:.2f}** |")
+
+        # Service breakdown across all stacks
+        services = {}
+        for r in cost_results:
+            for svc, cost in (r["analysis"].cost_breakdown_by_service or {}).items():
+                services[svc] = services.get(svc, 0) + cost
+
+        if services:
+            lines.append("\n### Cost by Service\n")
+            lines.append("| Service | Monthly Cost |")
+            lines.append("|---------|-------------|")
+            for svc, cost in sorted(services.items(), key=lambda x: -x[1]):
+                lines.append(f"| {svc} | ${cost:.2f} |")
+
+        lines.append("\n---")
+        lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
+        return "\n".join(lines)
 
     def _validate_tfplan(self, directory: str, recursive: bool = False, outmd: str = None, dependencies: bool = False,
                          tftool: str = 'tofu') -> bool:
@@ -871,6 +910,7 @@ class CheckIaCCommand(ClickCommand):
             
             analyzer = CostAnalyzer()
             unified_report = UnifiedCostReportGenerator()
+            cost_results = []
             
             # Analyze Terraform plans
             if tfplan_files:
@@ -878,6 +918,7 @@ class CheckIaCCommand(ClickCommand):
                     self.ui.print_info(f"Analyzing Terraform plan: {tfplan_file}")
                     analysis = analyzer.analyze_terraform_plan(tfplan_file)
                     self._display_cost_analysis(analysis)
+                    cost_results.append({"stack": Path(tfplan_file).parent.name, "analysis": analysis})
                     
                     # Generate reports
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -904,6 +945,7 @@ class CheckIaCCommand(ClickCommand):
                     self.ui.print_info(f"Analyzing CloudFormation template: {template}")
                     analysis = analyzer.analyze_cloudformation_template(template)
                     self._display_cost_analysis(analysis)
+                    cost_results.append({"stack": Path(template).stem, "analysis": analysis})
                     
                     # Generate reports for CloudFormation
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -930,6 +972,7 @@ class CheckIaCCommand(ClickCommand):
                 self.ui.print_success(f"\n🌐 Unified cost analysis index generated:")
                 self.ui.print_info(f"  {index_path}")
             
+            self._cost_results = cost_results
             return True
             
         except Exception as e:
