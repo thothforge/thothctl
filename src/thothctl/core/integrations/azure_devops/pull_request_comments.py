@@ -1,7 +1,9 @@
-"""Create pull request comment"""
+"""Post comments to Azure DevOps pull requests."""
+import logging
 from azure.devops.connection import Connection
-from colorama import Fore
 from msrest.authentication import BasicAuthentication
+
+logger = logging.getLogger(__name__)
 
 
 def post_comment_to_azure_devops_pr(
@@ -16,64 +18,49 @@ def post_comment_to_azure_devops_pr(
     Post a comment to an Azure DevOps pull request.
 
     Args:
-    organization_url (str): The URL of the Azure DevOps organization.
-    personal_access_token (str): The personal access token for authentication.
-    project (str): The name of the project.
-    repository_name (str): The name of the repository.
-    pull_request_id (int): The ID of the pull request.
-    comment (str): The content of the comment to be posted.
+        organization_name: Azure DevOps organization name.
+        personal_access_token: PAT for authentication.
+        project: Project name.
+        repository_name: Repository name.
+        pull_request_id: PR ID.
+        comment: Markdown content to post.
 
     Returns:
-    dict: The created thread information.
+        The created thread object.
 
     Raises:
-    ValueError: If the repository is not found.
-    Exception: For any other errors during the process.
+        ValueError: If the repository is not found.
     """
-    try:
-        print(f"{Fore.CYAN}🤖 Posting comment to Azure DevOps... {Fore.RESET}")
-        # Create a connection to the Azure DevOps organization
-        credentials = BasicAuthentication("", personal_access_token)
-        connection = Connection(
-            base_url=f"https://dev.azure.com/{organization_name}", creds=credentials
-        )
+    credentials = BasicAuthentication("", personal_access_token)
+    connection = Connection(
+        base_url=f"https://dev.azure.com/{organization_name}",
+        creds=credentials,
+    )
 
-        # Get a client for the Git API
-        git_client = connection.clients.get_git_client()
+    git_client = connection.clients.get_git_client()
+    repositories = git_client.get_repositories(project)
 
-        # List repositories in the project
-        repositories = git_client.get_repositories(project)
+    repository_id = next(
+        (repo.id for repo in repositories if repo.name == repository_name),
+        None,
+    )
+    if not repository_id:
+        raise ValueError(f"Repository '{repository_name}' not found.")
 
-        # Find the repository ID based on the repository name
-        repository_id = next(
-            (repo.id for repo in repositories if repo.name == repository_name), None
-        )
+    thread = {
+        "comments": [
+            {"parentCommentId": 0, "content": comment, "commentType": 1}
+        ],
+        "status": 1,
+    }
 
-        if not repository_id:
-            raise ValueError(f"Repository '{repository_name}' not found.")
+    created_thread = git_client.create_thread(
+        thread, repository_id, pull_request_id, project
+    )
 
-        # Create the comment thread
-        # Create the comment
-        thread = {
-            "comments": [{"parentCommentId": 0, "content": comment, "commentType": 1}],
-            "status": 1,
-        }
+    if created_thread:
+        logger.info(f"PR comment posted successfully (thread {created_thread.id})")
+    else:
+        logger.error("Failed to post PR comment — created_thread is None")
 
-        # Post the comment to the pull request
-        created_thread = git_client.create_thread(
-            thread, repository_id, pull_request_id, project
-        )
-        if created_thread:
-            print(f"{Fore.CYAN}☑️ Comment posted successfully. {Fore.RESET}")
-            # You can access more details about the created thread if needed
-            # For example: print(f"Thread ID: {created_thread.id}")
-        else:
-            print(
-                f"{Fore.RED}📛 Failed to post comment. The created_thread is None. {Fore.RESET}"
-            )
-        return created_thread
-
-    except ValueError as ve:
-        raise ve
-    except Exception as e:
-        raise Exception(f"An error occurred while posting the comment: {str(e)}")
+    return created_thread

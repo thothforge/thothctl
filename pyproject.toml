@@ -88,6 +88,9 @@ core-metadata-version = "2.1"
 thothctl = "thothctl.cli:cli" #"src.thothctl:main"
 thothctl-register-autocomplete = "thothctl.autocomplete:main"
 
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
 ## Tools
 [tool.commitizen]
 name = "cz_conventional_commits"

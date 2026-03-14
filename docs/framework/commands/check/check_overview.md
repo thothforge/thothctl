@@ -73,6 +73,9 @@ thothctl check iac -type blast-radius --recursive
 
 # Estimate infrastructure costs
 thothctl check iac -type cost-analysis --recursive
+
+# Post results as a PR comment in CI/CD
+thothctl check iac -type tfplan --recursive --post-to-pr
 ```
 
 Available check types:
@@ -167,7 +170,13 @@ jobs:
         run: thothctl check space --space-name ${{ vars.SPACE_NAME }}
       - name: Validate IaC Structure
         run: thothctl check project iac --mode strict
+      - name: Analyze Plan and Post to PR
+        run: thothctl check iac -type tfplan --recursive --post-to-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+The `--post-to-pr` flag automatically posts check results as a pull request comment. It supports GitHub Actions and Azure Pipelines, with auto-detection of the CI environment. See [check iac documentation](check_iac.md#pr-comment-integration) for details.
 
 ### Pre-commit Hooks
 

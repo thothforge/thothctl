@@ -19,6 +19,10 @@ Options:
   -type, --check_type [tfplan|deps|blast-radius|cost-analysis]
                                   Check type to perform [default: tfplan]
   --plan-file TEXT                Path to terraform plan JSON file (for blast-radius)
+  --post-to-pr                    Post results as a PR comment (Azure DevOps or GitHub)
+  --vcs-provider [auto|azure_repos|github]
+                                  VCS provider for PR comments [default: auto]
+  --space TEXT                    Space name for credential resolution (Azure DevOps)
   --help                          Show this message and exit.
 ```
 
@@ -168,6 +172,86 @@ thothctl check iac -type blast-radius --recursive --plan-file tfplan.json
 # 7. Follow ITIL v4 recommendations from output
 ```
 
+## PR Comment Integration
+
+The `--post-to-pr` flag posts check results directly as a pull request comment, making analysis output visible in code reviews without leaving the VCS interface.
+
+### Supported Platforms
+
+| Platform | Detection | Max Comment Size |
+|----------|-----------|-----------------|
+| GitHub Actions | `GITHUB_ACTIONS` env var | 65,536 characters |
+| Azure Pipelines | `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI` env var | 150,000 characters |
+
+Comments that exceed the platform limit are automatically truncated with a notice.
+
+### GitHub Actions
+
+Required environment variables (set automatically by GitHub Actions):
+- `GITHUB_TOKEN` — authentication token
+- `GITHUB_REPOSITORY` — owner/repo
+- `GITHUB_REF` — must be `refs/pull/<number>/merge` (PR trigger)
+
+```yaml
+# .github/workflows/check.yml
+name: IaC Check
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install thothctl
+      - run: |
+          tofu plan -out=tfplan.bin
+          tofu show -json tfplan.bin > tfplan.json
+      - run: thothctl check iac -type tfplan --recursive --post-to-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Azure Pipelines
+
+Required environment variables (set automatically by Azure Pipelines, except PAT):
+- `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI` — organization URL
+- `SYSTEM_TEAMPROJECT` — project name
+- `BUILD_REPOSITORY_NAME` — repository name
+- `SYSTEM_PULLREQUEST_PULLREQUESTID` — PR ID
+- `AZURE_DEVOPS_PAT` — personal access token (set as pipeline secret)
+
+Alternatively, credentials can be resolved from an encrypted thothctl space:
+
+```yaml
+# azure-pipelines.yml
+trigger: none
+pr:
+  branches:
+    include: [main]
+
+steps:
+  - script: pip install thothctl
+  - script: |
+      tofu plan -out=tfplan.bin
+      tofu show -json tfplan.bin > tfplan.json
+  - script: thothctl check iac -type tfplan --recursive --post-to-pr --space my-space
+    env:
+      AZURE_DEVOPS_PAT: $(AZURE_DEVOPS_PAT)
+```
+
+### VCS Provider Selection
+
+```bash
+# Auto-detect from CI environment (default)
+thothctl check iac -type tfplan --recursive --post-to-pr
+
+# Explicitly specify provider
+thothctl check iac -type tfplan --recursive --post-to-pr --vcs-provider github
+thothctl check iac -type tfplan --recursive --post-to-pr --vcs-provider azure_repos --space my-space
+```
+
 ## Output Examples
 
 ### Dependency Analysis Output
@@ -240,6 +324,9 @@ Integrate checks into CI/CD pipelines:
 ```bash
 # In CI/CD pipeline
 thothctl check iac -type tfplan --recursive --mode hard
+
+# Post results to PR for visibility in code reviews
+thothctl check iac -type tfplan --recursive --post-to-pr
 ```
 
 ### 4. Documentation Generation

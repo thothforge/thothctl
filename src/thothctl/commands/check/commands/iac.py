@@ -47,6 +47,12 @@ class CheckIaCCommand(ClickCommand):
         ctx = click.get_current_context()
         directory = ctx.obj.get("CODE_DIRECTORY")
 
+        # Store for post_execute
+        self._post_to_pr = kwargs.get('post_to_pr', False)
+        self._outmd = kwargs.get('outmd')
+        self._space = kwargs.get('space')
+        self._vcs_provider = kwargs.get('vcs_provider', 'auto')
+
         try:
             # Process based on check type
             if kwargs['check_type'] == "tfplan":
@@ -82,6 +88,31 @@ class CheckIaCCommand(ClickCommand):
         except Exception as e:
             self.logger.error(f"Failed to execute check command: {str(e)}")
             raise
+
+    def post_execute(self, **kwargs) -> None:
+        """Post results to PR if --post-to-pr flag is set."""
+        if not getattr(self, '_post_to_pr', False):
+            return
+
+        from ....core.integrations.pr_comments.pr_comment_publisher import (
+            format_check_results,
+            publish_to_pr,
+        )
+
+        outmd = getattr(self, '_outmd', None)
+        if not outmd or not os.path.exists(outmd):
+            self.ui.print_warning("No markdown output file found to post")
+            return
+
+        content = format_check_results(outmd)
+        if publish_to_pr(
+            content=content,
+            vcs_provider=getattr(self, '_vcs_provider', 'auto'),
+            space=getattr(self, '_space', None),
+        ):
+            self.ui.print_success("✅ Results posted to PR")
+        else:
+            self.ui.print_warning("⚠️ Could not post results to PR")
 
     def _validate_tfplan(self, directory: str, recursive: bool = False, outmd: str = None, dependencies: bool = False,
                          tftool: str = 'tofu') -> bool:
@@ -1167,4 +1198,22 @@ cli = CheckIaCCommand.as_click_command(
                  type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis"], case_sensitive=True),
                  default="tfplan",
                  ),
+    click.option(
+        '--post-to-pr',
+        is_flag=True,
+        default=False,
+        help='Post results as a comment to the current pull request'
+    ),
+    click.option(
+        '--vcs-provider',
+        type=click.Choice(['auto', 'azure_repos', 'github'], case_sensitive=True),
+        default='auto',
+        help='VCS provider for PR comments (auto-detects from CI environment)'
+    ),
+    click.option(
+        '--space',
+        type=str,
+        default=None,
+        help='Space name to load VCS credentials from'
+    ),
 )
