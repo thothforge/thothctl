@@ -250,12 +250,17 @@ class ModuleCompatibilityService:
 
     @staticmethod
     def _clean_version_constraint(version: str) -> str:
-        """Strip Terraform version constraint operators from a version string.
+        """Strip Terraform version constraint operators and normalize to semver.
 
-        Examples: '~> 5.0' -> '5.0', '>= 3.1.0' -> '3.1.0', '= 2.0' -> '2.0'
+        Examples: '~> 5.0' -> '5.0.0', '>= 3.1' -> '3.1.0', '5.0.0' -> '5.0.0'
         """
         import re
-        return re.sub(r'^[~><=!]+\s*', '', version.strip())
+        cleaned = re.sub(r'^[~><=!]+\s*', '', version.strip())
+        # Pad to full semver (e.g. '5.0' -> '5.0.0')
+        parts = cleaned.split('.')
+        while len(parts) < 3:
+            parts.append('0')
+        return '.'.join(parts)
 
     def compare_module_schemas(self, namespace: str, name: str, provider: str, 
                              old_version: str, new_version: str) -> ModuleCompatibilityReport:
