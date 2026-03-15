@@ -400,15 +400,22 @@ class IaCInvCommand(ClickCommand):
     def post_execute(self, **kwargs) -> None:
         """Post inventory summary to PR if --post-to-pr flag is set."""
         if not getattr(self, '_post_to_pr', False):
+            logger.info("post_execute: --post-to-pr not set, skipping")
             return
 
         inventory = getattr(self, '_inventory', None)
-        if not inventory or not inventory.get("components"):
+        if not inventory:
+            self.ui.print_warning("⚠️ No inventory data available to post to PR")
+            return
+        if not inventory.get("components"):
+            self.ui.print_warning("⚠️ Inventory has no components to post to PR")
             return
 
         from ....core.integrations.pr_comments.pr_comment_publisher import publish_to_pr
 
         content = self._build_inventory_markdown(inventory)
+        logger.info(f"post_execute: built markdown ({len(content)} chars)")
+
         if publish_to_pr(
             content=content,
             vcs_provider=getattr(self, '_vcs_provider', 'auto'),
