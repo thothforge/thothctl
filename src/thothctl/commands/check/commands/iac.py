@@ -850,8 +850,12 @@ class CheckIaCCommand(ClickCommand):
     def _run_blast_radius_check(self, directory: str, recursive: bool = False, **kwargs) -> bool:
         """Run blast radius assessment combining deps and plan analysis."""
         try:
-            # Find existing tfplan.json files instead of generating new ones
-            tfplan_files = self._find_tfplan_files(directory, recursive)
+            # Use explicit plan file if provided, otherwise auto-discover
+            explicit_plan = kwargs.get('plan_file')
+            if explicit_plan and os.path.exists(explicit_plan):
+                tfplan_files = [explicit_plan]
+            else:
+                tfplan_files = self._find_tfplan_files(directory, recursive)
             
             if not tfplan_files:
                 self.ui.print_warning("No tfplan.json files found. Run 'terraform plan -out=tfplan && terraform show -json tfplan > tfplan.json' first.")
@@ -1241,6 +1245,12 @@ cli = CheckIaCCommand.as_click_command(
                  type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis"], case_sensitive=True),
                  default="tfplan",
                  ),
+    click.option(
+        '--plan-file',
+        help="Path to terraform plan JSON file (for blast-radius)",
+        type=str,
+        default=None,
+    ),
     click.option(
         '--post-to-pr',
         is_flag=True,
