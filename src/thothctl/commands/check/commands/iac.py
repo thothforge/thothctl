@@ -99,10 +99,13 @@ class CheckIaCCommand(ClickCommand):
             publish_to_pr,
         )
 
-        # Try markdown file first (tfplan, deps, blast-radius)
+        # Try markdown file first (tfplan, deps)
         outmd = getattr(self, '_outmd', None)
         if outmd and os.path.exists(outmd):
             content = format_check_results(outmd)
+        # Blast radius assessment
+        elif getattr(self, '_blast_assessment', None):
+            content = self._build_blast_radius_markdown(self._blast_assessment)
         # Fall back to cost analysis results
         elif getattr(self, '_cost_results', None):
             content = self._build_cost_markdown(self._cost_results)
@@ -148,6 +151,34 @@ class CheckIaCCommand(ClickCommand):
             lines.append("|---------|-------------|")
             for svc, cost in sorted(services.items(), key=lambda x: -x[1]):
                 lines.append(f"| {svc} | ${cost:.2f} |")
+
+        lines.append("\n---")
+        lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
+        return "\n".join(lines)
+
+    def _build_blast_radius_markdown(self, assessment) -> str:
+        """Build markdown summary from blast radius assessment."""
+        lines = [
+            "## 💥 ThothCTL Blast Radius Assessment\n",
+            f"| Metric | Value |",
+            f"|--------|-------|",
+            f"| Risk Level | {assessment.risk_level.value.upper()} |",
+            f"| Change Type | {assessment.change_type.value.upper()} |",
+            f"| Total Components | {assessment.total_components} |",
+            f"| Affected Components | {len(assessment.affected_components)} |",
+        ]
+
+        if assessment.affected_components:
+            lines.append("\n### Affected Components\n")
+            lines.append("| Component | Change | Risk | Criticality |")
+            lines.append("|-----------|--------|------|-------------|")
+            for comp in assessment.affected_components:
+                lines.append(f"| {comp.name} | {comp.change_type} | {comp.risk_score:.2f} | {comp.criticality} |")
+
+        if assessment.recommendations:
+            lines.append("\n### ITIL v4 Recommendations\n")
+            for rec in assessment.recommendations:
+                lines.append(f"- {rec}")
 
         lines.append("\n---")
         lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
@@ -877,14 +908,10 @@ class CheckIaCCommand(ClickCommand):
             
             # Display results
             self._display_blast_radius_results(assessment)
-            
-            # Generate unified index page
-            if tfplan_files:
-                reports_dir = Path("Reports") / "cost-analysis"
-                index_path = unified_report.generate_unified_index(reports_dir, "Infrastructure")
-                self.ui.print_success(f"\n🌐 Unified cost analysis index generated:")
-                self.ui.print_info(f"  {index_path}")
-            
+
+            # Store for post_execute PR posting
+            self._blast_assessment = assessment
+
             return True
             
         except Exception as e:
