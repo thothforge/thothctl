@@ -206,6 +206,8 @@ class IaCInvCommand(ClickCommand):
             else:
                 self.ui.print_warning("No components found in the specified directory.")
 
+            return inventory
+
         except Exception as e:
             self.ui.print_error(f"Failed to create inventory: {str(e)}")
             logger.exception("Inventory creation failed")
