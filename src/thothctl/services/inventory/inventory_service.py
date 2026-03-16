@@ -1,3 +1,4 @@
+import json
 import re
 import subprocess
 import shlex
@@ -204,15 +205,19 @@ class InventoryService:
 
     def _detect_project_type(self, source_path: Path, complete: bool = False) -> str:
         """
-        Detect if the project is Terraform or Terragrunt based.
+        Detect if the project is Terraform, Terragrunt, or CDK based.
         
         Args:
             source_path: Path to the source directory
             complete: If True, include everything (complete analysis). If False, exclude cache folders.
             
         Returns:
-            'terragrunt', 'terraform', 'terraform-terragrunt', or 'module'
+            'terragrunt', 'terraform', 'terraform-terragrunt', 'module', or 'cdkv2'
         """
+        # Check for CDK project (cdk.json is the definitive marker)
+        if (source_path / "cdk.json").exists():
+            return "cdkv2"
+
         has_terragrunt = False
         has_terraform = False
         
@@ -309,7 +314,19 @@ class InventoryService:
                 report_type=report_type,
                 reports_directory=reports_directory,
                 print_console=print_console
-            )        # Collect all components and track terragrunt stacks
+            )
+        # Handle CDK projects
+        if project_type == "cdkv2":
+            return await self._analyze_cdk_project(
+                source_path=source_path,
+                check_versions=check_versions,
+                project_name=project_name,
+                report_type=report_type,
+                reports_directory=reports_directory,
+                print_console=print_console,
+            )
+
+        # Collect all components and track terragrunt stacks
         for file_type, file_path in self._walk_directory(source_path, complete):
             components = []
             
@@ -898,6 +915,265 @@ class InventoryService:
                 ))
                 
         return providers
+    async def _analyze_cdk_project(
+        self,
+        source_path: Path,
+        check_versions: bool = False,
+        project_name: str = "",
+        report_type: str = "html",
+        reports_directory: str = "Reports",
+        print_console: bool = True,
+    ) -> Dict[str, Any]:
+        """Analyze a CDK v2 project and create inventory from dependencies."""
+        components: List[Component] = []
+        cdk_language = "unknown"
+
+        # Detect language and parse dependencies
+        package_json = source_path / "package.json"
+        requirements_txt = source_path / "requirements.txt"
+        pyproject_toml = source_path / "pyproject.toml"
+
+        if package_json.exists():
+            cdk_language = "typescript"
+            components = self._parse_package_json(package_json)
+        elif requirements_txt.exists():
+            cdk_language = "python"
+            components = self._parse_requirements_txt(requirements_txt)
+        elif pyproject_toml.exists():
+            cdk_language = "python"
+            components = self._parse_pyproject_toml(pyproject_toml)
+
+        # Detect stacks from source files
+        stack_groups = self._detect_cdk_stacks(source_path, cdk_language)
+
+        # Build component groups: one for dependencies, one per stack
+        groups: List[ComponentGroup] = []
+        if components:
+            groups.append(ComponentGroup(stack="./dependencies", components=components))
+        for stack_name, stack_components in stack_groups.items():
+            groups.append(ComponentGroup(stack=stack_name, components=stack_components))
+
+        inventory = Inventory(
+            project_name=project_name or source_path.name,
+            components=groups,
+            project_type="cdkv2",
+        )
+        inventory_dict = inventory.to_dict()
+        inventory_dict["cdk_language"] = cdk_language
+
+        # Version checking
+        if check_versions and components:
+            registry = "npm" if cdk_language == "typescript" else "pypi"
+            inventory_dict = await self._check_cdk_versions(inventory_dict, registry)
+
+            # Calculate technical debt
+            total = 0
+            outdated = 0
+            for group in inventory_dict.get("components", []):
+                for comp in group.get("components", []):
+                    if comp.get("type") == "cdk_construct":
+                        total += 1
+                        if comp.get("status") == "Outdated":
+                            outdated += 1
+            if total > 0:
+                debt_score = (outdated / total) * 100
+                risk = "critical" if debt_score > 75 else "high" if debt_score > 50 else "medium" if debt_score > 25 else "low"
+                inventory_dict["technical_debt"] = {
+                    "debt_score": debt_score,
+                    "risk_level": risk,
+                    "outdated_modules": outdated,
+                    "total_components": total,
+                    "modules_with_breaking_changes": 0,
+                    "providers_with_breaking_changes": 0,
+                }
+
+        # Generate reports
+        reports_path = Path(reports_directory) / "inventory-sbom"
+        reports_path.mkdir(parents=True, exist_ok=True)
+
+        if report_type in ("html", "all"):
+            self.report_service.create_html_report(inventory_dict, reports_directory=str(reports_path))
+        if report_type in ("json", "all"):
+            self.report_service.create_json_report(inventory_dict, reports_directory=str(reports_path))
+        if print_console:
+            self.report_service.print_inventory_console(inventory_dict)
+
+        return inventory_dict
+
+    def _parse_package_json(self, path: Path) -> List[Component]:
+        """Parse package.json for CDK construct dependencies."""
+        try:
+            data = json.loads(path.read_text())
+        except Exception as e:
+            logger.error(f"Failed to parse {path}: {e}")
+            return []
+
+        components = []
+        for section in ("dependencies", "devDependencies"):
+            for name, version_spec in data.get(section, {}).items():
+                if not self._is_cdk_related_package(name):
+                    continue
+                clean_ver = re.sub(r'^[\^~>=<! ]+', '', version_spec)
+                components.append(Component(
+                    type="cdk_construct",
+                    name=name,
+                    version=[clean_ver],
+                    source=[f"npm:{name}"],
+                    file=str(path),
+                    status="Null",
+                ))
+        return components
+
+    def _parse_requirements_txt(self, path: Path) -> List[Component]:
+        """Parse requirements.txt for CDK construct dependencies."""
+        components = []
+        try:
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                # Parse: package==1.0.0 or package>=1.0.0 or package~=1.0.0
+                match = re.match(r'^([a-zA-Z0-9_.-]+)\s*([><=~!]+)?\s*([0-9][0-9a-zA-Z.*-]*)?', line)
+                if not match:
+                    continue
+                name = match.group(1)
+                version = match.group(3) or "Null"
+                if not self._is_cdk_related_package(name):
+                    continue
+                components.append(Component(
+                    type="cdk_construct",
+                    name=name,
+                    version=[version],
+                    source=[f"pypi:{name}"],
+                    file=str(path),
+                    status="Null",
+                ))
+        except Exception as e:
+            logger.error(f"Failed to parse {path}: {e}")
+        return components
+
+    def _parse_pyproject_toml(self, path: Path) -> List[Component]:
+        """Parse pyproject.toml for CDK construct dependencies."""
+        components = []
+        try:
+            content = path.read_text()
+            # Simple TOML parsing for dependencies section
+            in_deps = False
+            for line in content.splitlines():
+                if re.match(r'^\[.*dependencies.*\]', line, re.IGNORECASE):
+                    in_deps = True
+                    continue
+                if line.startswith("[") and in_deps:
+                    in_deps = False
+                    continue
+                if in_deps:
+                    # Handle: "aws-cdk-lib>=2.0.0" or 'constructs>=10.0.0'
+                    match = re.match(r'["\']?([a-zA-Z0-9_.-]+)\s*([><=~!]+)?\s*([0-9][0-9a-zA-Z.*-]*)?', line.strip().strip('",'))
+                    if match:
+                        name = match.group(1)
+                        version = match.group(3) or "Null"
+                        if self._is_cdk_related_package(name):
+                            components.append(Component(
+                                type="cdk_construct",
+                                name=name,
+                                version=[version],
+                                source=[f"pypi:{name}"],
+                                file=str(path),
+                                status="Null",
+                            ))
+        except Exception as e:
+            logger.error(f"Failed to parse {path}: {e}")
+        return components
+
+    @staticmethod
+    def _is_cdk_related_package(name: str) -> bool:
+        """Check if a package is CDK-related."""
+        cdk_prefixes = (
+            "aws-cdk", "cdk-", "@aws-cdk/", "constructs",
+            "aws_cdk", "cdk_",
+        )
+        return any(name.lower().startswith(p) for p in cdk_prefixes)
+
+    def _detect_cdk_stacks(self, source_path: Path, language: str) -> Dict[str, List[Component]]:
+        """Detect CDK stack classes from source files."""
+        stacks: Dict[str, List[Component]] = {}
+        ext = "*.ts" if language == "typescript" else "*.py"
+
+        # Python: class MyStack(Stack) / TypeScript: class MyStack extends Stack
+        if language == "typescript":
+            stack_pattern = re.compile(r'class\s+(\w+)\s+extends\s+\w*(?:Stack|NestedStack)')
+        else:
+            stack_pattern = re.compile(r'class\s+(\w+)\s*\(.*(?:Stack|NestedStack)')
+
+        for f in source_path.rglob(ext):
+            if self._should_exclude_path(f, False):
+                continue
+            if "node_modules" in str(f) or "cdk.out" in str(f) or ".venv" in str(f):
+                continue
+            try:
+                content = f.read_text(errors="ignore")
+                for match in stack_pattern.finditer(content):
+                    stack_name = match.group(1)
+                    rel = str(f.relative_to(source_path))
+                    stacks[f"./{rel}"] = [Component(
+                        type="cdk_stack",
+                        name=stack_name,
+                        version=["N/A"],
+                        source=[f"./{rel}"],
+                        file=rel,
+                        status="Null",
+                    )]
+            except Exception as e:
+                logger.debug(f"Could not parse {f}: {e}")
+        return stacks
+
+    async def _check_cdk_versions(self, inventory_dict: Dict[str, Any], registry: str) -> Dict[str, Any]:
+        """Check latest versions for CDK dependencies against npm/PyPI."""
+        import aiohttp
+        from aiohttp import ClientTimeout
+
+        async with aiohttp.ClientSession(timeout=ClientTimeout(total=30)) as session:
+            for group in inventory_dict.get("components", []):
+                for comp in group.get("components", []):
+                    if comp.get("type") != "cdk_construct":
+                        continue
+                    name = comp["name"]
+                    local_ver = comp["version"][0] if comp.get("version") else "Null"
+
+                    latest = await self._fetch_registry_version(session, name, registry)
+                    comp["latest_version"] = latest
+                    comp["source_url"] = (
+                        f"https://www.npmjs.com/package/{name}" if registry == "npm"
+                        else f"https://pypi.org/project/{name}/"
+                    )
+                    if latest and latest != "Null" and local_ver != "Null":
+                        comp["status"] = "Updated" if latest == local_ver else "Outdated"
+                    else:
+                        comp["status"] = "Unknown"
+
+        inventory_dict["version_checks"] = True
+        return inventory_dict
+
+    @staticmethod
+    async def _fetch_registry_version(session, name: str, registry: str) -> str:
+        """Fetch latest version from npm or PyPI."""
+        try:
+            if registry == "npm":
+                url = f"https://registry.npmjs.org/{name}/latest"
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data.get("version", "Null")
+            else:
+                url = f"https://pypi.org/pypi/{name}/json"
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data.get("info", {}).get("version", "Null")
+        except Exception as e:
+            logger.warning(f"Failed to fetch version for {name} from {registry}: {e}")
+        return "Null"
+
     async def _analyze_module(
         self,
         source_path: Path,

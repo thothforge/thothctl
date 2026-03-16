@@ -435,8 +435,14 @@ class IaCInvCommand(ClickCommand):
             f"| Metric | Value |",
             f"|--------|-------|",
             f"| Project Type | {project_type} |",
-            f"| Total Components | {total_components} |",
         ]
+
+        # CDK language
+        cdk_language = inventory.get("cdk_language")
+        if cdk_language:
+            lines.append(f"| CDK Language | {cdk_language} |")
+
+        lines.append(f"| Total Components | {total_components} |")
 
         # Providers
         total_providers = inventory.get("unique_providers_count", 0)
@@ -537,7 +543,7 @@ cli = IaCInvCommand.as_click_command(
     click.option(
         "--framework-type",
         "-ft",
-        type=click.Choice(["auto", "terraform", "terragrunt", "terraform-terragrunt", "module"], case_sensitive=False),
+        type=click.Choice(["auto", "terraform", "terragrunt", "terraform-terragrunt", "module", "cdkv2"], case_sensitive=False),
         default="auto",
         help="Framework type to analyze (auto for automatic detection)",
     ),
