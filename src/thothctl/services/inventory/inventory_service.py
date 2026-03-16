@@ -194,9 +194,11 @@ class InventoryService:
             
         path_str = str(path)
         
-        # Without complete flag, exclude both .terraform and .terragrunt-cache folders
-        if ".terragrunt-cache" in path_str or ".terraform" in path_str:
-            return True
+        # Exclude cache folders and examples directories
+        excluded_patterns = [".terragrunt-cache", ".terraform", "/examples/", "/examples"]
+        for pattern in excluded_patterns:
+            if pattern in path_str or path_str.endswith("/examples"):
+                return True
             
         return False
 
