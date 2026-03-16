@@ -399,31 +399,31 @@ class IaCInvCommand(ClickCommand):
 
     def post_execute(self, **kwargs) -> None:
         """Post inventory summary to PR if --post-to-pr flag is set."""
-        if not getattr(self, '_post_to_pr', False):
-            logger.info("post_execute: --post-to-pr not set, skipping")
+        post_to_pr = getattr(self, '_post_to_pr', False)
+        if not post_to_pr:
             return
 
         inventory = getattr(self, '_inventory', None)
         if not inventory:
-            self.ui.print_warning("⚠️ No inventory data available to post to PR")
+            self.ui.print_warning("No inventory data available to post to PR")
             return
         if not inventory.get("components"):
-            self.ui.print_warning("⚠️ Inventory has no components to post to PR")
+            self.ui.print_warning("Inventory has no components to post to PR")
             return
 
         from ....core.integrations.pr_comments.pr_comment_publisher import publish_to_pr
 
         content = self._build_inventory_markdown(inventory)
-        logger.info(f"post_execute: built markdown ({len(content)} chars)")
+        self.ui.print_info(f"📝 Posting inventory summary to PR ({len(content)} chars)...")
 
         if publish_to_pr(
             content=content,
             vcs_provider=getattr(self, '_vcs_provider', 'auto'),
             space=getattr(self, '_space', None),
         ):
-            self.ui.print_success("✅ Inventory summary posted to PR")
+            self.ui.print_success("Inventory summary posted to PR")
         else:
-            self.ui.print_warning("⚠️ Could not post inventory summary to PR")
+            self.ui.print_warning("Could not post inventory summary to PR")
 
     def _build_inventory_markdown(self, inventory: dict) -> str:
         """Build a markdown summary from the inventory dict."""
