@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Final, Optional
 
 import os
+import git
 
 from ....common.common import create_info_project
 from ....core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
@@ -68,6 +69,14 @@ class ProjectService:
             repo_metadata=repo_metadata,
             directory=project_path,
         )
+
+    def init_git_repo(self, project_path: Path) -> None:
+        """Initialize a git repository in the project directory."""
+        if (project_path / ".git").exists():
+            self.logger.debug("Git repository already exists, skipping init")
+            return
+        git.Repo.init(path=str(project_path), mkdir=False)
+        self.ui.print_success("🗃️ Git repository initialized")
 
     def setup_version_control(
         self,

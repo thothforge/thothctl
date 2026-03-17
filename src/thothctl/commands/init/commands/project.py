@@ -152,6 +152,9 @@ class ProjectInitCommand(ClickCommand):
                 repo_metadata=repo_metadata
             )
         
+        # Initialize git repository as final step
+        self.project_service.init_git_repo(project_path)
+        
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
     def _select_template(self, space: str, vcs_provider: str, **vcs_params) -> Optional[dict]:
