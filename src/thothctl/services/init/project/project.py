@@ -51,10 +51,12 @@ class ProjectService:
         repo_metadata: Optional[dict] = None
     ) -> None:
         """Setup project configuration"""
+        project_path = Path(f"./{project_name}")
         project_props = get_project_props(
             project_name=project_name,
             cloud_provider=self.DEFAULT_CLOUD_PROVIDER,
             remote_bkd_cloud_provider=self.DEFAULT_CLOUD_PROVIDER,
+            directory=project_path,
             batch_mode=batch_mode
         )
         set_project_conf(
@@ -64,6 +66,7 @@ class ProjectService:
             batch_mode=batch_mode,
             project_type=project_type,
             repo_metadata=repo_metadata,
+            directory=project_path,
         )
 
     def setup_version_control(
