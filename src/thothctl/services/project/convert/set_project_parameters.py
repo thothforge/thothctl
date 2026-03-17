@@ -239,6 +239,10 @@ def set_project_conf(
         project_name=project_name
     )
 
+    # For terraform-terragrunt projects, ask if user wants workspace mode
+    if project_type in ("terraform-terragrunt", "terragrunt"):
+        _apply_workspace_mode(directory, batch_mode)
+
 
 def set_meta_data(repo_metadata: dict = None, file_path: str = None):
     """
@@ -346,3 +350,59 @@ def get_git_repo_url(directory: PurePath = None):
     except Exception as e:
         logging.error(f"{Fore.RED}Error getting git repo url: {e}{Fore.RESET}")
         return None
+
+
+def _apply_workspace_mode(directory, batch_mode: bool = False):
+    """
+    Ask user if they want to use Terraform workspaces instead of
+    TF_VAR_ENVIRONMENT for environment selection, and replace
+    occurrences in all project files.
+    """
+    use_workspace = False
+    if batch_mode:
+        return  # Keep default TF_VAR_ENVIRONMENT in batch mode
+
+    try:
+        questions = [
+            inquirer.List(
+                "env_mode",
+                message="How do you want to manage environments?",
+                choices=[
+                    ("Environment variable (TF_VAR_ENVIRONMENT)", "env_var"),
+                    ("Terraform workspace (TF_WORKSPACE)", "workspace"),
+                ],
+                default="env_var",
+            ),
+        ]
+        answer = inquirer.prompt(questions)
+        if answer and answer["env_mode"] == "workspace":
+            use_workspace = True
+    except Exception:
+        return
+
+    if not use_workspace:
+        return
+
+    # Replace TF_VAR_ENVIRONMENT with TF_WORKSPACE in all text files
+    replaced_files = []
+    dir_path = Path(directory)
+    skip_dirs = {".git", ".terraform", ".terragrunt-cache", "node_modules", "__pycache__"}
+
+    for f in dir_path.rglob("*"):
+        if f.is_dir():
+            continue
+        if any(part in skip_dirs for part in f.parts):
+            continue
+        try:
+            content = f.read_text(encoding="utf-8")
+            if "TF_VAR_ENVIRONMENT" in content:
+                content = content.replace("TF_VAR_ENVIRONMENT", "TF_WORKSPACE")
+                f.write_text(content, encoding="utf-8")
+                replaced_files.append(str(f.relative_to(dir_path)))
+        except (UnicodeDecodeError, PermissionError):
+            continue
+
+    if replaced_files:
+        print(f"{Fore.GREEN}✅ Switched to workspace mode (TF_WORKSPACE) in {len(replaced_files)} file(s):{Fore.RESET}")
+        for rf in replaced_files:
+            print(f"  • {rf}")
