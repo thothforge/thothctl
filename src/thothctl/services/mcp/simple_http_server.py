@@ -71,12 +71,28 @@ class SimpleHTTPMCPServer:
             },
             {
                 "name": "thothctl_scan",
-                "description": "Scan infrastructure code for security issues",
+                "description": "Scan infrastructure code for security issues using multiple tools (Checkov, Trivy, TFSec, KICS, OPA/Conftest). Supports custom Rego policies and enforcement modes.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "directory": {"type": "string", "default": "."},
-                        "tools": {"type": "array", "items": {"type": "string"}, "default": ["checkov"]}
+                        "tools": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["checkov", "trivy", "tfsec", "kics", "terraform-compliance", "opa"]},
+                            "default": ["checkov"]
+                        },
+                        "enforcement": {
+                            "type": "string",
+                            "enum": ["soft", "hard"],
+                            "description": "soft=report only, hard=exit 1 on violations",
+                            "default": "soft"
+                        },
+                        "reports_dir": {"type": "string", "default": "Reports"},
+                        "tftool": {"type": "string", "enum": ["terraform", "tofu"], "default": "tofu"},
+                        "options": {
+                            "type": "string",
+                            "description": "Additional key=value options. For OPA: mode=conftest|opa, policy_dir=path, decision=path"
+                        }
                     }
                 }
             },
@@ -155,6 +171,11 @@ class SimpleHTTPMCPServer:
             tools = arguments.get("tools", ["checkov"])
             for tool in tools:
                 cmd.extend(["--tools", tool])
+            cmd.extend(["--enforcement", arguments.get("enforcement", "soft")])
+            cmd.extend(["--reports-dir", arguments.get("reports_dir", "Reports")])
+            cmd.extend(["--tftool", arguments.get("tftool", "tofu")])
+            if arguments.get("options"):
+                cmd.extend(["-o", arguments["options"]])
         elif name == "thothctl_version":
             cmd.append("--version")
         else:

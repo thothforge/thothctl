@@ -168,13 +168,39 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             },
             {
                 "name": "thothctl_scan",
-                "description": "Scan infrastructure code for security issues",
+                "description": "Scan infrastructure code for security issues using multiple tools (Checkov, Trivy, TFSec, KICS, OPA/Conftest). Supports custom Rego policies and enforcement modes.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "code_directory": {
                             "type": "string",
                             "description": "Directory containing infrastructure code"
+                        },
+                        "tools": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["checkov", "trivy", "tfsec", "kics", "terraform-compliance", "opa"]},
+                            "description": "Security scanning tools to use",
+                            "default": ["checkov"]
+                        },
+                        "enforcement": {
+                            "type": "string",
+                            "enum": ["soft", "hard"],
+                            "description": "soft=report only, hard=exit 1 on violations",
+                            "default": "soft"
+                        },
+                        "reports_dir": {
+                            "type": "string",
+                            "description": "Directory to save scan reports",
+                            "default": "Reports"
+                        },
+                        "tftool": {
+                            "type": "string",
+                            "enum": ["terraform", "tofu"],
+                            "default": "tofu"
+                        },
+                        "options": {
+                            "type": "string",
+                            "description": "Additional key=value options. For OPA: mode=conftest|opa, policy_dir=path, decision=path"
                         },
                         "debug": {
                             "type": "boolean",
@@ -506,7 +532,7 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
             "thothctl_list_projects": ["list", "projects"],
             "thothctl_list_spaces": ["list", "spaces"],
             "thothctl_list_templates": ["list", "templates"],
-            "thothctl_scan": ["scan"],
+            "thothctl_scan": ["scan", "iac"],
             "thothctl_inventory": ["inventory"],
             "thothctl_generate": ["generate"],
             "thothctl_document": ["document"],
@@ -571,6 +597,15 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
         elif tool_name == "thothctl_check_space":
             if "space_name" in parameters:
                 cmd.extend(["-s", parameters["space_name"]])
+
+        elif tool_name == "thothctl_scan":
+            for tool in parameters.get("tools", ["checkov"]):
+                cmd.extend(["-t", tool])
+            cmd.extend(["--enforcement", parameters.get("enforcement", "soft")])
+            cmd.extend(["--reports-dir", parameters.get("reports_dir", "Reports")])
+            cmd.extend(["--tftool", parameters.get("tftool", "tofu")])
+            if parameters.get("options"):
+                cmd.extend(["-o", parameters["options"]])
         
         # Execute the command
         try:

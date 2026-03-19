@@ -68,6 +68,11 @@ class ProjectsInSpace(BaseModel):
 class ScanCode(BaseModel):
     """Scan infrastructure code for security issues."""
     directory: str = "."
+    tools: list[str] = ["checkov"]
+    enforcement: str = "soft"
+    reports_dir: str = "Reports"
+    tftool: str = "tofu"
+    options: str | None = None
 
 class CreateInventory(BaseModel):
     """Create Inventory for the iac composition."""
@@ -188,11 +193,55 @@ def get_projects_in_specific_space(space_name: str) -> List[str]:
     projects = get_projects_in_space(space_name)
     return projects
 
-def scan_infrastructure(directory: str = ".") -> str:
-    """Scan infrastructure code for security issues."""
-    logger.info(f"Scanning {directory}")
-    ui.print_info(f"Scanning {directory}")
-    return f"Scanned {directory}"
+def scan_infrastructure(
+    directory: str = ".",
+    tools: list[str] | None = None,
+    enforcement: str = "soft",
+    reports_dir: str = "Reports",
+    tftool: str = "tofu",
+    options: str | None = None,
+) -> str:
+    """Scan infrastructure code for security issues using selected tools."""
+    import subprocess, json, os
+
+    tools = tools or ["checkov"]
+    logger.info(f"Scanning {directory} with tools: {tools}, enforcement: {enforcement}")
+
+    cmd = ["thothctl", "scan", "iac"]
+    for t in tools:
+        cmd.extend(["-t", t])
+    cmd.extend(["--reports-dir", reports_dir])
+    cmd.extend(["--tftool", tftool])
+    cmd.extend(["--enforcement", enforcement])
+    if options:
+        cmd.extend(["-o", options])
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=600,
+            cwd=os.path.abspath(directory),
+        )
+
+        # Read markdown summary if generated
+        md_path = os.path.join(os.path.abspath(directory), reports_dir, "scan_summary.md")
+        if os.path.exists(md_path):
+            with open(md_path) as f:
+                return f.read()
+
+        output = result.stdout or result.stderr or "Scan completed"
+        if result.returncode != 0:
+            return f"Scan completed with violations (exit code {result.returncode}):\n{output}"
+        return output
+
+    except subprocess.TimeoutExpired:
+        return "Error: Scan timed out after 600 seconds"
+    except FileNotFoundError:
+        return "Error: thothctl not found in PATH. Install with: pip install thothctl"
+    except Exception as e:
+        return f"Error running scan: {str(e)}"
 
 def create_inventory(directory: str = ".") -> str:
     """Create Inventory for the iac composition."""
@@ -403,8 +452,47 @@ async def serve(working_directory: Path | None = None) -> None:
             ),
             Tool(
                 name=ThothTools.SCAN_CODE,
-                description="Scan infrastructure code for security issues",
-                inputSchema=ScanCode.schema(),
+                description="Scan infrastructure code for security issues using multiple tools (Checkov, Trivy, TFSec, KICS, OPA/Conftest). Supports custom Rego policies via OPA and enforcement modes to gate CI/CD pipelines.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "Directory to scan",
+                            "default": "."
+                        },
+                        "tools": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["checkov", "trivy", "tfsec", "kics", "terraform-compliance", "opa"]
+                            },
+                            "description": "Security scanning tools to use. OPA/Conftest evaluates custom Rego policies.",
+                            "default": ["checkov"]
+                        },
+                        "enforcement": {
+                            "type": "string",
+                            "enum": ["soft", "hard"],
+                            "description": "Enforcement mode: 'soft' reports violations (exit 0), 'hard' fails when violations found (exit 1)",
+                            "default": "soft"
+                        },
+                        "reports_dir": {
+                            "type": "string",
+                            "description": "Directory to save scan reports",
+                            "default": "Reports"
+                        },
+                        "tftool": {
+                            "type": "string",
+                            "enum": ["terraform", "tofu"],
+                            "description": "Terraform tool to use",
+                            "default": "tofu"
+                        },
+                        "options": {
+                            "type": "string",
+                            "description": "Additional options as key=value pairs. For OPA: mode=conftest|opa, policy_dir=path, decision=path, namespace=name"
+                        }
+                    }
+                },
             ),
             Tool(
                 name=ThothTools.CREATE_INVENTORY,
@@ -589,8 +677,15 @@ async def serve(working_directory: Path | None = None) -> None:
 
             case ThothTools.SCAN_CODE:
                 with ui.status_spinner(f"Scanning {arguments.get('directory', '.')}..."):
-                    result = scan_infrastructure(arguments.get("directory", "."))
-                ui.print_success(result)
+                    result = scan_infrastructure(
+                        directory=arguments.get("directory", "."),
+                        tools=arguments.get("tools", ["checkov"]),
+                        enforcement=arguments.get("enforcement", "soft"),
+                        reports_dir=arguments.get("reports_dir", "Reports"),
+                        tftool=arguments.get("tftool", "tofu"),
+                        options=arguments.get("options"),
+                    )
+                ui.print_success("Scan complete")
                 return [TextContent(
                     type="text",
                     text=result
