@@ -34,6 +34,7 @@ def verbose_print(message: str) -> None:
 # thothctl/application/scan_service.py (Application Layer)
 from .scanners.scanners import ScanOrchestrator, Scanner
 from .scanners.trivy import TrivyScanner
+from .scanners.opa import OPAScanner
 
 
 class ScanService:
@@ -45,7 +46,7 @@ class ScanService:
             #           'tfsec': Scanner('tfsec', TFSecScanner()),
             "checkov": Scanner("checkov", CheckovScanner()),
             "kics": Scanner("kics", KICSScanner()),
-            # Add other scanners
+            "opa": Scanner("opa", OPAScanner()),
         }
         self.logger = logging.getLogger(__name__)
 

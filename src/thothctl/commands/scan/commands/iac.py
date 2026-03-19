@@ -49,6 +49,7 @@ class RestoredIaCScanCommand(ClickCommand):
         self._post_to_pr = kwargs.get('post_to_pr', False)
         self._vcs_provider = kwargs.get('vcs_provider', 'auto')
         self._space = kwargs.get('space')
+        self._enforcement = kwargs.get('enforcement', 'soft')
         self._scan_results = None
 
         try:
@@ -208,9 +209,29 @@ class RestoredIaCScanCommand(ClickCommand):
             self._display_original_results(results)
             self._scan_results = results
 
+            # Always save markdown summary to reports directory
+            md_summary = self._build_scan_markdown(results)
+            md_path = os.path.join(reports_dir, "scan_summary.md")
+            with open(md_path, "w") as f:
+                f.write(md_summary)
+            self.console.print(f"📝 Markdown summary saved to [blue]{md_path}[/blue]")
+
             finish_time = time.perf_counter()
             scan_time = finish_time - start_time
             
+            # Check if hard enforcement should fail the pipeline
+            has_violations = False
+            if self._enforcement == "hard":
+                for tool_name, tool_result in results.items():
+                    if tool_name == "summary" or not isinstance(tool_result, dict):
+                        continue
+                    rd = tool_result.get("report_data", {})
+                    failed = rd.get("failed_count", 0)
+                    errors = rd.get("error_count", 0)
+                    if failed + errors > 0:
+                        has_violations = True
+                        break
+
             # Create completion panel
             completion_panel = Panel(
                 f"[bold green]Original scan completed successfully![/bold green]\n\n"
@@ -222,6 +243,14 @@ class RestoredIaCScanCommand(ClickCommand):
                 border_style="green"
             )
             self.console.print(completion_panel)
+
+            # Exit with code 1 if hard enforcement failed
+            if has_violations:
+                ctx = click.get_current_context()
+                self.console.print(
+                    "[bold red]⛔ Hard enforcement: policy violations detected. Exiting with code 1.[/bold red]"
+                )
+                ctx.exit(1)
 
         except Exception as e:
             error_panel = Panel(
@@ -266,6 +295,7 @@ class RestoredIaCScanCommand(ClickCommand):
         summary_table.add_column("Total Tests", justify="center", style="blue")
         summary_table.add_column("Passed", justify="center", style="green")
         summary_table.add_column("Failed", justify="center", style="red")
+        summary_table.add_column("Warnings", justify="center", style="dark_orange")
         summary_table.add_column("Errors", justify="center", style="yellow")
         summary_table.add_column("Skipped", justify="center", style="dim")
         summary_table.add_column("Success Rate", justify="center", style="bold")
@@ -273,6 +303,7 @@ class RestoredIaCScanCommand(ClickCommand):
         total_tests = 0
         total_passed = 0
         total_failed = 0
+        total_warnings = 0
         total_errors = 0
         total_skipped = 0
 
@@ -287,17 +318,18 @@ class RestoredIaCScanCommand(ClickCommand):
                 status_style = "green" if status == "COMPLETE" else "red"
                 
                 # Extract counts from multiple sources
-                passed = failed = errors = skipped = total = 0
+                passed = failed = warnings = errors = skipped = total = 0
                 
                 # First try report_data
                 report_data = tool_results.get("report_data", {})
-                if report_data and any(report_data.get(key, 0) > 0 for key in ["passed_count", "failed_count", "error_count", "skipped_count"]):
+                if report_data and any(report_data.get(key, 0) > 0 for key in ["passed_count", "failed_count", "error_count", "skipped_count", "warning_count"]):
                     passed = report_data.get("passed_count", 0)
                     failed = report_data.get("failed_count", 0)
+                    warnings = report_data.get("warning_count", 0)
                     errors = report_data.get("error_count", 0)
                     skipped = report_data.get("skipped_count", 0)
-                    total = passed + failed + errors + skipped
-                    self.logger.debug(f"Using report_data for {tool_name}: passed={passed}, failed={failed}, errors={errors}, skipped={skipped}")
+                    total = passed + failed + warnings + errors + skipped
+                    self.logger.debug(f"Using report_data for {tool_name}: passed={passed}, failed={failed}, warnings={warnings}, errors={errors}, skipped={skipped}")
                 
                 # If report_data is empty, try detailed_reports
                 elif "detailed_reports" in tool_results and tool_results["detailed_reports"]:
@@ -328,7 +360,8 @@ class RestoredIaCScanCommand(ClickCommand):
                         "trivy": "🛡️",
                         "tfsec": "🔐",
                         "kics": "🔍",
-                        "terraform-compliance": "📋"
+                        "terraform-compliance": "📋",
+                        "opa": "📜"
                     }
                     icon = tool_icons.get(tool_name, "🔍")
                     
@@ -339,6 +372,7 @@ class RestoredIaCScanCommand(ClickCommand):
                         str(total),
                         str(passed),
                         str(failed),
+                        str(warnings),
                         str(errors),
                         str(skipped),
                         f"{success_rate:.1f}%"
@@ -348,6 +382,7 @@ class RestoredIaCScanCommand(ClickCommand):
                     total_tests += total
                     total_passed += passed
                     total_failed += failed
+                    total_warnings += warnings
                     total_errors += errors
                     total_skipped += skipped
                 else:
@@ -361,6 +396,7 @@ class RestoredIaCScanCommand(ClickCommand):
                             str(issues_count),
                             "0",
                             str(issues_count),
+                            "0",
                             "0",
                             "0",
                             "0.0%"
@@ -377,6 +413,7 @@ class RestoredIaCScanCommand(ClickCommand):
                             "0",
                             "0",
                             "0",
+                            "0",
                             "N/A"
                         )
 
@@ -390,6 +427,7 @@ class RestoredIaCScanCommand(ClickCommand):
                 f"[bold]{total_tests}[/bold]",
                 f"[bold green]{total_passed}[/bold green]",
                 f"[bold red]{total_failed}[/bold red]",
+                f"[bold dark_orange]{total_warnings}[/bold dark_orange]",
                 f"[bold yellow]{total_errors}[/bold yellow]",
                 f"[bold dim]{total_skipped}[/bold dim]",
                 f"[bold]{overall_success_rate:.1f}%[/bold]"
@@ -470,11 +508,11 @@ class RestoredIaCScanCommand(ClickCommand):
         """Build a markdown summary from scan results."""
         lines = [
             "## 🔒 ThothCTL Scan Results\n",
-            "| Tool | Status | Total | Passed | Failed | Errors | Skipped | Success Rate |",
-            "|------|--------|-------|--------|--------|--------|---------|-------------|",
+            "| Tool | Status | Total | Passed | Failed | Warnings | Errors | Skipped | Success Rate |",
+            "|------|--------|-------|--------|--------|----------|--------|---------|-------------|",
         ]
 
-        total_tests = total_passed = total_failed = total_errors = total_skipped = 0
+        total_tests = total_passed = total_failed = total_warnings = total_errors = total_skipped = 0
 
         for tool_name, tool_results in results.items():
             if tool_name == "summary" or not isinstance(tool_results, dict):
@@ -483,27 +521,29 @@ class RestoredIaCScanCommand(ClickCommand):
             rd = tool_results.get("report_data", {})
             passed = rd.get("passed_count", 0)
             failed = rd.get("failed_count", 0)
+            warnings = rd.get("warning_count", 0)
             errors = rd.get("error_count", 0)
             skipped = rd.get("skipped_count", 0)
-            total = passed + failed + errors + skipped
+            total = passed + failed + warnings + errors + skipped
             rate = f"{(passed / total * 100):.1f}%" if total > 0 else "N/A"
-            lines.append(f"| {tool_name} | {status} | {total} | {passed} | {failed} | {errors} | {skipped} | {rate} |")
+            lines.append(f"| {tool_name} | {status} | {total} | {passed} | {failed} | {warnings} | {errors} | {skipped} | {rate} |")
             total_tests += total
             total_passed += passed
             total_failed += failed
+            total_warnings += warnings
             total_errors += errors
             total_skipped += skipped
 
         if total_tests > 0:
             overall_rate = f"{(total_passed / total_tests * 100):.1f}%"
-            lines.append(f"| **TOTAL** | | **{total_tests}** | **{total_passed}** | **{total_failed}** | **{total_errors}** | **{total_skipped}** | **{overall_rate}** |")
+            lines.append(f"| **TOTAL** | | **{total_tests}** | **{total_passed}** | **{total_failed}** | **{total_warnings}** | **{total_errors}** | **{total_skipped}** | **{overall_rate}** |")
 
         total_issues = results.get("summary", {}).get("total_issues", 0)
         if total_issues > 0:
             lines.append(f"\n🚨 **Security Issues Found: {total_issues}**")
 
         lines.append("\n---")
-        lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
+        lines.append("*Generated by [ThothCTL](https://github.com/thothforge/thothctl)*")
         return "\n".join(lines)
 
     def post_execute(self, **kwargs) -> None:
@@ -537,7 +577,7 @@ cli = RestoredIaCScanCommand.as_click_command(
         multiple=True,
         default=["checkov"],
         help="Security scanning tools to use (Note: KICS requires Docker)",
-        type=click.Choice(["checkov", "trivy", "tfsec", "kics", "terraform-compliance"]),
+        type=click.Choice(["checkov", "trivy", "tfsec", "kics", "terraform-compliance", "opa"]),
     ),
     click.option(
         "--reports-dir",
@@ -593,5 +633,11 @@ cli = RestoredIaCScanCommand.as_click_command(
         "--space",
         help="Space name for credential resolution (Azure DevOps)",
         default=None,
+    ),
+    click.option(
+        "--enforcement",
+        type=click.Choice(["soft", "hard"], case_sensitive=False),
+        default="soft",
+        help="Enforcement mode: 'soft' reports violations (exit 0), 'hard' fails the pipeline (exit 1) when any tool finds violations",
     ),
 )

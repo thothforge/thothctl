@@ -326,6 +326,30 @@ def install_kiro_cli():
     check_result(result=_exit, tool="Kiro CLI")
 
 
+def install_opa():
+    """Install OPA (Open Policy Agent)."""
+    print(f"{Fore.MAGENTA}Installing OPA{Fore.RESET}")
+    _exit = os.system(
+        "curl -L -o /usr/local/bin/opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64 "
+        "&& chmod 755 /usr/local/bin/opa "
+        "&& opa version"
+    )
+    check_result(result=_exit, tool="opa")
+
+
+def install_conftest():
+    """Install Conftest (OPA-based config testing)."""
+    print(f"{Fore.MAGENTA}Installing Conftest{Fore.RESET}")
+    _exit = os.system(
+        "LATEST=$(curl -s https://api.github.com/repos/open-policy-agent/conftest/releases/latest | grep tag_name | cut -d '\"' -f 4 | sed 's/v//') "
+        "&& curl -L -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v${LATEST}/conftest_${LATEST}_Linux_x86_64.tar.gz "
+        "&& tar xzf /tmp/conftest.tar.gz -C /usr/local/bin conftest "
+        "&& rm /tmp/conftest.tar.gz "
+        "&& conftest --version"
+    )
+    check_result(result=_exit, tool="conftest")
+
+
 def install_tool(
     tool_name,
     versions,

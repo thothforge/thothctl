@@ -44,7 +44,9 @@ class ReportScanner:
                 if report_type in ["checkov", "tfsec", "terraform-compliance"]:
                     data = xmltodict.parse(report_file.read())
                     json_data = json.loads(json.dumps(data))
-                else:  # trivy uses JSON format
+                elif report_type == "opa":
+                    json_data = json.load(report_file)
+                else:  # trivy, kics use JSON format
                     json_data = json.load(report_file)
 
                 scanner_map = {
@@ -53,6 +55,7 @@ class ReportScanner:
                     "trivy": self._scan_trivy_report,
                     "terraform-compliance": self._scan_terraform_compliance_report,
                     "kics": self._scan_kics_report,
+                    "opa": self._scan_opa_report,
                 }
 
                 if report_type in scanner_map:
@@ -196,6 +199,40 @@ class ReportScanner:
             )
         except Exception as e:
             logging.error(f"Error scanning KICS report: {str(e)}")
+            return None
+
+    def _scan_opa_report(self, data) -> Optional[ScanResult]:
+        """Scan OPA/Conftest JSON reports."""
+        try:
+            # Handle conftest JSON format: list of file results
+            if isinstance(data, list):
+                tests = sum(
+                    r.get("successes", 0)
+                    + len(r.get("failures", []))
+                    + len(r.get("warnings", []))
+                    for r in data
+                )
+                failures = sum(len(r.get("failures", [])) for r in data)
+            # Handle opa exec format: {"result": [...]}
+            elif isinstance(data, dict) and "result" in data:
+                results = data["result"]
+                tests = len(results)
+                failures = sum(1 for r in results if r.get("result") is False)
+            else:
+                tests = 0
+                failures = 0
+
+            status = self._determine_status(failures, tests)
+            message = self._create_message(failures, tests, "OPA")
+            return ScanResult(
+                module_name="opa-scan",
+                failures=failures,
+                total_tests=tests,
+                status=status,
+                message=message,
+            )
+        except Exception as e:
+            logging.error(f"Error scanning OPA report: {str(e)}")
             return None
 
     def _determine_status(self, failures: int, tests: int) -> ReportStatus:
