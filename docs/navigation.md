@@ -34,6 +34,7 @@
 
 ## Advanced Topics
 
+- [AI Agent for IaC Security](framework/commands/ai-review/README.md) - Multi-agent AI analysis, auto-fix, and PR decisions
 - [MCP Integration](mcp.md) - Model Context Protocol server
 - [Template Engine](template_engine/template_engine.md) - Template system documentation
 - [Telemetry](telemetry.md) - Usage analytics and privacy

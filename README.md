@@ -53,6 +53,14 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
         - Service-by-service cost breakdown
         - Optimization recommendations
         - Support for 14 AWS services (EC2, RDS, S3, Lambda, EKS, ECS, etc.)
+
+- **🤖 AI Agent for IaC Security** *(NEW)*:
+  - Multi-agent orchestrator with specialized Security, Architecture, Fix, and Decision agents
+  - Auto-decision engine for PRs (approve/reject/request-changes) with safety controls
+  - Code improvement & auto-fix generation for Checkov/KICS/Trivy findings
+  - Multi-provider support: OpenAI, AWS Bedrock, Azure OpenAI, Ollama (local models)
+  - Adaptive memory: local filesystem or S3 (auto-detects Bedrock AgentCore runtime)
+  - MCP integration for AI assistant interoperability
       
 - **Internal Developer Platform CLI**
   - Create projects from your templates
@@ -76,6 +84,7 @@ Options:
   --help                     Show this message and exit.
 
 Commands:
+  ai-review  AI-powered security analysis and code review for IaC
   check      Initialize and setup project configurations
   document   Initialize and setup project configurations
   generate   Generate IaC from rules, use cases, and components
@@ -107,6 +116,122 @@ thothctl check iac -type cost-analysis --recursive
 
 **Supported Services**: EC2, RDS, S3, Lambda, ELB/ALB/NLB, VPC, EBS, DynamoDB, CloudWatch, EKS, ECS, Secrets Manager, API Gateway, Bedrock
 
+```
+
+## 🤖 AI Agent for IaC Security
+
+ThothCTL includes a multi-agent AI system for automated security analysis, code review, and PR decisions on Infrastructure as Code projects.
+
+### Architecture
+
+```
+                    ┌──────────────────────┐
+                    │  AgentOrchestrator   │
+                    │  (builds context,    │
+                    │   dispatches agents) │
+                    └──────┬───────────────┘
+           ┌───────────────┼───────────────┐
+           ▼               ▼               ▼
+    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+    │  Security   │ │Architecture │ │    Fix      │
+    │   Agent     │ │   Agent     │ │   Agent     │
+    └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
+           └───────────────┼───────────────┘
+                           ▼
+                    ┌─────────────┐
+                    │  Decision   │
+                    │   Agent     │
+                    └─────────────┘
+```
+
+### Quick Start
+
+```bash
+# Analyze a Terraform project
+thothctl ai-review analyze -d ./terraform -p ollama
+
+# Generate code fixes for scan findings
+thothctl ai-review improve -d ./terraform --severity high -o fixes.json
+
+# Apply fixes with backup
+thothctl ai-review apply-fix --fixes-file fixes.json --dry-run
+
+# Run multi-agent orchestrated review
+thothctl ai-review orchestrate -d ./terraform -a security -a fix
+
+# Auto-decide on a PR (approve/reject/request-changes)
+thothctl ai-review decide -d ./terraform --pr-number 42 --repository owner/repo --dry-run
+
+# Configure auto-decision thresholds
+thothctl ai-review configure-decisions --enable --approve-threshold 20 --reject-threshold 85
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `analyze` | Run AI security analysis on IaC code |
+| `improve` | Generate actionable code fixes for findings |
+| `apply-fix` | Apply generated fixes with automatic backup |
+| `orchestrate` | Run multiple specialized agents in parallel |
+| `decide` | Auto-decide on PRs with safety controls |
+| `serve` | Start REST API server for CI/CD integration |
+| `configure` | Configure AI provider (OpenAI, Bedrock, Azure, Ollama) |
+| `configure-decisions` | Set auto-decision thresholds and safety rules |
+| `history` | View past AI decision records |
+| `override` | Manually override an AI decision |
+| `report` | Generate analysis reports |
+
+### AI Providers
+
+| Provider | Model | Use Case |
+|----------|-------|----------|
+| OpenAI | GPT-4 Turbo | Best quality analysis |
+| AWS Bedrock | Claude 3 Sonnet | AWS-native, direct model invocation |
+| AWS Bedrock Agent | Claude Sonnet | CI/CD pipelines, production APIs, sessions |
+| Azure OpenAI | GPT-4 | Enterprise Azure environments |
+| Ollama | Llama 3, Mistral, etc. | Local/offline, no data leaves your machine |
+
+### Adaptive Memory
+
+The agent automatically selects the right memory backend based on the runtime:
+
+| Runtime | Memory Backend | Storage |
+|---------|---------------|---------|
+| Local (CLI) | Filesystem | `.thothctl/ai_sessions/` |
+| Bedrock AgentCore | S3 | `s3://{bucket}/thothctl/ai_sessions/` |
+
+Memory stores previous analysis results per repository, enabling the agent to track trends and provide continuity across reviews.
+
+```bash
+# Environment variables for memory configuration
+export THOTH_MEMORY_MODE=auto            # auto, local, or agentcore
+export THOTH_MEMORY_S3_BUCKET=my-bucket  # S3 bucket for agentcore mode
+export THOTH_MEMORY_DIR=.thothctl/ai_sessions  # Local storage directory
+```
+
+### Safety Controls
+
+Auto-decisions are **disabled by default** and include multiple safety layers:
+
+- Confidence thresholds (90% for approve, 85% for reject)
+- Daily rate limits (50 approvals, 20 rejections per day)
+- Cooldown between actions (5 minutes)
+- Emergency label detection (hotfix, security-patch)
+- Trusted bot bypass (dependabot, renovate)
+- `--dry-run` always available for previewing decisions
+
+### MCP Integration
+
+The AI review is exposed as an MCP tool (`thothctl_ai_review`) with four modes:
+
+```json
+{
+  "mode": "analyze | decide | improve | orchestrate",
+  "directory": "./terraform",
+  "provider": "ollama",
+  "agents": ["security", "architecture", "fix", "decision"]
+}
 ```
 
 ## Enabling Command Autocompletion
@@ -243,7 +368,9 @@ pip install --upgrade thothctl
 
 # RoadMap 🧗‍♂
 
- - Add Autocomplete to Commands and subcommands
- - Integrate MCP to improve compatibility and interoperability with AI LLM
- - Improve Inventory capabilities
+ - ~~Add Autocomplete to Commands and subcommands~~
+ - ~~Integrate MCP to improve compatibility and interoperability with AI LLM~~
+ - ~~Improve Inventory capabilities~~
+ - ~~AI Agent for IaC Security — multi-agent orchestrator, auto-decisions, code fixes, adaptive memory~~
  - Create Stacks and Infrastructure composition engine
+ - Strands Agents SDK integration for advanced memory and session management

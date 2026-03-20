@@ -125,6 +125,7 @@ class ThothTools(str, Enum):
     MANAGE_PROJECT = "thothctl_project"
     GET_VERSION = "thothctl_version"
     UPGRADE_THOTHCTL = "thothctl_upgrade"
+    AI_REVIEW = "thothctl_ai_review"
 
 # Implementation of ThothCTL commands
 def init_project(project_name: str, directory: str = ".") -> str:
@@ -292,6 +293,53 @@ def upgrade_thothctl(check_only: bool = False) -> str:
     except Exception as e:
         error_msg = f"ThothCTL upgrade failed: {str(e)}"
         ui.print_error(error_msg)
+        return error_msg
+
+def ai_review(directory: str = ".", provider: str = None, model: str = None,
+              mode: str = "analyze", scan_results: str = None,
+              severity: str = None, agents: list = None) -> str:
+    """Run AI-powered security review on IaC code."""
+    try:
+        import json as _json
+
+        if mode == "orchestrate":
+            from ...services.ai_review.orchestrator import AgentOrchestrator, AgentRole
+            role_map = {"security": AgentRole.SECURITY, "architecture": AgentRole.ARCHITECTURE,
+                        "fix": AgentRole.FIX, "decision": AgentRole.DECISION}
+            roles = [role_map[a] for a in (agents or []) if a in role_map] or None
+            orch = AgentOrchestrator(provider=provider, model=model)
+            result = orch.run_agents(directory, roles=roles)
+            return _json.dumps({
+                "security": result.security, "architecture": result.architecture,
+                "fixes": result.fixes, "decision": result.decision, "errors": result.errors,
+            }, indent=2, default=str)
+
+        from ...services.ai_review.ai_agent import AIReviewAgent
+        from ...services.ai_review.utils.formatters import format_analysis_as_markdown
+
+        agent = AIReviewAgent(provider=provider, model=model)
+
+        if mode == "decide":
+            from ...services.ai_review.decision_engine import DecisionEngine
+            from ...services.ai_review.pr_decision_publisher import format_decision_comment
+            analysis = agent.analyze_scan_results(scan_results) if scan_results else agent.analyze_directory(directory)
+            engine = DecisionEngine()
+            result = engine.evaluate(analysis)
+            return format_decision_comment(result, analysis)
+
+        if mode == "improve":
+            result = agent.generate_fixes(directory, severity_filter=severity)
+            return _json.dumps(result, indent=2)
+
+        # Default: analyze
+        if scan_results:
+            analysis = agent.analyze_scan_results(scan_results)
+        else:
+            analysis = agent.analyze_directory(directory)
+        return format_analysis_as_markdown(analysis)
+    except Exception as e:
+        error_msg = f"AI review failed: {str(e)}"
+        logger.error(error_msg)
         return error_msg
 
 async def serve(working_directory: Path | None = None) -> None:
@@ -538,9 +586,51 @@ async def serve(working_directory: Path | None = None) -> None:
                     }
                 }
             ),
+            Tool(
+                name=ThothTools.AI_REVIEW,
+                description="AI-powered security analysis and code review for Infrastructure as Code. Analyzes IaC files using AI to identify security issues, misconfigurations, and provide risk scoring with actionable recommendations.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "Directory containing IaC code to analyze",
+                            "default": "."
+                        },
+                        "provider": {
+                            "type": "string",
+                            "enum": ["openai", "bedrock", "azure", "ollama"],
+                            "description": "AI provider to use"
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": "Specific AI model to use"
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["analyze", "decide", "improve", "orchestrate"],
+                            "description": "Mode: 'analyze' for review, 'decide' for auto-decision, 'improve' for code fix generation, 'orchestrate' for multi-agent review",
+                            "default": "analyze"
+                        },
+                        "scan_results": {
+                            "type": "string",
+                            "description": "Path to existing scan results to analyze instead of raw directory"
+                        },
+                        "severity": {
+                            "type": "string",
+                            "enum": ["critical", "high", "medium", "low"],
+                            "description": "Minimum severity for fix generation (improve mode)",
+                            "default": "medium"
+                        },
+                        "agents": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["security", "architecture", "fix", "decision"]},
+                            "description": "Which agents to run (orchestrate mode). Default: all"
+                        }
+                    }
+                }
+            ),
         ]
-
-    async def list_directories() -> Sequence[str]:
         """List available directories for ThothCTL operations."""
         async def by_roots() -> Sequence[str]:
             if not isinstance(server.request_context.session, ServerSession):
@@ -760,6 +850,23 @@ async def serve(working_directory: Path | None = None) -> None:
                     ui.print_error(result)
                 else:
                     ui.print_success(result)
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case ThothTools.AI_REVIEW:
+                with ui.status_spinner(f"Running AI review on {arguments.get('directory', '.')}..."):
+                    result = ai_review(
+                        directory=arguments.get("directory", "."),
+                        provider=arguments.get("provider"),
+                        model=arguments.get("model"),
+                        mode=arguments.get("mode", "analyze"),
+                        scan_results=arguments.get("scan_results"),
+                        severity=arguments.get("severity"),
+                        agents=arguments.get("agents"),
+                    )
+                ui.print_success("AI review complete")
                 return [TextContent(
                     type="text",
                     text=result

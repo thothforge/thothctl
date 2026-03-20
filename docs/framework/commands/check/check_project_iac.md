@@ -409,10 +409,9 @@ Using default options
 
 - [check iac](check_iac.md) - Analyze generated artifacts
 - [init project](../init/init.md) - Initialize projects with correct structure
-- [scan](../scan/scan.md) - Security scanning for IaC
+- [scan](../scan/scan_overview.md) - Security scanning for IaC
 
 ## See Also
 
 - [Template Engine](../../../template_engine/template_engine.md)
 - [Project Structure Best Practices](../../use_cases/check_command.md)
-- [Configuration Guide](../../configuration.md)

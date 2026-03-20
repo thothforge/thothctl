@@ -100,6 +100,6 @@ thothctl inventory iac --check-versions
 ## 🔗 Related Resources
 
 - [Complete DevSecOps SDLC Guide](devsecops_sdlc.md)
-- [Command Reference](framework/commands/check/check_overview.md)
-- [Security Scanning Guide](framework/commands/scan/scan_overview.md)
-- [Cost Analysis Guide](framework/commands/check/cost-analysis.md)
+- [Command Reference](../commands/check/check_overview.md)
+- [Security Scanning Guide](../commands/scan/scan_overview.md)
+- [Cost Analysis Guide](../commands/check/cost-analysis.md)

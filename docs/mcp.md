@@ -155,6 +155,32 @@ The MCP server exposes the following ThothCTL commands as tools:
 ### Utility
 - `thothctl_version` - Get ThothCTL version
 
+### AI Review
+- `thothctl_ai_review` - AI-powered security analysis and code review for IaC
+
+  **Modes:**
+  | Mode | Description |
+  |------|-------------|
+  | `analyze` | Run AI security analysis on scan results or directory |
+  | `decide` | Auto-decide on a PR (approve/reject/request-changes) |
+  | `improve` | Generate actionable code fixes for findings |
+  | `orchestrate` | Run multiple specialized agents in parallel |
+
+  **Parameters:**
+  ```json
+  {
+    "directory": "./terraform",
+    "provider": "bedrock_agent",
+    "model": "anthropic.claude-sonnet-4-20250514",
+    "mode": "analyze",
+    "scan_results": "./Reports",
+    "severity": "high",
+    "agents": ["security", "architecture", "fix", "decision"]
+  }
+  ```
+
+  For full documentation, see the [AI Agent Documentation](./framework/commands/ai-review/README.md).
+
 ## Architecture
 
 The MCP server follows the HTTP-based MCP protocol:

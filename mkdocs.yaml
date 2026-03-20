@@ -62,6 +62,8 @@ nav:
       - Components: framework/commands/generate/generate_components.md
       - Stacks: framework/commands/generate/generate_stacks.md
     - MCP: framework/commands/mcp/mcp.md
+    - AI Review:
+      - Overview: framework/commands/ai-review/README.md
   - Framework:
     - Framework Architecture: framework/framework_architecture.md
     - Software Architecture: framework/software_architecture.md

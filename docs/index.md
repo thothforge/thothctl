@@ -39,7 +39,21 @@ Thoth allows you to extend and operate your Developer Control Plane, and enable 
 
 ## ThothCTL
 
-Package for accelerating the adoption of Internal Frameworks, enable reusing and interaction with the Internal Developer Platform. 
+Package for accelerating the adoption of Internal Frameworks, enable reusing and interaction with the Internal Developer Platform.
+
+### Integrated Third-Party Tools
+
+| Category | Tool | Purpose |
+|----------|------|---------|
+| **IaC** | [Terraform](https://www.terraform.io/) / [OpenTofu](https://opentofu.org/) | Infrastructure provisioning |
+| **IaC** | [Terragrunt](https://terragrunt.gruntwork.io/) | IaC orchestration and DRY configs |
+| **Security** | [Checkov](https://www.checkov.io/) | Static analysis for IaC misconfigurations |
+| **Security** | [Trivy](https://trivy.dev/) | Vulnerability and misconfiguration scanner |
+| **Security** | [KICS](https://docs.kics.io/) | IaC security scanning (Docker-based) |
+| **Security** | [TFSec](https://aquasecurity.github.io/tfsec/) | Terraform-specific security scanner |
+| **Docs** | [Terraform-docs](https://terraform-docs.io/) | Auto-generate module documentation |
+| **AI** | [OpenAI](https://platform.openai.com/) / [AWS Bedrock](https://aws.amazon.com/bedrock/) / [Ollama](https://ollama.com/) | AI providers for code review and analysis |
+| **VCS** | GitHub / GitLab / Azure DevOps | Version control and PR integration |
 
 # Use cases
 
@@ -55,6 +69,14 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
   - AI orchestrates ThothCTL commands or analyzes results
   - Natural language interface for IaC operations
   - Scaffold templates from [ThothForge GitHub](https://github.com/thothforge)
+
+- **[🤖 AI Agent for IaC Security](framework/commands/ai-review/README.md)**:
+  - Multi-agent orchestrator (Security, Architecture, Fix, Decision agents)
+  - Auto-decision engine for PRs (approve/reject/request-changes)
+  - Code improvement and auto-fix generation (13 built-in patterns + AI)
+  - REST API server for CI/CD pipeline integration
+  - Multi-provider: OpenAI, AWS Bedrock, Bedrock Agent, Azure OpenAI, Ollama
+  - Adaptive memory with pipeline isolation (filesystem or S3)
 
 - **[DevSecOps SDLC for IaC](framework/use_cases/devsecops_sdlc.md)**:
   - 8-phase lifecycle (Plan → Deploy → Monitor)

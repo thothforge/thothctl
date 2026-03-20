@@ -38,7 +38,7 @@ class ThothCLI(click.MultiCommand):
         try:
             for item in commands_path.iterdir():
                 if item.is_dir() and not item.name.startswith("_"):
-                    commands.append(item.name)
+                    commands.append(item.name.replace("_", "-"))
         except Exception as e:
             click.echo(f"Error listing commands: {e}", err=True)
             return []
@@ -48,13 +48,15 @@ class ThothCLI(click.MultiCommand):
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:
-            module_path = Path(__file__).parent / "commands" / cmd_name / "cli.py"
+            # Support both hyphens and underscores (e.g. ai-review -> ai_review)
+            normalized = cmd_name.replace("-", "_")
+            module_path = Path(__file__).parent / "commands" / normalized / "cli.py"
 
             if not module_path.exists():
                 return None
 
             spec = importlib.util.spec_from_file_location(
-                f"thothctl.commands.{cmd_name}.cli", str(module_path)
+                f"thothctl.commands.{normalized}.cli", str(module_path)
             )
             if spec is None or spec.loader is None:
                 return None
