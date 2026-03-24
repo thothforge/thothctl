@@ -144,6 +144,252 @@ Use Checkov for built-in best practices and OPA for custom organizational polici
 thothctl scan iac -t checkov -t opa --enforcement hard
 ```
 
+## Cost Governance Policies with OPA
+
+Use OPA/Conftest to enforce cost governance rules on your infrastructure. These policies work with both Conftest mode (static `.tf` analysis) and OPA mode (plan-based `tfplan.json` evaluation).
+
+### Static Cost Policies (Conftest Mode)
+
+These policies evaluate `.tf` files directly — no Terraform plan required.
+
+#### Deny Expensive Instance Types
+
+```rego
+# policy/cost_instance_types.rego
+package main
+
+# Blocked instance families — too expensive for non-production
+blocked_families := {"p4d", "p5", "x2idn", "u-"}
+
+deny contains msg if {
+    some name, instance in input.resource.aws_instance
+    family := split(instance.instance_type, ".")[0]
+    family in blocked_families
+    msg := sprintf("EC2 instance '%s' uses expensive family '%s'. Use a smaller instance type or request an exception.", [name, family])
+}
+
+# Warn on large instances that may be over-provisioned
+warn contains msg if {
+    some name, instance in input.resource.aws_instance
+    endswith(instance.instance_type, ".metal")
+    msg := sprintf("EC2 instance '%s' uses bare metal (%s). Verify this is required.", [name, instance.instance_type])
+}
+```
+
+#### Enforce RDS Cost Controls
+
+```rego
+# policy/cost_rds.rego
+package main
+
+deny contains msg if {
+    some name, db in input.resource.aws_db_instance
+    db.multi_az == true
+    not db.tags.Environment == "production"
+    msg := sprintf("RDS instance '%s' has Multi-AZ enabled in non-production. Remove multi_az or set Environment=production tag.", [name])
+}
+
+deny contains msg if {
+    some name, db in input.resource.aws_db_instance
+    db.allocated_storage > 500
+    msg := sprintf("RDS instance '%s' requests %dGB storage. Max allowed without approval is 500GB.", [name, db.allocated_storage])
+}
+```
+
+#### Require Cost Tags
+
+```rego
+# policy/cost_tags.rego
+package main
+
+required_tags := {"CostCenter", "Team", "Environment"}
+
+deny contains msg if {
+    some name, instance in input.resource.aws_instance
+    missing := required_tags - {key | instance.tags[key]}
+    count(missing) > 0
+    msg := sprintf("EC2 instance '%s' is missing required cost tags: %v", [name, missing])
+}
+
+deny contains msg if {
+    some name, db in input.resource.aws_db_instance
+    missing := required_tags - {key | db.tags[key]}
+    count(missing) > 0
+    msg := sprintf("RDS instance '%s' is missing required cost tags: %v", [name, missing])
+}
+```
+
+#### Enforce S3 Lifecycle Policies
+
+```rego
+# policy/cost_s3.rego
+package main
+
+warn contains msg if {
+    some name, bucket in input.resource.aws_s3_bucket
+    not input.resource.aws_s3_bucket_lifecycle_configuration
+    msg := sprintf("S3 bucket '%s' has no lifecycle configuration. Add lifecycle rules to control storage costs.", [name])
+}
+
+deny contains msg if {
+    some name, bucket in input.resource.aws_s3_bucket
+    bucket.acl == "public-read"
+    msg := sprintf("S3 bucket '%s' is public. Public buckets can incur unexpected data transfer costs.", [name])
+}
+```
+
+Run static cost policies:
+
+```bash
+thothctl scan iac -t opa -o "policy_dir=policy" --enforcement hard
+```
+
+### Plan-Based Cost Policies (OPA Mode)
+
+These policies evaluate `tfplan.json` for deeper cost analysis based on planned changes.
+
+#### Budget Gate — Block Deployments Over Threshold
+
+```rego
+# policy/cost_budget.rego
+package terraform.cost
+
+import input as tfplan
+
+# Monthly budget limit in USD
+monthly_budget := 5000
+
+# Estimated monthly costs per resource type (simplified)
+cost_estimates := {
+    "aws_instance": {"t3.micro": 7.6, "t3.small": 15.2, "t3.medium": 30.4, "t3.large": 60.8, "m5.large": 70.1, "m5.xlarge": 140.2},
+    "aws_db_instance": {"db.t3.micro": 12.4, "db.t3.small": 24.8, "db.t3.medium": 49.6, "db.r5.large": 175.2},
+    "aws_nat_gateway": {"default": 32.4},
+    "aws_eks_cluster": {"default": 73.0},
+}
+
+default allow := false
+
+allow if {
+    estimated_monthly_cost < monthly_budget
+}
+
+deny contains msg if {
+    estimated_monthly_cost >= monthly_budget
+    msg := sprintf("Estimated monthly cost $%.2f exceeds budget $%.2f. Reduce resources or request budget increase.", [estimated_monthly_cost, monthly_budget])
+}
+
+estimated_monthly_cost := sum([cost |
+    some rc in tfplan.resource_changes
+    rc.change.actions[_] == "create"
+    cost := resource_cost(rc)
+])
+
+resource_cost(rc) := c if {
+    rc.type == "aws_instance"
+    instance_type := rc.change.after.instance_type
+    c := cost_estimates["aws_instance"][instance_type]
+} else := c if {
+    rc.type == "aws_db_instance"
+    instance_class := rc.change.after.instance_class
+    c := cost_estimates["aws_db_instance"][instance_class]
+} else := c if {
+    costs := cost_estimates[rc.type]
+    c := costs["default"]
+} else := 0
+```
+
+#### Prevent Mass Resource Deletion
+
+```rego
+# policy/cost_blast_radius.rego
+package terraform.cost
+
+import input as tfplan
+
+max_deletes := 5
+
+deny contains msg if {
+    deletes := [rc |
+        some rc in tfplan.resource_changes
+        rc.change.actions[_] == "delete"
+    ]
+    count(deletes) > max_deletes
+    msg := sprintf("Plan deletes %d resources (max allowed: %d). Review changes carefully.", [count(deletes), max_deletes])
+}
+
+warn contains msg if {
+    some rc in tfplan.resource_changes
+    rc.change.actions[_] == "delete"
+    rc.type == "aws_db_instance"
+    msg := sprintf("Plan deletes RDS instance '%s'. Ensure backups exist before proceeding.", [rc.address])
+}
+```
+
+#### Enforce Reserved Instance Coverage
+
+```rego
+# policy/cost_reserved.rego
+package terraform.cost
+
+import input as tfplan
+
+# Instance types that should use reserved instances in production
+ri_required_types := {"m5.xlarge", "m5.2xlarge", "r5.large", "r5.xlarge", "c5.xlarge"}
+
+warn contains msg if {
+    some rc in tfplan.resource_changes
+    rc.type == "aws_instance"
+    rc.change.actions[_] == "create"
+    instance_type := rc.change.after.instance_type
+    instance_type in ri_required_types
+    msg := sprintf("Instance '%s' (%s) should be covered by a Reserved Instance or Savings Plan.", [rc.address, instance_type])
+}
+```
+
+Run plan-based cost policies:
+
+```bash
+# Generate plan
+terraform plan -out=tfplan.binary
+terraform show -json tfplan.binary > tfplan.json
+
+# Evaluate cost policies
+thothctl scan iac -t opa -o "mode=opa,decision=terraform/cost/allow" --enforcement hard
+```
+
+### Combining Cost Policies with Security Scanning
+
+Run cost governance alongside security scanning in a single command:
+
+```bash
+# Full pipeline: security + cost policies
+thothctl scan iac -t checkov -t opa --enforcement hard --post-to-pr
+```
+
+The `policy/` directory can contain both security and cost policies — Conftest evaluates all `.rego` files in the directory. Organize by concern:
+
+```
+policy/
+├── security_s3.rego          # S3 encryption, public access
+├── security_iam.rego         # IAM least privilege
+├── cost_instance_types.rego  # Instance type restrictions
+├── cost_tags.rego            # Required cost allocation tags
+├── cost_rds.rego             # RDS cost controls
+└── cost_budget.rego          # Budget gate (OPA mode)
+```
+
+### Cost Policy in CI/CD
+
+```yaml
+# GitHub Actions — cost gate before deploy
+- name: Cost Policy Check
+  run: |
+    terraform show -json tfplan.binary > tfplan.json
+    thothctl scan iac -t opa -o "mode=opa,policy_dir=policy,decision=terraform/cost/allow" --enforcement hard --post-to-pr
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Enforcement Modes
 
 ### Soft Mode (Default)

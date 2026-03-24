@@ -208,6 +208,22 @@ touches_iam if {
 }
 ```
 
+#### Cost Governance Policies
+
+OPA/Conftest can enforce cost governance rules — budget gates, instance type restrictions, required cost tags, and more. See [Cost Governance Policies with OPA](use_cases.md#cost-governance-policies-with-opa) for complete examples including:
+
+- Deny expensive instance types and enforce cost allocation tags (Conftest mode)
+- Budget gate that blocks deployments exceeding a monthly threshold (OPA mode)
+- Prevent mass resource deletion and enforce Reserved Instance coverage (OPA mode)
+
+```bash
+# Static cost policies against .tf files
+thothctl scan iac -t opa -o "policy_dir=policy" --enforcement hard
+
+# Plan-based budget gate against tfplan.json
+thothctl scan iac -t opa -o "mode=opa,decision=terraform/cost/allow" --enforcement hard
+```
+
 #### Conftest vs OPA Mode
 
 | Aspect | Conftest mode | OPA mode |
