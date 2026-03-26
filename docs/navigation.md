@@ -13,6 +13,7 @@
 - [Commands Reference](index.md#commands) - All available commands
   - [Check Commands](framework/commands/check/check_overview.md) - Validation and compliance
     - [Blast Radius Assessment](framework/commands/check/blast-radius.md) - ITIL v4 risk assessment
+    - [Drift Detection](framework/commands/check/drift-detection.md) - Infrastructure drift detection
   - [Scan Commands](framework/commands/scan/scan_overview.md) - Security scanning
   - [Inventory Commands](framework/commands/inventory/inventory_overview.md) - Infrastructure inventory
 - [Use Cases](framework/use_cases/README.md) - Common usage scenarios

@@ -53,7 +53,11 @@ Package for accelerating the adoption of Internal Frameworks, enable reusing and
         - Service-by-service cost breakdown
         - Optimization recommendations
         - Support for 14 AWS services (EC2, RDS, S3, Lambda, EKS, ECS, etc.)
-
+      - **Drift Detection** - Detect infrastructure drift between IaC and live cloud
+        - Compares terraform state against actual cloud resources
+        - Severity-based classification (critical/high/medium/low)
+        - IaC coverage percentage tracking and trending over time
+        - Tag-based filtering, `.driftignore`, and `.driftpolicy` support
 - **🤖 AI Agent for IaC Security** *(NEW)*:
   - Multi-agent orchestrator with specialized Security, Architecture, Fix, and Decision agents
   - Auto-decision engine for PRs (approve/reject/request-changes) with safety controls
@@ -116,6 +120,34 @@ thothctl check iac -type cost-analysis --recursive
 
 **Supported Services**: EC2, RDS, S3, Lambda, ELB/ALB/NLB, VPC, EBS, DynamoDB, CloudWatch, EKS, ECS, Secrets Manager, API Gateway, Bedrock
 
+
+## 🔍 Drift Detection
+
+ThothCTL can detect infrastructure drift between your IaC definitions and live cloud resources:
+
+```bash
+# Detect drift across all stacks
+thothctl check iac -type drift --recursive
+
+# Filter by environment tags
+thothctl check iac -type drift --recursive --filter-tags "env=prod"
+
+# With AI-powered analysis
+thothctl check iac -type drift --recursive --ai-provider ollama
+
+# Post drift results to a PR
+thothctl check iac -type drift --recursive --post-to-pr
+
+# Features:
+# ✅ Parses tfplan.json or runs live plans
+# ✅ Severity classification (critical/high/medium/low)
+# ✅ IaC coverage percentage and trending over time
+# ✅ Tag-based filtering (--filter-tags "env=prod,team=*")
+# ✅ Policy-based drift response (.driftpolicy)
+# ✅ AI-powered risk assessment and remediation guidance
+# ✅ .driftignore support
+# ✅ Reports: console, JSON, HTML, markdown
+# ✅ Multi-cloud: AWS, GCP, Azure
 ```
 
 ## 🤖 AI Agent for IaC Security

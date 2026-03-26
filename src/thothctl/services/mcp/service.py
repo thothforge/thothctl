@@ -91,6 +91,15 @@ class CheckCompliance(BaseModel):
     """Check infrastructure code for compliance."""
     directory: str = "."
 
+class DetectDrift(BaseModel):
+    """Detect infrastructure drift by comparing IaC state against live cloud resources."""
+    directory: str = "."
+    recursive: bool = False
+    tftool: str = "tofu"
+    filter_tags: str | None = None
+    ai_provider: str | None = None
+    ai_model: str | None = None
+    project_name: str | None = None
 class ManageProject(BaseModel):
     """Convert, clean up and manage the current project."""
     action: str
@@ -126,7 +135,7 @@ class ThothTools(str, Enum):
     GET_VERSION = "thothctl_version"
     UPGRADE_THOTHCTL = "thothctl_upgrade"
     AI_REVIEW = "thothctl_ai_review"
-
+    DETECT_DRIFT = "thothctl_drift_detection"
 # Implementation of ThothCTL commands
 def init_project(project_name: str, directory: str = ".") -> str:
     """Initialize a new project with ThothCTL."""
@@ -268,6 +277,61 @@ def check_compliance(directory: str = ".") -> str:
     ui.print_info(f"Checking {directory}")
     return f"Checked {directory}"
 
+
+def detect_drift(directory: str = ".", recursive: bool = False, tftool: str = "tofu",
+                 filter_tags: str = None, ai_provider: str = None,
+                 ai_model: str = None, project_name: str = None) -> str:
+    """Detect infrastructure drift by comparing IaC state against live cloud resources."""
+    from ...services.check.project.drift.drift_service import DriftDetectionService
+    from ...services.check.project.drift.drift_report import DriftReportGenerator
+    from ...services.check.project.drift.drift_history import DriftHistory
+    from ...services.check.project.drift.drift_policy import DriftPolicyEngine
+    import json
+    from pathlib import Path
+
+    logger.info(f"Detecting drift in {directory} (recursive={recursive}, tool={tftool})")
+    service = DriftDetectionService(tftool=tftool)
+
+    # Parse tag filters
+    tag_dict = {}
+    if filter_tags:
+        for pair in filter_tags.split(","):
+            pair = pair.strip()
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                tag_dict[k.strip()] = v.strip()
+            elif pair:
+                tag_dict[pair] = "*"
+
+    summary = service.detect_drift(directory, recursive, filter_tags=tag_dict or None)
+    summary_dict = summary.to_dict()
+
+    # Policy evaluation
+    policy_engine = DriftPolicyEngine.load(directory)
+    evaluation = policy_engine.evaluate(summary_dict)
+
+    # History tracking
+    proj = project_name or Path(directory).resolve().name
+    history = DriftHistory()
+    history.save_snapshot(proj, summary_dict)
+    trend = history.get_trend(proj)
+
+    # AI analysis
+    ai_result = None
+    if ai_provider and summary.has_drift:
+        from ...services.check.project.drift.drift_ai import analyze_drift_with_ai
+        ai_result = analyze_drift_with_ai(summary_dict, trend=trend,
+                                           provider=ai_provider, model=ai_model)
+
+    # Build response
+    response = summary_dict
+    response["policy"] = evaluation.to_dict()
+    response["trend"] = trend
+    if ai_result:
+        response["ai_analysis"] = ai_result
+
+    reporter = DriftReportGenerator()
+    return json.dumps(response, indent=2, default=str)
 def manage_project(action: str, directory: str = ".") -> str:
     """Convert, clean up and manage the current project."""
     logger.info(f"Performing {action} on project in {directory}")
@@ -563,6 +627,10 @@ async def serve(working_directory: Path | None = None) -> None:
                 inputSchema=CheckCompliance.schema(),
             ),
             Tool(
+                name=ThothTools.DETECT_DRIFT,
+                description="Detect infrastructure drift with tag filtering, policy enforcement, coverage trending, and AI-powered analysis",
+                inputSchema=DetectDrift.schema(),
+            ),            Tool(
                 name=ThothTools.MANAGE_PROJECT,
                 description="Convert, clean up and manage the current project",
                 inputSchema=ManageProject.schema(),
@@ -815,6 +883,23 @@ async def serve(working_directory: Path | None = None) -> None:
                 with ui.status_spinner(f"Checking {arguments.get('directory', '.')}..."):
                     result = check_compliance(arguments.get("directory", "."))
                 ui.print_success(result)
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case ThothTools.DETECT_DRIFT:
+                with ui.status_spinner(f"Detecting drift in {arguments.get('directory', '.')}..."):
+                    result = detect_drift(
+                        arguments.get("directory", "."),
+                        arguments.get("recursive", False),
+                        arguments.get("tftool", "tofu"),
+                        arguments.get("filter_tags"),
+                        arguments.get("ai_provider"),
+                        arguments.get("ai_model"),
+                        arguments.get("project_name"),
+                    )
+                ui.print_success("Drift detection complete")
                 return [TextContent(
                     type="text",
                     text=result

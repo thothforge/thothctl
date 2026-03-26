@@ -42,6 +42,7 @@ nav:
       - IaC Check: framework/commands/check/check_iac.md
       - Cost Analysis: framework/commands/check/cost-analysis.md
       - Blast Radius: framework/commands/check/blast-radius.md
+      - Drift Detection: framework/commands/check/drift-detection.md
       - Dependencies: framework/commands/check/deps.md
       - Plan: framework/commands/check/plan.md
     - Scan:

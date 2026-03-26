@@ -74,6 +74,9 @@ thothctl check iac -type blast-radius --recursive
 # Estimate infrastructure costs
 thothctl check iac -type cost-analysis --recursive
 
+# Detect infrastructure drift
+thothctl check iac -type drift --recursive
+
 # Post results as a PR comment in CI/CD
 thothctl check iac -type tfplan --recursive --post-to-pr
 ```
@@ -83,6 +86,7 @@ Available check types:
 - **deps**: Visualize dependency graph and relationships
 - **blast-radius**: ITIL v4 compliant risk assessment combining dependency analysis with planned changes
 - **cost-analysis**: Estimate AWS infrastructure costs from Terraform plans
+- **drift**: Detect infrastructure drift between IaC state and live cloud resources
 
 See [detailed documentation](check_iac.md) for complete usage guide.
 
@@ -100,6 +104,25 @@ Features:
 - Automated approval workflow recommendations
 - Mitigation steps and rollback planning
 - Visual risk assessment with color-coded components
+
+### [Drift Detection](drift-detection.md)
+
+Detect infrastructure drift between your IaC definitions and live cloud resources.
+
+```bash
+thothctl check iac -type drift --recursive --filter-tags "env=prod"
+```
+
+Features:
+- Classifies drift as changed, deleted, or unmanaged resources
+- Severity-based prioritisation (critical, high, medium, low)
+- Tag-based filtering (`--filter-tags "env=prod,team=*"`)
+- Policy-based drift response (`.driftpolicy` with block/alert/accept/ignore actions)
+- IaC coverage trending over time with threshold alerts
+- AI-powered risk assessment and remediation guidance
+- `.driftignore` file support for excluding known-unmanaged resources
+- Reports in console, JSON, HTML, and markdown (PR comments)
+- Multi-cloud support (AWS, GCP, Azure)
 
 ## Command Structure
 

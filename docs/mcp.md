@@ -124,7 +124,8 @@ With the MCP server running and registered with Amazon Q, you can use natural la
 - "Generate IaC for my project"
 - "Create an inventory of my infrastructure components"
 - "Initialize a new project with ThothCTL"
-
+- "Detect drift in my production infrastructure filtered by env=prod"
+- "Check if my terraform code has drifted and analyze the risk with AI"
 ## Available Tools
 
 The MCP server exposes the following ThothCTL commands as tools:
@@ -151,6 +152,40 @@ The MCP server exposes the following ThothCTL commands as tools:
 - `thothctl_document` - Initialize and setup project documentation
 - `thothctl_check` - Check infrastructure code for compliance
 - `thothctl_project` - Convert, clean up and manage the current project
+
+### Drift Detection
+- `thothctl_drift_detection` - Detect infrastructure drift with tag filtering, policy enforcement, coverage trending, and AI analysis
+
+  **Parameters:**
+  ```json
+  {
+    "directory": "./terraform",
+    "recursive": true,
+    "tftool": "tofu",
+    "filter_tags": "env=prod,team=platform",
+    "ai_provider": "ollama",
+    "ai_model": "llama3",
+    "project_name": "my-infra"
+  }
+  ```
+
+  | Parameter | Type | Default | Description |
+  |-----------|------|---------|-------------|
+  | `directory` | string | `"."` | Path to IaC directory |
+  | `recursive` | bool | `false` | Scan subdirectories |
+  | `tftool` | string | `"tofu"` | `terraform` or `tofu` |
+  | `filter_tags` | string | `null` | Filter by tags: `env=prod,team=*` |
+  | `ai_provider` | string | `null` | AI provider: `openai`, `bedrock`, `azure`, `ollama` |
+  | `ai_model` | string | `null` | Model override: `gpt-4`, `llama3` |
+  | `project_name` | string | `null` | Project name for history tracking |
+
+  **Response includes:**
+  - Drift summary with drifted resources, severity, and tags
+  - Policy evaluation (blocked, ignored, auto-accepted resources)
+  - Coverage trend (improving/degrading/stable with delta)
+  - AI analysis with risk score and recommendations (when `ai_provider` is set)
+
+  For full documentation, see the [Drift Detection Documentation](./framework/commands/check/drift-detection.md).
 
 ### Utility
 - `thothctl_version` - Get ThothCTL version

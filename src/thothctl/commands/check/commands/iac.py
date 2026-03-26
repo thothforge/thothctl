@@ -31,7 +31,7 @@ class CheckIaCCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
         self.console = Console()
-        self.supported_check_types = ["tfplan", "deps", "blast-radius", "cost-analysis"]
+        self.supported_check_types = ["tfplan", "deps", "blast-radius", "cost-analysis", "drift"]
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
@@ -81,6 +81,10 @@ class CheckIaCCommand(ClickCommand):
                 self.ui.print_info("💰 Running cost analysis...")
                 result = self._run_cost_analysis(directory=directory, **kwargs)
                 return result
+            elif kwargs['check_type'] == "drift":
+                self.ui.print_info("🔍 Running drift detection...")
+                result = self._run_drift_detection(directory=directory, **kwargs)
+                return result
 
             self.logger.debug("Check completed successfully")
             return True
@@ -106,6 +110,10 @@ class CheckIaCCommand(ClickCommand):
         # Blast radius assessment
         elif getattr(self, '_blast_assessment', None):
             content = self._build_blast_radius_markdown(self._blast_assessment)
+        # Drift detection results
+        elif getattr(self, '_drift_summary', None):
+            from ....services.check.project.drift.drift_report import DriftReportGenerator
+            content = DriftReportGenerator().generate_markdown(self._drift_summary)
         # Fall back to cost analysis results
         elif getattr(self, '_cost_results', None):
             content = self._build_cost_markdown(self._cost_results)
@@ -1011,6 +1019,159 @@ class CheckIaCCommand(ClickCommand):
             self.ui.print_error(f"Failed to run cost analysis: {str(e)}")
             return False
 
+
+    @staticmethod
+    def _parse_filter_tags(raw: str) -> dict:
+        """Parse 'key=value,key2=value2' into a dict. Supports key-only (implies key=*)."""
+        if not raw:
+            return {}
+        tags = {}
+        for pair in raw.split(","):
+            pair = pair.strip()
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                tags[k.strip()] = v.strip()
+            elif pair:
+                tags[pair] = "*"
+        return tags
+    def _run_drift_detection(self, directory: str, recursive: bool = False, **kwargs) -> bool:
+        """Run drift detection with policy evaluation, history tracking, and optional AI analysis."""
+        try:
+            from ....services.check.project.drift.drift_service import DriftDetectionService
+            from ....services.check.project.drift.drift_report import DriftReportGenerator
+            from ....services.check.project.drift.drift_history import DriftHistory
+            from ....services.check.project.drift.drift_policy import DriftPolicyEngine, DriftAction
+            from pathlib import Path
+            from datetime import datetime
+
+            tftool = kwargs.get('tftool', 'tofu')
+            service = DriftDetectionService(tftool=tftool)
+            reporter = DriftReportGenerator()
+
+            # Parse tag filters
+            filter_tags = self._parse_filter_tags(kwargs.get('filter_tags'))
+            if filter_tags:
+                self.ui.print_info(f"🏷️  Filtering by tags: {filter_tags}")
+
+            # Use existing tfplan.json files if available
+            plan_files = self._find_tfplan_files(directory, recursive)
+
+            if plan_files:
+                self.ui.print_info(f"Found {len(plan_files)} tfplan.json file(s), analysing for drift...")
+                summary = service.detect_drift(directory, recursive, plan_files=plan_files, filter_tags=filter_tags)
+            else:
+                self.ui.print_info(f"No tfplan.json found. Running live {tftool} plan to detect drift...")
+                summary = service.detect_drift(directory, recursive, filter_tags=filter_tags)
+
+            summary_dict = summary.to_dict()
+
+            # --- Policy evaluation ---
+            policy_engine = DriftPolicyEngine.load(directory)
+            evaluation = policy_engine.evaluate(summary_dict)
+
+            if evaluation.ignored_addresses:
+                self.ui.print_info(f"📋 Policy: {len(evaluation.ignored_addresses)} resource(s) ignored by .driftpolicy")
+            if evaluation.accepted_addresses:
+                self.ui.print_info(f"✅ Policy: {len(evaluation.accepted_addresses)} resource(s) auto-accepted by .driftpolicy")
+
+            # Filter ignored resources from display
+            for result in summary.results:
+                result.drifted_resources = [
+                    r for r in result.drifted_resources
+                    if r.address not in evaluation.ignored_addresses
+                ]
+
+            # Apply severity overrides from policy
+            override_map = {v.address: v.severity_override for v in evaluation.verdicts if v.severity_override}
+            if override_map:
+                from ....services.check.project.drift.models import DriftSeverity
+                for result in summary.results:
+                    for r in result.drifted_resources:
+                        if r.address in override_map:
+                            try:
+                                r.severity = DriftSeverity(override_map[r.address])
+                            except ValueError:
+                                pass
+
+            # Display console output
+            reporter.display_console(summary, self.console)
+
+            # --- History / trending ---
+            project_name = kwargs.get('project_name') or Path(directory).resolve().name
+            history = DriftHistory()
+            history.save_snapshot(project_name, summary_dict)
+            trend = history.get_trend(project_name)
+
+            if trend.get("snapshots", 0) > 1:
+                from rich.panel import Panel
+                trend_icon = {"improving": "📈", "degrading": "📉", "stable": "➡️"}.get(trend["trend"], "")
+                self.console.print(Panel(
+                    f"Trend: {trend_icon} {trend['trend'].upper()} "
+                    f"(Δ {trend['coverage_delta']:+.1f}% over {trend['snapshots']} snapshots)\n"
+                    f"Coverage range: {trend['min_coverage']}% — {trend['max_coverage']}%\n"
+                    f"Current: {trend['current_coverage']}% | Peak drifted: {trend['peak_drifted']}",
+                    title="📊 Drift Trend",
+                    border_style="cyan",
+                ))
+
+            threshold_warning = history.check_threshold(project_name)
+            if threshold_warning:
+                self.ui.print_warning(threshold_warning)
+
+            # --- AI analysis (if provider configured) ---
+            ai_provider = kwargs.get('ai_provider')
+            ai_result = None
+            if ai_provider and summary.has_drift:
+                self.ui.print_info(f"🤖 Running AI drift analysis (provider: {ai_provider})...")
+                from ....services.check.project.drift.drift_ai import analyze_drift_with_ai
+                ai_result = analyze_drift_with_ai(
+                    summary_dict, trend=trend,
+                    provider=ai_provider, model=kwargs.get('ai_model'),
+                )
+                ai_summary = ai_result.get("summary", {})
+                from rich.panel import Panel
+                self.console.print(Panel(
+                    f"Risk score: {ai_summary.get('risk_score', 'N/A')}/100\n"
+                    f"Security risks: {ai_summary.get('security_risks', 0)}\n"
+                    f"Block deploy: {'YES' if ai_summary.get('should_block_deploy') else 'NO'}\n"
+                    f"Recommendation: {ai_summary.get('recommendation', 'N/A')}",
+                    title="🤖 AI Drift Analysis",
+                    border_style="magenta",
+                ))
+                for rec in ai_result.get("recommendations", []):
+                    self.ui.print_info(f"  💡 {rec}")
+
+            # --- Generate reports ---
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            reports_dir = Path("Reports") / "drift-detection"
+
+            json_path = reports_dir / f"drift_{timestamp}.json"
+            html_path = reports_dir / f"drift_{timestamp}.html"
+
+            reporter.generate_json(summary, str(json_path))
+            reporter.generate_html(summary, str(html_path))
+
+            self.ui.print_success(f"\n📄 Reports generated:")
+            self.ui.print_info(f"  JSON: {json_path}")
+            self.ui.print_info(f"  HTML: {html_path}")
+
+            # Store for post_execute PR posting
+            self._drift_summary = summary
+
+            # --- Policy enforcement ---
+            if evaluation.blocked:
+                for reason in evaluation.block_reasons:
+                    self.ui.print_error(f"🚫 {reason}")
+                self.ui.print_error("Deployment blocked by drift policy.")
+                return False
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Drift detection failed: {e}")
+            self.ui.print_error(f"Failed to run drift detection: {str(e)}")
+            return False
+
     def _find_cloudformation_templates(self, directory: str, recursive: bool) -> List[str]:
         """Find CloudFormation template files"""
         import os
@@ -1241,7 +1402,7 @@ class CheckIaCCommand(ClickCommand):
 
 
 cli = CheckIaCCommand.as_click_command(
-    help="Analyze IaC artifacts: plans, dependencies, costs, and blast radius"
+    help="Analyze IaC artifacts: plans, dependencies, costs, blast radius, and drift"
 )(
     click.option(
         "-deps", '--dependencies',
@@ -1268,8 +1429,8 @@ cli = CheckIaCCommand.as_click_command(
         default='tofu',
     ),
     click.option("-type", "--check_type",
-                 help="tfplan: analyze plans | deps: view dependencies | blast-radius: impact analysis | cost-analysis: estimate costs",
-                 type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis"], case_sensitive=True),
+                 help="tfplan: analyze plans | deps: view dependencies | blast-radius: impact analysis | cost-analysis: estimate costs | drift: detect infrastructure drift",
+                 type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis", "drift"], case_sensitive=True),
                  default="tfplan",
                  ),
     click.option(
@@ -1295,5 +1456,29 @@ cli = CheckIaCCommand.as_click_command(
         type=str,
         default=None,
         help='Space name to load VCS credentials from'
+    ),
+    click.option(
+        '--ai-provider',
+        type=click.Choice(['openai', 'bedrock', 'azure', 'ollama'], case_sensitive=True),
+        default=None,
+        help='AI provider for drift analysis (drift check type only)'
+    ),
+    click.option(
+        '--ai-model',
+        type=str,
+        default=None,
+        help='AI model override (e.g. gpt-4, llama3)'
+    ),
+    click.option(
+        '--project-name',
+        type=str,
+        default=None,
+        help='Project name for drift history tracking'
+    ),
+    click.option(
+        '--filter-tags',
+        type=str,
+        default=None,
+        help='Filter drift results by resource tags (e.g. "env=prod,team=platform"). Supports key=value, key=* (any value), or key (exists)'
     ),
 )

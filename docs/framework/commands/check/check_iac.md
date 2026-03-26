@@ -2,21 +2,21 @@
 
 ## Overview
 
-The `thothctl check iac` command analyzes Infrastructure as Code **generated artifacts** including terraform plans, dependency graphs, cost estimates, and blast radius assessments. This command helps ensure infrastructure changes are safe, cost-effective, and compliant before deployment.
+The `thothctl check iac` command analyzes Infrastructure as Code **generated artifacts** including terraform plans, dependency graphs, cost estimates, blast radius assessments, and drift detection. This command helps ensure infrastructure changes are safe, cost-effective, and compliant before deployment.
 
 ## Command Structure
 
 ```
 Usage: thothctl check iac [OPTIONS]
 
-  Analyze IaC artifacts: plans, dependencies, costs, and blast radius
+  Analyze IaC artifacts: plans, dependencies, costs, blast radius, and drift
 
 Options:
   -deps, --dependencies           Visualize dependency graph
   --recursive                     Check recursively through subdirectories
   --outmd TEXT                    Output markdown file [default: tfplan_check_results.md]
   --tftool [terraform|tofu]       Terraform tool to use [default: tofu]
-  -type, --check_type [tfplan|deps|blast-radius|cost-analysis]
+  -type, --check_type [tfplan|deps|blast-radius|cost-analysis|drift]
                                   Check type to perform [default: tfplan]
   --plan-file TEXT                Path to terraform plan JSON file (for blast-radius)
   --post-to-pr                    Post results as a PR comment (Azure DevOps or GitHub)
@@ -112,6 +112,30 @@ thothctl check iac -type cost-analysis --recursive
 **Supported AWS Services**: EC2, RDS, S3, Lambda, ELB/ALB/NLB, VPC, EBS, DynamoDB, CloudWatch, EKS, ECS, Secrets Manager, API Gateway, Bedrock
 
 See [Cost Analysis](cost-analysis.md) for detailed documentation.
+
+### 5. Drift Detection (`drift`)
+
+Detects infrastructure drift between IaC state and live cloud resources.
+
+```bash
+thothctl check iac -type drift --recursive
+thothctl check iac -type drift --recursive --filter-tags "env=prod"
+thothctl check iac -type drift --recursive --ai-provider ollama
+```
+
+**What it does**:
+- Parses tfplan.json files or runs live plans to detect drift
+- Classifies drift as changed, deleted, or unmanaged
+- Assigns severity (critical, high, medium, low) based on resource type
+- Filters by resource tags (`--filter-tags "env=prod,team=*"`)
+- Evaluates `.driftpolicy` rules (block, alert, accept, ignore)
+- Tracks IaC coverage over time with trend analysis
+- AI-powered risk assessment and remediation guidance
+- Generates console, JSON, HTML, and markdown reports
+
+**Multi-cloud support**: AWS, GCP, Azure resource types are classified with appropriate severity levels.
+
+See [Drift Detection](drift-detection.md) for detailed documentation.
 
 ## Basic Usage Examples
 
