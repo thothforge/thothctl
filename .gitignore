@@ -256,8 +256,8 @@ cython_debug/
 # Kiro AI assistant files
 .kiro/
 
-# Test and debug files
-test_*.py
+# Test and debug files (root level only, not tests/ directory)
+/test_*.py
 test_*.html
 debug_*.html
 *_test/

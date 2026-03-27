@@ -2,19 +2,19 @@
 version_tools = """[
   {
     "name": "terraform",
-    "version": "1.14.4"
+    "version": "1.14.8"
   },
   {
     "name": "tofu",
-    "version": "1.11.4"
+    "version": "1.11.5"
   },
   {
     "name": "terragrunt",
-    "version": "0.97.2"
+    "version": "0.99.5"
   },
   {
     "name": "thothctl",
-    "version": "0.7.3"
+    "version": "0.13.0"
   },
   {
     "name": "pre-commit",
@@ -22,7 +22,7 @@ version_tools = """[
   },
   {
     "name": "tflint",
-    "version": "0.51.1"
+    "version": "0.61.0"
   },
   {
     "name": "tfsec",
@@ -30,11 +30,11 @@ version_tools = """[
   },
   {
     "name": "checkov",
-    "version": "3.2.451"
+    "version": "3.2.511"
   },
   {
     "name": "terraform-docs",
-    "version": "0.19.0"
+    "version": "0.21.0"
   },
   {
     "name": "terraform-compliance",
@@ -50,20 +50,20 @@ version_tools = """[
   },
   {
     "name": "commitizen",
-    "version": "3.27.0",
+    "version": "4.13.9",
     "command": "cz version"
   },
   {
     "name": "pipx",
-    "version": "1.4.3"
-    },
+    "version": "1.11.0"
+  },
   {
     "name": "uv",
-    "version": "0.8.15"
+    "version": "0.11.2"
   },
   {
     "name": "trivy",
-    "version": "0.59.1"
+    "version": "0.69.3"
   },
   {
     "name": "snyk",
@@ -74,5 +74,15 @@ version_tools = """[
     "name": "kiro-cli",
     "version": "1.24.0",
     "command": "kiro-cli --version"
+  },
+  {
+    "name": "opa",
+    "version": "1.15.0",
+    "command": "opa version"
+  },
+  {
+    "name": "conftest",
+    "version": "0.67.1",
+    "command": "conftest --version"
   }
 ]"""

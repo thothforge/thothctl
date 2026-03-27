@@ -61,13 +61,13 @@ class CheckIaCCommand(ClickCommand):
                     directory=directory,
                     recursive=kwargs.get('recursive', False),
                     outmd=kwargs.get('outmd'),
-                    dependencies=kwargs.get('dependencies', False),
+                    dependencies=False,
                     tftool=kwargs.get('tftool', 'tofu')
                 )
                 return result
                 
             # Handle dependency graph visualization - always use terragrunt
-            elif kwargs['dependencies'] or kwargs['check_type'] == "deps":
+            elif kwargs['check_type'] == "deps":
                 result = self._visualize_dependencies(
                     directory=directory,
                     dagtool='terragrunt'  # Force terragrunt as the tool for dependencies
@@ -1034,6 +1034,7 @@ class CheckIaCCommand(ClickCommand):
             elif pair:
                 tags[pair] = "*"
         return tags
+
     def _run_drift_detection(self, directory: str, recursive: bool = False, **kwargs) -> bool:
         """Run drift detection with policy evaluation, history tracking, and optional AI analysis."""
         try:
@@ -1404,12 +1405,6 @@ class CheckIaCCommand(ClickCommand):
 cli = CheckIaCCommand.as_click_command(
     help="Analyze IaC artifacts: plans, dependencies, costs, blast radius, and drift"
 )(
-    click.option(
-        "-deps", '--dependencies',
-        is_flag=True,
-        default=False,
-        help='View a dependency graph in ASCII pretty shell output'
-    ),
     click.option(
         '--recursive',
         is_flag=True,

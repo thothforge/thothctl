@@ -7,7 +7,7 @@ THOTHCTL_BANNER = """
    | | | | | | (_) | |_| | | | |___  | | | |___ 
    |_| |_| |_|\___/ \__|_| |_|\____| |_| |_____|
    
-   📜 Internal Developer Platform CLI
+   🔱 AI-Powered Infrastructure Lifecycle CLI
 """
 
 THOTHCTL_BANNER_COLORED = """
@@ -17,7 +17,7 @@ THOTHCTL_BANNER_COLORED = """
 \033[96m   | | | | | | (_) | |_| | | | |___  | | | |___ \033[0m
 \033[95m   |_| |_| |_|\___/ \__|_| |_|\____| |_| |_____|\033[0m
    
-   📜 \033[1mInternal Developer Platform CLI\033[0m
+   🔱 \033[1mAI-Powered Infrastructure Lifecycle CLI\033[0m
 """
 
 def get_banner(colored: bool = True) -> str:
