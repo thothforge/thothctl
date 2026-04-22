@@ -58,6 +58,8 @@ class ScanService:
         options: Dict[str, Dict],
         tftool: str = "tofu",
         html_reports_format: Literal["simple", "xunit"] = "simple",
+        max_workers: int = 2,
+        compact: bool = False,
     ) -> Dict[str, Dict]:
         """Execute selected security scans."""
         try:
@@ -110,6 +112,8 @@ class ScanService:
                     reports_dir=reports_dir,
                     options=options.get("checkov", {}),
                     tftool=tftool,
+                    max_workers=max_workers,
+                    compact=compact,
                 )
                 
                 # Process the directory to generate reports
@@ -607,59 +611,76 @@ class ScanService:
         return results
 
     def _recursive_terraform_scan(
-        self, directory: str, reports_dir: str, options: Dict, tftool: str
+        self, directory: str, reports_dir: str, options: Dict, tftool: str,
+        max_workers: int = 2, compact: bool = False,
     ) -> Dict[str, Dict]:
         """
         Recursively scan directories for Terraform files and run Checkov.
+
+        Optimized for memory-constrained CI agents (4 CPU / 8 GB):
+        - Parallel execution with controlled concurrency (max_workers)
+        - GC runs after each completed scan to free memory
+        - compact flag reduces checkov output memory usage
         """
+        import gc
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         results = {}
-        try:
-            scanner = self.available_scanners.get("checkov")
-            if not scanner:
-                raise ValueError("Checkov scanner not available")
+        scanner = self.available_scanners.get("checkov")
+        if not scanner:
+            raise ValueError("Checkov scanner not available")
 
-            # Scan current directory if it contains terraform files
-            if (Path(directory) / "main.tf").exists() or (
-                Path(directory) / "tfplan.json"
-            ).exists():
-                print(f"{Fore.MAGENTA} \n 🔎 {directory}")
-                self.logger.debug(f"Found terraform files in {directory}")
+        # Collect all scannable stack directories
+        stacks = self._find_terraform_stacks(directory)
 
-                try:
-                    result = scanner.execute_scan(
-                        directory=str(directory),
-                        reports_dir=str(reports_dir),
-                        options=options,
-                        tftool=tftool,
-                    )
-                    results[directory] = result
-                except Exception as e:
-                    self.logger.error(f"Error scanning {directory}: {e}")
-                    results[directory] = {"status": "FAIL", "error": str(e)}
+        if not stacks:
+            self.logger.info(f"No terraform stacks found in {directory}")
+            return results
 
-            # Recursively scan subdirectories
-            subdirs = [
-                d
-                for d in Path(directory).iterdir()
-                if d.is_dir() and not d.name.startswith(".")
-            ]
+        self.logger.info(f"Found {len(stacks)} terraform stacks to scan (workers={max_workers})")
+        print(f"{Fore.MAGENTA}\n \U0001f50e Found {len(stacks)} stacks to scan (parallel={max_workers})")
 
-            for subdir in subdirs:
-                subdir_results = self._recursive_terraform_scan(
-                    directory=str(subdir),
-                    reports_dir=reports_dir,
-                    options=options,
+        scan_options = dict(options)
+        if compact:
+            scan_options["compact"] = True
+
+        def _scan_stack(stack_dir: str) -> Tuple[str, Dict]:
+            print(f"{Fore.MAGENTA} \n \U0001f50e {stack_dir}")
+            try:
+                result = scanner.execute_scan(
+                    directory=str(stack_dir),
+                    reports_dir=str(reports_dir),
+                    options=scan_options,
                     tftool=tftool,
                 )
-                results.update(subdir_results)
+                return (stack_dir, result)
+            except Exception as e:
+                self.logger.error(f"Error scanning {stack_dir}: {e}")
+                return (stack_dir, {"status": "FAIL", "error": str(e)})
 
-        except Exception as e:
-            self.logger.error(f"Error during recursive scan: {e}")
-            results[directory] = {"status": "FAIL", "error": str(e)}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(_scan_stack, s): s for s in stacks}
+            for future in as_completed(futures):
+                stack_dir, result = future.result()
+                results[stack_dir] = result
+                gc.collect()
 
         return results
 
-
+    def _find_terraform_stacks(self, directory: str) -> List[str]:
+        """Find all directories containing main.tf or tfplan.json."""
+        stacks = []
+        root = Path(directory)
+        if (root / "main.tf").exists() or (root / "tfplan.json").exists():
+            stacks.append(str(root))
+        for d in sorted(root.rglob("*")):
+            if not d.is_dir():
+                continue
+            if any(part.startswith(".") for part in d.relative_to(root).parts):
+                continue
+            if (d / "main.tf").exists() or (d / "tfplan.json").exists():
+                stacks.append(str(d))
+        return stacks
 def recursive_scan(
     directory: str,
     tool: str,

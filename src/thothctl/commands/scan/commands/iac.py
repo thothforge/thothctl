@@ -88,6 +88,8 @@ class RestoredIaCScanCommand(ClickCommand):
                 options=self._parse_options(options) if options else {},
                 tftool=tftool,
                 html_reports_format=html_reports_format,
+                max_workers=max_workers,
+                compact=compact,
             )
             
             # Enhanced data extraction and validation
@@ -639,5 +641,17 @@ cli = RestoredIaCScanCommand.as_click_command(
         type=click.Choice(["soft", "hard"], case_sensitive=False),
         default="soft",
         help="Enforcement mode: 'soft' reports violations (exit 0), 'hard' fails the pipeline (exit 1) when any tool finds violations",
+    ),
+    click.option(
+        "--max-workers",
+        type=int,
+        default=2,
+        help="Max parallel checkov scans (default: 2, reduce to 1 on low-memory agents)",
+    ),
+    click.option(
+        "--compact",
+        is_flag=True,
+        default=False,
+        help="Use checkov --compact mode to reduce memory usage on constrained CI agents",
     ),
 )

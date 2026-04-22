@@ -262,11 +262,11 @@ class CheckovScanner(ScannerPort):
         Returns:
             List of command components
         """
-        # Remove the timeout command
-        cmd = ["checkov"]  # No timeout
+        cmd = ["checkov"]
 
         if options:
-            # Add any additional arguments
+            if options.get("compact"):
+                cmd.append("--compact")
             if "additional_args" in options:
                 if isinstance(options["additional_args"], list):
                     cmd.extend(options["additional_args"])
