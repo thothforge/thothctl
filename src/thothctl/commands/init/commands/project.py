@@ -87,6 +87,7 @@ class ProjectInitCommand(ClickCommand):
         project_type: str = "terraform",
         space: Optional[str] = None,
         batch: bool = False,
+        context: str = None,
         **kwargs,
     ) -> None:
         """Execute project initialization"""
@@ -154,6 +155,10 @@ class ProjectInitCommand(ClickCommand):
         
         # Initialize git repository as final step
         self.project_service.init_git_repo(project_path)
+        
+        # Copy architecture/spec context files into .kiro/steering
+        if context:
+            self.project_service.copy_context_to_steering(project_path, context)
         
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
@@ -582,5 +587,12 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         is_flag=True,
         help="Run in batch mode with minimal prompts and use default values where possible",
         default=False,
+    ),
+    click.option(
+        "--context",
+        "-ctx",
+        help="Path to architecture/spec file (.md) or folder with definition files to copy into .kiro/steering/",
+        type=click.Path(exists=True),
+        default=None,
     ),
 )

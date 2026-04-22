@@ -78,6 +78,34 @@ class ProjectService:
         git.Repo.init(path=str(project_path), mkdir=False)
         self.ui.print_success("🗃️ Git repository initialized")
 
+    def copy_context_to_steering(self, project_path: Path, context_path: str) -> None:
+        """Copy architecture/spec files into .kiro/steering/.
+
+        Args:
+            project_path: Root of the new project
+            context_path: A single .md file or a folder containing .md/.yaml files
+        """
+        import shutil
+
+        src = Path(context_path).resolve()
+        if not src.exists():
+            self.ui.print_error(f"Context path not found: {context_path}")
+            return
+
+        steering_dir = project_path / ".kiro" / "steering"
+        steering_dir.mkdir(parents=True, exist_ok=True)
+
+        if src.is_file():
+            shutil.copy2(src, steering_dir / src.name)
+            self.ui.print_success(f"📄 Copied {src.name} → .kiro/steering/")
+        elif src.is_dir():
+            copied = 0
+            for f in sorted(src.iterdir()):
+                if f.is_file() and f.suffix in (".md", ".yaml", ".yml", ".txt"):
+                    shutil.copy2(f, steering_dir / f.name)
+                    copied += 1
+            self.ui.print_success(f"📁 Copied {copied} file(s) from {src.name}/ → .kiro/steering/")
+
     def setup_version_control(
         self,
         project_name: str,
