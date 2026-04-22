@@ -1,0 +1,19 @@
+{
+  "name": "thothctl-iac-security-agent",
+  "description": "ThothCTL AI Agent for IaC security analysis, code review, and auto-fix generation",
+  "framework": "custom",
+  "runtime": "PYTHON_3_13",
+  "entryPoint": ["main.py"],
+  "networkConfiguration": {
+    "networkMode": "PUBLIC"
+  },
+  "lifecycleConfiguration": {
+    "idleRuntimeSessionTimeout": 300,
+    "maxLifetime": 1800
+  },
+  "environmentVariables": {
+    "THOTH_AI_PROVIDER": "bedrock",
+    "THOTH_MEMORY_MODE": "auto",
+    "AWS_DEFAULT_REGION": "us-east-1"
+  }
+}
