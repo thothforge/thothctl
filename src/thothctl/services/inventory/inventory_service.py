@@ -663,6 +663,15 @@ class InventoryService:
             logger.warning(f"Stack path does not exist or is not a directory: {stack_path}")
             return providers
         
+        # Pre-check: skip if stack has module references but hasn't been initialized
+        if self._has_uninitialized_modules(abs_stack_path):
+            logger.warning(
+                f"Skipping provider check for {stack_path}: "
+                "module references found but modules not initialized. "
+                "Run 'tofu init' or 'terraform init' to install modules first."
+            )
+            return providers
+        
         # Determine the command to use based on project type
         # Check if this specific stack has a terragrunt.hcl (not just the global project flag)
         stack_has_terragrunt = (abs_stack_path / "terragrunt.hcl").exists()
@@ -794,6 +803,31 @@ class InventoryService:
         
         # Fallback: assume hashicorp
         return ('hashicorp', source)
+
+    def _has_uninitialized_modules(self, stack_path: Path) -> bool:
+        """Check if a stack references external modules but hasn't been initialized."""
+        # Terragrunt manages its own init, skip this check
+        if (stack_path / "terragrunt.hcl").exists():
+            return False
+
+        # Look for module blocks in .tf files
+        has_module_refs = False
+        for tf_file in stack_path.glob("*.tf"):
+            try:
+                with open(tf_file, "r") as f:
+                    content = f.read()
+                # Quick check for module blocks with non-local sources
+                if re.search(r'\bmodule\s+"[^"]+"\s*\{', content):
+                    has_module_refs = True
+                    break
+            except (IOError, UnicodeDecodeError):
+                continue
+
+        if not has_module_refs:
+            return False
+
+        # Modules referenced but .terraform/modules not present = not initialized
+        return not (stack_path / ".terraform" / "modules").exists()
 
     def _parse_providers_output(self, output: str, stack_path: str = "") -> List[Provider]:
         """
