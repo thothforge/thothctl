@@ -42,6 +42,8 @@ class RestoredIaCScanCommand(ClickCommand):
         tftool: str = "tofu",
         verbose: bool = False,
         html_reports_format: Literal["simple", "xunit"] = "simple",
+        max_workers: int = 2,
+        compact: bool = False,
         **kwargs,
     ) -> None:
         """Execute original IaC security scan with unified HTML styling."""
