@@ -13,6 +13,7 @@ from rich.style import Style
 from rich.table import Table
 
 from thothctl.utils.template_loader import get_template_loader
+from thothctl.services.inventory.version_service import classify_staleness
 
 
 logger = logging.getLogger(__name__)
@@ -1017,6 +1018,7 @@ class ReportService:
                                             <th>Source</th>
                                             <th>Version</th>
                                             <th>Latest</th>
+                                            <th>Release Date</th>
                                             <th>SourceUrl</th>
                                             <th>Status</th>
                                             <th>Path</th>
@@ -1036,6 +1038,12 @@ class ReportService:
                         
                         # Determine status styling
                         status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" else '<span style="color: #9ca3af;">—</span>'
+
+                        # Staleness badge
+                        staleness = classify_staleness(component.get("published_at"))
+                        staleness_colors = {"critical": "#ef4444", "high": "#f97316", "medium": "#eab308", "low": "#22c55e", "unknown": "#9ca3af"}
+                        s_color = staleness_colors.get(staleness["risk"], "#9ca3af")
+                        release_display = f'<span style="white-space:nowrap;">{staleness["icon"]} {staleness["date_short"]}</span>' if staleness["date_short"] != "—" else '<span style="color:#9ca3af;">—</span>'
                         
                         # Add anchor link for component
                         component_id = f"{stack_id}-{name.lower().replace(' ', '-')}"
@@ -1051,6 +1059,7 @@ class ReportService:
                             <td><code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code></td>
                             <td><span style="font-family: monospace; color: var(--info-color);">{version}</span></td>
                             <td><span style="font-family: monospace; color: var(--success-color);">{latest_version}</span></td>
+                            <td>{release_display}</td>
                             <td>{source_url if source_url != "Unknown" else '<span style="color: #9ca3af;">—</span>'}</td>
                             <td>{status_display}</td>
                             <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{path}</code></td>
@@ -1078,6 +1087,7 @@ class ReportService:
                                             <th>Version</th>
                                             <th>Source</th>
                                             <th>Latest Version</th>
+                                            <th>Release Date</th>
                                             <th>SourceUrl</th>
                                             <th>Status</th>
                                             <th>Component</th>
@@ -1116,6 +1126,10 @@ class ReportService:
                         
                         # Format source with proper styling
                         source_display = f'<code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code>' if source != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+
+                        # Staleness badge
+                        staleness = classify_staleness(provider.get("published_at"))
+                        release_display = f'<span style="white-space:nowrap;">{staleness["icon"]} {staleness["date_short"]}</span>' if staleness["date_short"] != "—" else '<span style="color:#9ca3af;">—</span>'
                         
                         components_html += f"""
                         <tr id="provider-{provider_id}">
@@ -1129,6 +1143,7 @@ class ReportService:
                             <td>{version_display}</td>
                             <td>{source_display}</td>
                             <td>{latest_version_display}</td>
+                            <td>{release_display}</td>
                             <td>{source_url if source_url != "Unknown" else '<span style="color: #9ca3af;">—</span>'}</td>
                             <td>{status_display}</td>
                             <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{module}</code></td>
@@ -1353,6 +1368,7 @@ class ReportService:
                 components_table.add_column("Current Version", style="green")
                 components_table.add_column("Source", style="white", overflow="fold")
                 components_table.add_column("Latest Version", style="yellow")
+                components_table.add_column("Release Date", style="dim")
                 components_table.add_column("SourceUrl")
                 components_table.add_column("Status", justify="center")
 
@@ -1376,12 +1392,16 @@ class ReportService:
                     else:
                         source = "Unknown"
 
+                    staleness = classify_staleness(component.get("published_at"))
+                    release_col = f"{staleness['icon']} {staleness['date_short']}"
+
                     components_table.add_row(
                         component.get("type", "Unknown"),
                         component.get("name", "Unknown"),
                         str(current_version),
                         str(source),
                         str(component.get("latest_version", "Unknown")),
+                        release_col,
                         str(component.get("source_url", "Unknown")),
                         status,
                     )
@@ -1394,6 +1414,7 @@ class ReportService:
                     providers_table.add_column("Version", style="green")
                     providers_table.add_column("Source", style="white", overflow="fold")
                     providers_table.add_column("Latest Version", style="yellow")
+                    providers_table.add_column("Release Date", style="dim")
                     providers_table.add_column("SourceUrl", style="blue", overflow="fold")
                     providers_table.add_column("Status", style="red")
                     providers_table.add_column("Module", style="yellow", overflow="fold")
@@ -1412,12 +1433,16 @@ class ReportService:
                         latest_version = provider.get("latest_version", "Null")
                         source_url = provider.get("source_url", "Null")
                         status = provider.get("status", "Unknown")
+
+                        staleness = classify_staleness(provider.get("published_at"))
+                        release_col = f"{staleness['icon']} {staleness['date_short']}"
                         
                         providers_table.add_row(
                             provider.get("name", "Unknown"),
                             provider.get("version", "Unknown"),
                             provider.get("source", "Unknown"),
                             latest_version,
+                            release_col,
                             source_url,
                             status,
                             module_name,
@@ -1577,6 +1602,28 @@ class ReportService:
                 <div class="summary-card">
                     <div class="summary-number" style="color: #8b5cf6;">{terraform_modules}</div>
                     <div class="summary-label">Terraform Modules</div>
+                </div>
+                """
+
+            # Staleness stats card
+            stale_counts = {"critical": 0, "high": 0, "medium": 0}
+            for component_group in inventory.get("components", []):
+                for comp in component_group.get("components", []):
+                    s = classify_staleness(comp.get("published_at"))
+                    if s["risk"] in stale_counts:
+                        stale_counts[s["risk"]] += 1
+                for prov in component_group.get("providers", []):
+                    s = classify_staleness(prov.get("published_at"))
+                    if s["risk"] in stale_counts:
+                        stale_counts[s["risk"]] += 1
+            stale_total = stale_counts["critical"] + stale_counts["high"] + stale_counts["medium"]
+            if stale_total > 0:
+                stale_color = "var(--danger-color)" if stale_counts["critical"] else ("var(--warning-color)" if stale_counts["high"] else "#eab308")
+                summary_html += f"""
+                <div class="summary-card" style="border-left: 4px solid {stale_color};">
+                    <div class="summary-number" style="color: {stale_color};">{stale_total}</div>
+                    <div class="summary-label">Stale Dependencies</div>
+                    <div style="font-size:0.75rem;color:var(--secondary-color);margin-top:4px;">🔴 {stale_counts['critical']}  🟠 {stale_counts['high']}  🟡 {stale_counts['medium']}</div>
                 </div>
                 """
             

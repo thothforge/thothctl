@@ -3,6 +3,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -12,6 +13,38 @@ from colorama import Fore
 
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Staleness classification
+# ---------------------------------------------------------------------------
+
+_STALENESS_THRESHOLDS = [
+    (365 * 2, "critical", "🔴"),  # > 2 years
+    (365,     "high",     "🟠"),  # > 1 year
+    (180,     "medium",   "🟡"),  # > 6 months
+    (0,       "low",      "🟢"),  # ≤ 6 months
+]
+
+
+def classify_staleness(published_at: Optional[str]) -> Dict[str, Any]:
+    """Return age_days, risk level, and emoji for a published_at ISO-8601 string.
+
+    Returns dict with keys: age_days, risk, icon, date_short.
+    If published_at is None/unparseable, returns risk='unknown'.
+    """
+    if not published_at:
+        return {"age_days": None, "risk": "unknown", "icon": "⚪", "date_short": "—"}
+    try:
+        dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        age = (datetime.now(timezone.utc) - dt).days
+        for threshold, risk, icon in _STALENESS_THRESHOLDS:
+            if age > threshold:
+                return {"age_days": age, "risk": risk, "icon": icon, "date_short": dt.strftime("%Y-%m-%d")}
+        # fallback (should not reach here)
+        return {"age_days": age, "risk": "low", "icon": "🟢", "date_short": dt.strftime("%Y-%m-%d")}
+    except (ValueError, TypeError):
+        return {"age_days": None, "risk": "unknown", "icon": "⚪", "date_short": "—"}
 
 
 class RegistryType(Enum):
@@ -55,7 +88,7 @@ class VersionChecker:
         if self._session:
             await self._session.close()
 
-    async def get_public_version(self, resource: str) -> Tuple[str, str]:
+    async def get_public_version(self, resource: str) -> Tuple[str, str, Optional[str]]:
         """
         Get public version information for a module.
 
@@ -63,7 +96,7 @@ class VersionChecker:
             resource: Module resource identifier
 
         Returns:
-            Tuple of (version, source_url)
+            Tuple of (version, source_url, published_at)
         """
         try:
             print(f"{Fore.MAGENTA} Getting version for {resource}{Fore.RESET}")
@@ -72,14 +105,14 @@ class VersionChecker:
 
             if "github" in source_url:
                 # TODO: Implement GitHub API version checking
-                return "Null", source_url
+                return "Null", source_url, None
 
-            version = await self._fetch_version(source_url)
-            return version, source_url
+            version, published_at = await self._fetch_version(source_url)
+            return version, source_url, published_at
 
         except Exception as e:
             logger.error(f"Failed to get public version for {resource}: {str(e)}")
-            return "Null", "Error"
+            return "Null", "Error", None
 
     @staticmethod
     def _clean_resource_path(resource: str) -> str:
@@ -115,8 +148,12 @@ class VersionChecker:
         )
         return f"{base_url}/{resource}"
 
-    async def _fetch_version(self, url: str) -> str:
-        """Fetch version information from registry."""
+    async def _fetch_version(self, url: str) -> Tuple[str, Optional[str]]:
+        """Fetch version and published_at from registry.
+
+        Returns:
+            Tuple of (version, published_at) where published_at is an ISO-8601 string or None.
+        """
         try:
             if not self._session:
                 raise RuntimeError("HTTP session not initialized")
@@ -124,14 +161,14 @@ class VersionChecker:
             async with self._session.get(url) as response:
                 response.raise_for_status()
                 data = await response.json()
-                return data.get("version", "Null")
+                return data.get("version", "Null"), data.get("published_at")
 
         except aiohttp.ClientError as e:
             logger.error(f"HTTP request failed for {url}: {str(e)}")
-            return "Null"
+            return "Null", None
         except Exception as e:
             logger.error(f"Failed to fetch version from {url}: {str(e)}")
-            return "Null"
+            return "Null", None
 
     def check_version_status(
         self, latest_version: str, local_version: str, resource: str, resource_name: str
@@ -313,12 +350,13 @@ class InventoryVersionManager:
                 # Extract the module path without version
                 resource = re.sub(r"\?version=[0-9\.]+", "", resource)
             
-            version, source_url = await checker.get_public_version(resource)
+            version, source_url, published_at = await checker.get_public_version(resource)
 
             component.update(
                 {
                     "latest_version": version,
                     "source_url": source_url,
+                    "published_at": published_at,
                     "status": checker.check_version_status(
                         latest_version=version,
                         local_version=local_version[0],
@@ -336,7 +374,7 @@ class InventoryVersionManager:
     def _set_null_values(component: Dict[str, Any]) -> None:
         """Set null values for component fields."""
         component.update(
-            {"latest_version": "Null", "source_url": "Null", "status": "Null"}
+            {"latest_version": "Null", "source_url": "Null", "status": "Null", "published_at": None}
         )
 
 
@@ -809,20 +847,16 @@ class ProviderVersionChecker:
             
         return registry_base, namespace, provider_name
 
-    async def get_latest_provider_version(self, provider_source: str, provider_name: str) -> Tuple[Optional[str], str]:
+    async def get_latest_provider_version(self, provider_source: str, provider_name: str) -> Tuple[Optional[str], str, Optional[str]]:
         """
-        Get the latest version and source URL for a provider from the registry.
+        Get the latest version, source URL, and published_at for a provider.
         
-        Args:
-            provider_source: Provider source URL
-            provider_name: Provider name
-            
         Returns:
-            Tuple of (latest_version, source_url) or (None, source_url) if not found
+            Tuple of (latest_version, source_url, published_at)
         """
         if not self._session:
             logger.error("Session not initialized. Use async context manager.")
-            return None, "Error: Session not initialized"
+            return None, "Error: Session not initialized", None
             
         try:
             registry_base, namespace, name = self._parse_provider_source(provider_source)
@@ -851,29 +885,30 @@ class ProviderVersionChecker:
                             data = json.loads(text_content)
                         else:
                             logger.warning(f"Response for {provider_name} doesn't appear to be JSON: {text_content[:100]}...")
-                            return None, url
+                            return None, url, None
                         
                         # Get the latest version from the provider info
                         latest_version = data.get("version")
+                        published_at = data.get("published_at")
                         
                         if latest_version:
                             logger.info(f"Latest version for {provider_name}: {latest_version}")
-                            return latest_version, url
+                            return latest_version, url, published_at
                         else:
                             logger.warning(f"No version found for provider {provider_name}")
-                            return None, url
+                            return None, url, None
                             
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse JSON response for {provider_name}: {str(e)}")
-                        return None, url
+                        return None, url, None
                         
                 else:
                     logger.warning(f"Failed to fetch version for {provider_name}: HTTP {response.status}")
-                    return None, url
+                    return None, url, None
                     
         except Exception as e:
             logger.error(f"Error fetching latest version for {provider_name}: {str(e)}")
-            return None, f"Error: {str(e)}"
+            return None, f"Error: {str(e)}", None
 
     def _compare_provider_versions(self, current: str, latest: str) -> str:
         """
@@ -1014,7 +1049,7 @@ class ProviderVersionManager:
         current_version = provider.get("version", "")
         
         # Get latest version and source URL
-        latest_version, source_url = await checker.get_latest_provider_version(provider_source, provider_name)
+        latest_version, source_url, published_at = await checker.get_latest_provider_version(provider_source, provider_name)
         
         # Update provider information
         updated_provider = provider.copy()
@@ -1022,10 +1057,12 @@ class ProviderVersionManager:
         if latest_version:
             updated_provider["latest_version"] = latest_version
             updated_provider["source_url"] = source_url
+            updated_provider["published_at"] = published_at
             updated_provider["status"] = checker._compare_provider_versions(current_version, latest_version)
         else:
             updated_provider["latest_version"] = "Unknown"
             updated_provider["source_url"] = source_url if source_url else "Null"
+            updated_provider["published_at"] = None
             updated_provider["status"] = "Unknown"
             
         return updated_provider
