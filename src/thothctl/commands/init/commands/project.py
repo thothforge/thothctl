@@ -88,11 +88,33 @@ class ProjectInitCommand(ClickCommand):
         space: Optional[str] = None,
         batch: bool = False,
         context: str = None,
+        language: str = None,
         **kwargs,
     ) -> None:
         """Execute project initialization"""
         project_name = project_name.strip()
         project_path = Path(f"./{project_name}")
+
+        # Handle CDK language selection
+        if project_type == "cdkv2":
+            if not language:
+                if batch:
+                    language = "typescript"
+                else:
+                    import inquirer
+                    from colorama import Fore
+                    questions = [
+                        inquirer.List(
+                            "language",
+                            message=f"{Fore.GREEN}Select CDK language",
+                            choices=["typescript", "python", "java", "csharp", "go"],
+                            default="typescript",
+                        ),
+                    ]
+                    answer = inquirer.prompt(questions)
+                    language = answer["language"] if answer else "typescript"
+            self.ui.print_info(f"🔤 CDK language: {language}")
+            project_type = f"cdkv2-{language}"
 
         self.ui.print_info(f"🚀 Initializing project: {project_name}")
         
@@ -594,5 +616,15 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         help="Path to architecture/spec file (.md) or folder with definition files to copy into .kiro/steering/",
         type=click.Path(exists=True),
         default=None,
+    ),
+    click.option(
+        "-l",
+        "--language",
+        default=None,
+        type=click.Choice(
+            ["typescript", "python", "java", "csharp", "go"],
+            case_sensitive=True,
+        ),
+        help="Programming language for CDK projects (only used with --project-type cdkv2)",
     ),
 )

@@ -24,6 +24,11 @@ class GitHubTemplateLoader:
         "terraform-module": "https://github.com/thothforge/terraform_module_scaffold.git",
         "tofu": "https://github.com/thothforge/tofu_project_scaffold.git",
         "cdkv2": "https://github.com/thothforge/cdkv2_project_scaffold.git",
+        "cdkv2-typescript": "https://github.com/thothforge/cdkv2_typescript_scaffold.git",
+        "cdkv2-python": "https://github.com/thothforge/cdkv2_python_scaffold.git",
+        "cdkv2-java": "https://github.com/thothforge/cdkv2_java_scaffold.git",
+        "cdkv2-csharp": "https://github.com/thothforge/cdkv2_csharp_scaffold.git",
+        "cdkv2-go": "https://github.com/thothforge/cdkv2_go_scaffold.git",
     }
     
     def __init__(self, logger=None):

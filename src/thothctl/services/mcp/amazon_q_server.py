@@ -68,7 +68,8 @@ async def serve_amazon_q():
                     "properties": {
                         "project_name": {"type": "string", "description": "Name of the project"},
                         "project_type": {"type": "string", "description": "Type of project", "default": "terraform-terragrunt", "enum": ["terraform", "terraform-terragrunt", "tofu", "cdkv2", "terraform_module", "terragrunt", "custom"]},
-                        "space": {"type": "string", "description": "Space name (optional)"}
+                        "space": {"type": "string", "description": "Space name (optional)"},
+                        "language": {"type": "string", "description": "CDK language (only for cdkv2)", "enum": ["typescript", "python", "java", "csharp", "go"]}
                     },
                     "required": ["project_name"],
                     "additionalProperties": False
