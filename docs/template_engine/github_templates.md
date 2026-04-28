@@ -33,7 +33,7 @@ CDK projects support language selection. When `--project-type cdkv2` is used, th
 | `cdkv2-java` | Java | https://github.com/thothforge/cdkv2_java_scaffold.git |
 | `cdkv2-csharp` | C# | https://github.com/thothforge/cdkv2_csharp_scaffold.git |
 | `cdkv2-go` | Go | https://github.com/thothforge/cdkv2_go_scaffold.git |
-| `cdkv2` | Generic fallback | https://github.com/thothforge/cdkv2_project_scaffold.git |
+| `cdkv2` | Generic (defaults to TypeScript) | https://github.com/thothforge/cdkv2_typescript_scaffold.git |
 
 All CDK scaffolds include:
 

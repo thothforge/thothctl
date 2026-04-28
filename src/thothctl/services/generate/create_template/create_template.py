@@ -38,6 +38,8 @@ def init_thothcf_content(project_type="terraform-terragrunt"):
         template = thothcf_toml_module_content
     elif project_type in ["terragrunt", "terraform-terragrunt"]:
         template = thothcf_toml_content  # Use same content as terraform for now
+    elif project_type.startswith("cdkv2"):
+        template = thothcf_toml_content  # Use same content as terraform for now
     else:
         logging.error(f"Project type {project_type} not supported")
         raise ValueError(f"Project type {project_type} not supported")
@@ -100,6 +102,8 @@ def create_project(
     elif project_type == "terraform-module":
         template = terraform_module_template
     elif project_type in ["terragrunt", "terraform-terragrunt"]:
+        template = thothcf_toml_content  # Use same content as terraform for now
+    elif project_type.startswith("cdkv2"):
         template = terragrunt_template
     else:
         template = terraform_template  # Default fallback
