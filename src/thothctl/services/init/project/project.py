@@ -268,6 +268,7 @@ class ProjectService:
             repo_meta = {
                 "repo_name": selected_template["repo_name"],
                 "repo_url": clean_url,
+                "template_url": clean_url,
                 "commit": f"{sha}".replace('"', "'"),
                 "tag": tag if tag else "",
             }
@@ -443,6 +444,7 @@ class ProjectService:
             repo_meta = {
                 "repo_name": selected_template["repo_name"],
                 "repo_url": clean_url,
+                "template_url": clean_url,
                 "commit": f"{sha}".replace('"', "'"),
                 "tag": tag if tag else "",
             }

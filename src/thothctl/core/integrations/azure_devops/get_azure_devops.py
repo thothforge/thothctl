@@ -148,6 +148,7 @@ def clone_repo(
     repo_meta = {
         "repo_name": repository["Name"],
         "repo_url": repository["RemoteUrl"],
+        "template_url": repository["RemoteUrl"],
         "commit": f"{sha}".replace('"', "'"),
         "tag": tag,
     }

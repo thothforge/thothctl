@@ -47,7 +47,7 @@ class ProjectUpgradeService:
                 return {"success": False, "error": "No project metadata found in .thothcf.toml"}
 
             # Get remote template info
-            template_url = metadata.get("template_url")
+            template_url = metadata.get("template_url") or metadata.get("repo_url")
             if not template_url:
                 return {"success": False, "error": "No template_url found in project metadata"}
 
