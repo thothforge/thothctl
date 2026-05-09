@@ -1011,7 +1011,7 @@ class InventoryService:
                             outdated += 1
             if total > 0:
                 debt_score = (outdated / total) * 100
-                risk = "critical" if debt_score > 75 else "high" if debt_score > 50 else "medium" if debt_score > 25 else "low"
+                risk = "critical" if debt_score >= 70 else "high" if debt_score >= 50 else "medium" if debt_score >= 30 else "low"
                 inventory_dict["technical_debt"] = {
                     "debt_score": debt_score,
                     "risk_level": risk,
@@ -1455,12 +1455,21 @@ class InventoryService:
         metrics["providers_with_breaking_changes"] = schema_compat.get("providers_with_breaking_changes", 0)
         
         # Calculate debt score (0-100, higher is worse)
-        total_items = metrics["total_components"] + metrics["outdated_providers"]
-        if total_items > 0:
-            outdated_items = metrics["outdated_modules"] + metrics["outdated_providers"]
-            metrics["debt_score"] = (outdated_items / total_items) * 100
+        # Weighted approach: modules carry 70% weight, providers 30%
+        # This prevents a single outdated provider from inflating the score
+        total_modules = metrics["total_components"]
+        total_providers = metrics["current_providers"] + metrics["outdated_providers"]
+        
+        module_debt = (metrics["outdated_modules"] / total_modules) if total_modules > 0 else 0
+        provider_debt = (metrics["outdated_providers"] / total_providers) if total_providers > 0 else 0
+        
+        MODULE_WEIGHT = 0.7
+        PROVIDER_WEIGHT = 0.3
+        
+        if total_modules > 0 or total_providers > 0:
+            metrics["debt_score"] = (module_debt * MODULE_WEIGHT + provider_debt * PROVIDER_WEIGHT) * 100
             
-            # Add weight for breaking changes
+            # Add penalty for breaking changes (+5 points each)
             breaking_weight = (metrics["modules_with_breaking_changes"] + 
                              metrics["providers_with_breaking_changes"]) * 5
             metrics["debt_score"] = min(100, metrics["debt_score"] + breaking_weight)

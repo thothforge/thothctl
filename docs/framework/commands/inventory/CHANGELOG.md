@@ -1,5 +1,14 @@
 # ThothCTL Inventory Command Changelog
 
+## Version 0.14.3 - May 2026
+
+### 🔧 Fix: Weighted Technical Debt Scoring
+
+- **Weighted formula**: Modules now carry 70% weight and providers 30% in debt score calculation
+- **Fairer scoring**: A single outdated provider no longer inflates the score disproportionately
+- **Consistent thresholds**: CDK risk levels aligned with the main formula (70/50/30)
+- **Rationale**: Providers may be intentionally pinned (e.g., a module tested against a specific provider version), so they should not dominate the debt score
+
 ## Version 0.4.0 - July 2025
 
 ### 🎯 Major Improvements

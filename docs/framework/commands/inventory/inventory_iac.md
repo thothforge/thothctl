@@ -197,6 +197,52 @@ The reports now include comprehensive provider data:
 - **Module Context**: Which module uses the provider
 - **Status**: Current, Outdated, or Unknown
 
+## Technical Debt Scoring 📊
+
+When `--check-versions` is enabled, ThothCTL calculates a **technical debt score** that reflects how outdated your infrastructure is.
+
+### Weighted Formula
+
+The debt score uses a weighted approach that separates module health from provider health:
+
+```
+module_debt   = outdated_modules / total_modules       (weight: 70%)
+provider_debt = outdated_providers / total_providers   (weight: 30%)
+
+debt_score = (module_debt × 0.7 + provider_debt × 0.3) × 100 + breaking_changes_penalty
+```
+
+**Why weighted?** Modules define your architecture and are the primary source of risk. Providers are dependencies that may be intentionally pinned (e.g., a latest module tested against a specific provider version). A single outdated provider should not inflate the score disproportionately.
+
+### Breaking Changes Penalty
+
+Each module or provider with detected breaking changes adds **+5 points** to the debt score (capped at 100%).
+
+### Risk Levels
+
+| Debt Score | Risk Level | Meaning |
+|-----------|------------|---------|
+| ≥ 70%    | **Critical** | Immediate action required |
+| ≥ 50%    | **High** | Plan upgrades soon |
+| ≥ 30%    | **Medium** | Schedule maintenance |
+| < 30%    | **Low** | Infrastructure is well-maintained |
+
+### Examples
+
+| Scenario | Score | Risk |
+|----------|-------|------|
+| 2 modules current, 1/2 providers outdated | 15% | Low |
+| 2/4 modules outdated, providers current | 35% | Medium |
+| All modules and providers outdated | 100% | Critical |
+| Everything current | 0% | Low |
+
+### Recommendations
+
+The system auto-generates actionable recommendations based on the metrics:
+- Update outdated modules/providers
+- Review components with breaking changes before upgrading
+- Confirmation when infrastructure is well-maintained (score < 20%)
+
 ## Framework Type Options
 
 ### Auto-detect Framework (Default)
