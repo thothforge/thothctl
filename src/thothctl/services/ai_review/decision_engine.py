@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional
 
 from .config.decision_rules import DecisionRules, BLOCKING_PATTERNS
 from .safety.safety_guard import SafetyGuard
+from .tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -40,58 +41,64 @@ class DecisionEngine:
                  repository: str = "", pr_id: str = "",
                  pr_context: Optional[Dict] = None) -> DecisionResult:
         """Evaluate analysis results and return a decision."""
-        summary = analysis.get("summary", {})
-        risk_score = float(analysis.get("risk_score", 50))
-        findings = analysis.get("findings", [])
-        recommendations = analysis.get("recommendations", [])
+        with span("decision_engine.evaluate", {"repository": repository, "pr_id": pr_id}) as s:
+            summary = analysis.get("summary", {})
+            risk_score = float(analysis.get("risk_score", 50))
+            findings = analysis.get("findings", [])
+            recommendations = analysis.get("recommendations", [])
 
-        critical = summary.get("critical", 0)
-        high = summary.get("high", 0)
-        medium = summary.get("medium", 0)
-        low = summary.get("low", 0)
+            critical = summary.get("critical", 0)
+            high = summary.get("high", 0)
+            medium = summary.get("medium", 0)
+            low = summary.get("low", 0)
 
-        findings_summary = {"critical": critical, "high": high, "medium": medium, "low": low}
+            findings_summary = {"critical": critical, "high": high, "medium": medium, "low": low}
 
-        # Check for blocking patterns in findings
-        has_blocking = self._has_blocking_patterns(findings)
+            has_blocking = self._has_blocking_patterns(findings)
 
-        # Determine raw decision
-        decision, confidence, reason = self._compute_decision(
-            risk_score, critical, high, medium, has_blocking, findings,
-        )
-
-        # Safety gate
-        if decision != Decision.COMMENT and repository:
-            allowed, safety_reason = self.safety.can_take_action(
-                decision.value, confidence, repository, pr_context,
+            decision, confidence, reason = self._compute_decision(
+                risk_score, critical, high, medium, has_blocking, findings,
             )
-            if not allowed:
-                return DecisionResult(
-                    decision=Decision.COMMENT,
-                    confidence=confidence,
-                    reason=reason,
-                    risk_score=risk_score,
-                    findings_summary=findings_summary,
-                    recommendations=recommendations,
-                    blocked_by_safety=True,
-                    safety_reason=safety_reason,
+
+            if decision != Decision.COMMENT and repository:
+                allowed, safety_reason = self.safety.can_take_action(
+                    decision.value, confidence, repository, pr_context,
+                )
+                if not allowed:
+                    s.set_attribute("decision", "comment")
+                    s.set_attribute("blocked_by_safety", True)
+                    s.set_attribute("safety_reason", safety_reason)
+                    s.set_attribute("risk_score", risk_score)
+                    return DecisionResult(
+                        decision=Decision.COMMENT,
+                        confidence=confidence,
+                        reason=reason,
+                        risk_score=risk_score,
+                        findings_summary=findings_summary,
+                        recommendations=recommendations,
+                        blocked_by_safety=True,
+                        safety_reason=safety_reason,
+                    )
+
+            if decision != Decision.COMMENT and repository:
+                self.safety.record_action(
+                    action=decision.value, repository=repository,
+                    pr_id=pr_id, confidence=confidence, reason=reason,
                 )
 
-        # Record if taking action
-        if decision != Decision.COMMENT and repository:
-            self.safety.record_action(
-                action=decision.value, repository=repository,
-                pr_id=pr_id, confidence=confidence, reason=reason,
-            )
+            s.set_attribute("decision", decision.value)
+            s.set_attribute("confidence", confidence)
+            s.set_attribute("risk_score", risk_score)
+            s.set_attribute("has_blocking_patterns", has_blocking)
 
-        return DecisionResult(
-            decision=decision,
-            confidence=confidence,
-            reason=reason,
-            risk_score=risk_score,
-            findings_summary=findings_summary,
-            recommendations=recommendations,
-        )
+            return DecisionResult(
+                decision=decision,
+                confidence=confidence,
+                reason=reason,
+                risk_score=risk_score,
+                findings_summary=findings_summary,
+                recommendations=recommendations,
+            )
 
     def _compute_decision(self, risk_score: float, critical: int, high: int,
                           medium: int, has_blocking: bool,

@@ -10,6 +10,7 @@ import uuid
 from typing import Dict, Any
 
 from ..config.ai_settings import ProviderConfig
+from ..tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +44,20 @@ class BedrockAgentProvider:
 
     def analyze(self, system_prompt: str, user_content: str) -> Dict[str, Any]:
         """Send analysis request via agent runtime and return parsed JSON."""
-        if self.is_persistent:
-            text = self._invoke_persistent(system_prompt, user_content)
-        else:
-            text = self._invoke_inline(system_prompt, user_content)
+        with span("provider.bedrock_agent.analyze", {
+            "model": self.model,
+            "mode": "persistent" if self.is_persistent else "inline",
+            "session_id": self._session_id,
+        }) as s:
+            if self.is_persistent:
+                text = self._invoke_persistent(system_prompt, user_content)
+            else:
+                text = self._invoke_inline(system_prompt, user_content)
 
-        return self._parse_response(text)
+            result = self._parse_response(text)
+            s.set_attribute("tokens.input", result.get("_usage", {}).get("input_tokens", 0))
+            s.set_attribute("tokens.output", result.get("_usage", {}).get("output_tokens", 0))
+            return result
 
     def _invoke_inline(self, instruction: str, input_text: str) -> str:
         """Invoke ephemeral inline agent — no pre-created agent needed."""

@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any
 
 from ..config.ai_settings import ProviderConfig
+from ..tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -36,44 +37,42 @@ class OllamaProvider:
 
     def analyze(self, system_prompt: str, user_content: str) -> Dict[str, Any]:
         """Send analysis request to Ollama and return parsed JSON response."""
-        # Append explicit JSON instruction since not all Ollama models
-        # support response_format=json_object reliably
-        json_hint = "\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation outside the JSON."
-        messages = [
-            {"role": "system", "content": system_prompt + json_hint},
-            {"role": "user", "content": user_content},
-        ]
+        with span("provider.ollama.analyze", {"model": self.model}) as s:
+            json_hint = "\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation outside the JSON."
+            messages = [
+                {"role": "system", "content": system_prompt + json_hint},
+                {"role": "user", "content": user_content},
+            ]
 
-        kwargs: Dict[str, Any] = {
-            "model": self.model,
-            "messages": messages,
-            "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
-        }
+            kwargs: Dict[str, Any] = {
+                "model": self.model,
+                "messages": messages,
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+            }
 
-        # Try with response_format first; fall back if model doesn't support it
-        try:
-            kwargs["response_format"] = {"type": "json_object"}
-            response = self.client.chat.completions.create(**kwargs)
-        except Exception:
-            kwargs.pop("response_format", None)
-            response = self.client.chat.completions.create(**kwargs)
+            try:
+                kwargs["response_format"] = {"type": "json_object"}
+                response = self.client.chat.completions.create(**kwargs)
+            except Exception:
+                kwargs.pop("response_format", None)
+                response = self.client.chat.completions.create(**kwargs)
 
-        text = response.choices[0].message.content
-        usage = response.usage
+            text = response.choices[0].message.content
+            usage = response.usage
 
-        # Extract JSON from response if wrapped in markdown
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0].strip()
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
 
-        result = json.loads(text)
-        result["_usage"] = {
-            "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
-            "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
-        }
-        return result
+            result = json.loads(text)
+            input_tokens = getattr(usage, "prompt_tokens", 0) or 0
+            output_tokens = getattr(usage, "completion_tokens", 0) or 0
+            result["_usage"] = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+            s.set_attribute("tokens.input", input_tokens)
+            s.set_attribute("tokens.output", output_tokens)
+            return result
 
     @property
     def name(self) -> str:

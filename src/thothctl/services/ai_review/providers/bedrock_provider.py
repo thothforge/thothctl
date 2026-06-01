@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any
 
 from ..config.ai_settings import ProviderConfig
+from ..tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -30,37 +31,38 @@ class BedrockProvider:
 
     def analyze(self, system_prompt: str, user_content: str) -> Dict[str, Any]:
         """Send analysis request to Bedrock and return parsed JSON response."""
-        body = {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": user_content}],
-        }
+        with span("provider.bedrock.analyze", {"model": self.model, "region": self.region}) as s:
+            body = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+                "system": system_prompt,
+                "messages": [{"role": "user", "content": user_content}],
+            }
 
-        response = self.client.invoke_model(
-            modelId=self.model,
-            contentType="application/json",
-            accept="application/json",
-            body=json.dumps(body),
-        )
+            response = self.client.invoke_model(
+                modelId=self.model,
+                contentType="application/json",
+                accept="application/json",
+                body=json.dumps(body),
+            )
 
-        response_body = json.loads(response["body"].read())
-        text = response_body["content"][0]["text"]
-        usage = response_body.get("usage", {})
+            response_body = json.loads(response["body"].read())
+            text = response_body["content"][0]["text"]
+            usage = response_body.get("usage", {})
 
-        # Extract JSON from response (Claude may wrap it in markdown)
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0].strip()
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
 
-        result = json.loads(text)
-        result["_usage"] = {
-            "input_tokens": usage.get("input_tokens", 0),
-            "output_tokens": usage.get("output_tokens", 0),
-        }
-        return result
+            result = json.loads(text)
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            result["_usage"] = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+            s.set_attribute("tokens.input", input_tokens)
+            s.set_attribute("tokens.output", output_tokens)
+            return result
 
     @property
     def name(self) -> str:

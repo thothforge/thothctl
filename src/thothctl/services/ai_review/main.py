@@ -27,6 +27,8 @@ from typing import Any, Dict
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from .tracing import span
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="ThothCTL AgentCore Agent", version="0.13.2")
@@ -62,15 +64,20 @@ async def invocations(request: Request):
     if not mode:
         mode = _detect_mode(prompt)
 
-    try:
-        result = _dispatch(
-            mode=mode, directory=directory, provider=provider, model=model,
-            roles=roles, repository=repository, run_id=run_id, prompt=prompt,
-        )
-        return JSONResponse(content={"result": result})
-    except Exception as e:
-        logger.exception("Invocation failed")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    with span("invocations", {"mode": mode, "directory": directory,
+                              "provider": provider, "repository": repository,
+                              "run_id": run_id}) as s:
+        try:
+            result = _dispatch(
+                mode=mode, directory=directory, provider=provider, model=model,
+                roles=roles, repository=repository, run_id=run_id, prompt=prompt,
+            )
+            s.set_attribute("result.status", "ok")
+            return JSONResponse(content={"result": result})
+        except Exception as e:
+            logger.exception("Invocation failed")
+            s.set_attribute("result.status", "error")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # ── Existing REST endpoints (kept for direct API use) ───────────────

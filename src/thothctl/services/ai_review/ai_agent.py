@@ -20,6 +20,7 @@ from .utils.prompts import (
     SYSTEM_FULL_ANALYSIS,
 )
 from .utils.fix_prompts import SYSTEM_FIX_GENERATOR
+from .tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -82,35 +83,37 @@ class AIReviewAgent:
         Calls InventoryService, ScanService, BlastRadiusService, and collects
         raw code to give the LLM a complete picture of the IaC project.
         """
-        logger.info(f"Building rich context for {directory}")
-        ctx = self.context_builder.build_context(directory)
+        with span("ai_agent.analyze_directory", {"directory": directory}) as s:
+            logger.info(f"Building rich context for {directory}")
+            ctx = self.context_builder.build_context(directory)
 
-        # If we got scan results through context building, compute basic risk
-        basic_risk = None
-        if ctx.scan_results.get("total_findings", 0) > 0:
-            basic_risk = self.risk_assessor.assess_risk(ctx.scan_results)
+            basic_risk = None
+            if ctx.scan_results.get("total_findings", 0) > 0:
+                basic_risk = self.risk_assessor.assess_risk(ctx.scan_results)
 
-        if not self.cost_tracker.check_budget():
-            logger.warning("Budget limit reached")
-            if basic_risk:
-                return self._basic_analysis(ctx.scan_results, basic_risk)
-            return self._empty_result()
+            if not self.cost_tracker.check_budget():
+                logger.warning("Budget limit reached")
+                s.set_attribute("budget_exceeded", True)
+                if basic_risk:
+                    return self._basic_analysis(ctx.scan_results, basic_risk)
+                return self._empty_result()
 
-        formatted = self.context_builder.format_for_ai(ctx)
-        fallback = (lambda: self._basic_analysis(ctx.scan_results, basic_risk)) if basic_risk else self._empty_result
-        result = self._call_ai(SYSTEM_FULL_ANALYSIS, formatted, "analyze_directory", fallback=fallback)
+            formatted = self.context_builder.format_for_ai(ctx)
+            fallback = (lambda: self._basic_analysis(ctx.scan_results, basic_risk)) if basic_risk else self._empty_result
+            result = self._call_ai(SYSTEM_FULL_ANALYSIS, formatted, "analyze_directory", fallback=fallback)
 
-        # Attach context metadata so callers know what was collected
-        result["_context"] = {
-            "project_type": ctx.project_type,
-            "modules_found": len(ctx.modules),
-            "providers_found": len(ctx.providers),
-            "scan_findings": ctx.scan_results.get("total_findings", 0),
-            "blast_radius_components": ctx.blast_radius.get("total_components", 0),
-            "code_files": len(ctx.code_files),
-            "collection_notes": ctx.errors,
-        }
-        return result
+            result["_context"] = {
+                "project_type": ctx.project_type,
+                "modules_found": len(ctx.modules),
+                "providers_found": len(ctx.providers),
+                "scan_findings": ctx.scan_results.get("total_findings", 0),
+                "blast_radius_components": ctx.blast_radius.get("total_components", 0),
+                "code_files": len(ctx.code_files),
+                "collection_notes": ctx.errors,
+            }
+            s.set_attribute("findings", ctx.scan_results.get("total_findings", 0))
+            s.set_attribute("code_files", len(ctx.code_files))
+            return result
 
     def review_code(self, directory: str) -> Dict[str, Any]:
         """Review raw IaC code with AI (no thothctl service context)."""
@@ -129,38 +132,31 @@ class AIReviewAgent:
 
     def generate_fixes(self, directory: str, scan_results: Dict = None,
                        severity_filter: str = None) -> Dict[str, Any]:
-        """Generate actionable code fixes for scan findings.
+        """Generate actionable code fixes for scan findings."""
+        with span("ai_agent.generate_fixes", {"directory": directory, "severity_filter": severity_filter or "all"}) as s:
+            if not scan_results:
+                analyzer = ReportAnalyzer()
+                reports_dir = Path(directory) / "Reports"
+                if reports_dir.exists():
+                    scan_results = analyzer.parse_scan_results(str(reports_dir))
+                else:
+                    analysis = self.analyze_directory(directory)
+                    return self._fixes_from_analysis(analysis, directory)
 
-        Args:
-            directory: Path to IaC code
-            scan_results: Pre-parsed scan results (or auto-collected)
-            severity_filter: Only fix findings at this severity or above
-        """
-        # Collect scan results if not provided
-        if not scan_results:
-            analyzer = ReportAnalyzer()
-            reports_dir = Path(directory) / "Reports"
-            if reports_dir.exists():
-                scan_results = analyzer.parse_scan_results(str(reports_dir))
-            else:
-                # Run analysis to get findings
-                analysis = self.analyze_directory(directory)
-                return self._fixes_from_analysis(analysis, directory)
+            if scan_results.get("total_findings", 0) == 0:
+                return {"fixes": [], "skipped": [], "summary": {"total_findings": 0, "fixes_generated": 0, "skipped": 0}}
 
-        if scan_results.get("total_findings", 0) == 0:
-            return {"fixes": [], "skipped": [], "summary": {"total_findings": 0, "fixes_generated": 0, "skipped": 0}}
+            code_files = self.code_reviewer.collect_code_for_review(directory)
 
-        # Collect affected code files
-        code_files = self.code_reviewer.collect_code_for_review(directory)
+            if not self.cost_tracker.check_budget():
+                s.set_attribute("fallback", "pattern_fixes")
+                return self._pattern_fixes(scan_results, code_files, severity_filter)
 
-        if not self.cost_tracker.check_budget():
-            return self._pattern_fixes(scan_results, code_files, severity_filter)
-
-        # Build prompt with findings + code
-        content = self._format_fix_request(scan_results, code_files, severity_filter)
-        result = self._call_ai(SYSTEM_FIX_GENERATOR, content, "generate_fixes",
-                               fallback=lambda: self._pattern_fixes(scan_results, code_files, severity_filter))
-        return result
+            content = self._format_fix_request(scan_results, code_files, severity_filter)
+            result = self._call_ai(SYSTEM_FIX_GENERATOR, content, "generate_fixes",
+                                   fallback=lambda: self._pattern_fixes(scan_results, code_files, severity_filter))
+            s.set_attribute("fixes_generated", len(result.get("fixes", [])))
+            return result
 
     def _format_fix_request(self, scan_results: Dict, code_files: Dict,
                             severity_filter: str = None) -> str:

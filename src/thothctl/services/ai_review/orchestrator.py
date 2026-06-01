@@ -25,6 +25,7 @@ from .config.ai_settings import AISettings, ProviderConfig
 from .analyzers.context_builder import ContextBuilder, IaCContext
 from .utils.cost_tracker import CostTracker
 from .memory import AgentMemory, MemoryConfig
+from .tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -123,39 +124,48 @@ class AgentOrchestrator:
         if roles is None:
             roles = [AgentRole.SECURITY, AgentRole.ARCHITECTURE]
 
-        # Build shared context once
-        logger.info(f"Building context for {directory}")
-        ctx = self.context_builder.build_context(directory)
+        with span("orchestrator.run_agents", {
+            "directory": directory,
+            "roles": [r.value for r in roles],
+            "repository": repository,
+            "run_id": run_id,
+        }) as s:
+            # Build shared context once
+            logger.info(f"Building context for {directory}")
+            ctx = self.context_builder.build_context(directory)
 
-        # Enrich context with previous analysis from memory
-        if repository:
-            previous = self.memory.load_analysis(repository, run_id=run_id)
-            if previous:
-                ctx.errors.append(f"Previous analysis loaded from memory ({repository})")
-                self._inject_previous_context(ctx, previous)
+            # Enrich context with previous analysis from memory
+            if repository:
+                previous = self.memory.load_analysis(repository, run_id=run_id)
+                if previous:
+                    ctx.errors.append(f"Previous analysis loaded from memory ({repository})")
+                    self._inject_previous_context(ctx, previous)
 
-        # Create tasks for requested roles
-        tasks = self._create_tasks(ctx, roles)
+            # Create tasks for requested roles
+            tasks = self._create_tasks(ctx, roles)
 
-        if not self.cost_tracker.check_budget():
-            logger.warning("Budget exceeded — running offline agents only")
-            return self._offline_result(ctx, roles)
+            if not self.cost_tracker.check_budget():
+                logger.warning("Budget exceeded — running offline agents only")
+                s.set_attribute("budget_exceeded", True)
+                return self._offline_result(ctx, roles)
 
-        # Execute agents (parallel where possible)
-        result = OrchestratorResult()
-        self._execute_tasks(tasks, result)
+            # Execute agents (parallel where possible)
+            result = OrchestratorResult()
+            self._execute_tasks(tasks, result)
 
-        # If decision was requested, run it last with merged context
-        if AgentRole.DECISION in roles:
-            self._run_decision(result, ctx)
+            # If decision was requested, run it last with merged context
+            if AgentRole.DECISION in roles:
+                self._run_decision(result, ctx)
 
-        result.cost = self.cost_tracker.get_cost_report("daily")
+            result.cost = self.cost_tracker.get_cost_report("daily")
 
-        # Persist results to memory
-        if repository:
-            self._save_to_memory(repository, result, run_id=run_id)
+            # Persist results to memory
+            if repository:
+                self._save_to_memory(repository, result, run_id=run_id)
 
-        return result
+            s.set_attribute("agents_executed", len(tasks))
+            s.set_attribute("errors", len(result.errors))
+            return result
 
     def run_single_agent(self, directory: str, role: AgentRole) -> Dict[str, Any]:
         """Run a single specialized agent."""
@@ -212,22 +222,23 @@ class AgentOrchestrator:
         if not tasks:
             return
 
-        if self.max_parallel <= 1 or len(tasks) == 1:
-            for task in tasks:
-                self._run_task(task, result)
-        else:
-            with ThreadPoolExecutor(max_workers=min(self.max_parallel, len(tasks))) as pool:
-                futures = {pool.submit(self._call_ai, task): task for task in tasks}
-                for future in as_completed(futures):
-                    task = futures[future]
-                    try:
-                        ai_result = future.result()
-                        if task.post_process:
-                            ai_result = task.post_process(ai_result)
-                        setattr(result, task.role.value, ai_result)
-                    except Exception as e:
-                        logger.error(f"Agent {task.role.value} failed: {e}")
-                        result.errors.append(f"{task.role.value}: {e}")
+        with span("orchestrator.execute_tasks", {"task_count": len(tasks), "parallel": self.max_parallel > 1}):
+            if self.max_parallel <= 1 or len(tasks) == 1:
+                for task in tasks:
+                    self._run_task(task, result)
+            else:
+                with ThreadPoolExecutor(max_workers=min(self.max_parallel, len(tasks))) as pool:
+                    futures = {pool.submit(self._call_ai, task): task for task in tasks}
+                    for future in as_completed(futures):
+                        task = futures[future]
+                        try:
+                            ai_result = future.result()
+                            if task.post_process:
+                                ai_result = task.post_process(ai_result)
+                            setattr(result, task.role.value, ai_result)
+                        except Exception as e:
+                            logger.error(f"Agent {task.role.value} failed: {e}")
+                            result.errors.append(f"{task.role.value}: {e}")
 
     def _run_task(self, task: AgentTask, result: OrchestratorResult):
         """Run a single task synchronously."""
@@ -242,16 +253,25 @@ class AgentOrchestrator:
 
     def _call_ai(self, task: AgentTask) -> Dict[str, Any]:
         """Send task to AI provider and track cost."""
-        ai_result = self._provider.analyze(task.system_prompt, task.context)
-        usage = ai_result.pop("_usage", {})
-        self.cost_tracker.record_usage(
-            provider=self._provider.name,
-            model=self._provider.model,
-            input_tokens=usage.get("input_tokens", 0),
-            output_tokens=usage.get("output_tokens", 0),
-            operation=f"agent_{task.role.value}",
-        )
-        return ai_result
+        with span("orchestrator.call_ai", {
+            "agent.role": task.role.value,
+            "provider": self._provider.name,
+            "model": self._provider.model,
+        }) as s:
+            ai_result = self._provider.analyze(task.system_prompt, task.context)
+            usage = ai_result.pop("_usage", {})
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            s.set_attribute("tokens.input", input_tokens)
+            s.set_attribute("tokens.output", output_tokens)
+            self.cost_tracker.record_usage(
+                provider=self._provider.name,
+                model=self._provider.model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                operation=f"agent_{task.role.value}",
+            )
+            return ai_result
 
     def _run_decision(self, result: OrchestratorResult, ctx: IaCContext):
         """Run decision agent using merged results from other agents."""

@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .tracing import span
+
 logger = logging.getLogger(__name__)
 
 LOCAL_SESSIONS_DIR = ".thothctl/ai_sessions"
@@ -101,18 +103,21 @@ class AgentMemory:
 
     def save_analysis(self, repo: str, analysis: Dict[str, Any], run_id: str = "") -> None:
         key = self._scoped_key(repo, "analysis", run_id)
-        data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "repo": repo,
-            "run_id": run_id,
-            "analysis": analysis,
-        }
-        self._backend.write(key, data)
+        with span("memory.save_analysis", {"repo": repo, "run_id": run_id, "backend": self.mode}):
+            data = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "repo": repo,
+                "run_id": run_id,
+                "analysis": analysis,
+            }
+            self._backend.write(key, data)
 
     def load_analysis(self, repo: str, run_id: str = "") -> Optional[Dict[str, Any]]:
         key = self._scoped_key(repo, "analysis", run_id)
-        data = self._backend.read(key)
-        return data.get("analysis") if data else None
+        with span("memory.load_analysis", {"repo": repo, "run_id": run_id, "backend": self.mode}) as s:
+            data = self._backend.read(key)
+            s.set_attribute("cache_hit", data is not None)
+            return data.get("analysis") if data else None
 
     # -- Session history (per session ID) --
 
