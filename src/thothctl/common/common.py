@@ -335,6 +335,20 @@ def get_space_details():
     return space_details
 
 
+def get_active_space() -> Optional[str]:
+    """
+    Get the currently active space.
+
+    :return: Active space name or None if no space is active
+    """
+    active_space_file = Path.home() / ".thothcf" / "active_space"
+    if active_space_file.exists():
+        name = active_space_file.read_text(encoding="utf-8").strip()
+        if name and name in list_spaces():
+            return name
+    return None
+
+
 def get_space_vcs_provider(space_name: str) -> Optional[str]:
     """
     Get the VCS provider for a space.

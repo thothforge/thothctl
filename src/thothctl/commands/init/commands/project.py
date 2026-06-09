@@ -11,7 +11,7 @@ from click.shell_completion import CompletionItem
 from ....core.commands import ClickCommand
 from ....services.init.project.project import ProjectService
 from ....core.cli_ui import CliUI
-from ....common.common import get_space_vcs_provider
+from ....common.common import get_space_vcs_provider, get_active_space
 
 
 class ProjectInitCommand(ClickCommand):
@@ -94,6 +94,10 @@ class ProjectInitCommand(ClickCommand):
         """Execute project initialization"""
         project_name = project_name.strip()
         project_path = Path(f"./{project_name}")
+
+        # Fall back to active space if --space not provided
+        if not space:
+            space = get_active_space()
 
         # Handle CDK language selection
         if project_type == "cdkv2":
