@@ -40,6 +40,7 @@ nav:
     - Check: 
       - Overview: framework/commands/check/check_overview.md
       - IaC Check: framework/commands/check/check_iac.md
+      - Customizing Rules: framework/commands/check/customizing_rules.md
       - Cost Analysis: framework/commands/check/cost-analysis.md
       - Blast Radius: framework/commands/check/blast-radius.md
       - Drift Detection: framework/commands/check/drift-detection.md
@@ -93,6 +94,7 @@ nav:
     - IaC DevSecOps Use Case: iac_devsecops_use_case.md
     - MCP Integration: mcp.md
     - Telemetry: telemetry.md
+    - FdI Roadmap: framework/roadmap_fdi.md
 
 # Theme Configuration
 theme:
