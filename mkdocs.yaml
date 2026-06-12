@@ -53,6 +53,7 @@ nav:
     - Document:
       - Overview: framework/commands/document/document_overview.md
       - IaC Documentation: framework/commands/document/document_iac.md
+      - Customizing Standards: framework/commands/document/customizing_docs.md
       - Use Cases: framework/commands/document/use_cases.md
     - Inventory:
       - Overview: framework/commands/inventory/inventory_overview.md

@@ -368,7 +368,8 @@ class TerraformDocsContentProvider:
 
     def __init__(self):
         self.content_map = {
-            "resources": terraform_docs_content_resources,
+            "stacks": terraform_docs_content_resources,
+            "resources": terraform_docs_content_resources,  # backward compat alias
             "modules": terraform_docs_content_modules,
         }
 

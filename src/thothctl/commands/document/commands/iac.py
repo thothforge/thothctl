@@ -64,7 +64,7 @@ class DocumentIaCCommand(ClickCommand):
                 recursive = True
 
             self._generate_documentation(directory= path,
-                mood= kwargs.get('mood', 'resources'),
+                mood= kwargs.get('mood', 'stacks'),
                 t_docs_path= kwargs.get('config_file', None),
                 recursive= recursive,
                 exclude= kwargs.get('exclude', ['.terraform', '.git', '.terragrunt-cache']),
@@ -122,9 +122,9 @@ cli = DocumentIaCCommand.as_click_command(
     ),
     click.option(
         '--mood',
-        type=click.Choice(['resources', 'modules']),
-        default='resources',
-        help='Type of documentation to generate'
+        type=click.Choice(['stacks', 'modules', 'resources']),
+        default='stacks',
+        help='Documentation standard: stacks (full project) or modules (reusable module with examples). "resources" is an alias for "stacks".'
     ),
     click.option(
         '--suffix',
