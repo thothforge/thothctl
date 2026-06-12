@@ -18,14 +18,14 @@ graph TB
     G --> H["Monitor<br/>📊 Dashboard<br/>Continuous Scan<br/>Drift Detection"]
     H --> A
     
-    classDef planStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
-    classDef devStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
-    classDef buildStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
-    classDef testStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
-    classDef secureStyle fill:#ffebee,stroke:#b71c1c,stroke-width:2px,color:#000
-    classDef deployStyle fill:#e0f2f1,stroke:#004d40,stroke-width:2px,color:#000
-    classDef operateStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
-    classDef monitorStyle fill:#f1f8e9,stroke:#33691e,stroke-width:2px,color:#000
+    classDef planStyle fill:#01579b,stroke:#0288d1,stroke-width:2px,color:#fff
+    classDef devStyle fill:#1b5e20,stroke:#2e7d32,stroke-width:2px,color:#fff
+    classDef buildStyle fill:#e65100,stroke:#ef6c00,stroke-width:2px,color:#fff
+    classDef testStyle fill:#4a148c,stroke:#6a1b9a,stroke-width:2px,color:#fff
+    classDef secureStyle fill:#b71c1c,stroke:#c62828,stroke-width:2px,color:#fff
+    classDef deployStyle fill:#004d40,stroke:#00695c,stroke-width:2px,color:#fff
+    classDef operateStyle fill:#880e4f,stroke:#ad1457,stroke-width:2px,color:#fff
+    classDef monitorStyle fill:#33691e,stroke:#558b2f,stroke-width:2px,color:#fff
     
     class A planStyle
     class B devStyle

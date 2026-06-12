@@ -123,3 +123,13 @@
     display: none;
   }
 }
+
+/* Mermaid dark theme support */
+[data-md-color-scheme="slate"] .mermaid {
+  --md-mermaid-font-family: var(--md-text-font-family);
+  --md-mermaid-edge-color: var(--md-default-fg-color--light);
+  --md-mermaid-node-fg-color: var(--md-default-fg-color);
+  --md-mermaid-node-bg-color: var(--md-default-fg-color--lightest);
+  --md-mermaid-label-fg-color: var(--md-default-fg-color);
+  --md-mermaid-label-bg-color: var(--md-default-bg-color);
+}

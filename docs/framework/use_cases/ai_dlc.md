@@ -30,14 +30,14 @@ graph TB
     
     H --> A
     
-    classDef aiStyle fill:#e8eaf6,stroke:#3f51b5,stroke-width:3px,color:#000
-    classDef choiceStyle fill:#fff9c4,stroke:#f57f17,stroke-width:3px,color:#000
-    classDef mcpStyle fill:#e1f5fe,stroke:#0277bd,stroke-width:3px,color:#000
-    classDef cliStyle fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px,color:#000
-    classDef commandStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:3px,color:#000
-    classDef resultsStyle fill:#fce4ec,stroke:#c2185b,stroke-width:3px,color:#000
-    classDef analysisStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#000
-    classDef infraStyle fill:#e0f2f1,stroke:#00695c,stroke-width:3px,color:#000
+    classDef aiStyle fill:#3f51b5,stroke:#5c6bc0,stroke-width:3px,color:#fff
+    classDef choiceStyle fill:#f57f17,stroke:#fbc02d,stroke-width:3px,color:#fff
+    classDef mcpStyle fill:#0277bd,stroke:#039be5,stroke-width:3px,color:#fff
+    classDef cliStyle fill:#2e7d32,stroke:#43a047,stroke-width:3px,color:#fff
+    classDef commandStyle fill:#ef6c00,stroke:#fb8c00,stroke-width:3px,color:#fff
+    classDef resultsStyle fill:#c2185b,stroke:#e91e63,stroke-width:3px,color:#fff
+    classDef analysisStyle fill:#7b1fa2,stroke:#9c27b0,stroke-width:3px,color:#fff
+    classDef infraStyle fill:#00695c,stroke:#00897b,stroke-width:3px,color:#fff
     
     class A aiStyle
     class B choiceStyle

@@ -65,29 +65,25 @@ graph TB
 ### Bedrock Agent Modes
 
 ```mermaid
-graph LR
-    subgraph Inline["Inline Agent Mode<br/>Zero Infrastructure"]
+graph TD
+    subgraph Inline["Inline Agent Mode — Zero Infrastructure"]
         CI["CI/CD Job"] --> IAI["InvokeInlineAgent"]
-        IAI --> |"instruction + inputText"| FM1["Foundation Model<br/>Claude Sonnet"]
+        IAI -->|"instruction + inputText"| FM1["Foundation Model"]
         FM1 --> R1["JSON Response"]
     end
 
-    subgraph Persistent["Persistent Agent Mode<br/>Production"]
+    subgraph Persistent["Persistent Agent Mode — Production"]
         APP["API Server"] --> IA["InvokeAgent"]
-        IA --> |"agentId + aliasId"| AGT["Pre-created Agent<br/>+ Guardrails"]
+        IA -->|"agentId + aliasId"| AGT["Pre-created Agent + Guardrails"]
         AGT --> FM2["Foundation Model"]
         FM2 --> R2["JSON Response"]
     end
 
-    subgraph Direct["Direct Model Mode<br/>Simple Analysis"]
+    subgraph Direct["Direct Model Mode — Simple Analysis"]
         CLX["CLI / MCP"] --> IM["InvokeModel"]
-        IM --> |"messages + system"| FM3["Foundation Model"]
+        IM -->|"messages + system"| FM3["Foundation Model"]
         FM3 --> R3["JSON Response"]
     end
-
-    style Inline fill:#e8f5e9,stroke:#2e7d32
-    style Persistent fill:#e3f2fd,stroke:#1565c0
-    style Direct fill:#fff3e0,stroke:#e65100
 ```
 
 ### Decision Flow
@@ -114,9 +110,7 @@ flowchart TD
 
     H --> COMMENT["💬 COMMENT<br/>on PR"]
 
-    style APPROVE fill:#c8e6c9,stroke:#2e7d32
-    style REJECT fill:#ffcdd2,stroke:#c62828
-    style COMMENT fill:#fff9c4,stroke:#f9a825
+
 ```
 
 ### CI/CD Integration Flow
@@ -457,8 +451,7 @@ graph TB
     P2 -->|append| DEC
     P3 -->|append| DEC
 
-    style Shared fill:#fff9c4,stroke:#f9a825
-    style Isolated fill:#e8f5e9,stroke:#2e7d32
+
 ```
 
 | Data | Scope | Key Pattern |
