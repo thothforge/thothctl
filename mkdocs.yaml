@@ -67,6 +67,8 @@ nav:
     - MCP: framework/commands/mcp/mcp.md
     - AI Review:
       - Overview: framework/commands/ai-review/README.md
+      - Agent Specifications: framework/commands/ai-review/agent_specifications.md
+      - AgentCore Deployment: framework/commands/ai-review/agentcore.md
   - Framework:
     - Framework Architecture: framework/framework_architecture.md
     - Software Architecture: framework/software_architecture.md
