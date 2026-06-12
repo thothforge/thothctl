@@ -9,24 +9,18 @@ graph TB
     INTENT["💡 Developer Intent<br/><i>'I need a microservices platform for my Python API'</i>"]
 
     subgraph FdI["⚙️ ThothCTL FdI Engine"]
-        direction TB
-        SPACE["🌐 Space<br/>Conventions"]
-        COMP["🧩 Composition<br/>Engine"]
+        SPACE["🌐 Space Conventions"]
+        COMP["🧩 Composition Engine"]
         AI["🤖 AI Inference<br/><i>from app code</i>"]
         SPACE --> GEN
         COMP --> GEN
         AI --> GEN
-        GEN["📦 Generated Output<br/>Terraform/Tofu/CDK<br/>+ CI/CD pipelines<br/>+ Security policies<br/>+ Cost estimates"]
+        GEN["📦 Generated Output<br/>Terraform/Tofu/CDK + CI/CD + Security + Cost"]
     end
 
-    INTENT --> FdI
-
-    style INTENT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style FdI fill:#e8eaf6,stroke:#3949ab,stroke-width:2px
-    style SPACE fill:#e8f5e9,stroke:#2e7d32
-    style COMP fill:#fff3e0,stroke:#e65100
-    style AI fill:#f3e5f5,stroke:#6a1b9a
-    style GEN fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    INTENT --> SPACE
+    INTENT --> COMP
+    INTENT --> AI
 ```
 
 ---
@@ -192,9 +186,9 @@ frameworks = ["soc2", "hipaa"]
 
 ```mermaid
 graph TB
-    SM["📋 Stack<br/>Manifest"]
-    LC["☁️ Live Cloud<br/>Resources"]
-    PM["📊 Production<br/>Metrics"]
+    SM["📋 Stack Manifest"]
+    LC["☁️ Live Cloud Resources"]
+    PM["📊 Production Metrics"]
 
     SM --> RE
     LC --> RE
@@ -207,12 +201,6 @@ graph TB
     end
 
     RE --> PR["📝 Auto-generated PRs<br/><i>IaC updates aligned to intent</i>"]
-
-    style SM fill:#e3f2fd,stroke:#1565c0
-    style LC fill:#e8f5e9,stroke:#2e7d32
-    style PM fill:#fff3e0,stroke:#e65100
-    style RE fill:#e8eaf6,stroke:#3949ab,stroke-width:2px
-    style PR fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
 ```
 
 ---
