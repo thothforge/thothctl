@@ -41,21 +41,20 @@ thothctl document iac -f terragrunt --mood stacks
 - Sorted by: name
 
 **Generated README structure:**
-```markdown
-<!-- BEGIN_TF_DOCS -->
-# Module Header (from main.tf)
 
-## Code Dependencies Graph
-![Graph](./graph.svg)
-
-## Requirements
-## Providers
-## Modules
-## Resources
-## Inputs
-## Outputs
-<!-- END_TF_DOCS -->
-```
+    <!-- BEGIN_TF_DOCS -->
+    # Module Header (from main.tf)
+    
+    ## Code Dependencies Graph
+    ![Graph](./graph.svg)
+    
+    ## Requirements
+    ## Providers
+    ## Modules
+    ## Resources
+    ## Inputs
+    ## Outputs
+    <!-- END_TF_DOCS -->
 
 ### `modules`
 
@@ -73,25 +72,24 @@ thothctl document iac -f terraform --mood modules
 - Adds "DO NOT EDIT" notice
 
 **Generated README structure:**
-```markdown
-# Your custom content here (preserved)
 
-<!-- BEGIN_TF_DOCS -->
-# Module Header
-
-## Example
-```hcl
-// Content of examples/complete/main.tf inlined here
-```
-
-## Requirements
-## Providers
-## Inputs
-## Outputs
-<!-- END_TF_DOCS -->
-
-# More custom content (preserved)
-```
+    # Your custom content here (preserved)
+    
+    <!-- BEGIN_TF_DOCS -->
+    # Module Header
+    
+    ## Example
+    ```hcl
+    // Content of examples/complete/main.tf inlined here
+    ```
+    
+    ## Requirements
+    ## Providers
+    ## Inputs
+    ## Outputs
+    <!-- END_TF_DOCS -->
+    
+    # More custom content (preserved)
 
 > **Note:** `resources` is a backward-compatible alias for `stacks`.
 
