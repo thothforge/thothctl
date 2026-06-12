@@ -93,6 +93,86 @@ thothctl document iac -f terraform --mood modules
 
 > **Note:** `resources` is a backward-compatible alias for `stacks`.
 
+## Metadata in Terraform Files
+
+terraform-docs extracts metadata from your `.tf` files to populate the documentation. Understanding where content comes from helps you write better docs.
+
+### Header (module description)
+
+The `header-from` config option (default: `main.tf`) pulls the **first comment block** at the top of that file:
+
+```hcl
+/**
+ * # My Networking Module
+ *
+ * Creates a VPC with public and private subnets across multiple
+ * availability zones. Includes NAT gateways and route tables.
+ *
+ * ## Features
+ * - Multi-AZ deployment
+ * - Configurable CIDR ranges
+ * - Optional VPN gateway
+ */
+
+resource "aws_vpc" "this" {
+  # ...
+}
+```
+
+This becomes the `{{ .Header }}` content in the generated README.
+
+### Footer
+
+Similarly, `footer-from` pulls content from a separate file (e.g., `docs/footer.md`):
+
+```yaml
+# terraform-docs.yml
+header-from: main.tf
+footer-from: docs/footer.md
+```
+
+### Variable descriptions
+
+Input/output tables are built from `description` attributes:
+
+```hcl
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC. Must be /16 or larger."
+  type        = string
+  default     = "10.0.0.0/16"
+
+  validation {
+    condition     = can(cidrhost(var.vpc_cidr, 0))
+    error_message = "Must be a valid CIDR block."
+  }
+}
+
+variable "environment" {
+  description = "Deployment environment (dev, staging, prod)."
+  type        = string
+}
+
+output "vpc_id" {
+  description = "ID of the created VPC."
+  value       = aws_vpc.this.id
+}
+```
+
+Generated table:
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|----------|
+| vpc_cidr | CIDR block for the VPC. Must be /16 or larger. | `string` | `"10.0.0.0/16"` | no |
+| environment | Deployment environment (dev, staging, prod). | `string` | n/a | **yes** |
+
+### Best practices for tf metadata
+
+- **Always add `description`** to every variable and output — empty descriptions produce blank table cells
+- **Use the top comment block in `main.tf`** for module-level documentation (purpose, features, usage notes)
+- **Keep descriptions concise** — one line; use the header comment block for extended explanations
+- **Add `type` explicitly** — terraform-docs renders the type column from it
+- **Set `default`** where appropriate — it shows users what's optional vs required
+
 ## README Markers (Required)
 
 Your `README.md` must contain these markers for documentation injection to work:
