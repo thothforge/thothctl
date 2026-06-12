@@ -4,26 +4,29 @@
 
 Transform ThothCTL from an IaC management CLI into an **IaC-native Framework-Defined Infrastructure platform** where business intent and application conventions automatically produce production-ready infrastructure code — without requiring developers to write Terraform manually.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Developer Intent                          │
-│  "I need a microservices platform for my Python API"        │
-└──────────────────────────┬──────────────────────────────────┘
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                ThothCTL FdI Engine                           │
-│                                                             │
-│  ┌───────────┐  ┌──────────────┐  ┌─────────────────────┐  │
-│  │   Space   │  │  Composition │  │    AI Inference      │  │
-│  │ Conventions│  │    Engine    │  │    (from app code)   │  │
-│  └─────┬─────┘  └──────┬───────┘  └──────────┬──────────┘  │
-│        └────────────────┼─────────────────────┘             │
-│                         ▼                                   │
-│              Generated IaC (Terraform/Tofu/CDK)             │
-│              + CI/CD pipelines                              │
-│              + Security policies                            │
-│              + Cost estimates                               │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    INTENT["💡 Developer Intent<br/><i>'I need a microservices platform for my Python API'</i>"]
+
+    subgraph FdI["⚙️ ThothCTL FdI Engine"]
+        direction TB
+        SPACE["🌐 Space<br/>Conventions"]
+        COMP["🧩 Composition<br/>Engine"]
+        AI["🤖 AI Inference<br/><i>from app code</i>"]
+        SPACE --> GEN
+        COMP --> GEN
+        AI --> GEN
+        GEN["📦 Generated Output<br/>Terraform/Tofu/CDK<br/>+ CI/CD pipelines<br/>+ Security policies<br/>+ Cost estimates"]
+    end
+
+    INTENT --> FdI
+
+    style INTENT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style FdI fill:#e8eaf6,stroke:#3949ab,stroke-width:2px
+    style SPACE fill:#e8f5e9,stroke:#2e7d32
+    style COMP fill:#fff3e0,stroke:#e65100
+    style AI fill:#f3e5f5,stroke:#6a1b9a
+    style GEN fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
 ```
 
 ---
@@ -187,21 +190,29 @@ frameworks = ["soc2", "hipaa"]
 
 ### Architecture
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  Stack       │     │  Live Cloud  │     │  Production  │
-│  Manifest    │     │  Resources   │     │  Metrics     │
-└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
-       │                    │                    │
-       ▼                    ▼                    ▼
-┌─────────────────────────────────────────────────────────┐
-│              Reconciliation Engine                       │
-│                                                         │
-│  Intent Drift  │  State Drift  │  Cost/Perf Feedback    │
-└──────────────────────────┬──────────────────────────────┘
-                           ▼
-                  Auto-generated PRs
-                  (IaC updates aligned to intent)
+```mermaid
+graph TB
+    SM["📋 Stack<br/>Manifest"]
+    LC["☁️ Live Cloud<br/>Resources"]
+    PM["📊 Production<br/>Metrics"]
+
+    SM --> RE
+    LC --> RE
+    PM --> RE
+
+    subgraph RE["🔄 Reconciliation Engine"]
+        ID["Intent Drift"]
+        SD["State Drift"]
+        CF["Cost/Perf Feedback"]
+    end
+
+    RE --> PR["📝 Auto-generated PRs<br/><i>IaC updates aligned to intent</i>"]
+
+    style SM fill:#e3f2fd,stroke:#1565c0
+    style LC fill:#e8f5e9,stroke:#2e7d32
+    style PM fill:#fff3e0,stroke:#e65100
+    style RE fill:#e8eaf6,stroke:#3949ab,stroke-width:2px
+    style PR fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
 ```
 
 ---

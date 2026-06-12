@@ -4,26 +4,32 @@ Deploy the ThothCTL IaC security agent as a managed, serverless agent on AWS usi
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────┐
-│  Amazon Bedrock AgentCore Runtime               │
-│                                                 │
-│  main.py (entrypoint)                           │
-│    POST /invocations  ──► AgentOrchestrator     │
-│    GET  /ping         ──► health check          │
-│                             │                   │
-│              ┌──────────────┼──────────────┐    │
-│              ▼              ▼              ▼    │
-│         Security       Architecture      Fix   │
-│          Agent           Agent          Agent   │
-│              │              │              │    │
-│              └──────────────┼──────────────┘    │
-│                             ▼                   │
-│                      Bedrock Models             │
-│                   (Claude Sonnet 4)             │
-│                                                 │
-│  Memory: S3 (auto-detected in AgentCore)        │
-└─────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph AgentCore["☁️ Amazon Bedrock AgentCore Runtime"]
+        direction TB
+        EP["main.py<br/><i>Entrypoint</i>"]
+        EP -->|"POST /invocations"| ORCH["🧠 AgentOrchestrator"]
+        EP -->|"GET /ping"| HC["💚 Health Check"]
+
+        ORCH --> SEC["🔒 Security<br/>Agent"]
+        ORCH --> ARCH["🏗️ Architecture<br/>Agent"]
+        ORCH --> FIX["🔧 Fix<br/>Agent"]
+
+        SEC --> MODEL["🤖 Bedrock Models<br/>Claude Sonnet 4"]
+        ARCH --> MODEL
+        FIX --> MODEL
+
+        MEM["💾 Memory: S3<br/><i>auto-detected in AgentCore</i>"]
+    end
+
+    style AgentCore fill:#e8eaf6,stroke:#3949ab,stroke-width:2px
+    style ORCH fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style SEC fill:#e8f5e9,stroke:#2e7d32
+    style ARCH fill:#fff3e0,stroke:#e65100
+    style FIX fill:#fce4ec,stroke:#c62828
+    style MODEL fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style MEM fill:#fff9c4,stroke:#f9a825
 ```
 
 ## Prerequisites
