@@ -28,7 +28,7 @@ def replace_template_placeholders(directory, project_properties, project_name, a
     :param action: "make_project" to replace placeholders with values, "make_template" to replace values with placeholders
     :return: None
     """
-    allowed_extensions = {
+    excluded_extensions = {
         "png", "svg", "xml", "toml", ".thothcf.toml", "drawio",
         "gitignore", ".terraform.lock.hcl", "catalog-info.yaml",
         "mkdocs.yaml", "pdf", "dot", "gif", "jpg", "jpeg", "exe", "bin",
@@ -63,7 +63,7 @@ def replace_template_placeholders(directory, project_properties, project_name, a
         if any(x in dirpath for x in not_allowed_folders):
             continue
         for f in filenames:
-            if f.split(".")[-1] not in allowed_extensions and f not in allowed_extensions:
+            if f.split(".")[-1] not in excluded_extensions and f not in excluded_extensions:
                 total_files += 1
     
     with Progress(
@@ -80,7 +80,7 @@ def replace_template_placeholders(directory, project_properties, project_name, a
                 
             for f in filenames:
                 # Skip files with binary extensions
-                if f.split(".")[-1] in allowed_extensions or f in allowed_extensions:
+                if f.split(".")[-1] in excluded_extensions or f in excluded_extensions:
                     continue
                     
                 file_path = os.path.join(dirpath, f)
@@ -108,19 +108,47 @@ def replace_template_placeholders(directory, project_properties, project_name, a
                         # Convert values to placeholders
                         logger.debug(f"Converting values to template parameters in {os.path.relpath(file_path, directory)}")
                         
-                        # Replace project properties values with placeholders
-                        for param, value in project_properties.items():
-                            if value and str(value) in data:
-                                placeholder = f"#{{{param}}}#"
-                                data = data.replace(str(value), placeholder)
-                                replaced = True
-                                logger.debug(f"  • {param}: {value} → {placeholder}")
-                        
-                        # Replace parameter mapping values with placeholders
+                        # Sort parameters by value length (longest first) to avoid
+                        # partial replacements (e.g., replacing "us-east-1" before
+                        # "us-east-1-tfstate" would corrupt the longer value)
+                        all_params = list(project_properties.items())
                         for param, value in parameter_mapping.items():
-                            if value and str(value) in data and param not in project_properties:
+                            if param not in project_properties:
+                                all_params.append((param, value))
+                        all_params.sort(key=lambda x: len(str(x[1])) if x[1] else 0, reverse=True)
+                        
+                        for param, value in all_params:
+                            if not value:
+                                continue
+                            str_value = str(value)
+                            
+                            # Skip very short values (<=3 chars like "dev", "aws", "qa")
+                            # unless they appear in a clear assignment context
+                            if len(str_value) <= 3:
+                                # Only replace short values in assignment patterns:
+                                # key = "value", key = 'value', key: "value"
+                                # Match: ="value" | = "value" | :"value" | : "value"
+                                pattern = re.compile(
+                                    r'([=:]\s*)"' + re.escape(str_value) + r'"'
+                                    r'|([=:]\s*)' + re.escape(str_value) + r'(?=\s*$|\s*[,}\]])',
+                                    re.MULTILINE,
+                                )
                                 placeholder = f"#{{{param}}}#"
-                                data = data.replace(str(value), placeholder)
+                                new_data = pattern.sub(
+                                    lambda m: m.group(0).replace(str_value, placeholder),
+                                    data,
+                                )
+                            else:
+                                # For longer values, use word-boundary matching to avoid
+                                # replacing substrings (e.g., "dev" inside "developer")
+                                pattern = re.compile(
+                                    r'(?<![a-zA-Z0-9_\-/])' + re.escape(str_value) + r'(?![a-zA-Z0-9_\-/])'
+                                )
+                                placeholder = f"#{{{param}}}#"
+                                new_data = pattern.sub(placeholder, data)
+                            
+                            if new_data != data:
+                                data = new_data
                                 replaced = True
                                 logger.debug(f"  • {param}: {value} → {placeholder}")
                                 

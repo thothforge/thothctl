@@ -13,11 +13,34 @@ thothctl project convert [OPTIONS]
 | Option | Description |
 |--------|-------------|
 | `-br, --branch-name TEXT` | Branch name for Terramate stacks |
-| `-tpt, --template-project-type [terraform\|tofu\|cdkv2]` | Project type according to Internal Developer Portal |
+| `-tpt, --template-project-type` | Project type: `terraform`, `terraform-terragrunt`, `terragrunt`, `tofu`, `cdkv2`, `terraform_module`, `custom` |
 | `-mtem, --make-template` | Create template from project |
 | `-mpro, --make-project` | Create project from template |
 | `-tm, --make-terramate-stacks` | Create Terramate stack for advanced deployments |
 | `--help` | Show help message and exit |
+
+> **Note:** `--make-template`, `--make-project`, and `--make-terramate-stacks` are mutually exclusive — only one can be used per invocation.
+
+## Prerequisites
+
+For `--make-template` to work non-interactively, your project must have a `[project_properties]` section in `.thothcf.toml`:
+
+```toml
+[project_properties]
+project_name = "my-project"
+deployment_region = "us-east-1"
+backend_bucket = "my-project-tfstate"
+backend_region = "us-east-2"
+owner = "my-team"
+client = "my-org"
+backend_dynamodb = "db-terraform-lock"
+environment = "dev"
+cloud_provider = "aws"
+deployment_profile = "default"
+backend_profile = "default"
+```
+
+If this section is missing, ThothCTL will prompt interactively for each value.
 
 ## Conversion Types
 
@@ -27,18 +50,19 @@ Converting a project to a template allows you to create a reusable pattern that 
 
 ```bash
 # Convert the current project to a template
-thothctl project convert --make-template
+thothctl project convert --make-template --template-project-type terraform-terragrunt
 
-# Specify the project type when converting to a template
+# Specify a different project type
 thothctl project convert --make-template --template-project-type terraform
 ```
 
 When converting a project to a template, ThothCTL:
 
-1. Identifies variables and parameters that should be customizable
-2. Creates placeholder values for sensitive information
-3. Generalizes project-specific configurations
-4. Prepares the template for storage in your template repository
+1. Reads `[project_properties]` from `.thothcf.toml` to identify values to parameterize
+2. Replaces those values with `#{placeholder}#` expressions in all project files (`.tf`, `.hcl`, `.tfvars`, etc.)
+3. Saves the template to `~/.thothcf/<project_name>/` for later reuse
+4. Backs up the original config and creates a clean template config
+5. Updates the global template registry with file hashes for change detection
 
 ### Template to Project
 
@@ -46,18 +70,19 @@ Creating a project from a template allows you to quickly start new projects base
 
 ```bash
 # Create a new project from a template
-thothctl project convert --make-project
-
-# Specify the project type when creating from a template
 thothctl project convert --make-project --template-project-type terraform
+
+# For Terragrunt projects
+thothctl project convert --make-project --template-project-type terraform-terragrunt
 ```
 
 When creating a project from a template, ThothCTL:
 
-1. Prompts for values to replace placeholders
-2. Customizes the template with project-specific information
-3. Sets up the initial project structure
-4. Prepares the project for immediate use
+1. Restores the project configuration from the template backup (`~/.thothcf/<project_name>/`)
+2. Checks for template updates (files that differ from the registry)
+3. Finds all `#{placeholder}#` expressions in project files
+4. Replaces each placeholder with the corresponding value from `[project_properties]`
+5. Generates a `catalog-info.yaml` for Backstage integration
 
 ### IaC Framework Conversion
 
@@ -120,6 +145,42 @@ thothctl project convert --make-template --template-project-type cdkv2
 
 # Create a CDK v2 project from a template
 thothctl project convert --make-project --template-project-type cdkv2
+```
+
+### Terraform with Terragrunt
+
+[Terragrunt](https://terragrunt.gruntwork.io/) as an orchestration layer on top of Terraform/OpenTofu.
+
+```bash
+# Convert to a Terraform+Terragrunt template
+thothctl project convert --make-template --template-project-type terraform-terragrunt
+
+# Create a project from a Terraform+Terragrunt template
+thothctl project convert --make-project --template-project-type terraform-terragrunt
+```
+
+### Standalone Terragrunt
+
+For projects that use Terragrunt as the primary configuration format.
+
+```bash
+thothctl project convert --make-template --template-project-type terragrunt
+```
+
+### Terraform Module
+
+For reusable Terraform module projects.
+
+```bash
+thothctl project convert --make-template --template-project-type terraform_module
+```
+
+### Custom
+
+For any project type not covered by the predefined types.
+
+```bash
+thothctl project convert --make-template --template-project-type custom
 ```
 
 ## Examples

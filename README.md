@@ -150,6 +150,34 @@ thothctl check iac -type drift --recursive --post-to-pr
 # ✅ Multi-cloud: AWS, GCP, Azure
 ```
 
+## 🔄 Template ↔ Project Conversion
+
+ThothCTL enables bidirectional conversion between working projects and reusable templates:
+
+```bash
+# Convert a working project into a reusable template
+thothctl project convert --make-template --template-project-type terraform
+
+# Create a new project from an existing template
+thothctl project convert --make-project --template-project-type terraform
+
+# Supported types: terraform, tofu, cdkv2, terraform-terragrunt, terragrunt, terraform_module, custom
+```
+
+**Workflow:** Develop a reference architecture → convert to template with `#{placeholder}#` expressions → publish to Git → consume via self-service (Backstage, CLI, or CI/CD).
+
+```
+Working Project ──► make-template ──► Reusable Template ──► make-project ──► New Project
+```
+
+- ✅ Automatic placeholder generation for parameterizable values
+- ✅ `.thothcf.toml` configuration with validation rules per parameter
+- ✅ Backstage integration for self-service consumption
+- ✅ Template upgrade workflow to keep projects in sync with template changes
+- ✅ Support for Terraform, OpenTofu, CDK v2, and Terragrunt
+
+📖 **Full guide**: [Platform Engineering Templates](docs/framework/use_cases/platform_engineering_templates.md) | [Convert Command Reference](docs/framework/commands/project/project_convert.md)
+
 ## 🤖 AI Agent for IaC Security
 
 ThothCTL includes a multi-agent AI system for automated security analysis, code review, and PR decisions on Infrastructure as Code projects.

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import toml
 from abc import ABC, abstractmethod
 from colorama import Fore
 
@@ -98,15 +99,14 @@ class ProjectTemplateConverter(ProjectConverter):
                 self._restore_project_config(project_name)
                 project_props = self._get_project_properties()
                 print(f"👷 {Fore.BLUE} Creating project {project_name} {Fore.RESET}")
-                self._apply_project_configuration(project_props)
+                self._apply_project_configuration(project_props, project_name)
                 self._process_directory(project_props, project_name)
             else:
                 # For make_template, get project props normally
                 project_props = self._get_project_properties()
                 project_name = self._get_project_name()
-                print(f"👷 {Fore.BLUE} Creating project {project_name} {Fore.RESET}")
+                print(f"👷 {Fore.BLUE} Creating template from {project_name} {Fore.RESET}")
                 
-                self._apply_project_configuration(project_props)
                 self._process_directory(project_props, project_name)
 
         except Exception as e:
@@ -115,17 +115,22 @@ class ProjectTemplateConverter(ProjectConverter):
 
     def _get_project_properties(self) -> dict:
         """Get project properties based on project type."""
-        project_props = {}
-        if self.config.project_type in [
-            "terraform",
-            "tofu",
-        ] and check_project_properties(
-            directory=self.config.code_directory,
-        ):
+        from .get_project_data import get_exist_project_props
+
+        # First try to read existing project_properties from .thothcf.toml
+        project_props = get_exist_project_props(directory=self.config.code_directory)
+        if project_props:
+            return project_props
+
+        # If no existing properties, prompt for them
+        if check_project_properties(directory=self.config.code_directory):
             project_props = get_project_props(
                 cloud_provider="aws", remote_bkd_cloud_provider="aws"
             )
-            set_project_conf(project_properties=project_props, project_type=self.config.project_type or "terraform")
+            set_project_conf(
+                project_properties=project_props,
+                project_type=self.config.project_type or "terraform",
+            )
 
         return project_props
 
@@ -135,10 +140,14 @@ class ProjectTemplateConverter(ProjectConverter):
             directory=self.config.code_directory, file_name=".thothcf.toml"
         )["thothcf"]["project_id"]
 
-    def _apply_project_configuration(self, project_props: dict) -> None:
+    def _apply_project_configuration(self, project_props: dict, project_name: str = None) -> None:
         """Apply project configuration if properties exist."""
         if project_props:
-            set_project_conf(project_properties=project_props, project_type=self.config.project_type or "terraform")
+            set_project_conf(
+                project_properties=project_props,
+                project_name=project_name,
+                project_type=self.config.project_type or "terraform",
+            )
 
     def _process_directory(self, project_props: dict, project_name: str) -> None:
         """Process directory for conversion."""
@@ -175,7 +184,7 @@ class ProjectTemplateConverter(ProjectConverter):
                     config = toml.load(f)
                 if 'thothcf' in config and 'project_id' in config['thothcf']:
                     return config['thothcf']['project_id']
-            except:
+            except (OSError, toml.TomlDecodeError):
                 pass
         
         # If no project_id found, try to find backup in template directories
@@ -218,7 +227,7 @@ class ProjectTemplateConverter(ProjectConverter):
         try:
             with open(global_registry, 'r') as f:
                 registry = toml.load(f)
-        except:
+        except (OSError, toml.TomlDecodeError):
             registry = {}
         
         # Initialize project section
@@ -307,7 +316,7 @@ class ProjectTemplateConverter(ProjectConverter):
         try:
             with open(global_registry, 'r') as f:
                 registry = toml.load(f)
-        except:
+        except (OSError, toml.TomlDecodeError):
             return
         
         if project_name not in registry:
@@ -335,20 +344,7 @@ class ProjectTemplateConverter(ProjectConverter):
             if len(updated_files) > 5:
                 print(f"  • ... and {len(updated_files) - 5} more")
             print("💡 Consider updating the template with: thothctl project convert --make-template")
-        """Restore project configuration from template backup if available."""
-        from pathlib import Path
-        import shutil
-        
-        template_dir = Path.home() / ".thothcf" / project_name
-        backup_config = template_dir / f".thothcf.{project_name}.backup.toml"
-        target_config = Path(self.config.code_directory) / ".thothcf.toml"
-        
-        if backup_config.exists():
-            shutil.copy2(backup_config, target_config)
-            print(f"✅ Restored project config from template backup")
-        else:
-            print("ℹ️  No backup config found in template, using current configuration")
-    
+
     def _create_clean_template_config(self, project_name: str) -> None:
         """Create a clean .thothcf.toml file for the template and backup the original."""
         from pathlib import Path

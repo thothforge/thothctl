@@ -15,6 +15,15 @@ class ConvertProjectCommand(ClickCommand):
 
     def validate(self, **kwargs) -> bool:
         """Validate conversion parameters."""
+        flags = [kwargs.get("make_template"), kwargs.get("make_project"), kwargs.get("make_terramate_stacks")]
+        if sum(bool(f) for f in flags) > 1:
+            raise click.UsageError(
+                "Options --make-template, --make-project, and --make-terramate-stacks are mutually exclusive."
+            )
+        if not any(flags):
+            raise click.UsageError(
+                "One of --make-template, --make-project, or --make-terramate-stacks is required."
+            )
         return True
 
     def _execute(

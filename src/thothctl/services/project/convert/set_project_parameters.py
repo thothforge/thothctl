@@ -230,14 +230,6 @@ def set_project_conf(
         space=space,
         project_type=project_type,
     )
-    
-    # Execute template replacement logic to replace placeholders in files
-    from .get_project_data import replace_template_placeholders
-    replace_template_placeholders(
-        directory=directory,
-        project_properties=project_properties,
-        project_name=project_name
-    )
 
     # For terraform-terragrunt projects, ask if user wants workspace mode
     if project_type in ("terraform-terragrunt", "terragrunt"):
