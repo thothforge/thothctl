@@ -10,7 +10,7 @@
 
 - [Framework Overview](index.md) - Core concepts and architecture
 - [Cross-Platform Support](framework/cross_platform_support.md) - Platform compatibility details
-- [Commands Reference](index.md#commands) - All available commands
+- [Commands Reference](index.md#thothctl) - All available commands
   - [Check Commands](framework/commands/check/check_overview.md) - Validation and compliance
     - [Blast Radius Assessment](framework/commands/check/blast-radius.md) - ITIL v4 risk assessment
     - [Drift Detection](framework/commands/check/drift-detection.md) - Infrastructure drift detection

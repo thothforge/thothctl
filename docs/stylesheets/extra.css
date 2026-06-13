@@ -133,3 +133,9 @@
   --md-mermaid-label-fg-color: var(--md-default-fg-color);
   --md-mermaid-label-bg-color: var(--md-default-bg-color);
 }
+
+/* Logo dark theme support */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img,
+[data-md-color-scheme="slate"] .md-nav__button.md-logo img {
+  content: url("../img/icon-light.png");
+}

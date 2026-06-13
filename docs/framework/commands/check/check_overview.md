@@ -140,7 +140,7 @@ thothctl check
 
 Most check commands support the following options:
 
-- **--mode [soft|strict]**: Determines validation strictness level
+- **--mode \[soft|strict\]**: Determines validation strictness level
 - **--check-type**: Specifies the type of validation to perform
 - **--debug**: Enables detailed logging for troubleshooting
 

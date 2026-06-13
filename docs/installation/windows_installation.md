@@ -279,7 +279,7 @@ $env:THOTH_LOG_LEVEL = "DEBUG"
 ## Next Steps
 
 - [Quick Start Guide](../quick_start.md)
-- [Command Reference](../index.md#commands)
+- [Command Reference](../index.md#thothctl)
 - [Use Cases](../framework/use_cases/README.md)
 - [MCP Integration](../mcp.md)
 

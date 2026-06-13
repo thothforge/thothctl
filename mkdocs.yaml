@@ -105,8 +105,8 @@ theme:
   language: en
   
   # Logo and favicon
-  logo: img/framework/thothforge-framework.svg
-  favicon: img/framework/thothforge-framework.svg
+  logo: img/icon.png
+  favicon: img/icon.png
   
   # Color palette
   palette:

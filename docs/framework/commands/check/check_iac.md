@@ -537,7 +537,7 @@ type = "root"
 
 ### Proper Categorization
 - **Root Structure**: Items detected by patterns like "root exists! in ." or "exists!" (no path)
-- **Module Structure**: Items detected by patterns like "exists in [subfolder]" or "missing in [subfolder]"
+- **Module Structure**: Items detected by patterns like "exists in \[subfolder\]" or "missing in \[subfolder\]"
 - **Type Detection**: Uses file extensions to determine if item is file (📄) or folder (📁)
 
 ## Examples

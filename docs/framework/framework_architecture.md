@@ -236,8 +236,8 @@ ThothCTL supports comprehensive IDP workflows:
 
 | Use Case | Commands | Documentation |
 |----------|----------|---------------|
-| **Project Initialization** | `init env`, `init space`, `init project` | [Getting Started](use_cases/README.md#getting-started) |
-| **Security Scanning** | `scan iac` | [Security](use_cases/README.md#security--compliance) |
+| **Project Initialization** | `init env`, `init space`, `init project` | [Getting Started](use_cases/README.md) |
+| **Security Scanning** | `scan iac` | [Security](use_cases/README.md#security-compliance) |
 | **Cost Analysis** | `check iac -type cost-analysis` | [Cost Analysis](commands/check/cost-analysis.md) |
 | **Dependency Management** | `inventory iac --check-versions` | [Inventory](use_cases/README.md#dependency-management) |
 | **Documentation** | `document iac --ai` | [Documentation](use_cases/README.md#documentation) |
