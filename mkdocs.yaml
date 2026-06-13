@@ -18,86 +18,85 @@ site_dir: 'site'
 # Navigation
 nav:
   - Home: index.md
-  - Quick Start: quick_start.md
-  - Installation:
-    - Windows: installation/windows_installation.md
+  - Getting Started:
+    - Quick Start: quick_start.md
+    - Installation:
+      - Linux & macOS: installation/linux_installation.md
+      - Windows: installation/windows_installation.md
   - Commands:
     - Init: framework/commands/init/init.md
-    - List:
-      - Overview: framework/commands/list/list_overview.md
-      - Projects: framework/commands/list/list_projects.md
-      - Spaces: framework/commands/list/list_spaces.md
-    - Project:
-      - Overview: framework/commands/project/project_overview.md
-      - Convert: framework/commands/project/project_convert.md
-      - Upgrade: framework/commands/project/project_upgrade.md
-      - Cleanup: framework/commands/project/project_cleanup.md
-      - Use Cases: framework/commands/project/use_cases.md
-    - Remove:
-      - Overview: framework/commands/remove/remove_overview.md
-      - Projects: framework/commands/remove/remove_project.md
-      - Spaces: framework/commands/remove/remove_space.md
-    - Check: 
+    - Check:
       - Overview: framework/commands/check/check_overview.md
       - IaC Check: framework/commands/check/check_iac.md
-      - Customizing Rules: framework/commands/check/customizing_rules.md
       - Cost Analysis: framework/commands/check/cost-analysis.md
       - Blast Radius: framework/commands/check/blast-radius.md
       - Drift Detection: framework/commands/check/drift-detection.md
       - Dependencies: framework/commands/check/deps.md
       - Plan: framework/commands/check/plan.md
+      - Customizing Rules: framework/commands/check/customizing_rules.md
     - Scan:
       - Overview: framework/commands/scan/scan_overview.md
       - IaC Scanning: framework/commands/scan/scan_iac.md
       - Use Cases: framework/commands/scan/use_cases.md
-    - Document:
-      - Overview: framework/commands/document/document_overview.md
-      - IaC Documentation: framework/commands/document/document_iac.md
-      - Customizing Standards: framework/commands/document/customizing_docs.md
-      - Use Cases: framework/commands/document/use_cases.md
     - Inventory:
       - Overview: framework/commands/inventory/inventory_overview.md
       - IaC Inventory: framework/commands/inventory/inventory_iac.md
       - Frameworks:
         - Terraform: framework/commands/inventory/frameworks/terraform.md
         - Terragrunt: framework/commands/inventory/frameworks/terragrunt.md
+    - Document:
+      - Overview: framework/commands/document/document_overview.md
+      - IaC Documentation: framework/commands/document/document_iac.md
+      - Customizing Standards: framework/commands/document/customizing_docs.md
+      - Use Cases: framework/commands/document/use_cases.md
     - Generate:
       - Components: framework/commands/generate/generate_components.md
       - Stacks: framework/commands/generate/generate_stacks.md
-    - MCP: framework/commands/mcp/mcp.md
     - AI Review:
       - Overview: framework/commands/ai-review/README.md
       - Agent Specifications: framework/commands/ai-review/agent_specifications.md
       - AgentCore Deployment: framework/commands/ai-review/agentcore.md
-  - Framework:
+    - MCP: framework/commands/mcp/mcp.md
+    - Project:
+      - Overview: framework/commands/project/project_overview.md
+      - Convert: framework/commands/project/project_convert.md
+      - Upgrade: framework/commands/project/project_upgrade.md
+      - Cleanup: framework/commands/project/project_cleanup.md
+      - Use Cases: framework/commands/project/use_cases.md
+    - List:
+      - Overview: framework/commands/list/list_overview.md
+      - Projects: framework/commands/list/list_projects.md
+      - Spaces: framework/commands/list/list_spaces.md
+    - Remove:
+      - Overview: framework/commands/remove/remove_overview.md
+      - Projects: framework/commands/remove/remove_project.md
+      - Spaces: framework/commands/remove/remove_space.md
+  - Use Cases:
+    - Overview: framework/use_cases/README.md
+    - AI Development Lifecycle (AI-DLC): framework/use_cases/ai_dlc.md
+    - DevSecOps SDLC Guide: framework/use_cases/devsecops_sdlc.md
+    - DevSecOps Quick Start: framework/use_cases/devsecops_quickstart.md
+    - Platform Engineering Templates: framework/use_cases/platform_engineering_templates.md
+    - Template Engine: template_engine/template_engine.md
+    - Space Management: framework/use_cases/space_management.md
+    - Tasks:
+      - Create Template: framework/use_cases/tasks/create_template.md
+  - Architecture:
     - Framework Architecture: framework/framework_architecture.md
     - Software Architecture: framework/software_architecture.md
     - Concepts: framework/concepts.md
     - Infrastructure Composition: framework/infrasctructure_composition.md
     - Space Configuration: framework/space_configuration.md
     - Cross-Platform Support: framework/cross_platform_support.md
-  - Use Cases:
-    - Overview: framework/use_cases/README.md
-    - AI Development Lifecycle (AI-DLC): framework/use_cases/ai_dlc.md
-    - Platform Engineering Templates: framework/use_cases/platform_engineering_templates.md
-    - DevSecOps SDLC Guide: framework/use_cases/devsecops_sdlc.md
-    - DevSecOps Quick Start: framework/use_cases/devsecops_quickstart.md
-    - Space Management: framework/use_cases/space_management.md
-    - Check Command: framework/use_cases/check_command.md
-    - Inventory Command: framework/use_cases/inventory_command.md
-    - Template Engine: template_engine/template_engine.md
-    - Tasks:
-      - Create Template: framework/use_cases/tasks/create_template.md
   - Troubleshooting:
     - General: troubleshooting/troubleshooting.md
     - Linux: troubleshooting/linux_troubleshooting.md
     - macOS: troubleshooting/macos_troubleshooting.md
     - Windows: troubleshooting/windows_troubleshooting.md
   - Reference:
-    - IaC DevSecOps Use Case: iac_devsecops_use_case.md
     - MCP Integration: mcp.md
     - Telemetry: telemetry.md
-    - FdI Roadmap: framework/roadmap_fdi.md
+    - Roadmap: framework/roadmap_fdi.md
 
 # Theme Configuration
 theme:
