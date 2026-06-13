@@ -6,6 +6,7 @@ build:
     python: "3.12"
   commands:
     - pip install zensical
-    - zensical build --clean
-    - mkdir -p $READTHEDOCS_OUTPUT/html
-    - cp -r site/* $READTHEDOCS_OUTPUT/html/
+    - >-
+      zensical build --clean
+      --site-dir $READTHEDOCS_OUTPUT/html
+      -f mkdocs.yaml

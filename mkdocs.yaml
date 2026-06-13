@@ -1,7 +1,7 @@
 site_name: 'ThothCTL'
 site_description: 'ThothForge CLI - The Internal Developer Platform CLI'
 site_author: 'ThothForge Team'
-site_url: 'https://thothctl.readthedocs.io/'
+site_url: 'https://thothforge.github.io/thothctl/'
 
 # Repository
 repo_url: https://github.com/thothforge/thothctl
