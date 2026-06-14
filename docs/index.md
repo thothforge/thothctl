@@ -63,6 +63,7 @@ pip install thothctl
 ## Use Cases
 
 - **[Template Engine](template_engine/template_engine.md)** — Build, configure, and scaffold projects from templates
+- **[Policy as Code](framework/policy_as_code.md)** — Unified governance: structure rules, OPA/Rego security policies, drift policies, and AI decision thresholds
 - **[AI-Powered Development (AI-DLC)](framework/use_cases/ai_dlc.md)** — MCP integration with AI assistants for natural language IaC operations
 - **[AI Agent for IaC Security](framework/commands/ai-review/README.md)** — Multi-agent orchestrator with auto-decision engine, code fixes, and CI/CD API
 - **[DevSecOps SDLC](framework/use_cases/devsecops_sdlc.md)** — 8-phase lifecycle with scanning, cost analysis, blast radius, and drift detection

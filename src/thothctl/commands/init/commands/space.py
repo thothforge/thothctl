@@ -32,6 +32,7 @@ class SpaceInitCommand(ClickCommand):
         terraform_registry: str = "https://registry.terraform.io",
         terraform_auth: str = "none",
         orchestration_tool: str = "terragrunt",
+        policy_repo: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Execute space initialization"""
@@ -46,7 +47,8 @@ class SpaceInitCommand(ClickCommand):
             vcs_provider=vcs_provider,
             terraform_registry=terraform_registry,
             terraform_auth=terraform_auth,
-            orchestration_tool=orchestration_tool
+            orchestration_tool=orchestration_tool,
+            policy_repo=policy_repo,
         )
         
         self.ui.print_success(f"✨ Space '{space_name}' is ready to use!")
@@ -147,5 +149,11 @@ cli = SpaceInitCommand.as_click_command(help="Initialize a new space")(
         help="Default orchestration tool for the space",
         type=click.Choice(["terragrunt", "terramate", "none"], case_sensitive=True),
         default="terragrunt",
+    ),
+    click.option(
+        "-pr",
+        "--policy-repo",
+        help="Git repository URL for organization-level IaC policies (OPA/Rego)",
+        default=None,
     ),
 )

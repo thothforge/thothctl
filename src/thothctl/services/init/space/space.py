@@ -27,6 +27,7 @@ class SpaceService:
         terraform_registry: str = "https://registry.terraform.io",
         terraform_auth: str = "none",
         orchestration_tool: str = "terragrunt",
+        policy_repo: Optional[str] = None,
     ) -> None:
         """
         Initialize a new space.
@@ -37,9 +38,14 @@ class SpaceService:
         :param terraform_registry: Terraform registry URL
         :param terraform_auth: Terraform registry authentication method (none, token, env_var)
         :param orchestration_tool: Default orchestration tool (terragrunt, terramate, none)
+        :param policy_repo: Git repository URL for organization-level IaC policies
         :return: None
         """
         self.ui.print_info(f"🚀 Initializing space: {space_name}")
+        
+        # Resolve policy_repo from environment if not provided
+        if not policy_repo:
+            policy_repo = os.environ.get("THOTH_POLICY_REPO")
         
         # Create space configuration
         with self.ui.status_spinner("🔧 Creating space configuration..."):
@@ -49,7 +55,8 @@ class SpaceService:
                 vcs_provider=vcs_provider,
                 terraform_registry=terraform_registry,
                 terraform_auth=terraform_auth,
-                orchestration_tool=orchestration_tool
+                orchestration_tool=orchestration_tool,
+                policy_repo=policy_repo,
             )
         
         # Create space directory structure
@@ -84,6 +91,7 @@ class SpaceService:
         terraform_registry: str = "https://registry.terraform.io",
         terraform_auth: str = "none",
         orchestration_tool: str = "terragrunt",
+        policy_repo: Optional[str] = None,
     ) -> None:
         """
         Create space configuration in the global thothcf config.
@@ -129,7 +137,10 @@ class SpaceService:
             },
             "orchestration": {
                 "tool": orchestration_tool,
-            }
+            },
+            "governance": {
+                "policy_repo": policy_repo or "",
+            },
         }
         
         # Save config

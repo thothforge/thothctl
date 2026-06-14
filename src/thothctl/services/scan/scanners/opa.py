@@ -318,12 +318,36 @@ class OPAScanner(ScannerPort):
     # ── Helpers ─────────────────────────────────────────────────────────
 
     def _resolve_policy_dir(self, base_dir: str, policy_dir: str) -> Optional[str]:
-        """Resolve policy directory — check relative to project, then absolute."""
+        """Resolve policy directory — check relative to project, then absolute, then org repo.
+
+        Resolution order:
+        1. Relative to project: <base_dir>/<policy_dir>
+        2. Absolute path: <policy_dir> as-is
+        3. Organization policy repo (THOTH_POLICY_REPO env or space config):
+           - If policy_dir contains '/' (e.g., "layers/networking/policy"), resolve within org repo
+           - Otherwise check <org_repo>/shared/policy
+        """
+        # 1. Relative to project
         candidate = os.path.join(base_dir, policy_dir)
         if os.path.isdir(candidate):
             return candidate
+
+        # 2. Absolute path
         if os.path.isabs(policy_dir) and os.path.isdir(policy_dir):
             return policy_dir
+
+        # 3. Organization policy repo
+        org_repo = os.environ.get("THOTH_POLICY_REPO")
+        if org_repo and os.path.isdir(org_repo):
+            # Try policy_dir as a path within the org repo
+            org_candidate = os.path.join(org_repo, policy_dir)
+            if os.path.isdir(org_candidate):
+                return org_candidate
+            # Fallback to shared/policy in org repo
+            shared = os.path.join(org_repo, "shared", "policy")
+            if os.path.isdir(shared):
+                return shared
+
         return None
 
     def _find_scannable_files(self, directory: str) -> List[str]:
