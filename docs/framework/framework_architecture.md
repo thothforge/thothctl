@@ -38,7 +38,7 @@ graph TB
     
     subgraph layer3["<b>⚡ Platform Capabilities Layer</b><br/><i>Core IDP functionality</i>"]
         direction LR
-        SEC["<b>Security</b><br/>Checkov • Trivy<br/>TFSec • Snyk<br/>Compliance"]
+        SEC["<b>Security</b><br/>Checkov • Trivy<br/>KICS • OPA<br/>Compliance"]
         COST["<b>Cost Analysis</b><br/>Real-time pricing<br/>14 AWS services<br/>Optimization"]
         INV["<b>Inventory</b><br/>Dependencies<br/>Version tracking<br/>Reports"]
         VAL["<b>Validation</b><br/>Environment<br/>IaC checks<br/>Blast radius"]
@@ -150,9 +150,8 @@ ThothCTL aligns with IDP business objectives through five core principles:
 **Core IDP functionality**
 
 #### Security & Compliance
-Multi-tool security scanning with Checkov, Trivy, TFSec, and Snyk.
+Multi-tool security scanning with Checkov, Trivy, KICS, and Snyk.
 
-**Commands:** `thothctl scan iac`, `thothctl scan iac -t checkov -t trivy -t tfsec`
 
 📖 **Details:** [Security Scanning](commands/scan/scan_overview.md)
 

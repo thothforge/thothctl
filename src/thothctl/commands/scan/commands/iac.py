@@ -2,7 +2,6 @@
 import logging
 import os
 import time
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Literal, Optional
 
@@ -44,6 +43,7 @@ class RestoredIaCScanCommand(ClickCommand):
         html_reports_format: Literal["simple", "xunit"] = "simple",
         max_workers: int = 2,
         compact: bool = False,
+        output: str = "text",
         **kwargs,
     ) -> None:
         """Execute original IaC security scan with unified HTML styling."""
@@ -89,129 +89,45 @@ class RestoredIaCScanCommand(ClickCommand):
                 selected_tools=tools,
                 options=self._parse_options(options) if options else {},
                 tftool=tftool,
-                html_reports_format=html_reports_format,
                 max_workers=max_workers,
                 compact=compact,
             )
             
-            # Enhanced data extraction and validation
-            for tool_name in tools:
-                if tool_name in results:
-                    tool_results = results[tool_name]
-                    
-                    # Ensure report_data is properly populated
-                    if not tool_results.get("report_data") or all(v == 0 for v in tool_results.get("report_data", {}).values()):
-                        # Try to extract from detailed_reports first
-                        if "detailed_reports" in tool_results and tool_results["detailed_reports"]:
-                            detailed_reports = tool_results["detailed_reports"]
-                            
-                            # Calculate totals from detailed reports
-                            passed = sum(r.get("passed", 0) for r in detailed_reports.values())
-                            failed = sum(r.get("failed", 0) for r in detailed_reports.values())
-                            skipped = sum(r.get("skipped", 0) for r in detailed_reports.values())
-                            error = sum(r.get("error", 0) for r in detailed_reports.values())
-                            
-                            # Create or update report_data
-                            tool_results["report_data"] = {
-                                "passed_count": passed,
-                                "failed_count": failed,
-                                "skipped_count": skipped,
-                                "error_count": error,
-                            }
-                            
-                            self.logger.info(f"Enhanced data extraction for {tool_name}: passed={passed}, failed={failed}, skipped={skipped}, error={error}")
-                            
-                            # Update issues count for consistency
-                            tool_results["issues_count"] = failed + error
-                        
-                        # If still no data, try to parse from report files directly
-                        elif tool_results.get("status") == "COMPLETE":
-                            # Try multiple possible locations for XML files
-                            possible_paths = [
-                                os.path.join(reports_dir, "security-scan"),  # Reports/security-scan/
-                                tool_results.get("report_path", ""),  # Direct report path
-                            ]
-                            
-                            xml_files = []
-                            for base_path in possible_paths:
-                                if base_path and os.path.exists(base_path):
-                                    if os.path.isdir(base_path):
-                                        # Search recursively for XML files
-                                        for root, dirs, files in os.walk(base_path):
-                                            for file in files:
-                                                if file.endswith('.xml') and 'junit' in file.lower():
-                                                    xml_files.append(os.path.join(root, file))
-                                    elif base_path.endswith('.xml'):
-                                        xml_files.append(base_path)
-                            
-                            if xml_files:
-                                total_passed = total_failed = total_skipped = total_error = 0
-                                
-                                for xml_file in xml_files:
-                                    try:
-                                        self.logger.debug(f"Parsing XML file: {xml_file}")
-                                        tree = ET.parse(xml_file)
-                                        root = tree.getroot()
-                                        
-                                        # Count from testsuite attributes (most reliable)
-                                        for testsuite in root.findall(".//testsuite"):
-                                            tests = int(testsuite.get('tests', '0'))
-                                            failures = int(testsuite.get('failures', '0'))
-                                            errors = int(testsuite.get('errors', '0'))
-                                            skipped = int(testsuite.get('skipped', '0'))
-                                            
-                                            total_failed += failures
-                                            total_error += errors
-                                            total_skipped += skipped
-                                            total_passed += (tests - failures - errors - skipped)
-                                            
-                                            self.logger.debug(f"Testsuite data: tests={tests}, failures={failures}, errors={errors}, skipped={skipped}")
-                                        
-                                        # If no testsuite data, count individual testcases
-                                        if total_passed + total_failed + total_skipped + total_error == 0:
-                                            for testcase in root.findall(".//testcase"):
-                                                failure = testcase.find("failure")
-                                                skipped_tag = testcase.find("skipped")
-                                                error_tag = testcase.find("error")
-                                                
-                                                if failure is not None:
-                                                    total_failed += 1
-                                                elif skipped_tag is not None:
-                                                    total_skipped += 1
-                                                elif error_tag is not None:
-                                                    total_error += 1
-                                                else:
-                                                    total_passed += 1
-                                    except Exception as e:
-                                        self.logger.debug(f"Error parsing XML file {xml_file}: {e}")
-                                
-                                if total_passed + total_failed + total_skipped + total_error > 0:
-                                    tool_results["report_data"] = {
-                                        "passed_count": total_passed,
-                                        "failed_count": total_failed,
-                                        "skipped_count": total_skipped,
-                                        "error_count": total_error,
-                                    }
-                                    tool_results["issues_count"] = total_failed + total_error
-                                    
-                                    self.logger.info(f"Direct XML extraction for {tool_name}: passed={total_passed}, failed={total_failed}, skipped={total_skipped}, error={total_error}")
-                                    
-                                    # Also create detailed_reports for consistency
-                                    if not tool_results.get("detailed_reports"):
-                                        tool_results["detailed_reports"] = {
-                                            f"report_{tool_name}": {
-                                                "passed": total_passed,
-                                                "failed": total_failed,
-                                                "skipped": total_skipped,
-                                                "error": total_error,
-                                                "total": total_passed + total_failed + total_skipped + total_error,
-                                                "report_path": xml_files[0] if xml_files else ""
-                                            }
-                                        }
-            
             # Display results using enhanced display method
             self._display_original_results(results)
             self._scan_results = results
+
+            # Trend comparison (local SQLite history)
+            trend_rows = None
+            trend_date = ""
+            try:
+                from ....services.scan.scan_history import save_scan, get_previous_run, build_trend
+
+                previous = get_previous_run(code_directory)
+                save_scan(code_directory, results)
+
+                if previous:
+                    trend_rows = build_trend(previous, results)
+                    trend_date = previous["timestamp"][:10]
+                    self._display_trend(trend_rows, previous["timestamp"])
+            except Exception as e:
+                self.logger.debug(f"Scan history unavailable: {e}")
+
+            # Generate unified HTML report (replaces per-tool HTML re-parsing)
+            try:
+                from ....utils.common.render_scan_report import render_unified_report
+
+                html_path = render_unified_report(
+                    results=results,
+                    reports_dir=reports_dir,
+                    project_name=project_name,
+                    scan_duration=f"{time.perf_counter() - start_time:.1f}s",
+                    trend=trend_rows,
+                    trend_date=trend_date,
+                )
+                self.console.print(f"🌐 HTML report saved to [blue]{html_path}[/blue]")
+            except Exception as e:
+                self.logger.warning(f"HTML report generation failed: {e}")
 
             # Always save markdown summary to reports directory
             md_summary = self._build_scan_markdown(results)
@@ -219,6 +135,23 @@ class RestoredIaCScanCommand(ClickCommand):
             with open(md_path, "w") as f:
                 f.write(md_summary)
             self.console.print(f"📝 Markdown summary saved to [blue]{md_path}[/blue]")
+
+            # JSON output mode
+            if output == "json":
+                import json
+                json_report = self._build_json_report(results, code_directory)
+                json_path = os.path.join(reports_dir, "scan_report.json")
+                with open(json_path, "w") as f:
+                    json.dump(json_report, f, indent=2)
+                self.console.print_json(data=json_report)
+                self.console.print(f"📄 JSON report saved to [blue]{json_path}[/blue]")
+
+            # SARIF output mode
+            if output == "sarif":
+                from ....services.scan.sarif_output import save_sarif
+                sarif_path = save_sarif(results, code_directory, reports_dir)
+                self.console.print(f"📄 SARIF report saved to [blue]{sarif_path}[/blue]")
+                self.console.print("💡 Upload to GitHub: gh api repos/:owner/:repo/code-scanning/sarifs -f sarif=@" + sarif_path)
 
             finish_time = time.perf_counter()
             scan_time = finish_time - start_time
@@ -438,6 +371,34 @@ class RestoredIaCScanCommand(ClickCommand):
             )
 
         self.console.print(summary_table)
+
+        # Display severity breakdown if findings are available
+        severity_counts = {}
+        for tool_name, tool_results in results.items():
+            if tool_name == "summary" or not isinstance(tool_results, dict):
+                continue
+            for finding in tool_results.get("findings", []):
+                sev = finding.get("severity", "MEDIUM")
+                severity_counts[sev] = severity_counts.get(sev, 0) + 1
+
+        if severity_counts:
+            sev_table = Table(
+                title="[bold]Severity Breakdown[/bold]",
+                box=rich.box.SIMPLE,
+                show_header=True,
+                header_style="bold",
+            )
+            sev_table.add_column("Severity", style="bold")
+            sev_table.add_column("Count", justify="center")
+
+            sev_order = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+            sev_styles = {"CRITICAL": "bold red", "HIGH": "red", "MEDIUM": "dark_orange", "LOW": "yellow", "INFO": "dim"}
+            for sev in sev_order:
+                count = severity_counts.get(sev, 0)
+                if count > 0:
+                    sev_table.add_row(f"[{sev_styles.get(sev, '')}]{sev}[/]", str(count))
+
+            self.console.print(sev_table)
         
         # Display detailed results for each tool (original behavior)
         for tool_name, tool_results in results.items():
@@ -508,6 +469,37 @@ class RestoredIaCScanCommand(ClickCommand):
                 border_style="green"
             ))
 
+    def _display_trend(self, trend_rows: list, previous_timestamp: str):
+        """Display scan trend comparison table."""
+        trend_table = Table(
+            title=f"[bold]📈 Trend (vs {previous_timestamp[:10]})[/bold]",
+            box=rich.box.SIMPLE,
+            show_header=True,
+            header_style="bold",
+        )
+        trend_table.add_column("Metric", style="bold")
+        trend_table.add_column("Previous", justify="center")
+        trend_table.add_column("Current", justify="center")
+        trend_table.add_column("Delta", justify="center")
+
+        for row in trend_rows:
+            delta_str = f"{row['symbol']} {row['delta']:+d}"
+            if row["status"] == "improved":
+                delta_style = "green"
+            elif row["status"] == "regressed":
+                delta_style = "red"
+            else:
+                delta_style = "dim"
+
+            trend_table.add_row(
+                row["metric"],
+                str(row["previous"]),
+                str(row["current"]),
+                f"[{delta_style}]{delta_str}[/]",
+            )
+
+        self.console.print(trend_table)
+
     def _build_scan_markdown(self, results: dict) -> str:
         """Build a markdown summary from scan results."""
         lines = [
@@ -546,9 +538,61 @@ class RestoredIaCScanCommand(ClickCommand):
         if total_issues > 0:
             lines.append(f"\n🚨 **Security Issues Found: {total_issues}**")
 
+        # Severity breakdown
+        severity_counts = {}
+        for tool_name, tool_results in results.items():
+            if tool_name == "summary" or not isinstance(tool_results, dict):
+                continue
+            for finding in tool_results.get("findings", []):
+                sev = finding.get("severity", "MEDIUM")
+                severity_counts[sev] = severity_counts.get(sev, 0) + 1
+
+        if severity_counts:
+            lines.append("\n### Severity Breakdown\n")
+            lines.append("| Severity | Count |")
+            lines.append("|----------|-------|")
+            for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
+                count = severity_counts.get(sev, 0)
+                if count > 0:
+                    lines.append(f"| {sev} | {count} |")
+
         lines.append("\n---")
         lines.append("*Generated by [ThothCTL](https://github.com/thothforge/thothctl)*")
         return "\n".join(lines)
+
+    def _build_json_report(self, results: dict, directory: str) -> dict:
+        """Build a structured JSON report from scan results."""
+        from datetime import datetime
+
+        tools = []
+        for tool_name, tool_results in results.items():
+            if tool_name == "summary" or not isinstance(tool_results, dict):
+                continue
+            rd = tool_results.get("report_data", {})
+            tools.append({
+                "tool": tool_name,
+                "status": tool_results.get("status", "UNKNOWN"),
+                "passed": rd.get("passed_count", 0),
+                "failed": rd.get("failed_count", 0),
+                "skipped": rd.get("skipped_count", 0),
+                "warnings": rd.get("warning_count", 0),
+                "errors": rd.get("error_count", 0),
+                "findings": tool_results.get("findings", []),
+            })
+
+        severity_counts = {}
+        for t in tools:
+            for f in t.get("findings", []):
+                sev = f.get("severity", "MEDIUM")
+                severity_counts[sev] = severity_counts.get(sev, 0) + 1
+
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "directory": directory,
+            "total_findings": results.get("summary", {}).get("total_issues", 0),
+            "severity_counts": severity_counts,
+            "tools": tools,
+        }
 
     def post_execute(self, **kwargs) -> None:
         """Post scan summary to PR if --post-to-pr flag is set."""
@@ -581,7 +625,7 @@ cli = RestoredIaCScanCommand.as_click_command(
         multiple=True,
         default=["checkov"],
         help="Security scanning tools to use (Note: KICS requires Docker)",
-        type=click.Choice(["checkov", "trivy", "tfsec", "kics", "terraform-compliance", "opa"]),
+        type=click.Choice(["checkov", "trivy", "kics", "terraform-compliance", "opa"]),
     ),
     click.option(
         "--reports-dir",
@@ -655,5 +699,11 @@ cli = RestoredIaCScanCommand.as_click_command(
         is_flag=True,
         default=False,
         help="Use checkov --compact mode to reduce memory usage on constrained CI agents",
+    ),
+    click.option(
+        "--output",
+        type=click.Choice(["text", "json", "sarif"], case_sensitive=False),
+        default="text",
+        help="Output format: 'text' (default), 'json' (structured), or 'sarif' (GitHub/IDE compatible)",
     ),
 )

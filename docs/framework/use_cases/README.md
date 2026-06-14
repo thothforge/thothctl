@@ -31,7 +31,7 @@ Complete AI-assisted IaC development workflow with Kiro CLI and MCP integration.
 - CI/CD integration patterns
 
 **Key Features:**
-- Multi-tool security scanning (Checkov, Trivy, TFSec, Snyk)
+- Multi-tool security scanning (Checkov, Trivy, KICS, OPA)
 - Real-time AWS cost estimation
 - ITIL v4 change impact assessment
 - Compliance enforcement
@@ -146,7 +146,7 @@ kiro-cli chat --agent thoth
 
 ### Security & Compliance
 - `thothctl scan iac` - Security scanning with Checkov (default)
-- `thothctl scan iac -t checkov -t trivy -t tfsec` - Multi-tool scanning
+- `thothctl scan iac -t checkov -t trivy -t trivy` - Multi-tool scanning
 
 ### Documentation
 - `thothctl document iac` - Generate documentation

@@ -364,7 +364,7 @@ Coordinates multiple services for complex operations.
 **Purpose**: Security scanning and compliance
 
 **Capabilities:**
-- Execute scanners (Checkov, Trivy, TFSec, Snyk)
+- Execute scanners (Checkov, Trivy, KICS, Snyk)
 - Aggregate scan results
 - Generate reports (HTML, JSON, SARIF)
 - Compliance review
@@ -512,7 +512,7 @@ Development environment configuration.
 
 **Supported Tools:**
 - Infrastructure: Terraform, Terragrunt, OpenTofu, TFSwitch
-- Security: Checkov, Trivy, TFSec, Snyk
+- Security: Checkov, Trivy, KICS, Snyk
 - Development: Pre-commit, Commitizen, TFLint
 - Documentation: Terraform-docs, Terramate
 - AI: Kiro CLI
@@ -545,7 +545,7 @@ Integration with external IaC and security tools.
 | Category | Tools |
 |----------|-------|
 | **IaC** | Terraform, Terragrunt, OpenTofu, TFSwitch |
-| **Security** | Checkov, Trivy, TFSec, Snyk |
+| **Security** | Checkov, Trivy, KICS, Snyk |
 | **Compliance** | Terraform-compliance |
 | **Documentation** | Terraform-docs, Terramate |
 | **Development** | Pre-commit, Commitizen, TFLint |

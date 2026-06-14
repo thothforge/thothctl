@@ -45,7 +45,7 @@ graph TB
 | **Develop** | Environment validation, Structure enforcement, Standards | `check environment`, `check iac --type structure` |
 | **Build** | Dependency management, Version tracking, Inventory | `inventory iac --check-versions` |
 | **Test** | Plan validation, Impact analysis, Change assessment | `check iac --type plan`, `--type blast-radius` |
-| **Secure** | Security scanning, Compliance validation, CVE detection | `scan iac --tool checkov/trivy/tfsec` |
+| **Secure** | Security scanning, Compliance validation, CVE detection | `scan iac --tool checkov/trivy/opa` |
 | **Deploy** | Pre-deployment validation, Risk gates, Approval workflow | `check iac --type all` |
 | **Operate** | Configuration management, Updates, Documentation | `project upgrade`, `document iac` |
 | **Monitor** | Continuous monitoring, Drift detection, Dashboards | `dashboard launch`, scheduled scans |
@@ -115,7 +115,7 @@ thothctl check environment
 
 **Validates:**
 - Terraform/OpenTofu/Terragrunt
-- Security scanners (Checkov, Trivy, TFSec)
+- Security scanners (Checkov, Trivy, KICS)
 - Documentation tools
 - Version control
 
@@ -246,10 +246,8 @@ thothctl scan iac --tool trivy --recursive
 - Insecure configurations
 - License issues
 
-#### 5.3 Scan with TFSec
 ```bash
 # Terraform-specific security
-thothctl scan iac --tool tfsec --recursive
 ```
 
 **Checks:**
@@ -408,7 +406,7 @@ thothctl check iac --type plan --plan-file tfplan.json
 # 5. SECURE: Run security scans
 thothctl scan iac --tool checkov
 thothctl scan iac --tool trivy
-thothctl scan iac --tool tfsec
+thothctl scan iac --tool trivy
 
 # 6. ASSESS: Check blast radius
 thothctl check iac --type blast-radius --plan-file tfplan.json

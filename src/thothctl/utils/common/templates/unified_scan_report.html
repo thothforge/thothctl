@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Scan Report - {{ project_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --thoth-primary: #667eea;
+            --thoth-secondary: #764ba2;
+            --status-success: #10b981;
+            --status-warning: #f59e0b;
+            --status-error: #ef4444;
+            --status-info: #3b82f6;
+            --severity-critical: #dc2626;
+            --severity-high: #ef4444;
+            --severity-medium: #f59e0b;
+            --severity-low: #fbbf24;
+            --severity-info: #3b82f6;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-light: #e5e7eb;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; padding: 20px; color: var(--text-primary);
+        }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); overflow: hidden; }
+        .header { background: linear-gradient(135deg, var(--thoth-primary), var(--thoth-secondary)); color: white; padding: 30px; }
+        .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; }
+        .header-meta { display: flex; gap: 20px; font-size: 0.85rem; opacity: 0.9; flex-wrap: wrap; }
+        .section { padding: 24px 30px; border-bottom: 1px solid var(--border-light); }
+        .section:last-child { border-bottom: none; }
+        .section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; }
+
+        /* Summary Cards */
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+        .card { background: var(--bg-secondary); border-radius: 8px; padding: 16px; text-align: center; }
+        .card-value { font-size: 1.8rem; font-weight: 700; }
+        .card-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+        .card-value.passed { color: var(--status-success); }
+        .card-value.failed { color: var(--status-error); }
+        .card-value.warnings { color: var(--status-warning); }
+        .card-value.rate { color: var(--thoth-primary); }
+
+        /* Tool Bars */
+        .tool-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+        .tool-row:last-child { border-bottom: none; }
+        .tool-name { width: 100px; font-weight: 600; font-size: 0.85rem; }
+        .tool-bar-wrap { flex: 1; height: 24px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden; position: relative; }
+        .tool-bar { height: 100%; border-radius: 4px; transition: width 0.5s; }
+        .tool-bar.good { background: var(--status-success); }
+        .tool-bar.warn { background: var(--status-warning); }
+        .tool-bar.bad { background: var(--status-error); }
+        .tool-rate { width: 50px; text-align: right; font-size: 0.85rem; font-weight: 600; }
+
+        /* Severity */
+        .sev-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+        .sev-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .sev-badge.critical { background: #fef2f2; color: var(--severity-critical); }
+        .sev-badge.high { background: #fef2f2; color: var(--severity-high); }
+        .sev-badge.medium { background: #fffbeb; color: #b45309; }
+        .sev-badge.low { background: #fffbeb; color: #92400e; }
+        .sev-badge.info { background: #eff6ff; color: var(--severity-info); }
+
+        /* Findings Table */
+        .findings-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .findings-table th { background: var(--bg-secondary); padding: 10px 12px; text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+        .findings-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-light); }
+        .findings-table tr:hover { background: var(--bg-secondary); }
+        .sev-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .sev-dot.critical { background: var(--severity-critical); }
+        .sev-dot.high { background: var(--severity-high); }
+        .sev-dot.medium { background: var(--severity-medium); }
+        .sev-dot.low { background: var(--severity-low); }
+        .sev-dot.info { background: var(--severity-info); }
+
+        /* Trend */
+        .trend-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .trend-table th { padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border-light); }
+        .trend-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-light); }
+        .trend-improved { color: var(--status-success); font-weight: 600; }
+        .trend-regressed { color: var(--status-error); font-weight: 600; }
+        .trend-neutral { color: var(--text-secondary); }
+
+        /* Footer */
+        .footer { padding: 16px 30px; background: var(--bg-secondary); text-align: center; font-size: 0.75rem; color: var(--text-secondary); }
+
+        @media print { body { background: white; padding: 0; } .container { box-shadow: none; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>🛡️ Security Scan Report</h1>
+        <div class="header-meta">
+            <span>📁 {{ project_name }}</span>
+            <span>📅 {{ timestamp }}</span>
+            <span>🔧 {{ tools|length }} tool{{ 's' if tools|length != 1 }}</span>
+            <span>⏱️ {{ scan_duration }}</span>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="section">
+        <div class="section-title">📊 Summary</div>
+        <div class="cards">
+            <div class="card"><div class="card-value">{{ total_tests }}</div><div class="card-label">Total Checks</div></div>
+            <div class="card"><div class="card-value passed">{{ total_passed }}</div><div class="card-label">Passed</div></div>
+            <div class="card"><div class="card-value failed">{{ total_failed }}</div><div class="card-label">Failed</div></div>
+            <div class="card"><div class="card-value warnings">{{ total_warnings }}</div><div class="card-label">Warnings</div></div>
+            <div class="card"><div class="card-value rate">{{ success_rate }}%</div><div class="card-label">Success Rate</div></div>
+        </div>
+    </div>
+
+    <!-- Per-Tool Breakdown -->
+    <div class="section">
+        <div class="section-title">🔧 Per-Tool Results <small style="font-weight:400;color:var(--text-secondary)">(click to filter)</small></div>
+        {% for t in tools %}
+        <div class="tool-row" data-tool="{{ t.tool }}" onclick="filterByTool('{{ t.tool }}')" style="cursor:pointer">
+            <div class="tool-name">{{ t.tool|title }}</div>
+            <div class="tool-bar-wrap">
+                {% set rate = (t.passed / t.total * 100) if t.total > 0 else 0 %}
+                <div class="tool-bar {{ 'good' if rate >= 80 else ('warn' if rate >= 50 else 'bad') }}" style="width: {{ rate }}%"></div>
+            </div>
+            <div class="tool-rate">{{ "%.0f"|format(rate) }}%</div>
+        </div>
+        {% endfor %}
+        <div class="tool-row" data-tool="all" onclick="filterByTool('all')" style="cursor:pointer;opacity:0.7">
+            <div class="tool-name" style="font-style:italic">Show All</div>
+            <div class="tool-bar-wrap"></div>
+            <div class="tool-rate"></div>
+        </div>
+    </div>
+
+    <!-- Severity Breakdown -->
+    {% if severity_counts %}
+    <div class="section" id="severity-section">
+        <div class="section-title">⚠️ Severity Breakdown</div>
+        <div class="sev-grid" id="severity-grid">
+            {% for sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] %}
+            {% if severity_counts.get(sev, 0) > 0 %}
+            <div class="sev-badge {{ sev|lower }}" data-severity="{{ sev }}" onclick="filterBySeverity('{{ sev }}')" style="cursor:pointer">{{ sev }}: <span class="sev-count" data-sev="{{ sev }}">{{ severity_counts[sev] }}</span></div>
+            {% endif %}
+            {% endfor %}
+            <div class="sev-badge" onclick="filterBySeverity('all')" style="cursor:pointer;background:#f3f4f6;color:#6b7280">ALL</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Findings Detail -->
+    {% if findings %}
+    <div class="section">
+        <div class="section-title">🔍 Findings ({{ findings|length }})</div>
+        <table class="findings-table">
+            <thead><tr><th>Severity</th><th>Tool</th><th>Rule</th><th>Title</th><th>File</th><th>Resource</th></tr></thead>
+            <tbody>
+            {% for f in findings %}
+            <tr data-tool="{{ f.tool }}" data-severity="{{ f.severity }}">
+                <td><span class="sev-dot {{ f.severity|lower }}"></span>{{ f.severity }}</td>
+                <td>{{ f.tool }}</td>
+                <td><code>{{ f.id }}</code></td>
+                <td>{{ f.title }}</td>
+                <td>{{ f.file }}{% if f.line %}:{{ f.line }}{% endif %}</td>
+                <td>{{ f.resource }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Trend -->
+    {% if trend %}
+    <div class="section">
+        <div class="section-title">📈 Trend (vs {{ trend_date }})</div>
+        <table class="trend-table">
+            <thead><tr><th>Metric</th><th>Previous</th><th>Current</th><th>Delta</th></tr></thead>
+            <tbody>
+            {% for row in trend %}
+            <tr>
+                <td>{{ row.metric }}</td>
+                <td>{{ row.previous }}</td>
+                <td>{{ row.current }}</td>
+                <td class="trend-{{ row.status }}">{{ row.symbol }} {{ '%+d'|format(row.delta) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="footer">Generated by <strong>ThothCTL</strong> — thothctl.readthedocs.io</div>
+</div>
+<script>
+let activeTool = 'all';
+let activeSeverity = 'all';
+
+function filterByTool(tool) {
+    activeTool = tool;
+    applyFilters();
+    document.querySelectorAll('.tool-row').forEach(r => r.style.opacity = (tool === 'all' || r.dataset.tool === tool || r.dataset.tool === 'all') ? '1' : '0.4');
+}
+
+function filterBySeverity(sev) {
+    activeSeverity = sev;
+    applyFilters();
+    document.querySelectorAll('.sev-badge').forEach(b => b.style.opacity = (sev === 'all' || b.dataset.severity === sev || !b.dataset.severity) ? '1' : '0.4');
+}
+
+function applyFilters() {
+    const rows = document.querySelectorAll('.findings-table tbody tr');
+    const sevCounts = {};
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const matchTool = activeTool === 'all' || row.dataset.tool === activeTool;
+        const matchSev = activeSeverity === 'all' || row.dataset.severity === activeSeverity;
+        const visible = matchTool && matchSev;
+        row.style.display = visible ? '' : 'none';
+        if (visible) {
+            visibleCount++;
+            const sev = row.dataset.severity;
+            sevCounts[sev] = (sevCounts[sev] || 0) + 1;
+        }
+    });
+
+    // Update severity counts only when filtering by tool (not by severity itself)
+    if (activeSeverity === 'all') {
+        document.querySelectorAll('.sev-count').forEach(el => {
+            const sev = el.dataset.sev;
+            const count = sevCounts[sev] || 0;
+            el.textContent = count;
+            el.closest('.sev-badge').style.display = count > 0 ? '' : 'none';
+        });
+    }
+}
+</script>
+</body>
+</html>

@@ -12,17 +12,19 @@ thothctl scan iac [OPTIONS]
 
 | Option | Description |
 |--------|-------------|
-| `-t, --tools [checkov\|trivy\|tfsec\|kics\|terraform-compliance\|opa]` | Specify which security scanning tools to use |
+| `-t, --tools [checkov\|trivy\\|kics\|terraform-compliance\|opa]` | Specify which security scanning tools to use |
 | `--reports-dir PATH` | Directory to store scan reports (default: `Reports`) |
 | `-p, --project-name TEXT` | Name of the project being scanned |
 | `-o, --options TEXT` | Additional options for scanning tools (key=value,key2=value2) |
 | `--tftool [terraform\|tofu]` | Specify which Terraform tool to use (default: tofu) |
-| `--verbose` | Enable verbose output with detailed scan information |
-| `--html-reports-format [simple\|xunit]` | Generate HTML reports in simple or xunit format |
+| `--output [text\|json\|sarif]` | Output format: text (default), json, or sarif |
 | `--enforcement [soft\|hard]` | Enforcement mode: `soft` reports violations (exit 0), `hard` fails the pipeline (exit 1) |
 | `--post-to-pr` | Post scan summary as a PR comment (Azure DevOps or GitHub) |
 | `--vcs-provider [auto\|azure_repos\|github]` | VCS provider for PR comments (default: auto-detect) |
 | `--space TEXT` | Space name for credential resolution (Azure DevOps) |
+| `--max-workers INT` | Max parallel Checkov scans (default: 2) |
+| `--compact` | Use Checkov compact mode to reduce memory on CI agents |
+| `--verbose` | Enable verbose output |
 | `--help` | Show help message and exit |
 
 ## Scanning Tools
@@ -43,15 +45,6 @@ thothctl scan iac -t checkov
 ```bash
 # Scan with Trivy only
 thothctl scan iac -t trivy
-```
-
-### TFSec
-
-[TFSec](https://github.com/aquasecurity/tfsec) is a security scanner for Terraform code that checks for potential security issues.
-
-```bash
-# Scan with TFSec only
-thothctl scan iac -t tfsec
 ```
 
 ### KICS
@@ -306,22 +299,153 @@ thothctl scan iac -t checkov -t trivy -t opa --enforcement hard --post-to-pr
 
 ## Report Output
 
-Every scan produces:
+Every scan produces multiple output formats:
 
-- **Rich terminal table** with per-tool breakdown (passed, failed, warnings, errors, skipped, success rate)
-- **`scan_summary.md`** saved to the reports directory (always generated)
-- **HTML reports** per tool in the reports directory
-- **PR comment** (when `--post-to-pr` is set)
+### Always Generated
 
-The markdown summary includes a Warnings column for tools that produce warnings (e.g., Conftest `warn` rules):
+| Output | File | Description |
+|--------|------|-------------|
+| **Terminal table** | — | Rich table with per-tool pass/fail/warnings/errors/success rate |
+| **Severity breakdown** | — | Terminal table showing CRITICAL/HIGH/MEDIUM/LOW counts |
+| **Trend comparison** | — | Delta vs previous scan (stored in local SQLite at `~/.thothcf/scan_history.db`) |
+| **Unified HTML report** | `Reports/scan_report.html` | Single-page professional report with summary, per-tool bars, severity badges, findings table, and trend |
+| **Markdown summary** | `Reports/scan_summary.md` | Machine-readable summary with severity section |
+
+### Conditional Outputs
+
+| Output | Flag | File | Description |
+|--------|------|------|-------------|
+| **JSON report** | `--output json` | `Reports/scan_report.json` | Structured data for CI/CD pipelines |
+| **SARIF report** | `--output sarif` | `Reports/scan_results.sarif` | GitHub Code Scanning / IDE integration |
+| **PR comment** | `--post-to-pr` | — | Posts summary to PR (GitHub/Azure DevOps) |
+
+### Output Formats
+
+#### JSON (`--output json`)
+
+Structured JSON for CI/CD machine consumption:
+
+```bash
+thothctl scan iac -t checkov -t trivy --output json
+```
+
+```json
+{
+  "timestamp": "2026-06-14T15:30:00",
+  "directory": "/path/to/project",
+  "total_findings": 5,
+  "severity_counts": {"CRITICAL": 1, "HIGH": 2, "MEDIUM": 2},
+  "tools": [
+    {
+      "tool": "checkov",
+      "status": "COMPLETE",
+      "passed": 40,
+      "failed": 3,
+      "findings": [{"id": "CKV_AWS_19", "severity": "CRITICAL", "title": "...", "file": "main.tf", "line": 12}]
+    }
+  ]
+}
+```
+
+#### SARIF (`--output sarif`)
+
+[SARIF 2.1.0](https://sarifweb.azurewebsites.net/) format for integration with:
+- GitHub Code Scanning / Advanced Security
+- Azure DevOps
+- VS Code SARIF Viewer extension
+- JetBrains IDE plugins
+
+```bash
+# Generate SARIF report
+thothctl scan iac -t checkov --output sarif
+
+# Upload to GitHub Code Scanning
+gh api repos/:owner/:repo/code-scanning/sarifs -f "sarif=@Reports/scan_results.sarif"
+```
+
+#### Unified HTML Report
+
+A single self-contained `scan_report.html` with:
+- Summary cards (total/passed/failed/rate)
+- Per-tool success rate bars
+- Severity badge breakdown
+- Sortable findings table with file/resource/rule details
+- Trend comparison (if previous scan exists)
+- Print-optimized styling
+
+Generated automatically on every scan — no flag needed.
+
+### Trend / Historical Comparison
+
+ThothCTL automatically stores scan results in a local SQLite database (`~/.thothcf/scan_history.db`) and shows improvement/regression vs the previous scan for the same directory:
 
 ```
-| Tool    | Status   | Total | Passed | Failed | Warnings | Errors | Skipped | Success Rate |
-|---------|----------|-------|--------|--------|----------|--------|---------|--------------|
-| checkov | COMPLETE | 55    | 50     | 3      | 0        | 0      | 2       | 90.9%        |
-| opa     | COMPLETE | 10    | 8      | 1      | 1        | 0      | 0       | 80.0%        |
-| TOTAL   |          | 65    | 58     | 4      | 1        | 0      | 2       | 89.2%        |
+📈 Trend (vs 2026-06-13)
+┌──────────┬──────────┬─────────┬─────────┐
+│ Metric   │ Previous │ Current │ Delta   │
+├──────────┼──────────┼─────────┼─────────┤
+│ Findings │ 8        │ 5       │ ↓ -3    │
+│ Passed   │ 38       │ 44      │ ↑ +6    │
+│ Failed   │ 8        │ 5       │ ↓ -3    │
+│ CRITICAL │ 2        │ 1       │ ↓ -1    │
+│ HIGH     │ 4        │ 3       │ ↓ -1    │
+└──────────┴──────────┴─────────┴─────────┘
 ```
+
+- **No configuration needed** — history is always saved automatically
+- **Per-directory tracking** — each project gets its own history
+- **Shown in HTML report** — trend is included in `scan_report.html`
+
+### CI/CD: Comparing Across Runs
+
+For CI/CD pipelines (where local SQLite isn't persistent), use artifact-based comparison:
+
+```yaml
+# GitHub Actions — compare vs previous scan
+- uses: actions/download-artifact@v4
+  with:
+    name: scan-baseline
+  continue-on-error: true
+
+- run: thothctl scan iac -t checkov -t trivy --output json --enforcement hard
+
+- uses: actions/upload-artifact@v4
+  with:
+    name: scan-baseline
+    path: Reports/scan_report.json
+```
+
+### Report Directory Structure
+
+```
+Reports/
+├── scan_report.html              ← Unified multi-tool report (summary, severity, findings, trend)
+├── scan_summary.md               ← Markdown summary
+├── scan_report.json              ← JSON (--output json)
+├── scan_results.sarif            ← SARIF (--output sarif)
+├── checkov/
+│   └── security-scan/
+│       ├── html_reports/
+│       │   ├── index.html        ← Per-stack browser with links to individual reports
+│       │   ├── report_network_vpc.html
+│       │   ├── report_data_rds.html
+│       │   └── ...
+│       ├── report_network_vpc/
+│       │   ├── results_junitxml.xml   ← Raw JUnit XML
+│       │   └── results_json.json      ← Raw Checkov JSON
+│       ├── report_data_rds/
+│       │   └── ...
+│       └── checkov_log_report.txt
+├── trivy/                        ← Raw Trivy output
+│   └── results.json
+└── opa/                          ← Raw OPA/Conftest output
+    ├── conftest_results.json
+    └── results_junitxml.xml
+```
+
+**Browsing reports:**
+- Open `Reports/scan_report.html` for the unified summary with severity and trend
+- Open `Reports/checkov/security-scan/html_reports/index.html` to browse individual stack results with detailed check-level findings
 
 ## Examples
 
@@ -336,14 +460,14 @@ thothctl scan iac
 
 ```bash
 # Comprehensive scan with multiple tools
-thothctl scan iac -t checkov -t trivy -t opa --html-reports-format simple --verbose
+thothctl scan iac -t checkov -t trivy -t opa
 ```
 
-### CI/CD with Hard Enforcement
+### CI/CD with Hard Enforcement and SARIF
 
 ```bash
-# Fail the pipeline if any violations are found
-thothctl scan iac -t checkov -t opa --enforcement hard --post-to-pr
+# Fail pipeline on violations + produce SARIF for GitHub Security tab
+thothctl scan iac -t checkov -t opa --enforcement hard --output sarif --post-to-pr
 ```
 
 ### Custom Report Directory
@@ -416,7 +540,9 @@ jobs:
 
 1. **Use `--enforcement hard` in CI/CD** — Gate deployments on security compliance to prevent insecure infrastructure from reaching production.
 2. **Use multiple scanning tools** — Different tools catch different types of issues. Combine Checkov (built-in rules) with OPA (custom policies) for best coverage.
-3. **Write custom OPA policies** — Encode your organization's specific security requirements as Rego policies. Start with the `policy/` directory convention.
-4. **Use Conftest mode for fast feedback** — Static HCL analysis doesn't require a Terraform plan, making it ideal for pre-commit hooks and early CI stages.
-5. **Use OPA mode for change analysis** — Plan-based evaluation catches issues that static analysis can't, like blast radius and IAM changes.
-6. **Always review the `scan_summary.md`** — The markdown summary is generated on every scan and provides a quick overview of all findings.
+3. **Use `--output sarif` for GitHub** — Upload SARIF to GitHub Code Scanning for findings directly in PR diffs and the Security tab.
+4. **Write custom OPA policies** — Encode your organization's specific security requirements as Rego policies. Use Git repos as policy source for centralized management.
+5. **Track trends** — Scan history is automatic. Review the trend table to catch regressions early.
+6. **Use Conftest mode for fast feedback** — Static HCL analysis doesn't require a Terraform plan, making it ideal for pre-commit hooks and early CI stages.
+7. **Use OPA mode for change analysis** — Plan-based evaluation catches issues that static analysis can't, like blast radius and IAM changes.
+8. **Use `--output json` in CI/CD** — Machine-readable output for custom integrations, dashboards, and artifact-based comparison across runs.

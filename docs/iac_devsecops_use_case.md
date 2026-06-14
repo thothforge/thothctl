@@ -55,7 +55,7 @@ Enable Check project structure and standard practices.
 
 ## Scan Code
 You can use the peerbot for scanning code using open source tools, the available tools are:
-* tfsec
+* trivy
 * checkov
 * terraform-compliance
 
@@ -65,17 +65,17 @@ You can use the peerbot for scanning code using open source tools, the available
 
 ```bash 
 $ thothctl scan -h 
-usage: thothctl scan [-h] [-s] [-t {tfsec,terraform-compliance,checkov}] [-op TOOL_OPTIONS] [-r REPORTS_PATH] [-b {single,xunit}] [-m {Teams}] [-w WEBHOOK] [-f FEATURE_PATH]
+usage: thothctl scan [-h] [-s] [-t {trivy,terraform-compliance,checkov}] [-op TOOL_OPTIONS] [-r REPORTS_PATH] [-b {single,xunit}] [-m {Teams}] [-w WEBHOOK] [-f FEATURE_PATH]
 
-Scan code using tools like checkov, tfsec, terraform-compliance
+Scan code using tools like checkov, trivy, terraform-compliance
 
 optional arguments:
   -h, --help            show this help message and exit
 
 Scan code options and flags:
   -s, --scan            Scan project
-  -t {tfsec,terraform-compliance,checkov}, --tool {tfsec,terraform-compliance,checkov}
-                        Use this flag for setting the tool of scanning tool. Allowed values are: tfsec, terraform-compliance or checkov, (default: checkov)
+  -t {trivy,terraform-compliance,checkov}, --tool {trivy,terraform-compliance,checkov}
+                        Use this flag for setting the tool of scanning tool. Allowed values are: trivy, terraform-compliance or checkov, (default: checkov)
   -op TOOL_OPTIONS, --tool_options TOOL_OPTIONS
                         Use for passing more arguments for your tool. Use with -t option
   -r REPORTS_PATH, --reports_path REPORTS_PATH
@@ -93,7 +93,7 @@ Scan code options and flags:
 The command line example:
 
 ```commandline
-# thothctl -d . scan --tool tfsec   --browser_reports xunit
+# thothctl -d . scan --tool trivy   --browser_reports xunit
 
 
 ```

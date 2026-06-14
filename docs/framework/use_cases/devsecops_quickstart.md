@@ -45,7 +45,6 @@ thothctl dashboard launch
 # Run all security scanners
 thothctl scan iac --tool checkov
 thothctl scan iac --tool trivy
-thothctl scan iac --tool tfsec
 
 # View consolidated results
 thothctl dashboard launch

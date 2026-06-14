@@ -242,7 +242,7 @@ You: "Generate documentation for all modules"
 ```bash
 thothctl scan iac --tool checkov
 thothctl scan iac --tool trivy
-thothctl scan iac --tool tfsec
+thothctl scan iac --tool trivy
 # Review multiple reports...
 ```
 
@@ -369,7 +369,7 @@ thothctl init env
 # This will install:
 # - Kiro CLI
 # - Terraform/OpenTofu
-# - Security scanners (Checkov, Trivy, TFSec)
+# - Security scanners (Checkov, Trivy, Trivy)
 # - Other DevSecOps tools
 ```
 
@@ -430,7 +430,7 @@ Kiro: "I'll run a comprehensive security scan using ThothCTL.
 📊 Security Scan Results:
 - Checkov: 3 HIGH, 5 MEDIUM, 12 LOW
 - Trivy: 1 CRITICAL, 2 HIGH
-- TFSec: 4 HIGH, 8 MEDIUM
+- Trivy: 4 HIGH, 8 MEDIUM
 
 🔴 Critical Issues:
 1. S3 bucket without encryption (s3.tf:15)
@@ -516,7 +516,7 @@ thothctl document iac --recursive
 # Step 5: Run security scans
 thothctl scan iac --tool checkov
 thothctl scan iac --tool trivy
-thothctl scan iac --tool tfsec
+thothctl scan iac --tool trivy
 
 # Step 6: Create Terraform plan
 terraform init

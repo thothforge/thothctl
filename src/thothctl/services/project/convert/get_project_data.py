@@ -108,6 +108,14 @@ def replace_template_placeholders(directory, project_properties, project_name, a
                         # Convert values to placeholders
                         logger.debug(f"Converting values to template parameters in {os.path.relpath(file_path, directory)}")
                         
+                        # Values that are language keywords or too generic to safely replace globally
+                        reserved_words = {
+                            "default", "true", "false", "null", "none", "string", "number",
+                            "bool", "list", "map", "object", "any", "type", "variable",
+                            "resource", "module", "output", "locals", "data", "provider",
+                            "terraform", "required_providers", "backend", "source", "version",
+                        }
+                        
                         # Sort parameters by value length (longest first) to avoid
                         # partial replacements (e.g., replacing "us-east-1" before
                         # "us-east-1-tfstate" would corrupt the longer value)
@@ -121,6 +129,11 @@ def replace_template_placeholders(directory, project_properties, project_name, a
                             if not value:
                                 continue
                             str_value = str(value)
+                            
+                            # Skip values that are language keywords
+                            if str_value.lower() in reserved_words:
+                                logger.debug(f"  • Skipping reserved word: {param}={str_value}")
+                                continue
                             
                             # Skip very short values (<=3 chars like "dev", "aws", "qa")
                             # unless they appear in a clear assignment context

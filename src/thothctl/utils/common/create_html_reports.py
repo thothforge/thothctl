@@ -87,12 +87,6 @@ class HTMLReportGenerator:
         # Create an index page that links to all individual reports
         self.create_index_page(individual_reports, reports_dir)
         
-        # Also create the simple or xunit report for backward compatibility
-        if mode == "simple":
-            self._create_simple_report(xml_files, abs_directory)
-        else:
-            self._create_xunit_report(xml_files, abs_directory)
-        
         # Ensure all generated reports have consistent styling
         self._ensure_report_consistency(abs_directory, reports_dir)
 

@@ -19,7 +19,6 @@ thothctl scan iac -t checkov -t opa --enforcement hard
 
 ## Features
 
-- **Multi-Scanner Support**: Checkov, Trivy, TFSec, KICS, OPA/Conftest integration
 - **Custom Policy Evaluation**: Write Rego policies for organization-specific rules via OPA
 - **Enforcement Modes**: Soft (report only) or hard (fail pipeline) for all tools
 - **Security Policy Checking**: CIS benchmarks and best practices
@@ -33,7 +32,6 @@ thothctl scan iac -t checkov -t opa --enforcement hard
 |---------|-------------|
 | **Checkov** | Policy-as-code scanning with built-in rules |
 | **Trivy** | Vulnerability and misconfiguration detection |
-| **TFSec** | Terraform security scanner |
 | **KICS** | Static analysis via Docker |
 | **OPA/Conftest** | Custom Rego policy evaluation (static HCL + plan-based) |
 
