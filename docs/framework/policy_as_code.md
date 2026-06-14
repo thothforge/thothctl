@@ -387,44 +387,119 @@ org-iac-policies/
 
 ### How Projects Consume Organization Policies
 
-ThothCTL resolves organization policies from a configured Git repository, similar to how it resolves scaffold templates:
+ThothCTL resolves organization policies from a configured Git repository or local path. The policy repository can be set via:
+
+**Option 1: Space initialization**
 
 ```bash
-# Configure the organization policy repository
-thothctl init space --policy-repo https://github.com/my-org/org-iac-policies.git
+thothctl init space -s my-space --policy-repo https://github.com/my-org/org-iac-policies.git
+```
 
-# Or set via environment variable
+This stores `governance.policy_repo` in `~/.thothcf/spaces.toml`.
+
+**Option 2: Environment variable**
+
+```bash
+export THOTH_POLICY_REPO=/path/to/local/clone
+# or
 export THOTH_POLICY_REPO=https://github.com/my-org/org-iac-policies.git
 ```
 
-When evaluating policies, ThothCTL merges them:
+**Option 3: Direct path on scan command**
 
 ```bash
-# This evaluates:
-# 1. shared/policy/*.rego (always)
-# 2. layers/networking/policy/*.rego (matches project layer)
-# 3. workloads/containers/policy/*.rego (matches workload type)
-# 4. domains/platform/policy/*.rego (matches domain)
-# 5. Project-local policy/*.rego (project overrides)
+# Point to a specific subfolder within your org repo
+thothctl scan iac --tools opa --policy-dir layers/networking/policy
 
-thothctl scan iac --tools opa
+# Or absolute path
+thothctl scan iac --tools opa --policy-dir /path/to/org-iac-policies/domains/fintech/policy
 ```
+
+### Policy Resolution Order
+
+When `thothctl scan iac --tools opa` runs, the OPA scanner resolves policies in this order:
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
+graph TD
+    A["thothctl scan iac --tools opa<br/>--policy-dir <path>"] --> B{"Project has<br/>local policy/?"}
+    B -->|Yes| C["✅ Use project/policy/"]
+    B -->|No| D{"Is absolute<br/>path?"}
+    D -->|Yes| E["✅ Use absolute path"]
+    D -->|No| F{"THOTH_POLICY_REPO<br/>set?"}
+    F -->|No| G["❌ No policy found<br/>(skip scan)"]
+    F -->|Yes| H{"path exists in<br/>org repo?"}
+    H -->|Yes| I["✅ Use org_repo/<path>"]
+    H -->|No| J{"org_repo/shared/<br/>policy exists?"}
+    J -->|Yes| K["✅ Use org_repo/shared/policy"]
+    J -->|No| G
+
+    classDef found fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
+    classDef notfound fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fff
+    classDef decision fill:#3b82f6,stroke:#60a5fa,stroke-width:2px,color:#fff
+
+    class C,E,I,K found
+    class G notfound
+    class B,D,F,H,J decision
+```
+
+**Resolution examples:**
+
+| `--policy-dir` value | `THOTH_POLICY_REPO` | Resolved path |
+|---------------------|--------------------|----|
+| `policy` (default) | not set | `<project>/policy/` |
+| `policy` (default) | `/path/to/org-repo` | `<org-repo>/shared/policy` (fallback) |
+| `layers/networking/policy` | `/path/to/org-repo` | `<org-repo>/layers/networking/policy` |
+| `domains/fintech/policy` | `/path/to/org-repo` | `<org-repo>/domains/fintech/policy` |
+| `workloads/databases/policy` | `/path/to/org-repo` | `<org-repo>/workloads/databases/policy` |
+| `/absolute/path/to/policies` | (ignored) | `/absolute/path/to/policies` |
 
 ### Configuration in `.thothcf.toml`
 
-Projects declare which domain, workload, and layer they belong to:
+Projects declare which domain, workload, and layer they belong to. This determines which org policies apply when scanning:
 
 ```toml
 [thothcf]
 project_id = "payment-service"
 project_type = "terraform-terragrunt"
 
-# Policy selectors — determines which org policies apply
+# Policy selectors — determines which org policy subfolder to use
+# with: thothctl scan iac --tools opa --policy-dir domains/fintech/policy
 [thothcf.governance]
 domain = "fintech"
 workload = "containers"
 layer = "networking"
 compliance = ["soc2", "cis-aws"]
+```
+
+> **Note**: Automatic policy selection based on `[thothcf.governance]` selectors is on the roadmap. Currently, you specify the subfolder explicitly via `--policy-dir` or use the `shared/policy` fallback.
+
+### Space Configuration
+
+When a space is initialized with `--policy-repo`, the governance config is stored in `~/.thothcf/spaces.toml`:
+
+```toml
+[spaces.my-space.governance]
+policy_repo = "https://github.com/my-org/org-iac-policies.git"
 ```
 
 ### Example: Organization Policy Repository
