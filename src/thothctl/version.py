@@ -1,2 +1,2 @@
-"""Version module."""
-__version__ = "0.15.1"
+you c"""Version module."""
+__version__ = "0.15.2"
