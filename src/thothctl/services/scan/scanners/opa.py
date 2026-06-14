@@ -318,25 +318,30 @@ class OPAScanner(ScannerPort):
     # ── Helpers ─────────────────────────────────────────────────────────
 
     def _resolve_policy_dir(self, base_dir: str, policy_dir: str) -> Optional[str]:
-        """Resolve policy directory — check relative to project, then absolute, then org repo.
+        """Resolve policy directory — check Git URL, relative, absolute, or org repo.
 
         Resolution order:
-        1. Relative to project: <base_dir>/<policy_dir>
-        2. Absolute path: <policy_dir> as-is
-        3. Organization policy repo (THOTH_POLICY_REPO env or space config):
-           - If policy_dir contains '/' (e.g., "layers/networking/policy"), resolve within org repo
+        1. Git URL: clone to cache and use
+        2. Relative to project: <base_dir>/<policy_dir>
+        3. Absolute path: <policy_dir> as-is
+        4. Organization policy repo (THOTH_POLICY_REPO env):
+           - If policy_dir contains '/' resolve within org repo
            - Otherwise check <org_repo>/shared/policy
         """
-        # 1. Relative to project
+        # 1. Git URL
+        if self._is_git_url(policy_dir):
+            return self._clone_policy_repo(policy_dir)
+
+        # 2. Relative to project
         candidate = os.path.join(base_dir, policy_dir)
         if os.path.isdir(candidate):
             return candidate
 
-        # 2. Absolute path
+        # 3. Absolute path
         if os.path.isabs(policy_dir) and os.path.isdir(policy_dir):
             return policy_dir
 
-        # 3. Organization policy repo
+        # 4. Organization policy repo
         org_repo = os.environ.get("THOTH_POLICY_REPO")
         if org_repo and os.path.isdir(org_repo):
             # Try policy_dir as a path within the org repo
@@ -349,6 +354,59 @@ class OPAScanner(ScannerPort):
                 return shared
 
         return None
+
+    def _is_git_url(self, value: str) -> bool:
+        """Check if value is a Git URL."""
+        return value.startswith(("https://", "git@", "ssh://", "git://"))
+
+    def _clone_policy_repo(self, repo_url: str) -> Optional[str]:
+        """Clone a policy Git repository to local cache. Returns path or None."""
+        import hashlib
+        import tempfile
+
+        try:
+            import git
+        except ImportError:
+            self.ui.show_error("GitPython required for Git policy repos. Install: pip install gitpython")
+            return None
+
+        # Parse optional ref (url@branch or url@tag)
+        ref = None
+        if "@" in repo_url and not repo_url.startswith("git@"):
+            repo_url, ref = repo_url.rsplit("@", 1)
+        elif repo_url.startswith("git@") and repo_url.count("@") > 1:
+            repo_url, ref = repo_url.rsplit("@", 1)
+
+        # Cache in ~/.thothcf/.policy_cache/<hash>
+        url_hash = hashlib.sha256(repo_url.encode()).hexdigest()[:12]
+        cache_dir = Path.home() / ".thothcf" / ".policy_cache" / url_hash
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            if (cache_dir / ".git").exists():
+                # Pull latest
+                self.logger.info(f"Updating cached policy repo: {repo_url}")
+                repo = git.Repo(cache_dir)
+                repo.remotes.origin.fetch()
+                if ref:
+                    repo.git.checkout(ref)
+                else:
+                    repo.remotes.origin.pull()
+            else:
+                # Fresh clone
+                self.logger.info(f"Cloning policy repo: {repo_url}")
+                self.ui.show_info(f"📥 Cloning policy repo: {repo_url}")
+                kwargs = {"depth": 1} if not ref else {}
+                repo = git.Repo.clone_from(repo_url, cache_dir, **kwargs)
+                if ref:
+                    repo.git.checkout(ref)
+
+            return str(cache_dir)
+
+        except Exception as e:
+            self.logger.error(f"Failed to clone policy repo: {e}")
+            self.ui.show_error(f"Failed to clone policy repo: {e}")
+            return None
 
     def _find_scannable_files(self, directory: str) -> List[str]:
         """Find .tf, .yaml, .yml, .json files for conftest."""

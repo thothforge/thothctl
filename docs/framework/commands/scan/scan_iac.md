@@ -224,6 +224,52 @@ thothctl scan iac -t opa -o "policy_dir=policy" --enforcement hard
 thothctl scan iac -t opa -o "mode=opa,decision=terraform/cost/allow" --enforcement hard
 ```
 
+#### Policy Source Resolution
+
+The `policy_dir` option supports multiple sources. ThothCTL resolves policies in this order:
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | **Git repository URL** | `https://github.com/myorg/opa-policies.git` |
+| 2 | **Relative to project** | `policy` → `<project>/policy/` |
+| 3 | **Absolute path** | `/shared/company-policies` |
+| 4 | **`THOTH_POLICY_REPO` env var** | Pre-cloned org repo |
+
+##### Git Repository as Policy Source
+
+Pass a Git URL directly as `policy_dir` to fetch policies from a remote repository:
+
+```bash
+# Use policies from a Git repo
+thothctl scan iac -t opa -o "policy_dir=https://github.com/myorg/opa-policies.git"
+
+# Pin to a specific branch or tag
+thothctl scan iac -t opa -o "policy_dir=https://github.com/myorg/opa-policies.git@v1.2.0"
+thothctl scan iac -t opa -o "policy_dir=https://github.com/myorg/opa-policies.git@main"
+
+# SSH URL
+thothctl scan iac -t opa -o "policy_dir=git@github.com:myorg/opa-policies.git@v1.0"
+```
+
+Repos are cached locally at `~/.thothcf/.policy_cache/` and updated on subsequent runs. This enables:
+
+- **Centralized policy management** — one repo shared across all projects
+- **Versioned policies** — pin to a tag for stability, or track `main` for latest
+- **CI/CD friendly** — no need to pre-clone; ThothCTL handles it
+
+##### Organization Policy Repo (env var)
+
+For teams that pre-clone a shared policy repository in CI/CD:
+
+```bash
+export THOTH_POLICY_REPO=/path/to/cloned/org-policies
+
+# ThothCTL will look for policies at:
+# 1. <THOTH_POLICY_REPO>/<policy_dir>
+# 2. <THOTH_POLICY_REPO>/shared/policy (fallback)
+thothctl scan iac -t opa -o "policy_dir=networking"
+```
+
 #### Conftest vs OPA Mode
 
 | Aspect | Conftest mode | OPA mode |

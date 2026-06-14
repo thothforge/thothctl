@@ -121,9 +121,9 @@ thothctl project convert --make-template --template-project-type custom
 ```
 
 **What This Does:**
-- Identifies hardcoded values
-- Creates `#{ }#` placeholder expressions
-- Generates `template.yaml` configuration
+- Identifies hardcoded values from `[project_properties]` in `.thothcf.toml`
+- Creates `#{placeholder}#` expressions in project files
+- Saves the template to `~/.thothcf/<project_name>/`
 - Preserves project structure
 - Creates parameterized files
 
@@ -288,67 +288,17 @@ type = "root"
    - `description`: Human-readable description
 3. **Project Structure**: Defines required files and folders for validation
 
-**Generated `template.yaml`:**
-```yaml
-name: microservices-platform
-description: Production-ready microservices platform on AWS
-version: 1.0.0
-type: terraform  # Options: terraform, terraform-terragrunt, terragrunt, tofu, cdkv2, terraform_module, custom
+**Optional: Backstage `template.yaml`**
 
-parameters:
-  project:
-    type: string
-    description: Name of the project
-    required: true
-  
-  environment:
-    type: string
-    description: Environment name
-    default: dev
-    enum: [dev, staging, prod]
-  
-  vpc_cidr:
-    type: string
-    description: VPC CIDR block
-    default: "10.0.0.0/16"
-  
-  team_name:
-    type: string
-    description: Team responsible for the infrastructure
-    required: true
-  
-  backend_region:
-    type: string
-    description: AWS region for backend
-    default: us-east-1
-  
-  backend_bucket:
-    type: string
-    description: S3 bucket for Terraform state
-    required: true
-  
-  dynamodb_backend:
-    type: string
-    description: DynamoDB table for state locking
-    required: true
-
-stacks:
-  - networking
-  - compute
-  - database
-  - monitoring
-```
+If you plan to integrate with Backstage for self-service, you can create a separate `template.yaml` in Backstage scaffolder format (see Step 6 below). The `.thothcf.toml` is the primary configuration for ThothCTL's template engine.
 
 ### Step 4: Test Template Locally
 
-Before publishing, test the template:
+Before publishing, test the template by converting it back to a project:
 
 ```bash
-# Create a test project from template
-thothctl init project \
-  --project-name test-microservices \
-  --reuse \
-  --template-path ./microservices-platform
+# Create a test project from the template
+thothctl project convert --make-project --template-project-type terraform
 
 # Verify generated project
 cd test-microservices
@@ -600,12 +550,8 @@ jobs:
       
       - name: Test Template
         run: |
-          thothctl init project \
-            --project-name test-project \
-            --reuse \
-            --template-path .
-          
-          cd test-project
+          cd templates/source-project
+          thothctl project convert --make-project --template-project-type terraform
           terraform init
           terraform validate
 ```
@@ -617,8 +563,8 @@ validate-template:
   stage: test
   script:
     - pip install thothctl
-    - thothctl init project --project-name test --reuse --template-path .
-    - cd test && terraform init && terraform validate
+    - thothctl project convert --make-project --template-project-type terraform
+    - terraform init && terraform validate
 ```
 
 ## Best Practices
@@ -671,10 +617,10 @@ microservices-platform-template/
 │   └── workflows/
 │       └── validate.yml
 ├── common/
-│   ├── backend.tf.j2
-│   └── variables.tf.j2
+│   ├── backend.tf
+│   └── variables.tf
 ├── environments/
-│   └── {{ environment }}/
+│   └── #{environment}#/
 ├── stacks/
 │   ├── networking/
 │   ├── compute/
@@ -688,9 +634,9 @@ microservices-platform-template/
 │   ├── dev-example.yaml
 │   ├── staging-example.yaml
 │   └── prod-example.yaml
-├── template.yaml          # ThothCTL template config
-├── backstage-template.yaml # Backstage template config
-├── catalog-info.yaml      # Backstage catalog entry
+├── .thothcf.toml           # ThothCTL template config (parameters + structure)
+├── backstage-template.yaml  # Backstage template config
+├── catalog-info.yaml        # Backstage catalog entry
 ├── CHANGELOG.md
 └── LICENSE
 ```
@@ -702,7 +648,7 @@ microservices-platform-template/
 | `thothctl project convert --make-template` | Convert project to template |
 | `thothctl project convert --make-project` | Convert template to project |
 | `thothctl project convert --make-terramate-stacks` | Create Terramate stacks |
-| `thothctl init project --reuse --template-path` | Create project from template |
+| `thothctl init project --reuse --space <name>` | Create project from VCS template |
 | `thothctl project bootstrap` | Add ThothCTL support to existing project |
 | `thothctl project upgrade` | Upgrade project from template |
 

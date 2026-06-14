@@ -125,8 +125,10 @@ def create_file(directory, folder_name, file_name):
     """
     path = Path(os.path.join(directory, folder_name, file_name)).resolve().absolute()
     with open(path, "w") as fp:
-        elif file_name == "terragrunt.hcl":
+        if file_name == "terragrunt.hcl":
             fp.write(f"#{folder_name}-{file_name}")
             fp.write(terragrunt_hcl_resource_content)
         elif file_name == "main.tf":
             fp.write(main_tf_content.replace("#{resource_name}#", folder_name))
+        else:
+            fp.write(f"# {folder_name}-{file_name}\n")

@@ -16,37 +16,28 @@ ThothCTL's template system allows you to:
 
 ThothCTL supports several template types:
 
-1. **Project Templates**: Complete project structures with predefined directories and files
-2. **Component Templates**: Reusable infrastructure components like modules or services
-3. **Stack Templates**: Templates for creating infrastructure stacks
-4. **Custom Templates**: User-defined templates for specific organizational needs
+1. **Project Templates**: Complete project structures fetched from GitHub scaffold repositories
+2. **Component Templates**: Reusable infrastructure components defined in `.thothcf.toml`
+3. **Stack Templates**: Templates for creating infrastructure stacks via configuration
 
-## Template Structure
-https://github.com/velez94/terragrunt_ecs_blueprint.git
-A template in ThothCTL is defined as a hierarchical structure of directories and files:
+## Template Placeholder Format
 
-```python
-template = [
-    {
-        "type": "directory",
-        "name": ".",
-        "contents": [
-            {"type": "file", "name": "README.md"},
-            {"type": "file", "name": ".thothcf.toml"},
-            {
-                "type": "directory",
-                "name": "modules",
-                "contents": [
-                    {"type": "file", "name": "main.tf"},
-                    {"type": "file", "name": "variables.tf"},
-                ]
-            }
-        ]
-    }
-]
+ThothCTL uses `#{parameter_name}#` expressions for parameterization in template files:
+
+```hcl
+# Template
+resource "aws_vpc" "main" {
+  cidr_block = "#{vpc_cidr}#"
+  tags = {
+    Name        = "#{project}#-vpc"
+    Environment = "#{environment}#"
+  }
+}
 ```
 
-### The `.thothcf.toml` File
+When instantiated, placeholders are replaced with the values provided by the user.
+
+## The `.thothcf.toml` File
 
 The `.thothcf.toml` file is a critical component of every ThothCTL template. It defines:
 
@@ -54,42 +45,34 @@ The `.thothcf.toml` file is a critical component of every ThothCTL template. It 
 2. Project structure requirements
 3. Configuration for ThothCTL integration
 
-Each template type has a specific `.thothcf.toml` structure:
-
-#### For Terraform Projects:
+### For Terraform Projects
 
 ```toml
+[thothcf]
+project_id = "my-project"
+
 [template_input_parameters.project_name]
-template_value = "test-wrapper"
-condition = "\\b[a-zA-Z]+\\b"
+template_value = "#{project}#"
+condition = "^[a-zA-Z0-9_-]+$"
 description = "Project Name"
 
 [template_input_parameters.deployment_region]
-template_value = "us-east-2"
+template_value = "#{backend_region}#"
 condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
 description = "AWS Region"
 
 [template_input_parameters.environment]
-template_value = "dev"
+template_value = "#{environment}#"
 condition = "(dev|qa|stg|test|prod)"
 description = "Environment name (dev|qa|stg|test|prod)"
 
 # Project structure definition
 [project_structure]
-root_files = [
-   ".git",
-    ".gitignore",
-    ".pre-commit-config.yaml",
-    "README.md"
-]
-ignore_folders = [
-    ".git",
-    ".terraform",
-    "Reports"
-]
+root_files = [".git", ".gitignore", ".pre-commit-config.yaml", "README.md"]
+ignore_folders = [".git", ".terraform", "Reports"]
 ```
 
-#### For Terraform Modules:
+### For Terraform Modules
 
 ```toml
 [template_input_parameters.module_name]
@@ -98,139 +81,95 @@ condition = "^[a-z_]+$"
 description = "Module Name"
 
 [template_input_parameters.description]
-template_value= "#{ModuleDescription}#"
+template_value = "#{ModuleDescription}#"
 condition = "^[a-zA-Z\\s]+$"
 description = "Module description"
 
-# Project structure definition
 [[project_structure.folders]]
 name = "modules"
 mandatory = true
-content = [
-    "variables.tf",
-    "main.tf",
-    "outputs.tf",
-    "README.md"
-]
-type= "root"
+content = ["variables.tf", "main.tf", "outputs.tf", "README.md"]
+type = "root"
 ```
 
 ## Creating Templates
 
-### Using the CLI
+### From an Existing Project
 
-You can create a new template using the `thothctl generate template` command:
-
-```bash
-thothctl generate template --template-name my-terraform-template --template-type terraform
-```
-
-This will create a new template with the standard structure for the specified type.
-
-### Template Configuration
-
-Templates are configured using a YAML file with the following structure:
-
-```yaml
-name: my-terraform-template
-type: terraform
-description: A template for Terraform projects
-version: 1.0.0
-author: Your Name
-files:
-  - path: README.md
-    content: |
-      # My Terraform Project
-      
-      This is a template for Terraform projects.
-  - path: main.tf
-    content: |
-      # Main Terraform configuration
-  - path: .thothcf.toml
-    content: |
-      [template_input_parameters.project_name]
-      template_value = "test-wrapper"
-      condition = "\\b[a-zA-Z]+\\b"
-      description = "Project Name"
-```
-
-### Custom Template Content
-
-You can customize the content of template files by:
-
-1. Editing the template configuration file
-2. Using variables in template files that will be replaced during generation
-3. Adding hooks for post-generation actions
-
-## Managing Templates
-
-### Storing Templates
-
-Templates can be stored in:
-
-1. **Local Repository**: `~/.thothctl/templates/`
-2. **Git Repository**: Remote repository for sharing across teams
-3. **Template Registry**: Central registry for organization-wide templates
-
-### Versioning Templates
-
-Templates should follow semantic versioning:
-
-```yaml
-name: my-terraform-template
-version: 1.0.0
-```
-
-When updating templates, increment:
-- MAJOR version for incompatible changes
-- MINOR version for new features
-- PATCH version for bug fixes
-
-### Publishing Templates
-
-To publish a template to a shared repository:
+The primary way to create a template is by converting a working project:
 
 ```bash
-thothctl template publish --template-name my-terraform-template --repository https://github.com/myorg/templates
+# Navigate to your project
+cd my-terraform-project
+
+# Convert to template
+thothctl project convert --make-template --template-project-type terraform
+
+# For Terragrunt projects
+thothctl project convert --make-template --template-project-type terraform-terragrunt
+```
+
+This reads `[project_properties]` from `.thothcf.toml`, replaces values with `#{placeholder}#` expressions, and saves the template to `~/.thothcf/<project_name>/`.
+
+### Setting Up Custom Template Repositories
+
+Configure a custom GitHub repository as the scaffold source for a project type:
+
+```bash
+# Set a custom template URL
+thothctl init template --project-type terraform --template-url https://github.com/myorg/custom-terraform.git
 ```
 
 ## Using Templates
 
-### Creating Projects from Templates
+### Creating Projects from Scaffold Templates
 
 ```bash
-thothctl init project --project-name my-project --template my-terraform-template
+# Terraform + Terragrunt project (fetches from GitHub scaffold)
+thothctl init project --project-name my-infra --project-type terraform-terragrunt
+
+# CDK v2 project with language selection
+thothctl init project --project-name my-app --project-type cdkv2 --language python
+
+# Reuse template from VCS (Azure DevOps or GitHub space)
+thothctl init project --project-name my-project --project-type terraform --reuse --space my-space
 ```
 
-### Creating Components from Templates
+### Creating Projects from Local Templates
 
 ```bash
-thothctl generate component --component-name network --template network-module
+# Create project from a previously saved local template
+thothctl project convert --make-project --template-project-type terraform
+```
+
+### Creating Components from Project Structure
+
+```bash
+# Create a component based on folder structure rules in .thothcf.toml
+thothctl generate component \
+  --component-type modules \
+  --component-name networking \
+  --component-path ./modules
+```
+
+### Generating Stacks from Configuration
+
+```bash
+# Generate stacks from a YAML configuration file
+thothctl generate stacks --config-file stack-config.yaml
+
+# Create an example config to get started
+thothctl generate stacks --create-example
 ```
 
 ### Template Variables and `.thothcf.toml` Interaction
-
-The `.thothcf.toml` file defines template variables that are replaced during generation:
-
-```toml
-[template_input_parameters.project_name]
-template_value = "test-wrapper"
-condition = "\\b[a-zA-Z]+\\b"
-description = "Project Name"
-```
 
 When you use a template, ThothCTL will:
 
 1. Parse the `.thothcf.toml` file to identify required parameters
 2. Prompt for values if not provided via command line
-3. Validate input against the defined conditions
+3. Validate input against the defined `condition` regex
 4. Replace all occurrences of `#{parameter_name}#` in template files
-
-Example command with variables:
-
-```bash
-thothctl generate component --component-name s3-bucket --template s3-module --variables '{"bucket_name": "my-unique-bucket", "environment": "dev"}'
-```
 
 ### Parameter Validation
 
@@ -238,142 +177,100 @@ The `.thothcf.toml` file includes regex conditions to validate input parameters:
 
 ```toml
 [template_input_parameters.environment]
-template_value = "dev"
+template_value = "#{environment}#"
 condition = "(dev|qa|stg|test|prod)"
 description = "Environment name (dev|qa|stg|test|prod)"
 ```
 
-If a provided value doesn't match the condition, ThothCTL will:
-1. Show an error message
-2. Display the parameter description
-3. Prompt for a valid value
+If a provided value doesn't match the condition, ThothCTL will show an error and prompt for a valid value.
 
-## Template Best Practices
+## Managing Templates
 
-1. **Documentation**: Include comprehensive README files in templates
-2. **Modularity**: Design templates to be composable and reusable
-3. **Validation**: Include validation rules for generated code
-4. **Testing**: Provide example usage and test cases
-5. **Compliance**: Embed security and compliance checks
-6. **Consistency**: Maintain consistent naming conventions and structure
-7. **`.thothcf.toml` Structure**: 
-   - Keep parameter names descriptive
-   - Use specific regex patterns for validation
-   - Include helpful descriptions for each parameter
-   - Define mandatory project structure elements
+### Storage Locations
+
+| Location | Purpose |
+|----------|---------|
+| `~/.thothcf/<project_name>/` | Saved template files (from `--make-template`) |
+| `~/.thothcf/.thothcf.toml` | Global template registry with file hashes |
+| `~/.thothcf/.thothctl_templates.toml` | Custom template URL overrides |
+
+### Listing Available Templates
+
+```bash
+# Show available templates
+thothctl list templates
+
+# Show templates from a specific space
+thothctl list templates --space my-space
+```
+
+### Upgrading Projects from Templates
+
+Keep projects in sync with template updates:
+
+```bash
+# Check what would change
+thothctl project upgrade --dry-run
+
+# Interactive file selection
+thothctl project upgrade --interactive
+
+# Force upgrade
+thothctl project upgrade --force
+```
 
 ## Template Integration with Spaces
 
-Templates can be associated with specific spaces to ensure consistent standards:
+Templates can be associated with specific spaces via VCS providers (GitHub, Azure DevOps):
 
 ```bash
-thothctl init space --space-name development --default-templates terraform-dev,module-standard
+# Initialize a space
+thothctl init space --space-name development
+
+# Create project reusing a template from the space
+thothctl init project --project-name my-project --project-type terraform --reuse --space development
 ```
 
-Projects created within a space will automatically use the space's default templates unless overridden.
+Projects created within a space can discover templates from the space's VCS provider.
 
-## Example: Creating a Custom Template
-
-1. Create a template configuration file:
-
-```bash
-cat > my-template.yaml << EOF
-name: custom-terraform-module
-type: terraform_module
-description: Custom Terraform module template
-version: 1.0.0
-author: Your Name
-EOF
-```
-
-2. Define the template structure:
-
-```bash
-thothctl generate template --config-file my-template.yaml --output-dir ./templates
-```
-
-3. Customize the template files in `./templates`
-
-4. Create or modify the `.thothcf.toml` file:
-
-```bash
-cat > ./templates/.thothcf.toml << EOF
-[template_input_parameters.module_name]
-template_value = "#{ModuleName}#"
-condition = "^[a-z_]+$"
-description = "Module Name"
-
-[template_input_parameters.resources_to_create]
-template_value= "#{ResourcesToCreate}#"
-condition= "^[a-zA-Z\\\\s]+$"
-description = "Resources to create in this module"
-
-[project_structure]
-root_files = [
-   ".gitignore",
-   "README.md",
-   "main.tf",
-   "variables.tf",
-   "outputs.tf"
-]
-
-[[project_structure.folders]]
-name = "examples"
-mandatory = true
-type= "root"
-EOF
-```
-
-5. Register the template:
-
-```bash
-thothctl template register --template-path ./templates
-```
-
-6. Use the template:
-
-```bash
-thothctl generate component --component-name my-component --template custom-terraform-module
-```
-
-## `.thothcf.toml` File Reference
+## `.thothcf.toml` Reference
 
 ### Template Input Parameters Section
 
-Each parameter is defined with:
-
 ```toml
 [template_input_parameters.parameter_name]
-template_value = "#{ParameterName}#"  # The placeholder in template files
-condition = "regex_pattern"           # Validation regex pattern
-description = "Parameter description"  # Human-readable description
+template_value = "#{ParameterName}#"   # Placeholder in template files
+condition = "regex_pattern"             # Validation regex
+description = "Human-readable prompt"   # Shown during parameter input
 ```
 
 ### Project Structure Section
 
-Defines required files and directories:
-
 ```toml
 [project_structure]
-root_files = [                        # Required files in root directory
-   ".gitignore",
-   "README.md"
-]
-ignore_folders = [                    # Folders to ignore during validation
-    ".git",
-    ".terraform"
-]
+root_files = [".gitignore", "README.md"]
+ignore_folders = [".git", ".terraform"]
 
-[[project_structure.folders]]         # Required folder definition
-name = "examples"                     # Folder name
-mandatory = true                      # Is this folder required?
-type = "root"                         # Location (root or child_folder)
-content = [                           # Required files in this folder
-    "main.tf",
-    "README.md"
-]
+[[project_structure.folders]]
+name = "modules"
+mandatory = true
+type = "root"
+content = ["main.tf", "variables.tf", "outputs.tf"]
 ```
 
-## Conclusion
+## Best Practices
 
-Templates are a powerful feature of ThothCTL that enable standardization, acceleration, and consistency in your infrastructure code. The `.thothcf.toml` file is central to this functionality, providing parameter validation, structure definition, and configuration for your templates. By creating and managing templates effectively, you can significantly improve developer productivity and code quality across your organization.
+1. **Keep parameters meaningful** — Use descriptive names and provide helpful descriptions
+2. **Validate strictly** — Define specific regex patterns to catch errors early
+3. **Document templates** — Include README and architecture docs in your templates
+4. **Version control** — Store templates in Git repositories with semantic versioning
+5. **Test conversions** — Always test `make-project` after creating a template
+6. **Define structure** — Use `[project_structure]` to enforce required files and folders
+
+## Related Documentation
+
+- [Template Engine Overview](../../template_engine/template_engine.md)
+- [GitHub Templates](../../template_engine/github_templates.md)
+- [Project Convert](../commands/project/project_convert.md)
+- [Project Upgrade](../commands/project/project_upgrade.md)
+- [Platform Engineering Templates](../platform_engineering_templates.md)

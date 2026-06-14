@@ -14,26 +14,28 @@ When you run `thothctl init project`, the system will:
 
 ### Terraform / Terragrunt / OpenTofu
 
-| Project Type | Default Repository |
-|-------------|-------------------|
-| `terragrunt` | https://github.com/thothforge/terragrunt_project_scaffold.git |
-| `terraform` | https://github.com/thothforge/terraform_project_scaffold.git |
-| `terraform-terragrunt` | https://github.com/thothforge/terraform_terragrunt_scaffold_project.git |
-| `terraform_module` | https://github.com/thothforge/terraform_module_scaffold.git |
-| `tofu` | https://github.com/thothforge/tofu_project_scaffold.git |
+| Project Type | Default Repository | Status |
+|-------------|-------------------|--------|
+| `terragrunt` | https://github.com/thothforge/terragrunt_project_scaffold.git | ✅ Available |
+| `terraform-terragrunt` | https://github.com/thothforge/terraform_terragrunt_scaffold_project.git | ✅ Available |
+| `terraform` | https://github.com/thothforge/terraform_project_scaffold.git | ❌ Pending |
+| `terraform_module` | https://github.com/thothforge/terraform_module_scaffold.git | ❌ Pending |
+| `tofu` | https://github.com/thothforge/tofu_project_scaffold.git | ❌ Pending |
+
+> Templates marked as "Pending" will fall back to local hardcoded templates until the repository is published.
 
 ### AWS CDK v2
 
 CDK projects support language selection. When `--project-type cdkv2` is used, thothctl prompts for the programming language (or defaults to TypeScript in batch mode).
 
-| Project Type | Language | Default Repository |
-|-------------|----------|-------------------|
-| `cdkv2-typescript` | TypeScript | https://github.com/thothforge/cdkv2_typescript_scaffold.git |
-| `cdkv2-python` | Python | https://github.com/thothforge/cdkv2_python_scaffold.git |
-| `cdkv2-java` | Java | https://github.com/thothforge/cdkv2_java_scaffold.git |
-| `cdkv2-csharp` | C# | https://github.com/thothforge/cdkv2_csharp_scaffold.git |
-| `cdkv2-go` | Go | https://github.com/thothforge/cdkv2_go_scaffold.git |
-| `cdkv2` | Generic (defaults to TypeScript) | https://github.com/thothforge/cdkv2_typescript_scaffold.git |
+| Project Type | Language | Default Repository | Status |
+|-------------|----------|-------------------|--------|
+| `cdkv2-typescript` | TypeScript | https://github.com/thothforge/cdkv2_typescript_scaffold.git | ✅ Available |
+| `cdkv2-python` | Python | https://github.com/thothforge/cdkv2_python_scaffold.git | ❌ Pending |
+| `cdkv2-java` | Java | https://github.com/thothforge/cdkv2_java_scaffold.git | ❌ Pending |
+| `cdkv2-csharp` | C# | https://github.com/thothforge/cdkv2_csharp_scaffold.git | ❌ Pending |
+| `cdkv2-go` | Go | https://github.com/thothforge/cdkv2_go_scaffold.git | ❌ Pending |
+| `cdkv2` | Generic (defaults to TypeScript) | https://github.com/thothforge/cdkv2_typescript_scaffold.git | ✅ Available |
 
 All CDK scaffolds include:
 
