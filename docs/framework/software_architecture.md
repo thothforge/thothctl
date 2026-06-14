@@ -794,6 +794,43 @@ organization/
 - Fix high-severity issues
 - Maintain compliance policies
 
+## Version Management
+
+ThothCTL uses a single source of truth for versioning:
+
+| File | Role |
+|------|------|
+| `src/thothctl/version.py` | **Single source of truth** — defines `__version__ = "X.Y.Z"` |
+| `pyproject.toml` → `[tool.hatch.version]` | Reads version from `version.py` at build time |
+| `pyproject.toml` → `[tool.commitizen]` | Uses `version_provider = "pep621"` (resolves to hatch → version.py) |
+
+### Release Workflow
+
+```bash
+# 1. Update version
+echo '"""Version module."""\n__version__ = "X.Y.Z"' > src/thothctl/version.py
+
+# 2. Build
+hatch build
+
+# 3. Commit, tag, push
+git add src/thothctl/version.py
+git commit -m "chore: bump version to X.Y.Z"
+git tag -a vX.Y.Z -m "vX.Y.Z - Release description"
+git push origin main --tags
+
+# 4. Install locally (dev)
+pip install dist/thothctl-X.Y.Z-py3-none-any.whl
+
+# 5. Publish (CI/CD handles this via python-publish.yml)
+```
+
+### Versioning Scheme
+
+- **Semantic Versioning** (semver): `MAJOR.MINOR.PATCH`
+- **Tag format**: `v$version` (e.g., `v0.15.2`)
+- **Conventional commits**: enforced via commitizen (`cz_conventional_commits`)
+
 ## Next Steps
 
 - [Quick Start Guide](../quick_start.md)
