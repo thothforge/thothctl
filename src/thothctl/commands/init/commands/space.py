@@ -37,6 +37,8 @@ class SpaceInitCommand(ClickCommand):
     ) -> None:
         """Execute space initialization"""
         space_name = space_name.strip()
+        description = description if description else None
+        policy_repo = policy_repo if policy_repo else None
         
         self.ui.print_info(f"🌌 Creating new space: {space_name}")
         
@@ -120,15 +122,17 @@ cli = SpaceInitCommand.as_click_command(help="Initialize a new space")(
     click.option(
         "-d",
         "--description",
+        prompt="Description (press Enter to skip)",
+        prompt_required=False,
         help="Description of the space",
-        default=None,
+        default="",
     ),
     click.option(
         "-vcs",
         "--vcs-provider",
         help="Version Control System provider",
         type=click.Choice(["azure_repos", "github", "gitlab"], case_sensitive=True),
-        default="azure_repos",
+        default="github",
     ),
     click.option(
         "-tr",
@@ -153,7 +157,9 @@ cli = SpaceInitCommand.as_click_command(help="Initialize a new space")(
     click.option(
         "-pr",
         "--policy-repo",
-        help="Git repository URL for organization-level IaC policies (OPA/Rego)",
-        default=None,
+        prompt="Policy repository (Git URL or local path, Enter to skip)",
+        prompt_required=False,
+        help="Git repository URL or local path for organization-level IaC policies (OPA/Rego)",
+        default="",
     ),
 )
