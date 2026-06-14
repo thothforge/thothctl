@@ -56,8 +56,8 @@ graph TB
     classDef secStyle fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
     classDef opsStyle fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
     classDef gateStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
-    classDef resultStyle fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff
-    classDef blockStyle fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fff
+    classDef resultStyle fill:#15803d,stroke:#4ade80,stroke-width:2px,color:#ffffff
+    classDef blockStyle fill:#dc2626,stroke:#f87171,stroke-width:2px,color:#ffffff
 
     class S1,S2 structStyle
     class P1,P2 secStyle
