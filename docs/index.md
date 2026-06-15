@@ -52,6 +52,8 @@ pip install thothctl
 | **Security** | [Checkov](https://www.checkov.io/) | Native (pip) |
 | **Security** | [Trivy](https://trivy.dev/) | CLI binary |
 | **Security** | [KICS](https://docs.kics.io/) | Docker container |
+| **Compliance** | [Terraform-compliance](https://terraform-compliance.com/) | CLI binary |
+| **Policy** | [OPA/Conftest](https://www.openpolicyagent.org/) | CLI binary |
 | **Docs** | [Terraform-docs](https://terraform-docs.io/) | CLI binary |
 | **AI** | [OpenAI](https://platform.openai.com/) | GPT-4 Turbo |
 | **AI** | [AWS Bedrock](https://aws.amazon.com/bedrock/) | Claude Sonnet (InvokeModel + Agent) |
