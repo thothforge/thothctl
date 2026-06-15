@@ -17,7 +17,97 @@ Options:
                                   Type of IaC check to perform [default: structure]
   -p, --project-type [stack|module]
                                   Project type: stack or module [default: stack]
+  --org-policy TEXT               Organization policy source (Git URL or local path)
+  --enforcement [soft|hard]       Enforcement mode: soft (report) or hard (fail pipeline)
   --help                          Show this message and exit.
+```
+
+## Organization Policy Enforcement
+
+ThothCTL can enforce organizational standards that projects **cannot override**. This ensures all projects in your organization follow the same structure, naming, and tagging rules — regardless of what individual `.thothcf.toml` files contain.
+
+### How It Works
+
+1. Set `THOTH_ORG_POLICY` to your org policy Git repo (or pass `--org-policy`)
+2. The repo contains `rules/base.toml` + `rules/<project_type>.toml`
+3. ThothCTL merges org rules with project rules — **mandatory org rules cannot be weakened**
+4. Violations are reported with enforcement level (mandatory = fail, recommended = warn)
+
+### Usage
+
+```bash
+# Via env var (CI/CD recommended)
+export THOTH_ORG_POLICY=https://github.com/myorg/org-policies.git
+thothctl check project iac --enforcement hard
+
+# Pin to a version
+export THOTH_ORG_POLICY=https://github.com/myorg/org-policies.git@v1.0
+thothctl check project iac --enforcement hard
+
+# Via flag
+thothctl check project iac --org-policy /path/to/org-policies --enforcement hard
+
+# Local path (development)
+thothctl check project iac --org-policy ../org-iac-policies
+```
+
+### Enforcement Levels
+
+| Level | Behavior | Project Can Override? |
+|-------|----------|---------------------|
+| `mandatory` | Fails pipeline with `--enforcement hard` | ❌ No |
+| `recommended` | Warning only | ⚠️ Can opt-out |
+| `informational` | Report only | ✅ Yes |
+
+### Org Policy Repo Structure
+
+```
+org-policies/
+├── rules/                    # ThothCTL structural rules
+│   ├── base.toml             # All project types
+│   ├── terraform-terragrunt.toml
+│   ├── terraform_module.toml
+│   └── cdkv2.toml
+├── shared/policy/            # OPA/Rego policies (used by scan iac -t opa)
+│   ├── naming.rego
+│   ├── tagging.rego
+│   └── regions.rego
+└── README.md
+```
+
+The same repo serves both:
+- **`thothctl check project iac`** → reads `rules/`
+- **`thothctl scan iac -t opa`** → reads `shared/policy/` (auto-discovered via `THOTH_ORG_POLICY`)
+
+### Example Output
+
+```
+📜 Loading org policy from: https://github.com/myorg/org-policies.git
+
+❌ Mandatory Violations
+┌────────────────────────────────────┬─────────────────┬─────────┐
+│ Rule                               │ Expected        │ Found   │
+├────────────────────────────────────┼─────────────────┼─────────┤
+│ project_structure.folders.docs     │ docs/ exists    │ missing │
+│ project_structure.root_files       │ .pre-commit...  │ missing │
+└────────────────────────────────────┴─────────────────┴─────────┘
+
+⚠️ Recommendations
+┌────────────────────────────────────┬─────────────────┬─────────┐
+│ Rule                               │ Expected        │ Found   │
+├────────────────────────────────────┼─────────────────┼─────────┤
+│ project_structure.folders.common   │ common/ exists  │ missing │
+└────────────────────────────────────┴─────────────────┴─────────┘
+```
+
+### CI/CD Integration
+
+```yaml
+# GitHub Actions
+- name: Check org compliance
+  run: thothctl check project iac --enforcement hard
+  env:
+    THOTH_ORG_POLICY: https://github.com/myorg/org-policies.git@v1.0
 ```
 
 ## Project Types
