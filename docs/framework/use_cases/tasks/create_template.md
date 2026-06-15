@@ -269,8 +269,8 @@ content = ["main.tf", "variables.tf", "outputs.tf"]
 
 ## Related Documentation
 
-- [Template Engine Overview](../../template_engine/template_engine.md)
-- [GitHub Templates](../../template_engine/github_templates.md)
-- [Project Convert](../commands/project/project_convert.md)
-- [Project Upgrade](../commands/project/project_upgrade.md)
+- [Template Engine Overview](../../../template_engine/template_engine.md)
+- [GitHub Templates](../../../template_engine/github_templates.md)
+- [Project Convert](../../commands/project/project_convert.md)
+- [Project Upgrade](../../commands/project/project_upgrade.md)
 - [Platform Engineering Templates](../platform_engineering_templates.md)
