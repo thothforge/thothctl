@@ -74,7 +74,8 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/thothforge/thothctl"
+"SourceCode" = "https://github.com/thothforge/thothctl"
+"HomePage" = "https://github.com/thothforge/thothctl"
 
 [tool.hatch.version]
 path = "src/thothctl/version.py"
