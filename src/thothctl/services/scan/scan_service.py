@@ -34,6 +34,7 @@ def verbose_print(message: str) -> None:
 from .scanners.scanners import ScanOrchestrator, Scanner
 from .scanners.trivy import TrivyScanner
 from .scanners.opa import OPAScanner
+from .scanners.terraform_compliance import TerraformComplianceScanner
 
 
 class ScanService:
@@ -42,10 +43,10 @@ class ScanService:
     def __init__(self):
         self.available_scanners = {
             "trivy": Scanner("trivy", TrivyScanner()),
-            #           'tfsec': Scanner('tfsec', TFSecScanner()),
             "checkov": Scanner("checkov", CheckovScanner()),
             "kics": Scanner("kics", KICSScanner()),
             "opa": Scanner("opa", OPAScanner()),
+            "terraform-compliance": Scanner("terraform-compliance", TerraformComplianceScanner()),
         }
         self.logger = logging.getLogger(__name__)
 
