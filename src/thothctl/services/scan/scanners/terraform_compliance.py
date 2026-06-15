@@ -124,23 +124,35 @@ class TerraformComplianceScanner(ScannerPort):
         }
 
     def _resolve_features_dir(self, base_dir: str, features_dir: str) -> Optional[str]:
-        """Resolve features directory — local, absolute, or from THOTH_ORG_POLICY."""
-        # 1. Relative to project
+        """Resolve features directory.
+        
+        terraform-compliance natively supports:
+        - Local paths
+        - Git URLs via git: prefix (e.g., git:https://github.com/org/repo.git)
+        
+        Resolution:
+        1. If starts with git: — pass through directly (native support)
+        2. If Git URL without prefix — add git: prefix for native support
+        3. Relative to project
+        4. Absolute path
+        5. THOTH_ORG_POLICY/compliance/features/
+        """
+        # 1-2. Git URLs — terraform-compliance handles them natively
+        if features_dir.startswith("git:"):
+            return features_dir
+        if features_dir.startswith(("https://", "git@", "ssh://")):
+            return f"git:{features_dir}"
+
+        # 3. Relative to project
         candidate = os.path.join(base_dir, features_dir)
         if os.path.isdir(candidate):
             return candidate
 
-        # 2. Absolute path
+        # 4. Absolute path
         if os.path.isabs(features_dir) and os.path.isdir(features_dir):
             return features_dir
 
-        # 3. Git URL
-        if features_dir.startswith(("https://", "git@")):
-            from .opa import OPAScanner
-            scanner = OPAScanner()
-            return scanner._clone_policy_repo(features_dir)
-
-        # 4. THOTH_ORG_POLICY repo — look for compliance/ or features/ folder
+        # 5. THOTH_ORG_POLICY repo — look for compliance/features/
         org_policy_url = os.environ.get("THOTH_ORG_POLICY")
         if org_policy_url:
             from ....services.check.org_policy_loader import get_org_policy_path
