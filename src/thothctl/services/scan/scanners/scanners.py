@@ -50,7 +50,8 @@ class ScanOrchestrator:
     ) -> Dict[str, str]:
         results = {}
         for scanner in self.scanners:
-            scanner_options = options.get(scanner.name, {})
+            # Try tool-specific options first, fall back to flat options dict
+            scanner_options = options.get(scanner.name, options if options else {})
             try:
                 result = scanner.execute_scan(
                     directory, reports_dir, scanner_options, tftool

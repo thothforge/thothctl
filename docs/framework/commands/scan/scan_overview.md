@@ -79,10 +79,12 @@ ThothCTL automatically tracks scan results in `~/.thothcf/scan_history.db` (SQLi
 | **Checkov** | Static analysis with built-in rules | `checkov` binary |
 | **Trivy** | Vulnerability and misconfiguration detection | `trivy` binary |
 | **KICS** | Static analysis via Docker | Docker |
-| **Terraform-compliance** | BDD-style compliance testing | `terraform-compliance` binary |
+| **Terraform-compliance** | BDD-style compliance testing against tfplan.json | `terraform-compliance` (pip) |
 | **OPA/Conftest** | Custom policy evaluation with Rego | `conftest` and/or `opa` binary |
 
-Each tool has its own strengths. Combine built-in rule scanners (Checkov, Trivy) with custom policy tools (OPA) for comprehensive coverage.
+Each tool has its own strengths. Combine built-in rule scanners (Checkov, Trivy) with custom policy tools (OPA, Terraform-compliance) for comprehensive coverage.
+
+**Organization Policy Repo**: Set `THOTH_ORG_POLICY` env var to point all policy tools (OPA, terraform-compliance, project structure rules) to a single centralized governance repository.
 
 ## Next Steps
 

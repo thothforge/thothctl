@@ -38,7 +38,7 @@ version_tools = """[
   },
   {
     "name": "terraform-compliance",
-    "version": "1.13.0"
+    "version": "1.15.1"
   },
   {
     "name": "terramate",

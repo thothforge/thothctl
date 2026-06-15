@@ -58,12 +58,100 @@ thothctl scan iac -t kics
 
 ### Terraform-compliance
 
-[Terraform-compliance](https://terraform-compliance.com/) is a lightweight, security and compliance focused test framework against Terraform that enables negative testing capability for your infrastructure-as-code.
+[Terraform-compliance](https://terraform-compliance.com/) (v1.15.1) is a lightweight BDD test framework that evaluates `tfplan.json` files against Gherkin `.feature` files. It enables human-readable compliance scenarios like "S3 buckets must have encryption enabled."
+
+#### Prerequisites
 
 ```bash
-# Scan with Terraform-compliance
+pip install terraform-compliance
+```
+
+Requires `tfplan.json` files in your project (generated with `terraform show -json tfplan.binary > tfplan.json`).
+
+#### Usage
+
+```bash
+# Local features directory
+thothctl scan iac -t terraform-compliance -o "features_dir=features"
+
+# Git repository with subpath (//subpath syntax)
+thothctl scan iac -t terraform-compliance -o "features_dir=https://github.com/myorg/org-policies.git//compliance/features"
+
+# Git repository (auto-discovers compliance/features/ or features/)
+thothctl scan iac -t terraform-compliance -o "features_dir=https://github.com/myorg/org-policies.git"
+
+# SSH Git URL with subpath
+thothctl scan iac -t terraform-compliance -o "features_dir=git@github.com:myorg/compliance.git//features"
+
+# Auto-discover from THOTH_ORG_POLICY (looks in compliance/features/)
+export THOTH_ORG_POLICY=https://github.com/myorg/org-policies.git
 thothctl scan iac -t terraform-compliance
 ```
+
+#### Features Resolution
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | **Git URL with `//subpath`** | `https://github.com/myorg/policies.git//compliance/features` |
+| 2 | **Git URL** (auto-discovers `compliance/features/` or `features/`) | `https://github.com/myorg/policies.git` |
+| 3 | **Relative to project** | `features/` |
+| 4 | **Absolute path** | `/shared/compliance/features` |
+| 5 | **`THOTH_ORG_POLICY` env** → `compliance/features/` | Auto-discovered |
+
+#### Writing Feature Files
+
+Feature files use Gherkin syntax:
+
+```gherkin
+Feature: Ensure encryption is enabled for all storage resources
+
+  Scenario: S3 buckets must have encryption
+    Given I have aws_s3_bucket defined
+    Then it must have server_side_encryption_configuration
+
+  Scenario: RDS instances must be encrypted
+    Given I have aws_db_instance defined
+    Then it must have storage_encrypted
+    And its value must be true
+```
+
+```gherkin
+Feature: Ensure all resources have required tags
+
+  Scenario Outline: Resources must have mandatory tags
+    Given I have resource that supports tags defined
+    Then it must have tags
+    And it must contain <tag>
+
+    Examples:
+      | tag         |
+      | Environment |
+      | Owner       |
+      | Project     |
+```
+
+#### Per-Stack Scanning
+
+ThothCTL finds all `tfplan.json` files in your project and runs terraform-compliance against each one individually. Results are aggregated into:
+
+- Per-stack HTML reports at `Reports/terraform-compliance/html_reports/`
+- Unified `scan_report.html` alongside other tools
+
+#### Organization Policy Integration
+
+Store feature files in your org policy repo alongside OPA policies:
+
+```
+org-policies/
+├── compliance/features/     ← terraform-compliance features
+│   ├── encryption.feature
+│   ├── tagging.feature
+│   └── networking.feature
+├── shared/policy/           ← OPA/Rego policies
+└── rules/                   ← ThothCTL structure rules
+```
+
+Both tools share the same `THOTH_ORG_POLICY` env var.
 
 ### OPA / Conftest
 

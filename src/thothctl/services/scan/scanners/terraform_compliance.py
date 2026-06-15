@@ -67,7 +67,7 @@ class TerraformComplianceScanner(ScannerPort):
                 tc,
                 "-f", features_dir,
                 "-p", plan_file,
-                "--junitxml", junit_path,
+                "--no-failure",
                 "--no-ansi",
             ]
 
@@ -77,29 +77,20 @@ class TerraformComplianceScanner(ScannerPort):
                 self.logger.warning(f"terraform-compliance failed for {stack_name}: {e}")
                 continue
 
-            # Parse JUnit XML results
-            from ..report_parser import parse_junit_xml
-            counts = parse_junit_xml(junit_path)
-            passed = counts["passed"]
-            failed = counts["failed"]
-            skipped = counts["skipped"]
-            errors = counts["errors"]
+            # Parse results from stdout (terraform-compliance doesn't produce JUnit XML)
+            passed, failed, findings = self._parse_stdout(result.stdout, stack_name)
 
             total_passed += passed
-            total_failed += failed + errors
-            total_skipped += skipped
-
-            # Extract findings from failures
-            findings = self._extract_findings(junit_path, stack_name)
+            total_failed += failed
             all_findings.extend(findings)
 
             detailed[stack_name] = {
                 "passed": passed,
-                "failed": failed + errors,
-                "skipped": skipped,
+                "failed": failed,
+                "skipped": 0,
                 "error": 0,
-                "total": passed + failed + errors + skipped,
-                "report_path": junit_path,
+                "total": passed + failed,
+                "report_path": stack_report_dir,
                 "findings": findings,
             }
 
@@ -126,33 +117,56 @@ class TerraformComplianceScanner(ScannerPort):
     def _resolve_features_dir(self, base_dir: str, features_dir: str) -> Optional[str]:
         """Resolve features directory.
         
-        terraform-compliance natively supports:
-        - Local paths
-        - Git URLs via git: prefix (e.g., git:https://github.com/org/repo.git)
-        
-        Resolution:
-        1. If starts with git: — pass through directly (native support)
-        2. If Git URL without prefix — add git: prefix for native support
-        3. Relative to project
-        4. Absolute path
-        5. THOTH_ORG_POLICY/compliance/features/
-        """
-        # 1-2. Git URLs — terraform-compliance handles them natively
-        if features_dir.startswith("git:"):
-            return features_dir
-        if features_dir.startswith(("https://", "git@", "ssh://")):
-            return f"git:{features_dir}"
+        Note: terraform-compliance's native git: support defaults to 'master' branch
+        and fails for repos using 'main'. We clone via thothctl's cache instead.
 
-        # 3. Relative to project
+        Resolution:
+        1. Git URL — clone via thothctl cache, find .feature files
+        2. Relative to project
+        3. Absolute path
+        4. THOTH_ORG_POLICY/compliance/features/
+        """
+        # 1. Git URL — clone ourselves (terraform-compliance git: broken for 'main' branch)
+        if features_dir.startswith(("https://", "git@", "ssh://", "git:")):
+            url = features_dir.removeprefix("git:")
+            # Support //subpath syntax (e.g., https://repo.git//compliance/features)
+            subpath = ""
+            if "//" in url.split(".git", 1)[-1]:
+                parts = url.split("//", 2)  # https://... splits into ['https:', 'github.com/...//subpath']
+                # Rejoin the URL properly — find // after the .git
+                git_part = url.split(".git")[0] + ".git"
+                remainder = url[len(git_part):]
+                if remainder.startswith("//"):
+                    subpath = remainder[2:]
+                    url = git_part
+            
+            from .opa import OPAScanner
+            cloned_path = OPAScanner()._clone_policy_repo(url)
+            if cloned_path:
+                # If subpath specified, use it directly
+                if subpath:
+                    candidate = os.path.join(cloned_path, subpath)
+                    if os.path.isdir(candidate):
+                        return candidate
+                # Otherwise search for features
+                for subdir in ["compliance/features", "features", "compliance", "."]:
+                    candidate = os.path.join(cloned_path, subdir)
+                    if os.path.isdir(candidate) and any(f.endswith(".feature") for f in os.listdir(candidate)):
+                        return candidate
+                if any(f.endswith(".feature") for f in os.listdir(cloned_path)):
+                    return cloned_path
+            return None
+
+        # 2. Relative to project
         candidate = os.path.join(base_dir, features_dir)
         if os.path.isdir(candidate):
             return candidate
 
-        # 4. Absolute path
+        # 3. Absolute path
         if os.path.isabs(features_dir) and os.path.isdir(features_dir):
             return features_dir
 
-        # 5. THOTH_ORG_POLICY repo — look for compliance/features/
+        # 4. THOTH_ORG_POLICY repo — look for compliance/features/
         org_policy_url = os.environ.get("THOTH_ORG_POLICY")
         if org_policy_url:
             from ....services.check.org_policy_loader import get_org_policy_path
@@ -175,29 +189,50 @@ class TerraformComplianceScanner(ScannerPort):
                 plans.append(os.path.join(root, "tfplan.json"))
         return plans
 
-    def _extract_findings(self, junit_path: str, stack_name: str) -> List[Dict]:
-        """Extract findings from JUnit XML failures."""
-        import xml.etree.ElementTree as ET
+    def _parse_stdout(self, stdout: str, stack_name: str):
+        """Parse terraform-compliance stdout for pass/fail counts and findings.
+        
+        Output format:
+        - Lines with ✓ or 'passed' = passed
+        - Lines with ✗ or 'failed' or 'Failure:' = failed  
+        - Scenario lines followed by failure = finding
+        """
+        import re
+        passed = 0
+        failed = 0
         findings = []
-        if not os.path.exists(junit_path):
-            return findings
-        try:
-            tree = ET.parse(junit_path)
-            root = tree.getroot()
-            for tc in root.findall(".//testcase"):
-                failure = tc.find("failure")
-                if failure is not None:
-                    findings.append({
-                        "id": tc.get("classname", "")[:30],
-                        "severity": "HIGH",
-                        "title": tc.get("name", ""),
-                        "resource": stack_name,
-                        "file": "tfplan.json",
-                        "line": 0,
-                    })
-        except Exception:
-            pass
-        return findings
+        current_scenario = ""
+
+        for line in stdout.split("\n"):
+            stripped = line.strip()
+            # Track current scenario
+            if stripped.startswith("Scenario"):
+                current_scenario = stripped.replace("Scenario:", "").replace("Scenario Outline:", "").strip()
+            # Count passes
+            if "✓" in line or " passed" in line.lower():
+                passed += 1
+            # Count failures
+            if "✗" in line or "Failure:" in stripped or ("failed" in line.lower() and "scenario" not in line.lower()):
+                failed += 1
+                findings.append({
+                    "id": "TC",
+                    "severity": "HIGH",
+                    "title": current_scenario or stripped[:80],
+                    "resource": stack_name,
+                    "file": "tfplan.json",
+                    "line": 0,
+                })
+
+        # Fallback: if no markers found, use exit code logic
+        # terraform-compliance: exit 0 = pass, exit 1 = fail
+        if passed == 0 and failed == 0 and stdout.strip():
+            # Count "Given/Then/When" steps as total, failures from "Failure" keyword
+            steps = len(re.findall(r"(Given|Then|When|And)\s+", stdout))
+            failure_count = stdout.count("Failure:")
+            passed = max(0, steps - failure_count)
+            failed = failure_count
+
+        return passed, failed, findings
 
     def _generate_html_reports(self, report_dir: str, detailed: Dict) -> None:
         """Generate per-stack HTML reports in unified ThothCTL style."""
