@@ -353,6 +353,16 @@ class OPAScanner(ScannerPort):
             if os.path.isdir(shared):
                 return shared
 
+        # 5. THOTH_ORG_POLICY env → <cached_repo>/policy/
+        org_policy_url = os.environ.get("THOTH_ORG_POLICY")
+        if org_policy_url:
+            from .....services.check.org_policy_loader import get_org_policy_path, resolve_policy_dir as _resolve_org_policy
+            org_path = get_org_policy_path(org_policy_url)
+            if org_path:
+                org_policy_dir = _resolve_org_policy(org_path)
+                if org_policy_dir:
+                    return org_policy_dir
+
         return None
 
     def _is_git_url(self, value: str) -> bool:

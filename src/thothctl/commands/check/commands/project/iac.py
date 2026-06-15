@@ -1,4 +1,5 @@
 import logging
+import os
 import click
 import sys
 import io
@@ -173,6 +174,8 @@ class CheckProjectIaCCommand(ClickCommand):
         ctx = click.get_current_context()
         directory = ctx.obj.get("CODE_DIRECTORY", ".")
         project_type = kwargs.get('project_type', 'stack')
+        org_policy = kwargs.get('org_policy')
+        enforcement = kwargs.get('enforcement', 'soft')
         
         # Create header with project type
         header_text = f"🏗️ Infrastructure as Code {'Module' if project_type == 'module' else 'Stack'} Structure Check"
@@ -184,6 +187,9 @@ class CheckProjectIaCCommand(ClickCommand):
         ))
         
         try:
+            # Run org policy check if source is provided
+            org_violations = self._check_org_policy(directory, project_type, org_policy)
+
             # Capture stdout to format it nicely
             captured_output = io.StringIO()
             
@@ -196,13 +202,19 @@ class CheckProjectIaCCommand(ClickCommand):
                         project_type=project_type
                     )
                 except SystemExit as e:
-                    # Handle sys.exit() from validation service
                     result = e.code == 0
             
             # Format and display the captured output
             output = captured_output.getvalue()
             if output.strip():
                 self._format_validation_output(output)
+
+            # Display org policy results
+            if org_violations is not None:
+                self._display_org_violations(org_violations, enforcement)
+                mandatory_fails = [v for v in org_violations if v.enforcement == "mandatory"]
+                if mandatory_fails and enforcement == "hard":
+                    result = False
             
             # Create summary
             if result:
@@ -224,14 +236,77 @@ class CheckProjectIaCCommand(ClickCommand):
             self.console.print()
             self.console.print(summary_panel)
             
-            # Only exit with error code in strict mode
-            if not result and kwargs.get('mode') == 'strict':
+            # Exit with error code if hard enforcement has mandatory violations
+            if not result and (kwargs.get('mode') == 'strict' or enforcement == 'hard'):
                 exit(1)
                 
         except Exception as e:
             self.console.print(f"❌ [red]Error during validation: {str(e)}[/red]")
             self.logger.error(f"Failed to execute IaC project check: {str(e)}")
             raise
+
+    def _check_org_policy(self, directory: str, project_type: str, org_policy=None):
+        """Check project against organizational policy if available."""
+        from .....services.check.org_policy_loader import get_org_policy_path, resolve_rules_dir
+        from .....services.check.rule_merger import load_org_rules, merge_with_project, evaluate
+
+        org_path = get_org_policy_path(org_policy)
+        if not org_path:
+            return None
+
+        rules_dir = resolve_rules_dir(org_path)
+        if not rules_dir:
+            logger.info(f"No rules/ directory in org policy at {org_path}")
+            return None
+
+        self.console.print(f"[blue]📜 Loading org policy from: {org_path}[/blue]")
+
+        # Map CLI project_type to toml filename
+        type_map = {"stack": "terraform-terragrunt", "module": "terraform_module"}
+        rule_type = type_map.get(project_type, project_type)
+
+        ruleset = load_org_rules(rules_dir, rule_type)
+        project_toml = os.path.join(directory, ".thothcf.toml")
+        ruleset = merge_with_project(ruleset, project_toml)
+
+        return evaluate(ruleset, directory)
+
+    def _display_org_violations(self, violations, enforcement: str):
+        """Display org policy violations in a Rich table."""
+        if not violations:
+            self.console.print(Panel(
+                "✅ [green]Organization policy check passed[/green]",
+                title="Org Policy",
+                style="green",
+                box=box.ROUNDED,
+            ))
+            return
+
+        mandatory = [v for v in violations if v.enforcement == "mandatory"]
+        recommended = [v for v in violations if v.enforcement == "recommended"]
+        info = [v for v in violations if v.enforcement == "informational"]
+
+        if mandatory:
+            table = Table(title="❌ Mandatory Violations", box=box.ROUNDED, header_style="bold red")
+            table.add_column("Rule", style="cyan")
+            table.add_column("Expected", style="green")
+            table.add_column("Found", style="red")
+            for v in mandatory:
+                table.add_row(v.rule, v.expected, v.found)
+            self.console.print(table)
+
+        if recommended:
+            table = Table(title="⚠️ Recommendations", box=box.ROUNDED, header_style="bold yellow")
+            table.add_column("Rule", style="cyan")
+            table.add_column("Expected", style="green")
+            table.add_column("Found", style="yellow")
+            for v in recommended:
+                table.add_row(v.rule, v.expected, v.found)
+            self.console.print(table)
+
+        if info:
+            for v in info:
+                self.console.print(f"  ℹ️  {v.rule}: {v.expected} (found: {v.found})")
 
     def _validate_project_structure(self, directory: str, mode: str = "soft", check_type: str = "structure", project_type: str = "stack") -> bool:
         """Validate the IaC project structure
@@ -268,5 +343,16 @@ cli = CheckProjectIaCCommand.as_click_command(
         help="Project type: stack (full project with modules/environments) or module (single reusable module)",
         type=click.Choice(["stack", "module"], case_sensitive=False),
         default="stack"
+    ),
+    click.option(
+        "--org-policy",
+        help="Organization policy source (Git URL or local path). Also reads THOTH_ORG_POLICY env var.",
+        default=None,
+    ),
+    click.option(
+        "--enforcement",
+        help="Enforcement mode: soft (report only) or hard (fail on mandatory violations)",
+        type=click.Choice(["soft", "hard"], case_sensitive=False),
+        default="soft",
     ),
 )
