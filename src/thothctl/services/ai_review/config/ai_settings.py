@@ -18,7 +18,7 @@ DEFAULT_CONFIG_FILE = "ai_config.yaml"
 class ProviderConfig:
     """Configuration for a single AI provider."""
     model: str = ""
-    max_tokens: int = 4000
+    max_tokens: int = 8000
     temperature: float = 0.1
     api_key: str = ""
     region: str = "us-east-1"

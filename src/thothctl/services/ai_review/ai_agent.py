@@ -18,6 +18,7 @@ from .utils.prompts import (
     SYSTEM_SECURITY_ANALYST,
     SYSTEM_CODE_REVIEWER,
     SYSTEM_FULL_ANALYSIS,
+    SYSTEM_COMPACT,
 )
 from .utils.fix_prompts import SYSTEM_FIX_GENERATOR
 from .tracing import span
@@ -85,10 +86,12 @@ class AIReviewAgent:
         """
         with span("ai_agent.analyze_directory", {"directory": directory}) as s:
             logger.info(f"Building rich context for {directory}")
+            self._emit_status("📦 Collecting project context (inventory, scan reports, plans)...")
             ctx = self.context_builder.build_context(directory)
 
             basic_risk = None
             if ctx.scan_results.get("total_findings", 0) > 0:
+                self._emit_status(f"⚠️  Found {ctx.scan_results['total_findings']} scan findings, assessing risk...")
                 basic_risk = self.risk_assessor.assess_risk(ctx.scan_results)
 
             if not self.cost_tracker.check_budget():
@@ -98,9 +101,28 @@ class AIReviewAgent:
                     return self._basic_analysis(ctx.scan_results, basic_risk)
                 return self._empty_result()
 
+            self._emit_status("🤖 Sending context to LLM for security analysis...")
             formatted = self.context_builder.format_for_ai(ctx)
-            fallback = (lambda: self._basic_analysis(ctx.scan_results, basic_risk)) if basic_risk else self._empty_result
-            result = self._call_ai(SYSTEM_FULL_ANALYSIS, formatted, "analyze_directory", fallback=fallback)
+            
+            # Use compact prompt for local models (Ollama) to fit VRAM constraints
+            if self._provider.name == "ollama":
+                # Hybrid: scan data for structured findings + LLM for recommendations
+                base_result = self._basic_analysis(ctx.scan_results, basic_risk) if basic_risk else self._empty_result()
+                try:
+                    ai_response = self._provider.analyze(SYSTEM_COMPACT, formatted)
+                    # AI might return JSON or text — either way, use it as recommendations
+                    if isinstance(ai_response, dict) and ai_response.get("recommendations"):
+                        base_result["recommendations"] = ai_response["recommendations"]
+                        base_result["architecture_assessment"] = ai_response.get("architecture_assessment", "")
+                    elif isinstance(ai_response, dict) and ai_response.get("_raw_text"):
+                        base_result["recommendations"] = [ai_response["_raw_text"][:2000]]
+                except Exception as e:
+                    logger.debug(f"LLM recommendations failed: {e}")
+                result = base_result
+            else:
+                system_prompt = SYSTEM_FULL_ANALYSIS
+                fallback = (lambda: self._basic_analysis(ctx.scan_results, basic_risk)) if basic_risk else self._empty_result
+                result = self._call_ai(system_prompt, formatted, "analyze_directory", fallback=fallback)
 
             result["_context"] = {
                 "project_type": ctx.project_type,
@@ -264,6 +286,12 @@ class AIReviewAgent:
             if fallback:
                 return fallback()
             return self._empty_result()
+
+    @staticmethod
+    def _emit_status(msg: str) -> None:
+        """Print a status message visible during the spinner."""
+        from rich.console import Console
+        Console(stderr=True).print(f"[dim]{msg}[/dim]")
 
     @staticmethod
     def _empty_result() -> Dict[str, Any]:

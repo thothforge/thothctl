@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 logger = logging.getLogger(__name__)
 
 # File extensions to analyze
-IAC_EXTENSIONS = {".tf", ".hcl", ".tfvars", ".yaml", ".yml", ".json"}
+IAC_EXTENSIONS = {".tf", ".hcl", ".tfvars"}
 
 
 class CodeReviewer:
@@ -24,6 +24,12 @@ class CodeReviewer:
 
         for f in dir_path.rglob("*"):
             if f.suffix in exts and not any(p.startswith(".") for p in f.parts):
+                # Skip non-IaC directories
+                if any(skip in f.parts for skip in (
+                    "Reports", ".terraform", "node_modules", ".terragrunt-cache",
+                    "cdk.out", "__pycache__", ".git", "html_reports", "tfplan",
+                )):
+                    continue
                 try:
                     content = f.read_text(errors="ignore")
                     rel_path = str(f.relative_to(dir_path))

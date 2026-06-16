@@ -38,6 +38,7 @@ class ContextBuilder:
         # Run each collector independently — failures don't block others
         self._collect_inventory(ctx)
         self._collect_scan_results(ctx)
+        self._collect_plan_files(ctx)
         self._collect_blast_radius(ctx)
         self._collect_code(ctx)
 
@@ -97,12 +98,30 @@ class ContextBuilder:
                 )
             sections.append("")
 
-        # Code section (only key files, truncated)
+        # Code section — only include files referenced in findings + plan summaries
         if ctx.code_files:
             sections.append("## Key IaC Files")
-            char_budget = 30000
+            char_budget = 12000  # ~3K tokens for code context
+
+            # Prioritize: plans first, then files mentioned in scan findings
+            referenced_files = set()
+            for tool_data in ctx.scan_results.get("tools", {}).values():
+                for f in tool_data.get("findings", []):
+                    ref = f.get("file", "")
+                    if ref:
+                        referenced_files.add(ref)
+
+            # Sort: plans first, then referenced files, then others
+            def priority(item):
+                path, _ = item
+                if "[PLAN]" in path:
+                    return 0
+                if any(ref in path for ref in referenced_files):
+                    return 1
+                return 2
+
             used = 0
-            for path, content in sorted(ctx.code_files.items()):
+            for path, content in sorted(ctx.code_files.items(), key=priority):
                 header = f"\n--- {path} ---\n"
                 if used + len(header) + len(content) > char_budget:
                     remaining = len(ctx.code_files) - len([s for s in sections if s.startswith("--- ")])
@@ -165,42 +184,73 @@ class ContextBuilder:
             ctx.errors.append(f"Inventory unavailable: {e}")
 
     def _collect_scan_results(self, ctx: IaCContext) -> None:
-        """Check for existing scan reports or run a quick scan."""
+        """Check for existing scan reports at project root."""
         try:
-            from ..report_analyzer import ReportAnalyzer
+            from .report_analyzer import ReportAnalyzer
 
             analyzer = ReportAnalyzer()
-            reports_dir = Path(ctx.directory) / "Reports"
 
-            # First check if reports already exist
-            if reports_dir.exists():
+            # Look for Reports/ at target dir and up to project root
+            target = Path(ctx.directory)
+            reports_dir = None
+            for parent in [target] + list(target.parents):
+                candidate = parent / "Reports"
+                if candidate.exists():
+                    reports_dir = candidate
+                    break
+                if (parent / ".thothcf.toml").exists() or (parent / ".git").exists():
+                    break
+
+            if reports_dir and reports_dir.exists():
                 ctx.scan_results = analyzer.parse_scan_results(str(reports_dir))
                 if ctx.scan_results.get("total_findings", 0) > 0:
                     logger.info(f"Found existing scan results: {ctx.scan_results['total_findings']} findings")
                     return
 
-            # Try running a quick checkov scan
-            try:
-                from ...scan.scan_service import ScanService
-
-                scan_svc = ScanService()
-                tmp_reports = str(Path(ctx.directory) / "Reports")
-                scan_svc.execute_scans(
-                    directory=ctx.directory,
-                    reports_dir=tmp_reports,
-                    selected_tools=["checkov"],
-                    options={},
-                    html_reports_format="simple",
-                )
-                ctx.scan_results = analyzer.parse_scan_results(tmp_reports)
-                logger.info(f"Quick scan: {ctx.scan_results.get('total_findings', 0)} findings")
-            except Exception as scan_err:
-                logger.debug(f"Quick scan failed: {scan_err}")
-                ctx.errors.append(f"Live scan unavailable: {scan_err}")
+            ctx.errors.append("No scan reports found. Run 'thothctl scan iac' first for richer AI analysis.")
 
         except Exception as e:
             logger.debug(f"Scan results collection failed: {e}")
             ctx.errors.append(f"Scan results unavailable: {e}")
+
+    def _collect_plan_files(self, ctx: IaCContext) -> None:
+        """Collect tfplan.json summaries for change analysis."""
+        try:
+            import json as _json
+            target = Path(ctx.directory)
+
+            # Find tfplan.json in target and project-level stacks/tfplan/
+            plan_files = list(target.rglob("tfplan.json"))
+            for parent in [target] + list(target.parents):
+                if (parent / ".thothcf.toml").exists() or (parent / ".git").exists():
+                    tfplan_dir = parent / "stacks" / "tfplan"
+                    if tfplan_dir.exists():
+                        plan_files.extend(tfplan_dir.rglob("tfplan.json"))
+                    break
+
+            for pf in plan_files[:5]:
+                try:
+                    with open(pf) as f:
+                        plan = _json.load(f)
+                    changes = plan.get("resource_changes", [])
+                    creates = sum(1 for c in changes if "create" in c.get("change", {}).get("actions", []))
+                    updates = sum(1 for c in changes if "update" in c.get("change", {}).get("actions", []))
+                    deletes = sum(1 for c in changes if "delete" in c.get("change", {}).get("actions", []))
+                    ctx.code_files[f"[PLAN] {pf.name} ({pf.parent.name})"] = (
+                        f"# Terraform Plan: {pf.parent.name}\n"
+                        f"# Creates: {creates}, Updates: {updates}, Deletes: {deletes}\n"
+                        f"# Total resource changes: {len(changes)}\n"
+                        + "\n".join(
+                            f"# {c['type']}.{c['name']} → {c['change']['actions']}"
+                            for c in changes[:20]
+                        )
+                    )
+                except Exception:
+                    pass
+            if plan_files:
+                logger.info(f"Found {len(plan_files)} tfplan.json files")
+        except Exception as e:
+            logger.debug(f"Plan file collection failed: {e}")
 
     def _collect_blast_radius(self, ctx: IaCContext) -> None:
         """Run BlastRadiusService for dependency analysis."""
@@ -235,7 +285,7 @@ class ContextBuilder:
     def _collect_code(self, ctx: IaCContext) -> None:
         """Collect raw IaC files as supplementary context."""
         try:
-            from ..code_reviewer import CodeReviewer
+            from .code_reviewer import CodeReviewer
 
             reviewer = CodeReviewer()
             ctx.code_files = reviewer.collect_code_for_review(ctx.directory)

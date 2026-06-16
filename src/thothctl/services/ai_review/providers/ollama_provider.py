@@ -1,6 +1,8 @@
 """Ollama provider for AI review — uses local models via OpenAI-compatible API."""
 import json
 import logging
+import os
+import uuid
 from typing import Dict, Any
 
 from ..config.ai_settings import ProviderConfig
@@ -10,6 +12,23 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 DEFAULT_OLLAMA_MODEL = "llama3"
+
+# Session ID for grouping related traces in Langfuse
+_session_id = None
+
+
+def get_session_id() -> str:
+    """Get or create a session ID for this thothctl run."""
+    global _session_id
+    if _session_id is None:
+        _session_id = f"thothctl-{uuid.uuid4().hex[:8]}"
+    return _session_id
+
+
+def reset_session():
+    """Reset session for a new workflow run."""
+    global _session_id
+    _session_id = None
 
 
 class OllamaProvider:
@@ -26,10 +45,20 @@ class OllamaProvider:
     def client(self):
         if self._client is None:
             try:
-                from openai import OpenAI
+                # Use Langfuse-wrapped OpenAI client if configured
+                import os
+                if os.environ.get("LANGFUSE_PUBLIC_KEY"):
+                    try:
+                        from langfuse.openai import OpenAI
+                        logger.info("Using Langfuse-instrumented OpenAI client")
+                    except Exception:
+                        from openai import OpenAI
+                else:
+                    from openai import OpenAI
                 self._client = OpenAI(
                     base_url=self.base_url,
                     api_key="ollama",  # Ollama doesn't need a real key
+                    timeout=1800.0,  # 30 min — large models on limited VRAM are very slow
                 )
             except ImportError:
                 raise ImportError("openai package required. Install with: pip install openai")
@@ -51,20 +80,50 @@ class OllamaProvider:
                 "temperature": self.temperature,
             }
 
+            # Add Langfuse metadata if available
+            if os.environ.get("LANGFUSE_PUBLIC_KEY"):
+                kwargs["metadata"] = {
+                    "session_id": get_session_id(),
+                    "tags": ["thothctl", "ai-review"],
+                }
+
             try:
-                kwargs["response_format"] = {"type": "json_object"}
                 response = self.client.chat.completions.create(**kwargs)
+                if not response.choices[0].message.content:
+                    raise ValueError("Empty response")
             except Exception:
-                kwargs.pop("response_format", None)
+                kwargs.pop("metadata", None)
                 response = self.client.chat.completions.create(**kwargs)
 
-            text = response.choices[0].message.content
+            text = response.choices[0].message.content or ""
             usage = response.usage
 
+            if not text:
+                raise ValueError("Empty response from model")
+
+            # Try to extract JSON from response
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0].strip()
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0].strip()
+            elif text.strip().startswith("{"):
+                text = text.strip()
+            else:
+                # Model didn't return JSON — find any JSON block in the response
+                import re
+                json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
+                if json_match:
+                    text = json_match.group(0)
+                else:
+                    # No JSON at all — wrap the text response as a result
+                    text = json.dumps({
+                        "summary": {"total_findings": 0},
+                        "findings": [],
+                        "risk_score": 0,
+                        "recommendations": [text[:500]],
+                        "architecture_assessment": text[:1000],
+                        "_raw_text": text[:2000],
+                    })
 
             result = json.loads(text)
             input_tokens = getattr(usage, "prompt_tokens", 0) or 0
