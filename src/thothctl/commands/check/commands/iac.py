@@ -721,6 +721,13 @@ class CheckIaCCommand(ClickCommand):
         # Display dependency details if available
         if dep_info:
             self._display_dependency_details(dep_info)
+
+        # Display summary
+        self.console.print(f"\n[green]✅ Found {len(nodes)} modules with {len(edges)} dependencies[/green]")
+
+        # Display risk legend
+        if risks:
+            self._display_risk_legend()
     
     def _display_dependency_details(self, dep_info: Dict) -> None:
         """Display detailed dependency information from terragrunt.hcl files.
@@ -749,14 +756,6 @@ class CheckIaCCommand(ClickCommand):
                                 value_str = value_str[:47] + "..."
                             self.console.print(f"       • {key} = [green]{value_str}[/green]")
 
-        
-        # Display summary
-        self.console.print(f"\n[green]✅ Found {len(nodes)} modules with {len(edges)} dependencies[/green]")
-        
-        # Display risk legend
-        if risks:
-            self._display_risk_legend()
-    
     def _display_risk_legend(self) -> None:
         """Display a legend for risk levels"""
         legend = Table(show_header=False, box=box.SIMPLE)

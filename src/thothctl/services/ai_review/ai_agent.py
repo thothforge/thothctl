@@ -106,19 +106,23 @@ class AIReviewAgent:
             
             # Use compact prompt for local models (Ollama) to fit VRAM constraints
             if self._provider.name == "ollama":
-                # Hybrid: scan data for structured findings + LLM for recommendations
-                base_result = self._basic_analysis(ctx.scan_results, basic_risk) if basic_risk else self._empty_result()
-                try:
-                    ai_response = self._provider.analyze(SYSTEM_COMPACT, formatted)
-                    # AI might return JSON or text — either way, use it as recommendations
-                    if isinstance(ai_response, dict) and ai_response.get("recommendations"):
-                        base_result["recommendations"] = ai_response["recommendations"]
-                        base_result["architecture_assessment"] = ai_response.get("architecture_assessment", "")
-                    elif isinstance(ai_response, dict) and ai_response.get("_raw_text"):
-                        base_result["recommendations"] = [ai_response["_raw_text"][:2000]]
-                except Exception as e:
-                    logger.debug(f"LLM recommendations failed: {e}")
-                result = base_result
+                # qwen models handle JSON well — use direct approach
+                if "qwen" in self._provider.model.lower():
+                    fallback = (lambda: self._basic_analysis(ctx.scan_results, basic_risk)) if basic_risk else self._empty_result
+                    result = self._call_ai(SYSTEM_COMPACT, formatted, "analyze_directory", fallback=fallback)
+                else:
+                    # Other models (mistral, gemma): hybrid scan data + LLM recommendations
+                    base_result = self._basic_analysis(ctx.scan_results, basic_risk) if basic_risk else self._empty_result()
+                    try:
+                        ai_response = self._provider.analyze(SYSTEM_COMPACT, formatted)
+                        if isinstance(ai_response, dict) and ai_response.get("recommendations"):
+                            base_result["recommendations"] = ai_response["recommendations"]
+                            base_result["architecture_assessment"] = ai_response.get("architecture_assessment", "")
+                        elif isinstance(ai_response, dict) and ai_response.get("_raw_text"):
+                            base_result["recommendations"] = [ai_response["_raw_text"][:2000]]
+                    except Exception as e:
+                        logger.debug(f"LLM recommendations failed: {e}")
+                    result = base_result
             else:
                 system_prompt = SYSTEM_FULL_ANALYSIS
                 fallback = (lambda: self._basic_analysis(ctx.scan_results, basic_risk)) if basic_risk else self._empty_result
@@ -175,31 +179,63 @@ class AIReviewAgent:
                 return self._pattern_fixes(scan_results, code_files, severity_filter)
 
             content = self._format_fix_request(scan_results, code_files, severity_filter)
-            result = self._call_ai(SYSTEM_FIX_GENERATOR, content, "generate_fixes",
+
+            # Use compact fix prompt for Ollama
+            if self._provider.name == "ollama":
+                fix_prompt = (
+                    "IaC fix generator. Generate fixes for the STACK files (where modules are called), "
+                    "NOT inside .terraform/modules/. Add missing parameters to module blocks.\n"
+                    "Respond with JSON: {\"fixes\":[{\"fix_id\":\"fix_001\",\"finding_id\":\"check_id\","
+                    "\"file\":\"stack main.tf path\",\"severity\":\"HIGH\",\"description\":\"what\","
+                    "\"original\":\"exact module block code\",\"replacement\":\"fixed module block with new params\"}],"
+                    "\"summary\":{\"total_findings\":N,\"fixes_generated\":N,\"skipped\":N}}"
+                )
+            else:
+                fix_prompt = SYSTEM_FIX_GENERATOR
+
+            result = self._call_ai(fix_prompt, content, "generate_fixes",
                                    fallback=lambda: self._pattern_fixes(scan_results, code_files, severity_filter))
             s.set_attribute("fixes_generated", len(result.get("fixes", [])))
             return result
 
     def _format_fix_request(self, scan_results: Dict, code_files: Dict,
                             severity_filter: str = None) -> str:
-        """Format findings + code into a fix request for the AI."""
+        """Format findings + code + org policy into a fix request for the AI."""
         severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
         min_sev = severity_order.get((severity_filter or "LOW").upper(), 3)
 
-        sections = ["# Findings to Fix\n"]
+        sections = []
+
+        # Add org policy context if available
+        org_rules = self._load_org_policy_context()
+        if org_rules:
+            sections.append("# Organization Rules (fixes MUST comply)\n")
+            sections.append(org_rules)
+            sections.append("")
+
+        sections.append("# Findings to Fix\n")
         for tool, data in scan_results.get("tools", {}).items():
             for f in data.get("findings", []):
                 sev = f.get("severity", "MEDIUM").upper()
                 if severity_order.get(sev, 2) <= min_sev:
-                    sections.append(
-                        f"- [{sev}] {f.get('check_id', '')}: {f.get('check_name', '')} "
-                        f"in {f.get('file', '')} resource={f.get('resource', '')}"
-                    )
+                    file_path = f.get("file", "")
+                    # Map .terraform/modules/ findings to the stack module call
+                    if ".terraform/modules/" in file_path or ".terraform\\modules\\" in file_path:
+                        resource = f.get("resource", "")
+                        sections.append(
+                            f"- [{sev}] {f.get('check_id', '')}: {f.get('check_name', '')} "
+                            f"resource={resource} (fix in the MODULE CALL, not module source)"
+                        )
+                    else:
+                        sections.append(
+                            f"- [{sev}] {f.get('check_id', '')}: {f.get('check_name', '')} "
+                            f"in {file_path} resource={f.get('resource', '')}"
+                        )
                     if f.get("guideline"):
                         sections.append(f"  Guideline: {f['guideline']}")
 
         sections.append("\n# Affected Code Files\n")
-        char_budget = 25000
+        char_budget = 25000 if self._provider.name != "ollama" else 8000
         used = 0
         for path, content in sorted(code_files.items()):
             entry = f"\n--- {path} ---\n{content}\n"
@@ -210,6 +246,32 @@ class AIReviewAgent:
             used += len(entry)
 
         return "\n".join(sections)
+
+
+    def _load_org_policy_context(self) -> str:
+        """Load org policy rules as context for fix generation."""
+        from ..check.org_policy_loader import get_org_policy_path
+        org_path = get_org_policy_path()
+        if not org_path:
+            return ""
+
+        parts = []
+        rules_file = Path(org_path) / "rules" / "base.toml"
+        if rules_file.exists():
+            content = rules_file.read_text()
+            # Extract key rules compactly
+            for line in content.splitlines():
+                if any(k in line for k in ["required_tags", "pattern", "public_ingress", "enforcement"]):
+                    parts.append(line.strip())
+
+        # Add naming/tagging rego summaries
+        for rego in (Path(org_path) / "shared" / "policy").glob("*.rego"):
+            text = rego.read_text()
+            for line in text.splitlines():
+                if line.startswith(("required_tags", "naming_pattern", "deny[", "warn[")):
+                    parts.append(line.strip())
+
+        return "\n".join(parts[:15])  # Cap at 15 lines to save tokens
 
     def _fixes_from_analysis(self, analysis: Dict, directory: str) -> Dict:
         """Extract fix suggestions from an existing AI analysis."""
