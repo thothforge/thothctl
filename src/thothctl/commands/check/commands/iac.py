@@ -636,7 +636,7 @@ class CheckIaCCommand(ClickCommand):
             nodes, edges = self._parse_dot_graph(dot_graph)
             risks = calculate_component_risks(nodes, edges, directory)
             dep_info = self._parse_terragrunt_dependencies(directory)
-            self._display_dependency_graph(dot_graph, risks, dep_info)
+            self._display_dependency_graph(dot_graph, risks, dep_info, directory)
             return True
             
         except Exception as e:
@@ -823,7 +823,7 @@ new vis.Network(container, data, options);
         
         return dependencies_info
     
-    def _display_dependency_graph(self, dot_graph: str, risks: Dict[str, float] = None, dep_info: Dict = None) -> None:
+    def _display_dependency_graph(self, dot_graph: str, risks: Dict[str, float] = None, dep_info: Dict = None, directory: str = ".") -> None:
         """
         Display the dependency graph in a visually appealing way
         
@@ -848,7 +848,12 @@ new vis.Network(container, data, options);
             self._display_dependency_details(dep_info)
 
         # Display summary
-        self.console.print(f"\n[green]✅ Found {len(nodes)} modules with {len(edges)} dependencies[/green]")
+        total_modules = self._count_modules_in_stacks(nodes, directory)
+        self.console.print(
+            f"\n[green]✅ Found {len(nodes)} stacks, "
+            f"{total_modules} modules, "
+            f"{len(edges)} dependencies[/green]"
+        )
 
         # Display risk legend
         if risks:
@@ -880,6 +885,24 @@ new vis.Network(container, data, options);
                             if len(value_str) > 50:
                                 value_str = value_str[:47] + "..."
                             self.console.print(f"       • {key} = [green]{value_str}[/green]")
+
+
+    def _count_modules_in_stacks(self, nodes: list, directory: str) -> int:
+        """Count total module blocks across all stacks."""
+        import re
+        total = 0
+        for node in nodes:
+            stack_dir = os.path.join(directory, node)
+            if not os.path.isdir(stack_dir):
+                continue
+            for f in os.listdir(stack_dir):
+                if f.endswith(".tf"):
+                    try:
+                        content = open(os.path.join(stack_dir, f)).read()
+                        total += len(re.findall(r'^module\s+"', content, re.MULTILINE))
+                    except OSError:
+                        pass
+        return total
 
     def _display_risk_legend(self) -> None:
         """Display a legend for risk levels"""
