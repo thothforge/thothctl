@@ -37,7 +37,14 @@ Infrastructure Modules
     ├── stacks/foundation/network/security-groups (38.5% risk)
     │   └── stacks/foundation/network/vpc (46.5% risk)
     └── stacks/platform/data/rds (42.5% risk)
+
+✅ Found 5 stacks, 12 modules, 10 dependencies
 ```
+
+The summary counts:
+- **Stacks**: nodes in the dependency graph (directories with `terragrunt.hcl`)
+- **Modules**: total `module` blocks across all stack `.tf` files
+- **Dependencies**: edges in the DAG (from `dependency` blocks)
 
 ### Boxart
 
