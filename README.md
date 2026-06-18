@@ -392,6 +392,7 @@ Use Trivy to find vulnerabilities (CVE) & misconfigurations (IaC) across code re
 ## OS Packages
 
 - dot or graphviz
+- graph-easy (optional, for `--format boxart` topology view)
 
 You can install them with:
 
@@ -399,11 +400,19 @@ You can install them with:
  Chocolatey packages Graphviz for **Windows**.
 
 `choco install graphviz`
+
+> For `graph-easy` on Windows, use WSL: `sudo apt install libgraph-easy-perl`
+
 ### Linux
 Install packages with apt for Linux/Debian
 - 
 ```bash 
-sudo apt install graphviz -y
+sudo apt install graphviz libgraph-easy-perl -y
+```
+
+### macOS
+```bash
+brew install graphviz graph-easy
 ```
 - python >= 3.8 
     - check: `python --version` 
@@ -434,3 +443,11 @@ pip install --upgrade thothctl
  - ~~AI Agent for IaC Security — multi-agent orchestrator, auto-decisions, code fixes, adaptive memory~~
  - Create Stacks and Infrastructure composition engine
  - Strands Agents SDK integration for advanced memory and session management
+ - **Intent-to-IaC Generation** — Natural language → governed Terraform/Tofu code, grounded in organizational templates and rules
+ - **Organizational Rulesets / Policy Engine** — Custom naming, tagging, security, and architecture rules enforced at generation and CI/CD time (OPA/Rego support)
+ - **Compliance Scoring with Evidence** — Scored findings mapped to SOC2/ISO27001/CIS/NIST, code citations, auditor-ready evidence export
+ - **Composable Workflow Engine** — Declarative YAML workflows with DAG dependencies for multi-step IaC operations (scan → review → fix → validate → deploy)
+ - **Graph-Aware State Visibility** — Parse tfstate into queryable resource graph (SQLite), blast radius analysis, SQL queries across all infrastructure
+ - **Architecture Diagram Generation** — Auto-generate Mermaid/Graphviz topology diagrams from IaC, synced with code changes
+
+📖 **Full roadmap**: [ThothCTL Roadmap 2026 — Competitive Analysis & Plan](../thothctl_roadmap_2026.md)

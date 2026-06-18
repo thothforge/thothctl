@@ -70,7 +70,8 @@ class CheckIaCCommand(ClickCommand):
             elif kwargs['check_type'] == "deps":
                 result = self._visualize_dependencies(
                     directory=directory,
-                    dagtool='terragrunt'  # Force terragrunt as the tool for dependencies
+                    dagtool='terragrunt',
+                    output_format=kwargs.get('format', 'tree'),
                 )
                 return result
             elif kwargs['check_type'] == "blast-radius":
@@ -593,7 +594,7 @@ class CheckIaCCommand(ClickCommand):
 
                         f.write("\n")
 
-    def _visualize_dependencies(self, directory: str, dagtool: str = 'terragrunt') -> bool:
+    def _visualize_dependencies(self, directory: str, dagtool: str = 'terragrunt', output_format: str = 'tree') -> bool:
         """Visualize infrastructure dependencies using terragrunt graph commands"""
         self.logger.info(f"Visualizing dependencies in {directory} using {dagtool}")
         
@@ -620,21 +621,22 @@ class CheckIaCCommand(ClickCommand):
                 self.console.print(result.stderr)
                 return False
             
-            # Parse and visualize the DOT graph
             dot_graph = result.stdout
-            
-            # Parse the DOT graph to extract nodes and edges
+
+            # Route to the appropriate renderer
+            if output_format == "dot":
+                click.echo(dot_graph)
+                return True
+            elif output_format == "boxart":
+                return self._render_boxart(dot_graph, directory)
+            elif output_format == "html":
+                return self._render_html_topology(dot_graph, directory)
+
+            # Default: tree format
             nodes, edges = self._parse_dot_graph(dot_graph)
-            
-            # Calculate risk percentages for each component
             risks = calculate_component_risks(nodes, edges, directory)
-            
-            # Parse terragrunt.hcl files to get dependency details
             dep_info = self._parse_terragrunt_dependencies(directory)
-            
-            # Display the enhanced visualization with risk percentages and dependency info
             self._display_dependency_graph(dot_graph, risks, dep_info)
-            
             return True
             
         except Exception as e:
@@ -642,6 +644,129 @@ class CheckIaCCommand(ClickCommand):
             self.console.print(f"[red]Error: {str(e)}[/red]")
             return False
     
+
+    def _render_boxart(self, dot_graph: str, directory: str) -> bool:
+        """Render dependency graph as ASCII box art using graph-easy or fallback."""
+        # Try graph-easy first (best output)
+        try:
+            result = subprocess.run(
+                ['graph-easy', '--from=dot', '--as=boxart'],
+                input=dot_graph, capture_output=True, text=True, check=True
+            )
+            self.console.print(Panel("[bold blue]🔄 Dependency Topology[/bold blue]", box=box.ROUNDED))
+            click.echo(result.stdout)
+            return True
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+
+        # Fallback: pure Python box rendering
+        nodes, edges = self._parse_dot_graph(dot_graph)
+        risks = calculate_component_risks(nodes, edges, directory)
+
+        self.console.print(Panel("[bold blue]🔄 Dependency Topology (boxart)[/bold blue]", box=box.ROUNDED))
+        self.console.print("[dim]Install graph-easy for better rendering: sudo apt install libgraph-easy-perl[/dim]\n")
+
+        # Simple layered box drawing
+        # Build adjacency: who depends on whom
+        dependents = {n: set() for n in nodes}
+        for src, tgt in edges:
+            if src in dependents:
+                dependents[src].add(tgt)
+
+        # Find layers (topological sort by depth)
+        depth = {n: 0 for n in nodes}
+        changed = True
+        while changed:
+            changed = False
+            for src, tgt in edges:
+                if depth.get(src, 0) <= depth.get(tgt, 0):
+                    depth[src] = depth[tgt] + 1
+                    changed = True
+
+        max_depth = max(depth.values()) if depth else 0
+        layers = [[] for _ in range(max_depth + 1)]
+        for n, d in depth.items():
+            layers[max_depth - d].append(n)
+
+        # Render boxes per layer
+        for i, layer in enumerate(layers):
+            if not layer:
+                continue
+            boxes = []
+            for node in layer:
+                short = node.split("/")[-1] if "/" in node else node
+                risk = risks.get(node, 0)
+                boxes.append(f"┌{'─' * (len(short) + 6)}┐")
+                boxes.append(f"│ {short} {risk:.0f}% │")
+                boxes.append(f"└{'─' * (len(short) + 6)}┘")
+
+            # Print boxes side by side
+            lines_per_box = 3
+            row_boxes = [boxes[j:j+lines_per_box] for j in range(0, len(boxes), lines_per_box)]
+            for line_idx in range(lines_per_box):
+                click.echo("  ".join(b[line_idx] for b in row_boxes))
+
+            # Print arrows between layers
+            if i < len(layers) - 1:
+                click.echo("         │")
+                click.echo("         ▼")
+
+        return True
+
+    def _render_html_topology(self, dot_graph: str, directory: str) -> bool:
+        """Render interactive HTML topology and open in browser."""
+        import webbrowser
+        from pathlib import Path
+
+        nodes, edges = self._parse_dot_graph(dot_graph)
+        risks = calculate_component_risks(nodes, edges, directory)
+
+        # Build nodes/edges JSON for vis.js
+        vis_nodes = []
+        for i, node in enumerate(nodes):
+            short = node.split("/")[-1] if "/" in node else node
+            risk = risks.get(node, 0)
+            color = "#4caf50" if risk < 30 else "#ff9800" if risk < 50 else "#f44336"
+            vis_nodes.append(f'{{id: {i}, label: "{short}\\n{risk:.0f}% risk", color: "{color}", title: "{node}"}}')
+
+        node_idx = {n: i for i, n in enumerate(nodes)}
+        vis_edges = []
+        for src, tgt in edges:
+            if src in node_idx and tgt in node_idx:
+                vis_edges.append(f'{{from: {node_idx[src]}, to: {node_idx[tgt]}, arrows: "to"}}')
+
+        html = f"""<!DOCTYPE html>
+<html><head><title>ThothCTL - Dependency Topology</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+body {{ margin: 0; font-family: Inter, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }}
+#graph {{ width: 100vw; height: 100vh; }}
+h1 {{ position: absolute; top: 10px; left: 20px; color: white; font-size: 1.2em; z-index: 10; }}
+</style></head><body>
+<h1>🔄 ThothCTL Dependency Topology</h1>
+<div id="graph"></div>
+<script>
+var nodes = new vis.DataSet([{', '.join(vis_nodes)}]);
+var edges = new vis.DataSet([{', '.join(vis_edges)}]);
+var container = document.getElementById('graph');
+var data = {{ nodes: nodes, edges: edges }};
+var options = {{
+  layout: {{ hierarchical: {{ direction: "UD", sortMethod: "directed" }} }},
+  physics: false,
+  nodes: {{ shape: "box", font: {{ size: 14 }}, margin: 10 }},
+  edges: {{ color: "#ffffff80", width: 2 }}
+}};
+new vis.Network(container, data, options);
+</script></body></html>"""
+
+        out_path = Path(directory) / "Reports" / "dependency_topology.html"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(html)
+
+        self.console.print(f"[green]✅ HTML topology saved to {out_path}[/green]")
+        webbrowser.open(f"file://{out_path.resolve()}")
+        return True
+
     def _parse_terragrunt_dependencies(self, directory: str) -> Dict[str, Dict]:
         """Parse terragrunt.hcl files to extract dependency and mock_outputs information.
         
@@ -1427,6 +1552,12 @@ cli = CheckIaCCommand.as_click_command(
                  type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis", "drift"], case_sensitive=True),
                  default="tfplan",
                  ),
+    click.option(
+        '--format',
+        type=click.Choice(['tree', 'boxart', 'html', 'dot'], case_sensitive=True),
+        default='tree',
+        help='Output format for deps visualization (tree: Rich tree, boxart: ASCII boxes, html: interactive browser, dot: raw DOT)'
+    ),
     click.option(
         '--plan-file',
         help="Path to terraform plan JSON file (for blast-radius)",
