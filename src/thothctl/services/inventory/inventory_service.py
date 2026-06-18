@@ -40,6 +40,7 @@ class InventoryService:
         self.module_compatibility_service = ModuleCompatibilityService()
         self.terragrunt_parser = TerragruntParser()
         self.is_terragrunt_project = False
+        self._failed_provider_stacks = []
 
     def _parse_hcl_file(self, file_path: Path) -> List[Component]:
         """Parse HCL file and extract components."""
@@ -633,6 +634,14 @@ class InventoryService:
         if print_console:
             self.report_service.print_inventory_console(inventory_dict)
 
+        # Warn about stacks where provider detection fell back to HCL parsing
+        if self._failed_provider_stacks:
+            inventory_dict["_provider_warnings"] = self._failed_provider_stacks
+            logger.warning(
+                f"⚠️  {len(self._failed_provider_stacks)}/{len(inventory_dict.get('stacks', []))} "
+                f"stacks used HCL fallback for providers (command failed/timed out)"
+            )
+
         return inventory_dict
 
     def update_inventory(
@@ -778,7 +787,14 @@ class InventoryService:
             logger.warning(f"Timeout while getting providers for {stack_path}")
         except Exception as e:
             logger.warning(f"Error getting providers for {stack_path}: {str(e)}")
-            
+
+        # Fallback: parse required_providers from .tf files if command failed
+        if not providers:
+            providers = self._parse_providers_from_hcl(abs_stack_path)
+            if providers:
+                logger.info(f"Recovered {len(providers)} providers from HCL for {stack_path}")
+                self._failed_provider_stacks.append(str(stack_path))
+
         return providers
         
 
@@ -828,6 +844,34 @@ class InventoryService:
 
         # Modules referenced but .terraform/modules not present = not initialized
         return not (stack_path / ".terraform" / "modules").exists()
+
+
+    def _parse_providers_from_hcl(self, stack_path: Path) -> List[Provider]:
+        """Fallback: extract providers from required_providers in .tf files."""
+        providers = []
+        for tf_file in stack_path.glob("*.tf"):
+            try:
+                with open(tf_file, "r", encoding="utf-8") as f:
+                    data = hcl2.load(f)
+            except Exception:
+                continue
+
+            # Look for terraform { required_providers { ... } }
+            for terraform_block in data.get("terraform", []):
+                for rp in terraform_block.get("required_providers", []):
+                    for name, config in rp.items():
+                        source = config.get("source", f"hashicorp/{name}") if isinstance(config, dict) else f"hashicorp/{name}"
+                        version = config.get("version", "~>") if isinstance(config, dict) else "~>"
+                        # Clean version constraint to just the number
+                        version_clean = version.lstrip("~>=<! ").split(",")[0].strip()
+                        providers.append(Provider(
+                            name=name,
+                            version=version_clean or "unknown",
+                            source=source,
+                            module="Root",
+                            component=os.path.basename(str(stack_path)),
+                        ))
+        return providers
 
     def _parse_providers_output(self, output: str, stack_path: str = "") -> List[Provider]:
         """
