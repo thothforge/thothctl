@@ -187,9 +187,11 @@ class AgentOrchestrator:
             # Security agent gets scan findings + code
             security_ctx = self._format_security_context(ctx)
             if security_ctx:
+                from .utils.prompts import SYSTEM_COMPACT
+                sec_prompt = SYSTEM_COMPACT if self._provider.name == "ollama" else SYSTEM_SECURITY_ANALYST
                 tasks.append(AgentTask(
                     role=AgentRole.SECURITY,
-                    system_prompt=SYSTEM_SECURITY_ANALYST,
+                    system_prompt=sec_prompt,
                     context=security_ctx,
                 ))
 
@@ -207,9 +209,21 @@ class AgentOrchestrator:
             # Fix agent gets findings + affected code
             fix_ctx = self._format_fix_context(ctx)
             if fix_ctx:
+                # Use compact prompt for Ollama
+                if self._provider.name == "ollama":
+                    fix_prompt = (
+                        "IaC fix generator. Generate fixes for the STACK files (where modules are called), "
+                        "NOT inside .terraform/modules/. Add missing parameters to module blocks.\n"
+                        "Respond with JSON: {\"fixes\":[{\"fix_id\":\"fix_001\",\"finding_id\":\"check_id\","
+                        "\"file\":\"stack main.tf path\",\"severity\":\"HIGH\",\"description\":\"what\","
+                        "\"original\":\"exact module block code\",\"replacement\":\"fixed module block\"}],"
+                        "\"summary\":{\"total_findings\":N,\"fixes_generated\":N,\"skipped\":N}}"
+                    )
+                else:
+                    fix_prompt = SYSTEM_FIX_GENERATOR
                 tasks.append(AgentTask(
                     role=AgentRole.FIX,
-                    system_prompt=SYSTEM_FIX_GENERATOR,
+                    system_prompt=fix_prompt,
                     context=fix_ctx,
                 ))
 
@@ -412,6 +426,7 @@ class AgentOrchestrator:
 
         from .ai_agent import AIReviewAgent
         agent = AIReviewAgent.__new__(AIReviewAgent)
+        agent._provider = self._provider  # Provide the initialized provider
         return agent._format_fix_request(ctx.scan_results, ctx.code_files, "medium")
 
     # -- Memory helpers --
