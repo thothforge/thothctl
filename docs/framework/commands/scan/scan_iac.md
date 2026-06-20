@@ -47,6 +47,12 @@ thothctl scan iac -t checkov
 thothctl scan iac -t trivy
 ```
 
+#### Scan Report Example
+
+After running a Trivy scan, ThothCTL generates a unified HTML report with severity breakdown, findings, and trend analysis:
+
+![Scan Report Example](../../../img/stable/scan_report_example.png)
+
 ### KICS
 
 [KICS](https://kics.io/) (Keeping Infrastructure as Code Secure) is an open source solution for static code analysis of IaC. Requires Docker.
