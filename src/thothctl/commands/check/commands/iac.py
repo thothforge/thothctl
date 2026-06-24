@@ -31,7 +31,7 @@ class CheckIaCCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
         self.console = Console()
-        self.supported_check_types = ["tfplan", "deps", "blast-radius", "cost-analysis", "drift"]
+        self.supported_check_types = ["tfplan", "deps", "blast-radius", "cost-analysis", "drift", "stack-optimizer"]
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
@@ -85,6 +85,9 @@ class CheckIaCCommand(ClickCommand):
             elif kwargs['check_type'] == "drift":
                 self.ui.print_info("🔍 Running drift detection...")
                 result = self._run_drift_detection(directory=directory, **kwargs)
+                return result
+            elif kwargs['check_type'] == "stack-optimizer":
+                result = self._run_stack_optimizer(directory=directory, **kwargs)
                 return result
 
             self.logger.debug("Check completed successfully")
@@ -1548,6 +1551,63 @@ new vis.Network(container, data, options);
         }
         return color_map.get(criticality, "white")
 
+    def _run_stack_optimizer(self, directory: str, **kwargs) -> bool:
+        """Run stack optimizer to deduplicate overlapping terragrunt filters."""
+        from ....services.check.stack_optimizer import StackOptimizer
+
+        stacks_input = kwargs.get("stacks", "")
+        base_path_name = kwargs.get("stacks_base_path", "resources")
+        output_format = kwargs.get("output_format", "table")
+
+        if not stacks_input:
+            self.ui.print_error("--stacks is required for stack-optimizer (comma-separated list)")
+            return False
+
+        target_stacks = [s.strip() for s in stacks_input.split(",") if s.strip()]
+        base_path = Path(directory)
+
+        self.ui.print_info(f"🔧 Optimizing {len(target_stacks)} stack filter(s)...")
+
+        optimizer = StackOptimizer(base_path=base_path, stacks_base=base_path_name)
+        result = optimizer.optimize(target_stacks)
+
+        if output_format == "list":
+            # Machine-readable: one filter per line
+            for f in result["optimized_filters"]:
+                print(f)
+        elif output_format == "json":
+            print(json.dumps(result, indent=2))
+        else:
+            # Rich table output
+            table = Table(title="Stack Optimizer Results", box=box.ROUNDED)
+            table.add_column("Stack Filter", style="cyan")
+            table.add_column("Direct Units", justify="right")
+            table.add_column("With Deps", justify="right")
+            table.add_column("Status", style="bold")
+
+            for stack, detail in result["details"].items():
+                status = "[red]REDUNDANT ✗[/red]" if detail["redundant"] else "[green]KEEP ✓[/green]"
+                table.add_row(
+                    stack,
+                    str(detail["direct_units"]),
+                    str(detail["with_deps"]),
+                    status,
+                )
+
+            self.console.print(table)
+
+            if result["removed_redundant"]:
+                self.console.print(
+                    f"\n[yellow]⚡ Removed {len(result['removed_redundant'])} redundant filter(s): "
+                    f"{', '.join(result['removed_redundant'])}[/yellow]"
+                )
+            self.console.print(
+                f"[green]📦 Units before: {result['total_units_before']} → "
+                f"after dedup: {result['total_units_after']}[/green]"
+            )
+
+        return result
+
 
 cli = CheckIaCCommand.as_click_command(
     help="Analyze IaC artifacts: plans, dependencies, costs, blast radius, and drift"
@@ -1571,8 +1631,8 @@ cli = CheckIaCCommand.as_click_command(
         default='tofu',
     ),
     click.option("-type", "--check_type",
-                 help="tfplan: analyze plans | deps: view dependencies | blast-radius: impact analysis | cost-analysis: estimate costs | drift: detect infrastructure drift",
-                 type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis", "drift"], case_sensitive=True),
+                 help="tfplan: analyze plans | deps: view dependencies | blast-radius: impact analysis | cost-analysis: estimate costs | drift: detect infrastructure drift | stack-optimizer: deduplicate overlapping stacks",
+                 type=click.Choice(["tfplan", "deps", "blast-radius", "cost-analysis", "drift", "stack-optimizer"], case_sensitive=True),
                  default="tfplan",
                  ),
     click.option(
@@ -1628,5 +1688,23 @@ cli = CheckIaCCommand.as_click_command(
         type=str,
         default=None,
         help='Filter drift results by resource tags (e.g. "env=prod,team=platform"). Supports key=value, key=* (any value), or key (exists)'
+    ),
+    click.option(
+        '--stacks',
+        type=str,
+        default=None,
+        help='Comma-separated list of stack filters for stack-optimizer (e.g. "Network/**,Compute/EC2/**")'
+    ),
+    click.option(
+        '--stacks-base-path',
+        type=str,
+        default='resources',
+        help='Base path for stack resolution (default: resources)'
+    ),
+    click.option(
+        '--output-format',
+        type=click.Choice(['table', 'json', 'list'], case_sensitive=True),
+        default='table',
+        help='Output format for stack-optimizer results'
     ),
 )
