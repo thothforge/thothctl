@@ -148,3 +148,31 @@ class TestStackOptimizer:
         assert "Compute/EC2/EC2_Bastion_Private" in result["optimized_filters"]
         assert "Database/RDS" in result["optimized_filters"]
         assert result["removed_redundant"] == []
+
+    def test_leaf_unit_strips_glob(self, project_dir):
+        """Trailing /** is stripped for leaf units (no sub-units) so terragrunt
+        can match the exact path."""
+        optimizer = StackOptimizer(base_path=project_dir, stacks_base="resources")
+        result = optimizer.optimize(["Compute/EC2/EC2_Bastion_Private/**"])
+
+        # EC2_Bastion_Private has no children → /** stripped
+        assert result["optimized_filters"] == ["Compute/EC2/EC2_Bastion_Private"]
+
+    def test_non_leaf_keeps_glob(self, project_dir):
+        """Trailing /** is kept for directories with sub-units."""
+        optimizer = StackOptimizer(base_path=project_dir, stacks_base="resources")
+        result = optimizer.optimize(["Network/**"])
+
+        # Network has child units (VPC, SecurityGroups/*, etc.) → keep **
+        assert result["optimized_filters"] == ["Network/**"]
+
+    def test_mixed_leaf_and_non_leaf(self, project_dir):
+        """Mix of leaf and non-leaf correctly normalizes each."""
+        optimizer = StackOptimizer(base_path=project_dir, stacks_base="resources")
+        result = optimizer.optimize([
+            "Network/**",
+            "Compute/EC2/EC2_Bastion_Private/**",
+        ])
+
+        assert "Network/**" in result["optimized_filters"]
+        assert "Compute/EC2/EC2_Bastion_Private" in result["optimized_filters"]

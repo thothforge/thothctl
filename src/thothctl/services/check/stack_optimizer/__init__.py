@@ -36,7 +36,7 @@ class StackOptimizer:
 
         Returns:
             dict with keys:
-                optimized_filters: minimal list of filters
+                optimized_filters: minimal list of terragrunt-compatible filters
                 removed_redundant: filters that were eliminated
                 details: per-filter resolution info
         """
@@ -64,13 +64,13 @@ class StackOptimizer:
                     redundant.add(stack_a)
                     break
 
-        optimized = [s for s in target_stacks if s not in redundant]
+        optimized = [self._normalize_filter(s) for s in target_stacks if s not in redundant]
 
         return {
             "optimized_filters": optimized,
             "removed_redundant": list(redundant),
             "total_units_before": sum(len(v) for v in resolved.values()),
-            "total_units_after": len(set().union(*(resolved[s] for s in optimized))),
+            "total_units_after": len(set().union(*(resolved[s] for s in target_stacks if s not in redundant))),
             "details": {
                 stack: {
                     "direct_units": len(self._resolve_stack_direct(stack)),
@@ -156,6 +156,27 @@ class StackOptimizer:
                 pass
 
         return ""
+
+
+    def _normalize_filter(self, stack_pattern: str) -> str:
+        """Normalize a filter for terragrunt compatibility.
+
+        Strips trailing /** for leaf units (units with no child sub-units)
+        because terragrunt's ** glob requires child directories to match.
+        """
+        if not stack_pattern.endswith("/**"):
+            return stack_pattern
+
+        bare = stack_pattern[:-3]
+        # Check if it's a leaf unit (exists as a unit AND has no sub-units)
+        if bare in self._units:
+            has_children = any(
+                u.startswith(bare + "/") for u in self._all_unit_paths if u != bare
+            )
+            if not has_children:
+                return bare
+
+        return stack_pattern
 
     def _resolve_stack_direct(self, stack_pattern: str) -> Set[str]:
         """Resolve a glob pattern to matching unit paths (no dependency expansion)."""
