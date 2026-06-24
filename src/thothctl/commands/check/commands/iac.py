@@ -1554,6 +1554,7 @@ new vis.Network(container, data, options);
     def _run_stack_optimizer(self, directory: str, **kwargs) -> bool:
         """Run stack optimizer to deduplicate overlapping terragrunt filters."""
         from ....services.check.stack_optimizer import StackOptimizer
+        import sys
 
         stacks_input = kwargs.get("stacks", "")
         base_path_name = kwargs.get("stacks_base_path", "resources")
@@ -1566,15 +1567,16 @@ new vis.Network(container, data, options);
         target_stacks = [s.strip() for s in stacks_input.split(",") if s.strip()]
         base_path = Path(directory)
 
-        self.ui.print_info(f"🔧 Optimizing {len(target_stacks)} stack filter(s)...")
+        if output_format != "list":
+            self.ui.print_info(f"🔧 Optimizing {len(target_stacks)} stack filter(s)...")
 
         optimizer = StackOptimizer(base_path=base_path, stacks_base=base_path_name)
         result = optimizer.optimize(target_stacks)
 
         if output_format == "list":
-            # Machine-readable: one filter per line
+            # Machine-readable: one filter per line, no extra output
             for f in result["optimized_filters"]:
-                print(f)
+                sys.stdout.write(f + "\n")
         elif output_format == "json":
             print(json.dumps(result, indent=2))
         else:
