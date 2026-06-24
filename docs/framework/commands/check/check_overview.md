@@ -77,6 +77,9 @@ thothctl check iac -type cost-analysis --recursive
 # Detect infrastructure drift
 thothctl check iac -type drift --recursive
 
+# Optimize overlapping stack filters
+thothctl check iac -type stack-optimizer --stacks "Network/**,Compute/EC2/**"
+
 # Post results as a PR comment in CI/CD
 thothctl check iac -type tfplan --recursive --post-to-pr
 ```
@@ -87,6 +90,7 @@ Available check types:
 - **blast-radius**: ITIL v4 compliant risk assessment combining dependency analysis with planned changes
 - **cost-analysis**: Estimate AWS infrastructure costs from Terraform plans
 - **drift**: Detect infrastructure drift between IaC state and live cloud resources
+- **stack-optimizer**: Deduplicate overlapping Terragrunt stack filters by resolving the dependency DAG
 
 See [detailed documentation](check_iac.md) for complete usage guide.
 

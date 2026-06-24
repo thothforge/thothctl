@@ -9,20 +9,29 @@ The `thothctl check iac` command analyzes Infrastructure as Code **generated art
 ```
 Usage: thothctl check iac [OPTIONS]
 
-  Analyze IaC artifacts: plans, dependencies, costs, blast radius, and drift
+  Analyze IaC artifacts: plans, dependencies, costs, blast radius, drift, and stack optimization
 
 Options:
-  -deps, --dependencies           Visualize dependency graph
   --recursive                     Check recursively through subdirectories
   --outmd TEXT                    Output markdown file [default: tfplan_check_results.md]
   --tftool [terraform|tofu]       Terraform tool to use [default: tofu]
-  -type, --check_type [tfplan|deps|blast-radius|cost-analysis|drift]
+  -type, --check_type [tfplan|deps|blast-radius|cost-analysis|drift|stack-optimizer]
                                   Check type to perform [default: tfplan]
+  --format [tree|boxart|html|dot] Output format for deps visualization [default: tree]
   --plan-file TEXT                Path to terraform plan JSON file (for blast-radius)
   --post-to-pr                    Post results as a PR comment (Azure DevOps or GitHub)
   --vcs-provider [auto|azure_repos|github]
                                   VCS provider for PR comments [default: auto]
   --space TEXT                    Space name for credential resolution (Azure DevOps)
+  --ai-provider [openai|bedrock|azure|ollama]
+                                  AI provider for drift analysis
+  --ai-model TEXT                 AI model override (e.g. gpt-4, llama3)
+  --project-name TEXT             Project name for drift history tracking
+  --filter-tags TEXT              Filter drift results by resource tags
+  --stacks TEXT                   Comma-separated stack filters for stack-optimizer
+  --stacks-base-path TEXT         Base path for stack resolution [default: resources]
+  --output-format [table|json|list]
+                                  Output format for stack-optimizer [default: table]
   --help                          Show this message and exit.
 ```
 
@@ -136,6 +145,57 @@ thothctl check iac -type drift --recursive --ai-provider ollama
 **Multi-cloud support**: AWS, GCP, Azure resource types are classified with appropriate severity levels.
 
 See [Drift Detection](drift-detection.md) for detailed documentation.
+
+### 6. Stack Optimizer (`stack-optimizer`)
+
+Deduplicates overlapping Terragrunt stack filters by resolving the DAG of dependencies and computing the minimal set of filters.
+
+```bash
+thothctl check iac -type stack-optimizer --stacks "Network/**,Compute/EC2/**"
+thothctl check iac -type stack-optimizer --stacks "Network/**,Compute/EC2/**,Network/VPC/**" --output-format json
+```
+
+**What it does**:
+- Discovers all Terragrunt units (directories with `terragrunt.hcl`) under the stacks base path
+- Parses `dependency` blocks to build a full DAG of transitive dependencies
+- Resolves each input filter glob to its matching units plus all transitive dependencies
+- Identifies redundant filters whose resolved units are entirely contained by another filter
+- Returns the minimal filter set that covers the same infrastructure
+
+**Use case**: When running `terragrunt run-all` with `--include-dir` filters in CI/CD, overlapping filters cause stacks to be planned/applied multiple times. The optimizer eliminates redundancy so each unit is processed exactly once.
+
+**Options**:
+- `--stacks` (required): Comma-separated glob patterns relative to the stacks base path (e.g. `"Network/**,Compute/EC2/**"`)
+- `--stacks-base-path`: Base directory for stack resolution (default: `resources`)
+- `--output-format`: `table` (Rich table, default), `json` (machine-readable), or `list` (one filter per line)
+
+**Example output** (table format):
+```
+         Stack Optimizer Results          
+┌──────────────────────────┬──────────┬──────────┬─────────────────┐
+│ Stack Filter             │ Direct   │ With Deps│ Status          │
+│                          │ Units    │          │                 │
+├──────────────────────────┼──────────┼──────────┼─────────────────┤
+│ Network/**               │ 3        │ 3        │ KEEP ✓          │
+│ Compute/EC2/**           │ 2        │ 5        │ KEEP ✓          │
+│ Network/VPC/**           │ 1        │ 1        │ REDUNDANT ✗     │
+└──────────────────────────┴──────────┴──────────┴─────────────────┘
+
+⚡ Removed 1 redundant filter(s): Network/VPC/**
+📦 Units before: 9 → after dedup: 8
+```
+
+**CI/CD integration**:
+```bash
+# Get optimized filters as a plain list for scripting
+OPTIMIZED=$(thothctl check iac -type stack-optimizer \
+  --stacks "$STACKS" --output-format list)
+
+# Use the optimized filters with terragrunt
+for filter in $OPTIMIZED; do
+  terragrunt run-all plan --include-dir "$filter"
+done
+```
 
 ## Basic Usage Examples
 

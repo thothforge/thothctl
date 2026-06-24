@@ -125,37 +125,78 @@ my-project/
 
 ### Terragrunt Project
 
+When you run `thothctl init project --project-type terragrunt`, the following scaffold structure is created:
+
 ```
 my-terragrunt-project/
-├── .gitignore
-├── .pre-commit-config.yaml
-├── .thothcf.toml
-├── .tflint.hcl
-├── README.md
-├── root.hcl
-├── common/
-│   ├── common.hcl
-│   ├── common.tfvars
-│   └── variables.tf
-├── docs/
-│   ├── DiagramArchitecture.png
-│   └── graph.svg
-├── modules/
-│   ├── main.tf
-│   ├── outputs.tf
-│   ├── README.md
-│   └── variables.tf
-└── stacks/
-    ├── README.md
-    ├── terragrunt.hcl
-    ├── graph.svg
-    └── compute/
-        └── EC2/
-            └── ALB_Main/
-                ├── README.md
-                ├── terragrunt.hcl
-                └── graph.svg
+├── .gitignore                  # Git ignore rules for Terraform/Terragrunt artifacts
+├── .pre-commit-config.yaml     # Pre-commit hooks (terraform fmt, tflint, docs)
+├── .thothcf.toml               # ThothCTL project configuration and metadata
+├── .tflint.hcl                 # TFLint configuration for static analysis
+├── README.md                   # Project documentation
+├── root.hcl                    # Terragrunt root configuration (remote state, common inputs)
+├── common/                     # Shared configuration across all stacks
+│   ├── common.hcl              # Common Terragrunt locals (project name, region, backend settings)
+│   ├── common.tfvars           # Shared Terraform variable values
+│   └── variables.tf            # Shared variable declarations
+├── docs/                       # Project documentation and diagrams
+│   ├── DiagramArchitecture.png # Architecture diagram
+│   └── graph.svg               # Dependency graph visualization
+├── modules/                    # Reusable Terraform modules for this project
+│   ├── main.tf                 # Module resource definitions
+│   ├── outputs.tf              # Module output declarations
+│   ├── README.md               # Module documentation
+│   └── variables.tf            # Module input variable declarations
+└── stacks/                     # Terragrunt stack definitions (deployment units)
+    ├── README.md               # Stacks overview and usage guide
+    ├── terragrunt.hcl          # Stacks-level Terragrunt config (includes root.hcl)
+    ├── graph.svg               # Stacks dependency graph
+    └── compute/                # Category grouping (e.g., compute, network, storage)
+        └── EC2/                # Service grouping
+            └── ALB_Main/       # Individual stack (deployment unit)
+                ├── README.md           # Stack-specific documentation
+                ├── terragrunt.hcl      # Stack Terragrunt config (source, dependencies, inputs)
+                └── graph.svg           # Stack resource graph
 ```
+
+#### Directory Descriptions
+
+| Directory/File | Purpose |
+|----------------|---------|
+| **Root files** | Project-wide configuration and tooling setup |
+| `root.hcl` | Terragrunt root configuration — defines remote state (S3 backend), init arguments, and imports common variables |
+| **`common/`** | Shared configuration consumed by all stacks via `read_terragrunt_config()` |
+| `common/common.hcl` | Terragrunt locals: project name, backend bucket, region, profile, DynamoDB lock table |
+| `common/common.tfvars` | Terraform variable values shared across all stacks |
+| **`docs/`** | Architecture diagrams and project-level documentation assets |
+| **`modules/`** | Project-scoped reusable Terraform modules (not published externally) |
+| **`stacks/`** | Deployment units organized by category → service → stack name |
+| `stacks/terragrunt.hcl` | Includes `root.hcl` and exposes it to child stacks |
+
+#### Stack Organization Pattern
+
+Stacks follow a hierarchical naming convention:
+
+```
+stacks/<category>/<service>/<stack_name>/
+```
+
+- **Category**: Logical grouping (e.g., `compute`, `network`, `storage`, `database`, `security`)
+- **Service**: AWS service or component (e.g., `EC2`, `VPC`, `RDS`, `S3`)
+- **Stack Name**: Specific deployment unit (e.g., `ALB_Main`, `Primary`, `Replica`)
+
+Each stack's `terragrunt.hcl` includes the root configuration and defines its Terraform source:
+
+```hcl
+include "root" {
+  path   = find_in_parent_folders("root.hcl")
+  expose = true
+}
+```
+
+#### Template Source
+
+The scaffold is loaded from the [thothforge/terragrunt_project_scaffold](https://github.com/thothforge/terragrunt_project_scaffold) GitHub repository. If the repository is unreachable, ThothCTL falls back to the built-in local template.
 
 ## Configuration Files
 
