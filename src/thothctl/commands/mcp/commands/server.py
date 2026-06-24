@@ -20,7 +20,7 @@ class MCPServerCommand(ClickCommand):
             from pathlib import Path
             
             # Use Amazon Q compatible server as default for stdio mode
-            from ....services.mcp.amazon_q_server import serve_amazon_q
+            from ....services.mcp.stdio_server import serve_amazon_q
             # Don't print anything in stdio mode - it breaks MCP protocol
             asyncio.run(serve_amazon_q())
         else:

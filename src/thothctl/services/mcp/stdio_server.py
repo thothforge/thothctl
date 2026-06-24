@@ -170,7 +170,67 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "tools": {"type": "array", "items": {"type": "string"}, "description": "Security tools to use", "default": ["checkov"]}
+                        "tools": {"type": "array", "items": {"type": "string"}, "description": "Security tools to use", "default": ["checkov"]},
+                        "enforcement": {"type": "string", "enum": ["soft", "hard"], "description": "soft=report only, hard=exit 1 on violations", "default": "soft"}
+                    },
+                    "additionalProperties": False
+                }
+            ),
+
+            # Cost analysis
+            Tool(
+                name="thothctl_cost_analysis",
+                description="Estimate AWS infrastructure costs from Terraform plans or CloudFormation templates. Provides monthly/annual projections, service-by-service breakdown, and optimization recommendations.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "recursive": {"type": "boolean", "description": "Search recursively for plan files", "default": False}
+                    },
+                    "additionalProperties": False
+                }
+            ),
+
+            # Drift detection
+            Tool(
+                name="thothctl_drift_detection",
+                description="Detect infrastructure drift between IaC state and live cloud resources. Supports tag filtering, policy enforcement, coverage trending, and AI-powered analysis.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "recursive": {"type": "boolean", "description": "Search recursively", "default": False},
+                        "tftool": {"type": "string", "enum": ["terraform", "tofu"], "default": "tofu"},
+                        "filter_tags": {"type": "string", "description": "Tag filter (e.g. 'env=prod,team=platform')"},
+                        "ai_provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
+                        "ai_model": {"type": "string"}
+                    },
+                    "additionalProperties": False
+                }
+            ),
+
+            # AI review
+            Tool(
+                name="thothctl_ai_review",
+                description="AI-powered security analysis and code review for Infrastructure as Code. Supports analyze, decide, improve, and orchestrate modes.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
+                        "mode": {"type": "string", "enum": ["analyze", "decide", "improve", "orchestrate"], "default": "analyze"},
+                        "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+                        "agents": {"type": "array", "items": {"type": "string", "enum": ["security", "architecture", "fix", "decision"]}}
+                    },
+                    "additionalProperties": False
+                }
+            ),
+
+            # Upgrade
+            Tool(
+                name="thothctl_upgrade",
+                description="Upgrade thothctl to the latest version",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "check_only": {"type": "boolean", "description": "Only check for updates without installing", "default": False}
                     },
                     "additionalProperties": False
                 }
@@ -248,6 +308,46 @@ async def serve_amazon_q():
                 tools = arguments.get("tools", ["checkov"])
                 for tool in tools:
                     cmd.extend(["--tools", tool])
+                if arguments.get("enforcement"):
+                    cmd.extend(["--enforcement", arguments["enforcement"]])
+
+            # Cost analysis
+            elif name == "thothctl_cost_analysis":
+                cmd = ["thothctl", "check", "iac", "-type", "cost-analysis"]
+                if arguments.get("recursive", False):
+                    cmd.append("--recursive")
+
+            # Drift detection
+            elif name == "thothctl_drift_detection":
+                cmd = ["thothctl", "check", "iac", "-type", "drift"]
+                if arguments.get("recursive", False):
+                    cmd.append("--recursive")
+                if arguments.get("tftool"):
+                    cmd.extend(["--tftool", arguments["tftool"]])
+                if arguments.get("filter_tags"):
+                    cmd.extend(["--filter-tags", arguments["filter_tags"]])
+                if arguments.get("ai_provider"):
+                    cmd.extend(["--ai-provider", arguments["ai_provider"]])
+                if arguments.get("ai_model"):
+                    cmd.extend(["--ai-model", arguments["ai_model"]])
+
+            # AI review
+            elif name == "thothctl_ai_review":
+                mode = arguments.get("mode", "analyze")
+                cmd = ["thothctl", "ai-review", mode]
+                if arguments.get("provider"):
+                    cmd.extend(["-p", arguments["provider"]])
+                if mode == "improve" and arguments.get("severity"):
+                    cmd.extend(["--severity", arguments["severity"]])
+                if mode == "orchestrate" and arguments.get("agents"):
+                    for agent in arguments["agents"]:
+                        cmd.extend(["-a", agent])
+
+            # Upgrade
+            elif name == "thothctl_upgrade":
+                cmd = ["thothctl", "upgrade"]
+                if arguments.get("check_only", False):
+                    cmd.append("--check-only")
             
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]

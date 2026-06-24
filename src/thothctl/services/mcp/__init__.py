@@ -1,5 +1,6 @@
 """MCP Service for ThothCTL."""
 
-from .service import run_server, serve
+from .simple_http_server import run_simple_http_server as run_server
+from .stdio_server import serve_amazon_q as serve
 
 __all__ = ["run_server", "serve"]

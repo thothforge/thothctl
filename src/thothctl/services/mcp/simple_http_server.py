@@ -42,6 +42,7 @@ class SimpleHTTPMCPServer:
                     "type": "object",
                     "properties": {
                         "project_name": {"type": "string", "description": "Name of the project"},
+                        "directory": {"type": "string", "description": "Directory to initialize in", "default": "."},
                         "space": {"type": "string", "description": "Space name (optional)"}
                     },
                     "required": ["project_name"]
@@ -100,6 +101,191 @@ class SimpleHTTPMCPServer:
                 "name": "thothctl_version",
                 "description": "Get ThothCTL version",
                 "parameters": {"type": "object", "properties": {}}
+            },
+            {
+                "name": "thothctl_cost_analysis",
+                "description": "Estimate AWS infrastructure costs from Terraform plans or CloudFormation templates. Provides monthly/annual projections, service-by-service breakdown, and optimization recommendations.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."},
+                        "recursive": {"type": "boolean", "default": False}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_drift_detection",
+                "description": "Detect infrastructure drift by comparing IaC state against live cloud resources. Supports tag filtering, policy enforcement, coverage trending, and AI-powered analysis.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."},
+                        "recursive": {"type": "boolean", "default": False},
+                        "tftool": {"type": "string", "enum": ["terraform", "tofu"], "default": "tofu"},
+                        "filter_tags": {"type": "string", "description": "Tag filter (e.g. 'env=prod,team=platform')"},
+                        "ai_provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
+                        "ai_model": {"type": "string"},
+                        "project_name": {"type": "string"}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_ai_review",
+                "description": "AI-powered security analysis and code review for Infrastructure as Code. Supports analyze, decide, improve, and orchestrate modes with multiple AI providers.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."},
+                        "provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
+                        "model": {"type": "string"},
+                        "mode": {"type": "string", "enum": ["analyze", "decide", "improve", "orchestrate"], "default": "analyze"},
+                        "scan_results": {"type": "string", "description": "Path to existing scan results to analyze"},
+                        "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+                        "agents": {"type": "array", "items": {"type": "string", "enum": ["security", "architecture", "fix", "decision"]}}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_remove_project",
+                "description": "Remove a project managed by ThothCTL",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "project_name": {"type": "string", "description": "Name of the project to remove"}
+                    },
+                    "required": ["project_name"]
+                }
+            },
+            {
+                "name": "thothctl_init_space",
+                "description": "Initialize a new space with ThothCTL",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space_name": {"type": "string", "description": "Name of the space"},
+                        "directory": {"type": "string", "default": "."}
+                    },
+                    "required": ["space_name"]
+                }
+            },
+            {
+                "name": "thothctl_remove_space",
+                "description": "Remove a space managed by ThothCTL",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space_name": {"type": "string", "description": "Name of the space to remove"}
+                    },
+                    "required": ["space_name"]
+                }
+            },
+            {
+                "name": "thothctl_get_projects_in_space",
+                "description": "Get list of projects in a specific space",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "space_name": {"type": "string", "description": "Space name"}
+                    },
+                    "required": ["space_name"]
+                }
+            },
+            {
+                "name": "thothctl_project_bootstrap",
+                "description": "Bootstrap existing projects with ThothCTL support",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_project_cleanup",
+                "description": "Clean up residual files and directories from your project",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_project_convert",
+                "description": "Convert project to template or template to project",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."},
+                        "target_format": {"type": "string", "description": "Target format for conversion"}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_project_upgrade",
+                "description": "Upgrade project scaffold files from remote template",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."},
+                        "template_url": {"type": "string", "description": "URL of the template to upgrade from"}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_generate",
+                "description": "Generate IaC components or stacks from rules and templates",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "template": {"type": "string", "description": "Template to generate from"},
+                        "output": {"type": "string", "default": "."}
+                    },
+                    "required": ["template"]
+                }
+            },
+            {
+                "name": "thothctl_document",
+                "description": "Generate documentation for IaC projects",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_check",
+                "description": "Check infrastructure code: environment validation, project structure, or compliance",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "default": "."},
+                        "check_type": {"type": "string", "enum": ["environment", "project", "space"], "default": "project"}
+                    }
+                }
+            },
+            {
+                "name": "thothctl_project",
+                "description": "Manage project: convert, clean up, bootstrap, or upgrade",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "action": {"type": "string", "enum": ["bootstrap", "cleanup", "convert", "upgrade"]},
+                        "directory": {"type": "string", "default": "."}
+                    },
+                    "required": ["action"]
+                }
+            },
+            {
+                "name": "thothctl_upgrade",
+                "description": "Upgrade thothctl to the latest version",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "check_only": {"type": "boolean", "default": False}
+                    }
+                }
             }
         ]
     
@@ -178,6 +364,75 @@ class SimpleHTTPMCPServer:
                 cmd.extend(["-o", arguments["options"]])
         elif name == "thothctl_version":
             cmd.append("--version")
+        elif name == "thothctl_cost_analysis":
+            cmd.extend(["check", "iac", "-type", "cost-analysis"])
+            if arguments.get("recursive", False):
+                cmd.append("--recursive")
+        elif name == "thothctl_drift_detection":
+            cmd.extend(["check", "iac", "-type", "drift"])
+            if arguments.get("recursive", False):
+                cmd.append("--recursive")
+            if arguments.get("tftool"):
+                cmd.extend(["--tftool", arguments["tftool"]])
+            if arguments.get("filter_tags"):
+                cmd.extend(["--filter-tags", arguments["filter_tags"]])
+            if arguments.get("ai_provider"):
+                cmd.extend(["--ai-provider", arguments["ai_provider"]])
+            if arguments.get("ai_model"):
+                cmd.extend(["--ai-model", arguments["ai_model"]])
+            if arguments.get("project_name"):
+                cmd.extend(["--project-name", arguments["project_name"]])
+        elif name == "thothctl_ai_review":
+            mode = arguments.get("mode", "analyze")
+            cmd.extend(["ai-review", mode])
+            if arguments.get("provider"):
+                cmd.extend(["-p", arguments["provider"]])
+            if arguments.get("model"):
+                cmd.extend(["--model", arguments["model"]])
+            if mode == "improve" and arguments.get("severity"):
+                cmd.extend(["--severity", arguments["severity"]])
+            if mode == "orchestrate" and arguments.get("agents"):
+                for agent in arguments["agents"]:
+                    cmd.extend(["-a", agent])
+        elif name == "thothctl_remove_project":
+            cmd.extend(["remove", "-pj", arguments["project_name"]])
+        elif name == "thothctl_init_space":
+            cmd.extend(["init", "space", "--name", arguments["space_name"]])
+        elif name == "thothctl_remove_space":
+            cmd.extend(["remove", "-sp", arguments["space_name"]])
+        elif name == "thothctl_get_projects_in_space":
+            cmd.extend(["list", "projects", "--space", arguments["space_name"]])
+        elif name == "thothctl_project_bootstrap":
+            cmd.extend(["project", "bootstrap"])
+        elif name == "thothctl_project_cleanup":
+            cmd.extend(["project", "cleanup"])
+        elif name == "thothctl_project_convert":
+            cmd.extend(["project", "convert"])
+            if arguments.get("target_format"):
+                cmd.extend(["--template-project-type", arguments["target_format"]])
+        elif name == "thothctl_project_upgrade":
+            cmd.extend(["project", "upgrade"])
+            if arguments.get("template_url"):
+                cmd.extend(["--template-url", arguments["template_url"]])
+        elif name == "thothctl_generate":
+            cmd.extend(["generate", "component", "--template", arguments["template"]])
+        elif name == "thothctl_document":
+            cmd.extend(["document", "iac"])
+        elif name == "thothctl_check":
+            check_type = arguments.get("check_type", "project")
+            if check_type == "environment":
+                cmd.extend(["check", "environment"])
+            elif check_type == "space":
+                cmd.extend(["check", "space"])
+            else:
+                cmd.extend(["check", "project", "iac"])
+        elif name == "thothctl_project":
+            action = arguments["action"]
+            cmd.extend(["project", action])
+        elif name == "thothctl_upgrade":
+            cmd.extend(["upgrade"])
+            if arguments.get("check_only", False):
+                cmd.append("--check-only")
         else:
             return f"Unknown tool: {name}"
         
