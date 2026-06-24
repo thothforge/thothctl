@@ -1564,7 +1564,7 @@ new vis.Network(container, data, options);
             self.ui.print_error("--stacks is required for stack-optimizer (comma-separated list)")
             return False
 
-        target_stacks = [s.strip() for s in stacks_input.split(",") if s.strip()]
+        target_stacks = [s.strip() for s in re.split(r'[,\s]+', stacks_input) if s.strip()]
         base_path = Path(directory)
 
         if output_format != "list":
