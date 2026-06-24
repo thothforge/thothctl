@@ -126,104 +126,141 @@ With the MCP server running and registered with Amazon Q, you can use natural la
 - "Initialize a new project with ThothCTL"
 - "Detect drift in my production infrastructure filtered by env=prod"
 - "Check if my terraform code has drifted and analyze the risk with AI"
-## Available Tools
+## Available Tools (22)
 
 The MCP server exposes the following ThothCTL commands as tools:
 
 ### Project Management
-- `thothctl_init_project` - Initialize and setup project configurations
-- `thothctl_remove_project` - Remove a project managed by thothctl
-- `thothctl_get_projects` - Get list of projects managed by thothctl
+| Tool | Description |
+|------|-------------|
+| `thothctl_init_project` | Initialize a new project (terraform, tofu, cdkv2, terragrunt, custom) |
+| `thothctl_remove_project` | Remove a project from local tracking |
+| `thothctl_list_projects` | List all projects managed by thothctl |
+| `thothctl_project_bootstrap` | Bootstrap existing projects with ThothCTL support |
+| `thothctl_project_cleanup` | Clean up residual files and directories |
+| `thothctl_project_convert` | Convert project to template or between formats |
+| `thothctl_project_upgrade` | Upgrade project scaffold from remote template |
 
 ### Space Management
-- `thothctl_init_space` - Initialize and setup space configurations
-- `thothctl_remove_space` - Remove a space managed by thothctl
-- `thothctl_get_spaces` - Get list of spaces managed by thothctl
-- `thothctl_get_projects_in_space` - Get list of projects in a specific space
+| Tool | Description |
+|------|-------------|
+| `thothctl_init_space` | Initialize a new space |
+| `thothctl_remove_space` | Remove a space |
+| `thothctl_list_spaces` | List all spaces |
+| `thothctl_get_projects_in_space` | Get projects in a specific space |
 
-### Listing
-- `thothctl_list_projects` - List projects managed by thothctl locally
-- `thothctl_list_spaces` - List spaces managed by thothctl locally
+### Security & Compliance
+| Tool | Description |
+|------|-------------|
+| `thothctl_scan_iac` | Scan IaC for security issues (Checkov, Trivy, KICS, OPA) |
+| `thothctl_check_environment` | Check development environment tools |
+| `thothctl_check_iac` | Check IaC artifacts (plans, structure) |
+| `thothctl_check_project` | Validate project structure |
 
-### Infrastructure Management
-- `thothctl_scan` - Scan infrastructure code for security issues
-- `thothctl_inventory` - Create Inventory for the iac composition
-- `thothctl_generate` - Generate IaC from rules, use cases, and components
-- `thothctl_document` - Initialize and setup project documentation
-- `thothctl_check` - Check infrastructure code for compliance
-- `thothctl_project` - Convert, clean up and manage the current project
+### Cost & Drift Analysis
+| Tool | Description |
+|------|-------------|
+| `thothctl_cost_analysis` | Estimate AWS costs from Terraform plans or CloudFormation templates |
+| `thothctl_drift_detection` | Detect infrastructure drift with tag filtering, policy enforcement, and AI analysis |
 
-### Drift Detection
-- `thothctl_drift_detection` - Detect infrastructure drift with tag filtering, policy enforcement, coverage trending, and AI analysis
+### AI-Powered Review
+| Tool | Description |
+|------|-------------|
+| `thothctl_ai_review` | Multi-mode AI security analysis: analyze, decide, improve, orchestrate |
 
-  **Parameters:**
-  ```json
-  {
-    "directory": "./terraform",
-    "recursive": true,
-    "tftool": "tofu",
-    "filter_tags": "env=prod,team=platform",
-    "ai_provider": "ollama",
-    "ai_model": "llama3",
-    "project_name": "my-infra"
-  }
-  ```
-
-  | Parameter | Type | Default | Description |
-  |-----------|------|---------|-------------|
-  | `directory` | string | `"."` | Path to IaC directory |
-  | `recursive` | bool | `false` | Scan subdirectories |
-  | `tftool` | string | `"tofu"` | `terraform` or `tofu` |
-  | `filter_tags` | string | `null` | Filter by tags: `env=prod,team=*` |
-  | `ai_provider` | string | `null` | AI provider: `openai`, `bedrock`, `azure`, `ollama` |
-  | `ai_model` | string | `null` | Model override: `gpt-4`, `llama3` |
-  | `project_name` | string | `null` | Project name for history tracking |
-
-  **Response includes:**
-  - Drift summary with drifted resources, severity, and tags
-  - Policy evaluation (blocked, ignored, auto-accepted resources)
-  - Coverage trend (improving/degrading/stable with delta)
-  - AI analysis with risk score and recommendations (when `ai_provider` is set)
-
-  For full documentation, see the [Drift Detection Documentation](./framework/commands/check/drift-detection.md).
+### Infrastructure Tooling
+| Tool | Description |
+|------|-------------|
+| `thothctl_inventory_iac` | Create IaC composition inventory |
+| `thothctl_document_iac` | Generate documentation for IaC projects |
+| `thothctl_generate_stacks` | Generate infrastructure stacks |
+| `thothctl_list_templates` | List available templates from VCS providers |
 
 ### Utility
-- `thothctl_version` - Get ThothCTL version
+| Tool | Description |
+|------|-------------|
+| `thothctl_version` | Get ThothCTL version |
+| `thothctl_upgrade` | Upgrade thothctl to latest version |
 
-### AI Review
-- `thothctl_ai_review` - AI-powered security analysis and code review for IaC
+---
 
-  **Modes:**
-  | Mode | Description |
-  |------|-------------|
-  | `analyze` | Run AI security analysis on scan results or directory |
-  | `decide` | Auto-decide on a PR (approve/reject/request-changes) |
-  | `improve` | Generate actionable code fixes for findings |
-  | `orchestrate` | Run multiple specialized agents in parallel |
+### Tool Details
 
-  **Parameters:**
-  ```json
-  {
-    "directory": "./terraform",
-    "provider": "bedrock_agent",
-    "model": "anthropic.claude-sonnet-4-20250514",
-    "mode": "analyze",
-    "scan_results": "./Reports",
-    "severity": "high",
-    "agents": ["security", "architecture", "fix", "decision"]
-  }
-  ```
+#### `thothctl_cost_analysis`
 
-  For full documentation, see the [AI Agent Documentation](./framework/commands/ai-review/README.md).
+Estimate AWS infrastructure costs from Terraform plans or CloudFormation templates.
+
+```json
+{
+  "recursive": true
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `recursive` | bool | `false` | Search recursively for plan files |
+
+#### `thothctl_drift_detection`
+
+Detect infrastructure drift with tag filtering, policy enforcement, coverage trending, and AI-powered analysis.
+
+```json
+{
+  "recursive": true,
+  "tftool": "tofu",
+  "filter_tags": "env=prod,team=platform",
+  "ai_provider": "ollama",
+  "ai_model": "llama3"
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `recursive` | bool | `false` | Scan subdirectories |
+| `tftool` | string | `"tofu"` | `terraform` or `tofu` |
+| `filter_tags` | string | `null` | Filter by tags: `env=prod,team=*` |
+| `ai_provider` | string | `null` | AI provider: `openai`, `bedrock`, `azure`, `ollama` |
+| `ai_model` | string | `null` | Model override: `gpt-4`, `llama3` |
+
+#### `thothctl_ai_review`
+
+AI-powered security analysis and code review for Infrastructure as Code.
+
+```json
+{
+  "provider": "ollama",
+  "mode": "analyze",
+  "severity": "high",
+  "agents": ["security", "architecture", "fix"]
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `provider` | string | — | `openai`, `bedrock`, `azure`, `ollama` |
+| `mode` | string | `"analyze"` | `analyze`, `decide`, `improve`, `orchestrate` |
+| `severity` | string | — | Min severity for fix generation (improve mode) |
+| `agents` | array | all | Agents to run in orchestrate mode |
 
 ## Architecture
 
-The MCP server follows the HTTP-based MCP protocol:
+ThothCTL MCP exposes two server modes:
 
-1. The LLM requests available tools via a POST to `/tools`
-2. The server responds with a list of available tools and their parameters
-3. The LLM executes a tool via a POST to `/execute` with the tool name and parameters
-4. The server executes the corresponding ThothCTL command and returns the results
+```
+src/thothctl/services/mcp/
+├── stdio_server.py          ← stdio mode (Kiro, Amazon Q, Claude Code, Copilot)
+└── simple_http_server.py    ← HTTP mode (network integrations, CI/CD)
+```
+
+**Stdio mode** (`thothctl mcp server --stdio`):
+- Used by AI coding assistants via MCP protocol over stdin/stdout
+- Each tool maps to a subprocess call to the thothctl CLI
+- 22 tools at full feature parity
+
+**HTTP mode** (`thothctl mcp server -p 8080`):
+- REST endpoints: `GET /tools`, `POST /execute`, `GET /health`
+- CORS-enabled for browser/network integrations
+- Same 22 tools via subprocess execution
 
 ## Space Management
 

@@ -123,38 +123,61 @@ Check the status of the MCP server on a custom port:
 thothctl mcp status --port 9090
 ```
 
-## Available Tools
+## Available Tools (22)
 
 The MCP server exposes the following ThothCTL commands as tools for AI assistants:
 
 ### Project Management
-- `thothctl_init_project` - Initialize and setup project configurations
-  - Supports project types: `terraform`, `tofu`, `cdkv2`, `terraform_module`, `terragrunt`, `custom`
-  - Can be associated with spaces for consistent configuration
-  - Supports batch mode for automated workflows
-- `thothctl_remove_project` - Remove a project managed by thothctl
-- `thothctl_get_projects` - Get list of projects managed by thothctl
+| Tool | Description |
+|------|-------------|
+| `thothctl_init_project` | Initialize a new project (terraform, tofu, cdkv2, terragrunt, custom) |
+| `thothctl_remove_project` | Remove a project from local tracking |
+| `thothctl_list_projects` | List all projects managed by thothctl |
+| `thothctl_project_bootstrap` | Bootstrap existing projects with ThothCTL support |
+| `thothctl_project_cleanup` | Clean up residual files and directories |
+| `thothctl_project_convert` | Convert project to template or between formats |
+| `thothctl_project_upgrade` | Upgrade project scaffold from remote template |
 
 ### Space Management
-- `thothctl_init_space` - Initialize and setup space configurations
-- `thothctl_remove_space` - Remove a space managed by thothctl
-- `thothctl_get_spaces` - Get list of spaces managed by thothctl
-- `thothctl_get_projects_in_space` - Get list of projects in a specific space
+| Tool | Description |
+|------|-------------|
+| `thothctl_init_space` | Initialize a new space |
+| `thothctl_remove_space` | Remove a space |
+| `thothctl_list_spaces` | List all spaces |
+| `thothctl_get_projects_in_space` | Get projects in a specific space |
+| `thothctl_list_templates` | List available templates from VCS providers |
 
-### Listing
-- `thothctl_list_projects` - List projects managed by thothctl locally
-- `thothctl_list_spaces` - List spaces managed by thothctl locally
+### Security & Compliance
+| Tool | Description |
+|------|-------------|
+| `thothctl_scan_iac` | Scan IaC for security issues (Checkov, Trivy, KICS, OPA) |
+| `thothctl_check_environment` | Check development environment tools |
+| `thothctl_check_iac` | Check IaC artifacts (plans, structure) |
+| `thothctl_check_project` | Validate project structure |
 
-### Infrastructure Management
-- `thothctl_scan` - Scan infrastructure code for security issues
-- `thothctl_inventory` - Create Inventory for the iac composition
-- `thothctl_generate` - Generate IaC from rules, use cases, and components
-- `thothctl_document` - Initialize and setup project documentation
-- `thothctl_check` - Check infrastructure code for compliance
-- `thothctl_project` - Convert, clean up and manage the current project
+### Cost & Drift Analysis
+| Tool | Description |
+|------|-------------|
+| `thothctl_cost_analysis` | Estimate AWS costs from Terraform plans or CloudFormation templates |
+| `thothctl_drift_detection` | Detect infrastructure drift with tag filtering, policy enforcement, and AI analysis |
+
+### AI-Powered Review
+| Tool | Description |
+|------|-------------|
+| `thothctl_ai_review` | Multi-mode AI security analysis: analyze, decide, improve, orchestrate |
+
+### Infrastructure Tooling
+| Tool | Description |
+|------|-------------|
+| `thothctl_inventory_iac` | Create IaC composition inventory |
+| `thothctl_document_iac` | Generate documentation for IaC projects |
+| `thothctl_generate_stacks` | Generate infrastructure stacks |
 
 ### Utility
-- `thothctl_version` - Get ThothCTL version
+| Tool | Description |
+|------|-------------|
+| `thothctl_version` | Get ThothCTL version |
+| `thothctl_upgrade` | Upgrade thothctl to latest version |
 
 ## Integration with Amazon Q
 
@@ -284,12 +307,23 @@ q mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --ar
 
 ## Architecture
 
-The MCP server follows the HTTP-based MCP protocol:
+ThothCTL MCP exposes two server modes:
 
-1. The LLM requests available tools via a POST to `/tools`
-2. The server responds with a list of available tools and their parameters
-3. The LLM executes a tool via a POST to `/execute` with the tool name and parameters
-4. The server executes the corresponding ThothCTL command and returns the results
+```
+src/thothctl/services/mcp/
+├── stdio_server.py          ← stdio mode (Kiro, Amazon Q, Claude Code, Copilot)
+└── simple_http_server.py    ← HTTP mode (network integrations, CI/CD)
+```
+
+**Stdio mode** (`thothctl mcp server --stdio`):
+- Used by AI coding assistants via MCP protocol over stdin/stdout
+- Each tool maps to a subprocess call to the thothctl CLI
+- 22 tools at full feature parity
+
+**HTTP mode** (`thothctl mcp server -p 8080`):
+- REST endpoints: `GET /tools`, `POST /execute`, `GET /health`
+- CORS-enabled for browser/network integrations
+- Same 22 tools via subprocess execution
 
 ## Security Considerations
 
