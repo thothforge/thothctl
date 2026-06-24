@@ -160,9 +160,15 @@ class StackOptimizer:
     def _resolve_stack_direct(self, stack_pattern: str) -> Set[str]:
         """Resolve a glob pattern to matching unit paths (no dependency expansion)."""
         matched = set()
+        # Handle trailing /** — also match the directory itself
+        patterns = [stack_pattern]
+        if stack_pattern.endswith("/**"):
+            patterns.append(stack_pattern[:-3])  # match base without /**
         for unit_path in self._all_unit_paths:
-            if fnmatch.fnmatch(unit_path, stack_pattern):
-                matched.add(unit_path)
+            for pat in patterns:
+                if fnmatch.fnmatch(unit_path, pat):
+                    matched.add(unit_path)
+                    break
         return matched
 
     def _resolve_stack_with_deps(self, stack_pattern: str) -> Set[str]:
