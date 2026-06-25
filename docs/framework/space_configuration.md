@@ -80,6 +80,39 @@ You can list all available spaces using the `thothctl list spaces` command:
 thothctl list spaces
 ```
 
+### Showing Space Details
+
+View the full configuration summary of a space:
+
+```bash
+thothctl space show my-space
+```
+
+This displays:
+- Space name, description, status (active/inactive), and creation date
+- Version control provider
+- Terraform registry and authentication method
+- Orchestration tool
+- Governance policy repository (if configured)
+- Associated projects
+- Credentials status
+
+### Activating a Space
+
+Set a space as the active context (used as default for new projects):
+
+```bash
+thothctl space activate my-space
+```
+
+### Updating a Space
+
+Update an existing space's configuration:
+
+```bash
+thothctl space update my-space --vcs-provider github --orchestration-tool terragrunt
+```
+
 ### Deleting a Space
 
 You can delete a space using the `thothctl remove space` command:

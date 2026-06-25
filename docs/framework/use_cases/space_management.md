@@ -60,6 +60,14 @@ Usage: thothctl list spaces
   List all spaces managed by thothctl
 ```
 
+### Show Space Configuration
+
+```
+Usage: thothctl space show SPACE_NAME
+
+  Show space configuration summary
+```
+
 ### List Projects with Space Information
 
 ```
@@ -96,6 +104,14 @@ thothctl list spaces
 ```
 
 This displays a list of all spaces with their project counts.
+
+### Showing Space Configuration
+
+```bash
+thothctl space show platform-team
+```
+
+This displays a full summary of the space including VCS provider, Terraform registry, orchestration tool, governance policies, associated projects, and credentials status.
 
 ### Listing Projects with Space Information
 
