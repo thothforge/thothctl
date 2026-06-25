@@ -111,7 +111,15 @@ Update an existing space's configuration:
 
 ```bash
 thothctl space update my-space --vcs-provider github --orchestration-tool terragrunt
+thothctl space update my-space --policy-repo https://github.com/myorg/iac-policies.git
 ```
+
+Available options:
+- `-d, --description` — New description
+- `-vcs, --vcs-provider` — Version control provider (`azure_repos`, `github`, `gitlab`)
+- `-ot, --orchestration-tool` — Orchestration tool (`terragrunt`, `terramate`, `none`)
+- `-tr, --terraform-registry` — Terraform registry URL
+- `-pr, --policy-repo` — Git repository URL or local path for organization-level IaC policies
 
 ### Deleting a Space
 

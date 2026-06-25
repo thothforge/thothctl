@@ -68,6 +68,29 @@ Usage: thothctl space show SPACE_NAME
   Show space configuration summary
 ```
 
+### Update Space Configuration
+
+```
+Usage: thothctl space update SPACE_NAME [OPTIONS]
+
+  Update an existing space's configuration
+
+Options:
+  -d, --description TEXT          New description for the space
+  -vcs, --vcs-provider [azure_repos|github|gitlab]
+  -ot, --orchestration-tool [terragrunt|terramate|none]
+  -tr, --terraform-registry TEXT  Terraform registry URL
+  -pr, --policy-repo TEXT         Git URL or path for IaC policies
+```
+
+### Activate a Space
+
+```
+Usage: thothctl space activate SPACE_NAME
+
+  Set a space as the active context
+```
+
 ### List Projects with Space Information
 
 ```
