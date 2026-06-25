@@ -52,6 +52,7 @@ class IaCInvCommand(ClickCommand):
         framework_type: str = "auto",
         complete: bool = False,
         check_providers: bool = False,
+        check_provider_versions: bool = False,
         check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
@@ -101,7 +102,7 @@ class IaCInvCommand(ClickCommand):
                         framework_type=framework_type,
                         complete=complete,
                         check_providers=check_providers,
-                        check_provider_versions=check_versions,  # Use unified flag for provider versions too
+                        check_provider_versions=check_provider_versions,
                         check_schema_compatibility=check_schema_compatibility,
                         provider_tool=provider_tool,
                         project_name=project_name,
@@ -181,8 +182,8 @@ class IaCInvCommand(ClickCommand):
                 self.ui.print_info("🔍 Schema compatibility analysis enabled - this may take additional time")
             
             with self.ui.status_spinner("Creating infrastructure inventory..."):
-                # When check_versions is enabled, automatically enable provider checking
-                effective_check_providers = check_providers or check_versions
+                # Enable provider checking if provider versions are requested
+                effective_check_providers = check_providers or check_provider_versions
                 
                 inventory = await self.inventory_service.create_inventory(
                     source_directory=source_dir,
@@ -192,7 +193,7 @@ class IaCInvCommand(ClickCommand):
                     framework_type=framework_type,
                     complete=complete,
                     check_providers=effective_check_providers,
-                    check_provider_versions=check_versions,
+                    check_provider_versions=check_provider_versions,
                     check_schema_compatibility=check_schema_compatibility,
                     provider_tool=provider_tool,
                     project_name=project_name,
@@ -510,7 +511,7 @@ cli = IaCInvCommand.as_click_command(
         "--check-versions",
         is_flag=True,
         default=False,
-        help="Check latest versions for modules and providers (includes provider version checking)",
+        help="Check latest versions for modules",
     ),
     click.option(
         "-updep",
@@ -557,7 +558,14 @@ cli = IaCInvCommand.as_click_command(
         "--check-providers",
         is_flag=True,
         default=False,
-        help="Check and report provider information for each stack (automatically enabled with --check-versions)",
+        help="Check and report provider information for each stack",
+    ),
+    click.option(
+        "--check-provider-versions",
+        "-cpv",
+        is_flag=True,
+        default=False,
+        help="Check latest versions for providers (can be used independently or with --check-versions)",
     ),
     click.option(
         "--check-schema-compatibility",
