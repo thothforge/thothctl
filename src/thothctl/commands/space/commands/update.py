@@ -17,15 +17,15 @@ class UpdateSpaceCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
 
-    def validate(self, space_name: str, description, vcs_provider, orchestration_tool, terraform_registry, **kwargs) -> bool:
+    def validate(self, space_name: str, description, vcs_provider, orchestration_tool, terraform_registry, policy_repo, **kwargs) -> bool:
         spaces = list_spaces()
         if space_name not in spaces:
             raise ValueError(f"Space '{space_name}' does not exist")
-        if not any([description, vcs_provider, orchestration_tool, terraform_registry]):
-            raise ValueError("Provide at least one option to update (--description, --vcs-provider, --orchestration-tool, --terraform-registry)")
+        if not any([description, vcs_provider, orchestration_tool, terraform_registry, policy_repo]):
+            raise ValueError("Provide at least one option to update (--description, --vcs-provider, --orchestration-tool, --terraform-registry, --policy-repo)")
         return True
 
-    def _execute(self, space_name: str, description, vcs_provider, orchestration_tool, terraform_registry, **kwargs) -> None:
+    def _execute(self, space_name: str, description, vcs_provider, orchestration_tool, terraform_registry, policy_repo, **kwargs) -> None:
         config_path = Path.home() / ".thothcf" / "spaces.toml"
         with open(config_path, mode="rt", encoding="utf-8") as fp:
             config = toml.load(fp)
@@ -40,6 +40,8 @@ class UpdateSpaceCommand(ClickCommand):
             space.setdefault("orchestration", {})["tool"] = orchestration_tool
         if terraform_registry is not None:
             space.setdefault("terraform", {})["registry"] = terraform_registry
+        if policy_repo is not None:
+            space.setdefault("governance", {})["policy_repo"] = policy_repo
 
         space["updated_at"] = datetime.now().isoformat()
 
@@ -67,6 +69,11 @@ cli = UpdateSpaceCommand.as_click_command(help="Update an existing space's confi
     click.option(
         "-tr", "--terraform-registry",
         help="Terraform registry URL",
+        default=None,
+    ),
+    click.option(
+        "-pr", "--policy-repo",
+        help="Git repository URL or local path for organization-level IaC policies",
         default=None,
     ),
 )
