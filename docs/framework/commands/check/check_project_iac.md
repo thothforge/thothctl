@@ -19,6 +19,7 @@ Options:
                                   Project type: stack or module [default: stack]
   --org-policy TEXT               Organization policy source (Git URL or local path)
   --enforcement [soft|hard]       Enforcement mode: soft (report) or hard (fail pipeline)
+  --skip-org-policy               Skip organizational policy check (project exceptions)
   --help                          Show this message and exit.
 ```
 
@@ -26,9 +27,52 @@ Options:
 
 ThothCTL can enforce organizational standards that projects **cannot override**. This ensures all projects in your organization follow the same structure, naming, and tagging rules — regardless of what individual `.thothcf.toml` files contain.
 
+### Policy Resolution Order
+
+ThothCTL resolves the org policy source in this order:
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | `--org-policy` flag | `--org-policy https://github.com/myorg/policies.git` |
+| 2 | `THOTH_ORG_POLICY` env var | `export THOTH_ORG_POLICY=https://github.com/myorg/policies.git` |
+| 3 | **Active space's `governance.policy_repo`** | Set via `thothctl space update <name> --policy-repo <url>` |
+| 4 | None (skip org policy) | No org rules applied |
+
+### Space Integration
+
+When a space is active and has a `policy_repo` configured, organizational rules are loaded **automatically** — no flags or env vars needed:
+
+```bash
+# 1. Configure your space with the org policy repo
+thothctl space update platform-team --policy-repo https://github.com/myorg/org-policies.git
+
+# 2. Activate the space
+thothctl space activate platform-team
+
+# 3. Run check — org rules load automatically
+thothctl check project iac -p stack
+
+# Output:
+# 📜 Loading org policy from: /home/user/.thothcf/.policy_cache/abc123
+# ✅ Organization policy check passed
+```
+
+### Skipping Org Policy (Project Exceptions)
+
+Projects that have explicit exceptions from organizational rules can skip the check:
+
+```bash
+thothctl check project iac -p stack --skip-org-policy
+```
+
+This is useful for:
+- Experimental/prototype projects not yet conforming to standards
+- Legacy projects with approved exceptions
+- Third-party imported projects
+
 ### How It Works
 
-1. Set `THOTH_ORG_POLICY` to your org policy Git repo (or pass `--org-policy`)
+1. ThothCTL resolves the policy source (see resolution order above)
 2. The repo contains `rules/base.toml` + `rules/<project_type>.toml`
 3. ThothCTL merges org rules with project rules — **mandatory org rules cannot be weakened**
 4. Violations are reported with enforcement level (mandatory = fail, recommended = warn)
@@ -36,7 +80,11 @@ ThothCTL can enforce organizational standards that projects **cannot override**.
 ### Usage
 
 ```bash
-# Via env var (CI/CD recommended)
+# Automatic via active space (preferred)
+thothctl space activate platform-team
+thothctl check project iac --enforcement hard
+
+# Via env var (CI/CD)
 export THOTH_ORG_POLICY=https://github.com/myorg/org-policies.git
 thothctl check project iac --enforcement hard
 
@@ -44,11 +92,8 @@ thothctl check project iac --enforcement hard
 export THOTH_ORG_POLICY=https://github.com/myorg/org-policies.git@v1.0
 thothctl check project iac --enforcement hard
 
-# Via flag
+# Via flag (explicit override)
 thothctl check project iac --org-policy /path/to/org-policies --enforcement hard
-
-# Local path (development)
-thothctl check project iac --org-policy ../org-iac-policies
 ```
 
 ### Enforcement Levels
