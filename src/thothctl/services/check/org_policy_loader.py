@@ -16,12 +16,17 @@ def get_org_policy_path(org_policy: Optional[str] = None) -> Optional[str]:
     Resolution:
         1. Explicit --org-policy argument
         2. THOTH_ORG_POLICY env var
-        3. None (no org policy)
+        3. Active space's governance.policy_repo
+        4. None (no org policy)
 
     Returns:
         Absolute path to cached org policy repo, or None.
     """
     source = org_policy or os.environ.get("THOTH_ORG_POLICY")
+
+    if not source:
+        source = _get_active_space_policy_repo()
+
     if not source:
         return None
 
@@ -34,6 +39,33 @@ def get_org_policy_path(org_policy: Optional[str] = None) -> Optional[str]:
         return _clone_or_pull(source)
 
     return None
+
+
+def _get_active_space_policy_repo() -> Optional[str]:
+    """Load policy_repo from the active space configuration."""
+    try:
+        import toml
+
+        active_file = Path.home() / ".thothcf" / "active_space"
+        if not active_file.exists():
+            return None
+
+        space_name = active_file.read_text(encoding="utf-8").strip()
+        if not space_name:
+            return None
+
+        config_path = Path.home() / ".thothcf" / "spaces.toml"
+        if not config_path.exists():
+            return None
+
+        config = toml.load(config_path)
+        space = config.get("spaces", {}).get(space_name, {})
+        policy_repo = space.get("governance", {}).get("policy_repo", "")
+
+        return policy_repo if policy_repo else None
+    except Exception as e:
+        logger.debug(f"Failed to load active space policy repo: {e}")
+        return None
 
 
 def resolve_rules_dir(org_path: str) -> Optional[str]:

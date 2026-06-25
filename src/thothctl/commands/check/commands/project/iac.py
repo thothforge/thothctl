@@ -188,7 +188,7 @@ class CheckProjectIaCCommand(ClickCommand):
         
         try:
             # Run org policy check if source is provided
-            org_violations = self._check_org_policy(directory, project_type, org_policy)
+            org_violations = self._check_org_policy(directory, project_type, org_policy, skip_org=kwargs.get('skip_org_policy', False))
 
             # Capture stdout to format it nicely
             captured_output = io.StringIO()
@@ -245,8 +245,12 @@ class CheckProjectIaCCommand(ClickCommand):
             self.logger.error(f"Failed to execute IaC project check: {str(e)}")
             raise
 
-    def _check_org_policy(self, directory: str, project_type: str, org_policy=None):
+    def _check_org_policy(self, directory: str, project_type: str, org_policy=None, skip_org: bool = False):
         """Check project against organizational policy if available."""
+        if skip_org:
+            self.console.print("[dim]📜 Org policy check skipped (--skip-org-policy)[/dim]")
+            return None
+
         from .....services.check.org_policy_loader import get_org_policy_path, resolve_rules_dir
         from .....services.check.rule_merger import load_org_rules, merge_with_project, evaluate
 
@@ -354,5 +358,11 @@ cli = CheckProjectIaCCommand.as_click_command(
         help="Enforcement mode: soft (report only) or hard (fail on mandatory violations)",
         type=click.Choice(["soft", "hard"], case_sensitive=False),
         default="soft",
+    ),
+    click.option(
+        "--skip-org-policy",
+        is_flag=True,
+        default=False,
+        help="Skip organizational policy check (use when project has explicit exceptions)",
     ),
 )
