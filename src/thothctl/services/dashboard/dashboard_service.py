@@ -27,35 +27,6 @@ class DashboardService:
     def _setup_routes(self):
         """Setup FastAPI routes for the dashboard."""
         
-        @self.app.get("/minimal", response_class=HTMLResponse)
-        async def minimal_test():
-            """Minimal test page to isolate JavaScript issues."""
-            return '''<!DOCTYPE html>
-<html>
-<head><title>Test</title></head>
-<body>
-    <h1>Minimal Test Page</h1>
-    <div id="test">Loading...</div>
-    <script>
-        console.log('Script started');
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded');
-            document.getElementById('test').innerHTML = 'JavaScript Working!';
-        });
-        console.log('Script ended');
-    </script>
-</body>
-</html>'''
-        
-        @self.app.get("/debug", response_class=HTMLResponse)
-        async def debug_page():
-            """Debug test page."""
-            try:
-                with open('/home/labvel/projects/tools/ThothForge/thothctl/debug_dashboard.html') as f:
-                    return f.read()
-            except FileNotFoundError:
-                return "<html><body><h1>Debug file not found</h1></body></html>"
-        
         @self.app.get("/", response_class=HTMLResponse)
         async def dashboard():
             """Main dashboard page."""
@@ -122,6 +93,24 @@ class DashboardService:
                 return {"status": "success", "message": "Data refreshed"}
             except Exception as e:
                 logger.error(f"Refresh API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/drift")
+        async def api_drift():
+            """API endpoint for drift detection data."""
+            try:
+                return self.data_loader.get_drift_data()
+            except Exception as e:
+                logger.error(f"Drift API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/ai-usage")
+        async def api_ai_usage():
+            """API endpoint for AI token/cost usage."""
+            try:
+                return self.data_loader.get_ai_usage()
+            except Exception as e:
+                logger.error(f"AI usage API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
     
     def _get_dashboard_template(self) -> str:

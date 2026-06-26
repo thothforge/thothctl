@@ -164,21 +164,79 @@ class DashboardDataLoader:
             return {
                 "message": "No risk analysis available.", 
                 "action": "Run project check to generate blast radius analysis",
-                "command": "thothctl check project --blast-radius"
+                "command": "thothctl check iac -type blast-radius --recursive"
             }
             
         except json.JSONDecodeError:
+            return {"error": "Invalid blast radius file format", "action": "Regenerate", "command": "thothctl check iac -type blast-radius --recursive"}
+        except Exception as e:
+            return {"error": f"Error loading risk data: {str(e)}"}
+
+    def get_drift_data(self) -> Dict[str, Any]:
+        """Load from existing drift detection reports."""
+        cache_key = "drift"
+        if self._is_cache_valid(cache_key):
+            return self.cache[cache_key]["data"]
+
+        try:
+            drift_files = list(self.reports_dir.glob("**/drift_*.json"))
+            if drift_files:
+                latest_file = max(drift_files, key=lambda f: f.stat().st_mtime)
+                with open(latest_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self._cache_data(cache_key, data)
+                return data
+
             return {
-                "error": "Invalid blast radius file format", 
-                "action": "Regenerate blast radius analysis",
-                "command": "thothctl check project --blast-radius"
+                "message": "No drift data available.",
+                "action": "Run drift detection",
+                "command": "thothctl check iac -type drift --recursive"
             }
         except Exception as e:
-            return {
-                "error": f"Error loading risk data: {str(e)}", 
-                "action": "Check file permissions and try again",
-                "command": "ls -la Reports/"
+            return {"error": f"Error loading drift data: {str(e)}"}
+
+    def get_ai_usage(self) -> Dict[str, Any]:
+        """Load AI usage/cost data from cost logs."""
+        cache_key = "ai_usage"
+        if self._is_cache_valid(cache_key):
+            return self.cache[cache_key]["data"]
+
+        try:
+            from datetime import date as date_mod
+            cost_dir = Path(".thothctl/ai_costs")
+            if not cost_dir.exists():
+                return {
+                    "message": "No AI usage data.",
+                    "action": "Run AI review to generate usage logs",
+                    "command": "thothctl ai-review analyze -d ."
+                }
+
+            records = []
+            month_prefix = date_mod.today().strftime("%Y-%m")
+            for log_file in sorted(cost_dir.glob(f"{month_prefix}*.jsonl")):
+                with open(log_file) as f:
+                    for line in f:
+                        if line.strip():
+                            records.append(json.loads(line.strip()))
+
+            if not records:
+                return {"message": "No AI usage this month.", "records": []}
+
+            total_cost = sum(r.get("cost", 0) for r in records)
+            total_input = sum(r.get("input_tokens", 0) for r in records)
+            total_output = sum(r.get("output_tokens", 0) for r in records)
+
+            data = {
+                "total_cost": total_cost,
+                "total_requests": len(records),
+                "total_input_tokens": total_input,
+                "total_output_tokens": total_output,
+                "records": records[-20:],  # Last 20 records
             }
+            self._cache_data(cache_key, data)
+            return data
+        except Exception as e:
+            return {"error": f"Error loading AI usage: {str(e)}"}
     
     def _is_cache_valid(self, key: str) -> bool:
         """Check if cached data is still valid."""
