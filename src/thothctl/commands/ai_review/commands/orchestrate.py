@@ -91,6 +91,16 @@ class OrchestrateCommand(ClickCommand):
                 json.dump(data, f, indent=2, default=str)
             self.ui.print_success(f"Full results saved to {output}")
 
+        # Show token usage
+        if hasattr(result, 'cost') and result.cost:
+            cost = result.cost
+            self.ui.print_info(
+                f"💰 Usage: ${cost.get('total_cost', 0):.4f} | "
+                f"↑{cost.get('input_tokens', 0):,} in / "
+                f"↓{cost.get('output_tokens', 0):,} out tokens | "
+                f"Model: {cost.get('model', 'unknown')}"
+            )
+
     def _display_security(self, data):
         summary = data.get("summary", {})
         table = Table(title="🔒 Security Agent")

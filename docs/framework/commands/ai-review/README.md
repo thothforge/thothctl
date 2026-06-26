@@ -541,6 +541,71 @@ The `improve` command includes 13 built-in fix patterns that work without AI:
 | `CKV_AWS_116` | Add Lambda dead letter config |
 | `CKV_AWS_272` | Enable Lambda code signing |
 
+## Token Usage & Cost Tracking
+
+Every AI interaction reports token consumption (input/output) and estimated cost in the command output:
+
+```
+💰 Today's AI cost: $0.0234 (3 requests, ↑12,450 in / ↓3,210 out tokens)
+```
+
+### Per-Command Output
+
+| Command | Token Info Shown |
+|---------|-----------------|
+| `analyze` | Daily totals: cost, requests, input/output tokens |
+| `orchestrate` | Per-run: cost, input/output tokens, model used |
+| `report` | Full breakdown by period, provider, and model |
+
+### Cost Report
+
+```bash
+# Daily summary
+thothctl ai-review report --period daily
+
+# Monthly breakdown
+thothctl ai-review report --period monthly
+
+# Export to JSON
+thothctl ai-review report --period monthly --export costs.json
+```
+
+Output:
+```
+┌────────────────────┬──────────────┐
+│ Metric             │ Value        │
+├────────────────────┼──────────────┤
+│ Total Cost         │ $0.1240      │
+│ Total Requests     │ 12           │
+│ Input Tokens       │ 45,200       │
+│ Output Tokens      │ 8,340        │
+└────────────────────┴──────────────┘
+```
+
+### Budget Controls
+
+```bash
+# Set daily and monthly limits
+thothctl ai-review configure --daily-limit 50 --monthly-budget 200
+```
+
+| Control | Default | Description |
+|---------|---------|-------------|
+| Daily limit | $100 | Max spend per day |
+| Monthly budget | $200 | Max spend per month |
+| Auto fallback | true | Falls back to pattern-based fixes when budget exceeded |
+
+Cost logs are stored at `.thothctl/ai_costs/<date>.jsonl` (one JSON record per API call).
+
+### Supported Pricing
+
+| Provider | Tracked | Notes |
+|----------|---------|-------|
+| OpenAI | ✅ | GPT-3.5, GPT-4, GPT-4 Turbo |
+| Bedrock | ✅ | Claude 3 Sonnet, Haiku |
+| Azure OpenAI | ✅ | Same as OpenAI pricing |
+| Ollama | ✅ (zero cost) | Local models — no API charges |
+
 ## MCP Integration
 
 The AI review is exposed as an MCP tool (`thothctl_ai_review`) for AI assistant interoperability:

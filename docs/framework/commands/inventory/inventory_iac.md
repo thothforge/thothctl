@@ -6,10 +6,9 @@ The `thothctl inventory iac` command creates, updates, and manages an inventory 
 
 ## Recent Improvements ✨
 
-- **🎯 Unified Version Checking**: Single `--check-versions` flag handles both module and provider version checking
+- **🎯 Independent Version Checking**: Separate flags for module versions (`-cv`) and provider versions (`-cpv`) — check what you need
 - **🎨 Modern HTML Reports**: Professional styling with Inter font, gradients, and responsive design
 - **📊 Enhanced Provider Analysis**: Comprehensive provider version tracking with status indicators
-- **🚀 Intelligent Automation**: Automatic provider checking when version checking is enabled
 - **📱 Responsive Design**: Reports work perfectly on desktop, tablet, and mobile devices
 
 ## Command Options
@@ -20,33 +19,21 @@ Usage: thothctl inventory iac [OPTIONS]
   Create a inventory about IaC modules composition for terraform/tofu/terragrunt projects
 
 Options:
-  -pj, --project-name TEXT        Specify a custom project name for the
-                                  inventory report
-  --provider-tool [tofu|terraform]
-                                  Tool to use for checking providers (default:
-                                  tofu)
-  --check-providers               Check and report provider information for
-                                  each stack (automatically enabled with
-                                  --check-versions)
-  --complete                      Include .terraform and .terragrunt-cache
-                                  folders in analysis (complete analysis)
-  -ft, --framework-type [auto|terraform|terragrunt|terraform-terragrunt]
-                                  Framework type to analyze (auto for
-                                  automatic detection)
+  -cv, --check-versions           Check latest versions for modules
+  -cpv, --check-provider-versions Check latest versions for providers
+  --check-providers               Check and report provider information for each stack
+  -ft, --framework-type [auto|terraform|terragrunt|terraform-terragrunt|module|cdkv2]
+                                  Framework type to analyze (auto for automatic detection)
   -r, --report-type [html|json|cyclonedx|all]
-                                  Type of report to generate (cyclonedx
-                                  generates OWASP CycloneDX SBOM format)
+                                  Type of report to generate
   -iact, --inventory-action [create|update|restore]
                                   Action for inventory tasks
-  -auto, --auto-approve           Use with --update_dependencies option for
-                                  auto approve updating dependencies.
-  -updep, --update-dependencies-path
-                                  Pass the inventory json file path for
-                                  updating dependencies.
-  -cv, --check-versions           Check latest versions for modules and
-                                  providers (includes provider version
-                                  checking)
   -iph, --inventory-path PATH     Path for saving inventory reports
+  -pj, --project-name TEXT        Custom project name for the report
+  --provider-tool [tofu|terraform]
+                                  Tool to use for checking providers (default: tofu)
+  --complete                      Include .terraform and .terragrunt-cache in analysis
+  -auto, --auto-approve           Auto approve updating dependencies
   --post-to-pr                    Post inventory summary as a PR comment
                                   (Azure DevOps or GitHub)
   --vcs-provider [auto|azure_repos|github]
@@ -67,18 +54,21 @@ thothctl inventory iac
 
 This creates an inventory of all IaC components in the current directory and generates a **modern HTML report** in the default location (`./Reports/Inventory`).
 
-### Create an Inventory with Version Checking (Recommended) 🚀
+### Create an Inventory with Version Checking
 
 ```bash
-thothctl inventory iac --check-versions
-```
+# Check module versions only
+thothctl inventory iac -cv
 
-This creates a comprehensive inventory that:
-- ✅ Checks latest versions for all modules
-- ✅ Automatically enables provider checking
-- ✅ Analyzes provider versions against registries
-- ✅ Shows "Latest Version" and "Status" columns
-- ✅ Generates modern, professional HTML reports
+# Check provider versions only
+thothctl inventory iac -cpv
+
+# Check both module and provider versions
+thothctl inventory iac -cv -cpv
+
+# Provider info without version lookup
+thothctl inventory iac --check-providers
+```
 
 ### Generate Different Report Types
 
@@ -100,7 +90,7 @@ thothctl inventory iac --report-type all
 
 ```bash
 thothctl inventory iac \
-  --check-versions \
+  -cv -cpv \
   --inventory-path ./docs/infrastructure \
   --project-name "Production Infrastructure"
 ```
@@ -129,10 +119,10 @@ ThothCTL now supports generating **CycloneDX Software Bill of Materials (SBOM)**
 ### Example:
 ```bash
 # Generate CycloneDX SBOM for security audit
-thothctl inventory iac --check-versions --report-type cyclonedx
+thothctl inventory iac -cv -cpv --report-type cyclonedx
 
 # Complete analysis with all formats including SBOM
-thothctl inventory iac --check-versions --report-type all
+thothctl inventory iac -cv -cpv --report-type all
 ```
 
 The CycloneDX report includes:

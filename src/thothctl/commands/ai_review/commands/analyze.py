@@ -61,7 +61,9 @@ class AnalyzeCommand(ClickCommand):
             if cost_report["total_cost"] > 0:
                 self.ui.print_info(
                     f"💰 Today's AI cost: ${cost_report['total_cost']:.4f} "
-                    f"({cost_report['total_requests']} requests)"
+                    f"({cost_report['total_requests']} requests, "
+                    f"↑{cost_report['total_input_tokens']:,} in / "
+                    f"↓{cost_report['total_output_tokens']:,} out tokens)"
                 )
 
         except ImportError as e:
