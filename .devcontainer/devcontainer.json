@@ -1,27 +1,64 @@
 {
-    "name": "ThothForge Infrastructure Development",
-    "dockerFile": "Dockerfile",
-    "remoteUser": "vscode",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "hashicorp.terraform",
-                "ms-python.python",
-                "ms-azuretools.vscode-docker",
-                "redhat.vscode-yaml",
-                "timonwong.shellcheck",
-                "github.copilot",
-                "eamodio.gitlens"
-            ],
-            "settings": {
-                "terminal.integrated.defaultProfile.linux": "bash"
-            }
+  "name": "ThothForge Infrastructure Development",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/aws-cli:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {},
+    "ghcr.io/devcontainers-extra/features/opentofu:1": {},
+    "ghcr.io/devcontainers-extra/features/terragrunt:1": {},
+    "ghcr.io/devcontainers-extra/features/terraform-docs:1": {},
+    "ghcr.io/dhoeric/features/trivy:1": {},
+    "ghcr.io/dhoeric/features/tfsec:1": {},
+    "ghcr.io/devcontainers-extra/features/shellcheck:1": {},
+    "ghcr.io/devcontainers-extra/features/tflint:1": {}
+  },
+  "forwardPorts": [8080, 5001],
+  "portsAttributes": {
+    "8080": { "label": "ThothCTL Dashboard", "onAutoForward": "notify" },
+    "5001": { "label": "MCP Server", "onAutoForward": "silent" }
+  },
+  "containerEnv": {
+    "THOTHCTL_DEBUG": "${localEnv:THOTHCTL_DEBUG}",
+    "THOTH_LOG_LEVEL": "${localEnv:THOTH_LOG_LEVEL}",
+    "THOTH_MEMORY_MODE": "local"
+  },
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached"
+  ],
+  "remoteUser": "vscode",
+  "postCreateCommand": {
+    "install-dev": "pip install -e '.[telemetry]'",
+    "pre-commit": "pip install pre-commit && pre-commit install",
+    "checkov": "pip install checkov"
+  },
+  "postStartCommand": "thothctl --version",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "hashicorp.terraform",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "timonwong.shellcheck",
+        "charliermarsh.ruff",
+        "eamodio.gitlens",
+        "github.copilot"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true
         }
-    },
-    "mounts": [
-        "source=${localEnv:HOME}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached"
-    ],
-    "remoteEnv": {
-        "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
+      }
     }
+  }
 }

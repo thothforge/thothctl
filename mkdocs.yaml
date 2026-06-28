@@ -23,6 +23,7 @@ nav:
     - Installation:
       - Linux & macOS: installation/linux_installation.md
       - Windows: installation/windows_installation.md
+      - Dev Container: installation/devcontainer_setup.md
   - Commands:
     - Init: framework/commands/init/init.md
     - Check:

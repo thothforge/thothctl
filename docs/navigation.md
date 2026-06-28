@@ -3,6 +3,7 @@
 ## Getting Started
 
 - [Quick Start](quick_start.md) - Universal installation and setup
+- [Dev Container Setup](installation/devcontainer_setup.md) - One-click development environment (any OS)
 - [Windows Installation](installation/windows_installation.md) - Windows-specific setup guide
 - [Windows Troubleshooting](troubleshooting/windows_troubleshooting.md) - Windows-specific issues
 
