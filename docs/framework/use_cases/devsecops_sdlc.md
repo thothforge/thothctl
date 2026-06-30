@@ -7,7 +7,7 @@ This guide demonstrates how ThothCTL enables a complete DevSecOps Software Devel
 ## The DevSecOps SDLC Phases
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3f51b5','primaryTextColor':'#fff','primaryBorderColor':'#303f9f','lineColor':'#536dfe','secondaryColor':'#536dfe','tertiaryColor':'#fff','background':'#ffffff','mainBkg':'#e3f2fd','secondBkg':'#bbdefb','tertiaryBkg':'#90caf9','textColor':'#000000','fontSize':'14px'}}}%%
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3f51b5','primaryTextColor':'#ffffff','primaryBorderColor':'#303f9f','lineColor':'#536dfe','secondaryColor':'#536dfe','tertiaryColor':'#fff','background':'transparent','mainBkg':'#3f51b5','secondBkg':'#536dfe','tertiaryBkg':'#90caf9','textColor':'#ffffff','nodeTextColor':'#ffffff','fontSize':'14px'}}}%%
 graph TB
     A["Plan<br/>📋 Cost Estimation<br/>Risk Assessment<br/>Template Selection"] --> B["Develop<br/>💻 Environment Check<br/>Structure Validation<br/>Best Practices"]
     B --> C["Build<br/>🔨 Inventory Creation<br/>Dependency Tracking<br/>Version Management"]
@@ -18,14 +18,14 @@ graph TB
     G --> H["Monitor<br/>📊 Dashboard<br/>Continuous Scan<br/>Drift Detection"]
     H --> A
     
-    classDef planStyle fill:#01579b,stroke:#0288d1,stroke-width:2px,color:#fff
-    classDef devStyle fill:#1b5e20,stroke:#2e7d32,stroke-width:2px,color:#fff
-    classDef buildStyle fill:#e65100,stroke:#ef6c00,stroke-width:2px,color:#fff
-    classDef testStyle fill:#4a148c,stroke:#6a1b9a,stroke-width:2px,color:#fff
-    classDef secureStyle fill:#b71c1c,stroke:#c62828,stroke-width:2px,color:#fff
-    classDef deployStyle fill:#004d40,stroke:#00695c,stroke-width:2px,color:#fff
-    classDef operateStyle fill:#880e4f,stroke:#ad1457,stroke-width:2px,color:#fff
-    classDef monitorStyle fill:#33691e,stroke:#558b2f,stroke-width:2px,color:#fff
+    classDef planStyle fill:#01579b,stroke:#0288d1,stroke-width:2px,color:#ffffff
+    classDef devStyle fill:#1b5e20,stroke:#2e7d32,stroke-width:2px,color:#ffffff
+    classDef buildStyle fill:#e65100,stroke:#ef6c00,stroke-width:2px,color:#ffffff
+    classDef testStyle fill:#4a148c,stroke:#6a1b9a,stroke-width:2px,color:#ffffff
+    classDef secureStyle fill:#b71c1c,stroke:#c62828,stroke-width:2px,color:#ffffff
+    classDef deployStyle fill:#004d40,stroke:#00695c,stroke-width:2px,color:#ffffff
+    classDef operateStyle fill:#880e4f,stroke:#ad1457,stroke-width:2px,color:#ffffff
+    classDef monitorStyle fill:#33691e,stroke:#558b2f,stroke-width:2px,color:#ffffff
     
     class A planStyle
     class B devStyle
