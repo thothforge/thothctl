@@ -138,7 +138,10 @@ class OPAScanner(ScannerPort):
                 f.write(result_junit.stdout or "")
 
             # Parse JSON results
-            report_data = self._parse_conftest_json(result_json.stdout)
+            report_data, findings = self._parse_conftest_json(result_json.stdout)
+
+            # Generate HTML report (unified style)
+            self._generate_html_report(report_dir, report_data, findings, "Conftest")
 
             # conftest exit codes: 0=pass, 1=failure/violation, 2=error
             if result_json.returncode == 2:
@@ -150,6 +153,7 @@ class OPAScanner(ScannerPort):
                     "error": result_json.stderr,
                     "report_path": report_dir,
                     "report_data": report_data,
+                    "findings": findings,
                 }
 
             self.ui.show_success()
@@ -157,6 +161,7 @@ class OPAScanner(ScannerPort):
                 "status": "COMPLETE",
                 "report_path": report_dir,
                 "report_data": report_data,
+                "findings": findings,
                 "issues_count": report_data.get("failed_count", 0),
             }
 
@@ -228,7 +233,7 @@ class OPAScanner(ScannerPort):
             with open(json_report, "w") as f:
                 f.write(result.stdout or "{}")
 
-            report_data = self._parse_opa_json(result.stdout)
+            report_data, findings = self._parse_opa_json(result.stdout)
 
             if result.returncode != 0 and not result.stdout:
                 self.ui.show_error(f"OPA error: {result.stderr}")
@@ -237,13 +242,18 @@ class OPAScanner(ScannerPort):
                     "error": result.stderr,
                     "report_path": report_dir,
                     "report_data": report_data,
+                    "findings": findings,
                 }
+
+            # Generate HTML report (unified style)
+            self._generate_html_report(report_dir, report_data, findings, "OPA")
 
             self.ui.show_success()
             return {
                 "status": "COMPLETE",
                 "report_path": report_dir,
                 "report_data": report_data,
+                "findings": findings,
                 "issues_count": report_data.get("failed_count", 0),
             }
 
@@ -257,24 +267,52 @@ class OPAScanner(ScannerPort):
 
     # ── Parsing ────────────────────────────────────────────────────────
 
-    def _parse_conftest_json(self, stdout: str) -> Dict:
-        """Parse conftest JSON output into report_data format.
+    def _parse_conftest_json(self, stdout: str) -> tuple:
+        """Parse conftest JSON output into report_data and findings list.
 
         Conftest JSON structure:
         [{"filename": "...", "successes": N,
           "failures": [{"msg": "..."}], "warnings": [{"msg": "..."}]}]
+
+        Returns:
+            Tuple of (report_data dict, findings list)
         """
         try:
             results = json.loads(stdout) if stdout else []
         except json.JSONDecodeError:
-            return self._empty_report_data()
+            return self._empty_report_data(), []
 
         passed = sum(r.get("successes", 0) for r in results)
         failed = sum(len(r.get("failures", [])) for r in results)
         warnings = sum(len(r.get("warnings", [])) for r in results)
         exceptions = sum(len(r.get("exceptions", [])) for r in results)
 
-        return {
+        # Build structured findings
+        findings = []
+        for r in results:
+            filename = r.get("filename", "unknown")
+            for failure in r.get("failures", []):
+                findings.append({
+                    "id": "OPA",
+                    "severity": "HIGH",
+                    "title": failure.get("msg", "Policy violation"),
+                    "resource": failure.get("metadata", {}).get("resource", ""),
+                    "file": filename,
+                    "line": failure.get("metadata", {}).get("line", 0),
+                    "namespace": r.get("namespace", ""),
+                })
+            for warning in r.get("warnings", []):
+                findings.append({
+                    "id": "OPA",
+                    "severity": "MEDIUM",
+                    "title": warning.get("msg", "Policy warning"),
+                    "resource": warning.get("metadata", {}).get("resource", ""),
+                    "file": filename,
+                    "line": warning.get("metadata", {}).get("line", 0),
+                    "namespace": r.get("namespace", ""),
+                })
+
+        report_data = {
             "passed_count": passed,
             "failed_count": failed,
             "skipped_count": exceptions,
@@ -282,16 +320,21 @@ class OPAScanner(ScannerPort):
             "warning_count": warnings,
         }
 
-    def _parse_opa_json(self, stdout: str) -> Dict:
+        return report_data, findings
+
+    def _parse_opa_json(self, stdout: str) -> tuple:
         """Parse opa exec JSON output.
 
         OPA exec structure:
         {"result": [{"path": "file.json", "result": true/false/<value>}]}
+
+        Returns:
+            Tuple of (report_data dict, findings list)
         """
         try:
             data = json.loads(stdout) if stdout else {}
         except json.JSONDecodeError:
-            return self._empty_report_data()
+            return self._empty_report_data(), []
 
         results = data.get("result", [])
         passed = sum(1 for r in results if r.get("result") is True)
@@ -299,12 +342,28 @@ class OPAScanner(ScannerPort):
         # Results that are neither true nor false (e.g. score values)
         other = len(results) - passed - failed
 
-        return {
+        findings = []
+        for r in results:
+            if r.get("result") is False:
+                findings.append({
+                    "id": "OPA",
+                    "severity": "HIGH",
+                    "title": f"Policy denied: {Path(r.get('path', 'unknown')).name}",
+                    "resource": "",
+                    "file": r.get("path", "unknown"),
+                    "line": 0,
+                    "namespace": "",
+                })
+
+        report_data = {
             "passed_count": passed,
             "failed_count": failed,
             "skipped_count": other,
             "error_count": 0,
+            "warning_count": 0,
         }
+
+        return report_data, findings
 
     @staticmethod
     def _empty_report_data() -> Dict:
@@ -313,7 +372,80 @@ class OPAScanner(ScannerPort):
             "failed_count": 0,
             "skipped_count": 0,
             "error_count": 0,
+            "warning_count": 0,
         }
+
+    def _generate_html_report(
+        self, report_dir: str, report_data: Dict, findings: List[Dict], tool_name: str
+    ) -> None:
+        """Generate HTML report in unified ThothCTL style (matches KICS/TF-compliance)."""
+        from datetime import datetime
+
+        html_dir = os.path.join(report_dir, "html_reports")
+        os.makedirs(html_dir, exist_ok=True)
+
+        passed = report_data.get("passed_count", 0)
+        failed = report_data.get("failed_count", 0)
+        warnings = report_data.get("warning_count", 0)
+        total = passed + failed + warnings
+        rate = round(passed / total * 100, 1) if total > 0 else 100.0
+
+        # Build findings table rows
+        rows = ""
+        for f in findings:
+            sev = f.get("severity", "MEDIUM").lower()
+            ns = f.get("namespace", "")
+            ns_badge = f' <span class="ns">{ns}</span>' if ns else ""
+            rows += f"""<tr>
+                <td><span class="sev {sev}">{f.get('severity', '')}</span></td>
+                <td><code>{f.get('id', '')}</code></td>
+                <td>{f.get('title', '')}{ns_badge}</td>
+                <td>{f.get('file', '')}{(':' + str(f['line'])) if f.get('line') else ''}</td>
+                <td>{f.get('resource', '') or '—'}</td>
+            </tr>"""
+
+        html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>{tool_name} Scan Results</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+body{{font-family:'Inter',sans-serif;margin:0;padding:20px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#111827}}
+.container{{max-width:1100px;margin:0 auto;background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden}}
+.header{{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:24px}}
+.header h1{{margin:0;font-size:1.5rem}} .header p{{margin:5px 0 0;opacity:0.9;font-size:0.85rem}}
+.tool-badge{{background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:12px;font-size:0.75rem;margin-left:8px}}
+.content{{padding:24px}}
+.cards{{display:flex;gap:12px;margin-bottom:20px}}
+.card{{background:#f9fafb;padding:16px;border-radius:8px;text-align:center;flex:1}}
+.card .val{{font-size:1.5rem;font-weight:700}} .card .lbl{{font-size:0.7rem;color:#6b7280;text-transform:uppercase}}
+table{{width:100%;border-collapse:collapse;font-size:0.83rem}}
+th{{background:#f3f4f6;padding:10px 12px;text-align:left;font-size:0.75rem;text-transform:uppercase;color:#6b7280}}
+td{{padding:8px 12px;border-top:1px solid #e5e7eb}} tr:hover{{background:#f9fafb}}
+.sev{{padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600}}
+.sev.critical{{background:#fef2f2;color:#dc2626}} .sev.high{{background:#fef2f2;color:#ef4444}}
+.sev.medium{{background:#fffbeb;color:#b45309}} .sev.low{{background:#fefce8;color:#92400e}} .sev.info{{background:#eff6ff;color:#3b82f6}}
+code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
+.ns{{background:#eff6ff;color:#3b82f6;padding:2px 6px;border-radius:8px;font-size:0.7rem;margin-left:4px}}
+.footer{{padding:16px 24px;background:#f9fafb;font-size:0.75rem;color:#9ca3af;text-align:center}}
+@media print{{body{{background:white;padding:0}} .container{{box-shadow:none}}}}
+</style></head><body>
+<div class="container">
+<div class="header"><h1>🛡️ Security Scan Results<span class="tool-badge">{tool_name}</span></h1>
+<p>Scanned {datetime.now().strftime('%Y-%m-%d %H:%M')} — {failed} violation{'s' if failed != 1 else ''} found</p></div>
+<div class="content">
+<div class="cards">
+<div class="card"><div class="val">{total}</div><div class="lbl">Total Checks</div></div>
+<div class="card"><div class="val" style="color:#10b981">{passed}</div><div class="lbl">Passed</div></div>
+<div class="card"><div class="val" style="color:#ef4444">{failed}</div><div class="lbl">Failed</div></div>
+<div class="card"><div class="val" style="color:#f59e0b">{warnings}</div><div class="lbl">Warnings</div></div>
+<div class="card"><div class="val" style="color:#667eea">{rate}%</div><div class="lbl">Success Rate</div></div>
+</div>
+{'<table><thead><tr><th>Severity</th><th>Rule</th><th>Policy Violation</th><th>File</th><th>Resource</th></tr></thead><tbody>' + rows + '</tbody></table>' if findings else '<p style="color:#10b981;font-weight:600">✅ All policies passed — no violations found</p>'}
+</div>
+<div class="footer">Generated by ThothCTL</div>
+</div></body></html>"""
+
+        with open(os.path.join(html_dir, "index.html"), "w", encoding="utf-8") as f:
+            f.write(html)
 
     # ── Helpers ─────────────────────────────────────────────────────────
 
@@ -372,7 +504,6 @@ class OPAScanner(ScannerPort):
     def _clone_policy_repo(self, repo_url: str) -> Optional[str]:
         """Clone a policy Git repository to local cache. Returns path or None."""
         import hashlib
-        import tempfile
 
         try:
             import git
