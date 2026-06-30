@@ -25,7 +25,8 @@ class ReportService:
     def __init__(self, reports_directory: str = "Reports"):
         """Initialize report service."""
         self.reports_dir = Path(reports_directory)
-        self.reports_dir.mkdir(exist_ok=True, parents=True)
+        self.inventory_dir = self.reports_dir / "inventory"
+        self.inventory_dir.mkdir(exist_ok=True, parents=True)
         self.console = Console()
         self.template_loader = get_template_loader()
 
@@ -37,7 +38,12 @@ class ReportService:
             reports_dir = Path(reports_directory)
             reports_dir.mkdir(exist_ok=True, parents=True)
         else:
-            reports_dir = self.reports_dir
+            # Use inventory subdirectory; html goes into html_reports/
+            if extension == "html":
+                reports_dir = self.inventory_dir / "html_reports"
+            else:
+                reports_dir = self.inventory_dir
+            reports_dir.mkdir(exist_ok=True, parents=True)
             
         return reports_dir / f"{report_name}_{timestamp}.{extension}"
 

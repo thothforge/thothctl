@@ -504,7 +504,7 @@ cli = IaCInvCommand.as_click_command(
         "--inventory-path",
         help="Path for saving inventory reports",
         type=click.Path(),
-        default="./Reports/inventory-sbom",
+        default="./Reports",
     ),
     click.option(
         "-cv",
