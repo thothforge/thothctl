@@ -67,13 +67,13 @@ class RestoredIaCScanCommand(ClickCommand):
             
             # Create a panel with scan information
             scan_info = Panel(
-                f"[bold]Starting security scan (Original Mode)[/bold]\n\n"
+                f"[bold]Starting security scan[/bold]\n\n"
                 f"Directory: [cyan]{code_directory}[/cyan]\n"
                 f"Project: [magenta]{project_name}[/magenta]\n"
                 f"Tools: [yellow]{', '.join(tools)}[/yellow]\n"
                 f"Reports directory: [green]{reports_dir}[/green]\n"
-                f"Output: [blue]Original structure with unified styling[/blue]",
-                title="[bold blue]ThothCTL Original Scan[/bold blue]",
+                f"Enforcement: [{'red' if self._enforcement == 'hard' else 'green'}]{self._enforcement}[/{'red' if self._enforcement == 'hard' else 'green'}]",
+                title="[bold blue]ThothCTL Security Scan[/bold blue]",
                 border_style="blue"
             )
             self.console.print(scan_info)
@@ -171,12 +171,12 @@ class RestoredIaCScanCommand(ClickCommand):
 
             # Create completion panel
             completion_panel = Panel(
-                f"[bold green]Original scan completed successfully![/bold green]\n\n"
+                f"[bold green]Security scan completed![/bold green]\n\n"
                 f"⏱️  Scan time: [cyan]{scan_time:.2f} seconds[/cyan]\n"
                 f"📊 Reports directory: [blue]{reports_dir}[/blue]\n"
                 f"🎨 HTML reports: [blue]Generated with unified styling[/blue]\n"
                 f"🔍 Tools used: [yellow]{len(tools)}[/yellow]",
-                title="[bold green]Original Scan Complete[/bold green]",
+                title="[bold green]Scan Complete[/bold green]",
                 border_style="green"
             )
             self.console.print(completion_panel)
@@ -184,20 +184,43 @@ class RestoredIaCScanCommand(ClickCommand):
             # Exit with code 1 if hard enforcement failed
             if has_violations:
                 ctx = click.get_current_context()
-                self.console.print(
-                    "[bold red]⛔ Hard enforcement: policy violations detected. Exiting with code 1.[/bold red]"
+                # Collect violation details per tool
+                violation_lines = []
+                for tool_name, tool_result in results.items():
+                    if tool_name == "summary" or not isinstance(tool_result, dict):
+                        continue
+                    rd = tool_result.get("report_data", {})
+                    failed = rd.get("failed_count", 0)
+                    errors = rd.get("error_count", 0)
+                    if failed + errors > 0:
+                        violation_lines.append(
+                            f"  • [yellow]{tool_name}[/yellow]: {failed} violation{'s' if failed != 1 else ''}, {errors} error{'s' if errors != 1 else ''}"
+                        )
+
+                violations_detail = "\n".join(violation_lines)
+                enforcement_panel = Panel(
+                    f"[bold red]Security policy violations detected[/bold red]\n\n"
+                    f"{violations_detail}\n\n"
+                    f"[dim]Mode:[/dim] [bold]--enforcement hard[/bold] — pipeline will exit with code 1\n"
+                    f"[dim]Fix:[/dim]  Resolve the violations above, or use [bold]--enforcement soft[/bold] to report without blocking.\n"
+                    f"[dim]Reports:[/dim] See [blue]{reports_dir}[/blue] for details.",
+                    title="[bold red]⛔ Enforcement Failed[/bold red]",
+                    border_style="red"
                 )
+                self.console.print(enforcement_panel)
                 ctx.exit(1)
 
         except Exception as e:
             error_panel = Panel(
-                f"[bold red]Original scan failed![/bold red]\n\n"
-                f"Error: [red]{str(e)}[/red]",
-                title="[bold red]Error[/bold red]",
+                f"[bold red]Security scan could not complete[/bold red]\n\n"
+                f"[red]{str(e)}[/red]\n\n"
+                f"[dim]This is an execution error, not a policy violation.\n"
+                f"Check that the required tools are installed and the target directory is valid.[/dim]",
+                title="[bold red]❌ Scan Error[/bold red]",
                 border_style="red"
             )
             self.console.print(error_panel)
-            self.logger.error(f"Original scan execution failed: {e}")
+            self.logger.error(f"Scan execution failed: {e}")
             raise
 
     def _parse_options(self, options_str: str) -> dict:
