@@ -186,6 +186,7 @@ class RestoredIaCScanCommand(ClickCommand):
                 ctx = click.get_current_context()
                 # Collect violation details per tool
                 violation_lines = []
+                all_findings = []
                 for tool_name, tool_result in results.items():
                     if tool_name == "summary" or not isinstance(tool_result, dict):
                         continue
@@ -196,6 +197,52 @@ class RestoredIaCScanCommand(ClickCommand):
                         violation_lines.append(
                             f"  • [yellow]{tool_name}[/yellow]: {failed} violation{'s' if failed != 1 else ''}, {errors} error{'s' if errors != 1 else ''}"
                         )
+                        # Collect findings for the table (only HIGH/deny-level)
+                        for f in tool_result.get("findings", []):
+                            sev = f.get("severity", "HIGH").upper()
+                            if sev in ("HIGH", "CRITICAL"):
+                                all_findings.append({**f, "tool": tool_name})
+
+                # Build non-compliance table
+                findings_table = Table(
+                    title="Non-Compliance Findings",
+                    box=rich.box.SIMPLE_HEAVY,
+                    header_style="bold red",
+                    title_style="bold red",
+                    show_lines=False,
+                    expand=True,
+                )
+                findings_table.add_column("Tool", style="yellow", max_width=12)
+                findings_table.add_column("Severity", justify="center", max_width=10)
+                findings_table.add_column("Policy Violation", style="white", ratio=3)
+                findings_table.add_column("File", style="dim", ratio=2, overflow="ellipsis")
+
+                # Show up to 15 findings
+                display_findings = all_findings[:15]
+                for f in display_findings:
+                    sev = f.get("severity", "HIGH").upper()
+                    sev_style = "bold red" if sev == "CRITICAL" else "red"
+                    file_ref = f.get("file", "")
+                    if file_ref and len(file_ref) > 60:
+                        file_ref = "..." + file_ref[-57:]
+                    line = f.get("line", 0)
+                    file_display = f"{file_ref}:{line}" if line else file_ref
+
+                    findings_table.add_row(
+                        f.get("tool", ""),
+                        f"[{sev_style}]{sev}[/{sev_style}]",
+                        f.get("title", ""),
+                        file_display,
+                    )
+
+                remaining = len(all_findings) - len(display_findings)
+                if remaining > 0:
+                    findings_table.add_row(
+                        "", "", f"[dim]... and {remaining} more[/dim]", ""
+                    )
+
+                self.console.print()
+                self.console.print(findings_table)
 
                 violations_detail = "\n".join(violation_lines)
                 enforcement_panel = Panel(
