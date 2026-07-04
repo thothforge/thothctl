@@ -65,6 +65,44 @@
 
         @media (max-width:768px) { body { padding:8px; } .content-section { padding:16px; } .nav-menu { gap:4px; } }
         @media print { .nav-header { position:static; } .nav-actions { display:none; } body { background:#fff; padding:0; } }
+
+        /* Security Findings Viewer */
+        .findings-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:#f8f9fa; border-radius:var(--radius); }
+        .findings-toolbar input, .findings-toolbar select { padding:6px 12px; border:1px solid #dee2e6; border-radius:6px; font-size:0.8rem; font-family:inherit; }
+        .findings-toolbar input { flex:1; min-width:180px; }
+        .findings-toolbar select { min-width:120px; }
+        .findings-toolbar .toolbar-label { font-size:0.7rem; color:var(--secondary); text-transform:uppercase; font-weight:600; }
+        .sev-bar { display:flex; gap:6px; margin-bottom:16px; }
+        .sev-chip { padding:4px 10px; border-radius:12px; font-size:0.7rem; font-weight:600; cursor:pointer; transition:all .2s; border:1px solid transparent; }
+        .sev-chip:hover { transform:translateY(-1px); }
+        .sev-chip.critical { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+        .sev-chip.high { background:#fff1f2; color:#e11d48; border-color:#fecdd3; }
+        .sev-chip.medium { background:#fffbeb; color:#b45309; border-color:#fde68a; }
+        .sev-chip.low { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+        .sev-chip.active { box-shadow:0 0 0 2px currentColor; }
+        .findings-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+        .findings-table th { background:#f3f4f6; padding:8px 10px; text-align:left; font-size:0.7rem; text-transform:uppercase; color:var(--secondary); position:sticky; top:0; }
+        .findings-table td { padding:8px 10px; border-top:1px solid #e5e7eb; vertical-align:top; }
+        .findings-table tr:hover { background:#f9fafb; }
+        .findings-table tr { cursor:pointer; }
+        .findings-wrap { max-height:500px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:var(--radius); }
+        .sev-badge { padding:2px 8px; border-radius:10px; font-size:0.65rem; font-weight:700; text-transform:uppercase; }
+        .sev-badge.critical { background:#fef2f2; color:#dc2626; }
+        .sev-badge.high { background:#fff1f2; color:#e11d48; }
+        .sev-badge.medium { background:#fffbeb; color:#b45309; }
+        .sev-badge.low { background:#f0fdf4; color:#16a34a; }
+        .tool-badge { background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px; font-size:0.65rem; font-weight:600; }
+        .findings-pagination { display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:0.8rem; color:var(--secondary); }
+        .findings-pagination button { padding:4px 12px; border:1px solid #dee2e6; border-radius:6px; background:#fff; cursor:pointer; font-size:0.75rem; }
+        .findings-pagination button:disabled { opacity:0.4; cursor:not-allowed; }
+        .report-viewer { border:none; width:100%; height:600px; border-radius:var(--radius); box-shadow:var(--shadow); margin-top:16px; }
+        .report-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:12px; }
+        .report-tab { padding:6px 14px; border-radius:16px; font-size:0.75rem; font-weight:500; cursor:pointer; background:#e9ecef; color:var(--dark); transition:all .2s; border:none; }
+        .report-tab:hover { background:var(--primary); color:#fff; }
+        .report-tab.active { background:var(--primary); color:#fff; }
+        .view-toggle { display:flex; gap:4px; margin-left:auto; }
+        .view-toggle button { padding:4px 10px; border:1px solid #dee2e6; background:#fff; border-radius:4px; cursor:pointer; font-size:0.75rem; }
+        .view-toggle button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
     </style>
 </head>
 <body>
@@ -90,7 +128,17 @@
 
         <section id="overview" class="content-section active"><h2 class="section-title">📊 Overview</h2><div id="overview-content"><div class="message">Loading...</div></div></section>
         <section id="inventory" class="content-section"><h2 class="section-title">📦 Infrastructure Inventory</h2><div id="inventory-content"><div class="message">Loading...</div></div></section>
-        <section id="security" class="content-section"><h2 class="section-title">🔒 Security Scan Results</h2><div id="security-content"><div class="message">Loading...</div></div></section>
+        <section id="security" class="content-section">
+            <h2 class="section-title">🔒 Security Scan Results</h2>
+            <div id="security-summary"></div>
+            <div id="security-toolbar"></div>
+            <div id="security-findings"></div>
+            <div id="security-pagination"></div>
+            <div id="security-report-viewer" style="display:none">
+                <button onclick="closeReportViewer()" style="margin-bottom:8px" class="btn btn-refresh">← Back to Findings</button>
+                <iframe id="report-iframe" class="report-viewer"></iframe>
+            </div>
+        </section>
         <section id="costs" class="content-section"><h2 class="section-title">💰 Cost Analysis</h2><div id="costs-content"><div class="message">Loading...</div></div></section>
         <section id="risks" class="content-section"><h2 class="section-title">💥 Blast Radius</h2><div id="risks-content"><div class="message">Loading...</div></div></section>
         <section id="drift" class="content-section"><h2 class="section-title">🔍 Drift Detection</h2><div id="drift-content"><div class="message">Loading...</div></div></section>
@@ -171,18 +219,162 @@
 
     function renderSecurity() {
         const d = D.security;
-        if (!d || err(d)) { document.getElementById('security-content').innerHTML = msg(d?.error||d?.message||'No data', d?.command); return; }
-        const issues = d.summary ? d.summary.total_issues : 0;
-        const reports = d.reports || [];
-        let html = `<div class="summary-grid"><div class="card" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">${issues}</div><div class="card-label">Total Issues</div></div><div class="card"><div class="card-number">${reports.length}</div><div class="card-label">Reports</div></div></div>`;
-        if (reports.length) {
-            html += '<table class="data-table"><thead><tr><th>Report</th><th>Type</th><th>Date</th><th>Size</th></tr></thead><tbody>';
-            reports.slice(0,20).forEach(r => {
-                html += `<tr><td>${r.file}</td><td><span class="badge badge-info">${r.type||'—'}</span></td><td>${r.timestamp ? new Date(r.timestamp).toLocaleDateString() : '—'}</td><td>${r.size ? (r.size/1024).toFixed(1)+'KB' : '—'}</td></tr>`;
-            });
-            html += '</tbody></table>';
+        if (!d || err(d)) {
+            document.getElementById('security-summary').innerHTML = msg(d?.error||d?.message||'No data', d?.command);
+            return;
         }
-        document.getElementById('security-content').innerHTML = html;
+        // Render summary cards + tool tabs
+        const issues = d.summary ? d.summary.total_issues : 0;
+        const tools = d.tools || [];
+        const reports = d.reports || [];
+        let html = `<div class="summary-grid">
+            <div class="card" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">${issues}</div><div class="card-label">Total Issues</div></div>
+            <div class="card"><div class="card-number">${reports.length}</div><div class="card-label">Reports</div></div>
+            <div class="card"><div class="card-number">${tools.length}</div><div class="card-label">Tools</div></div>
+        </div>`;
+        // Tool report tabs
+        if (reports.length) {
+            html += `<div class="report-tabs">`;
+            const indexReports = reports.filter(r => r.file.includes('index.html'));
+            indexReports.forEach(r => {
+                const label = r.tool || r.file.split('/')[1] || 'report';
+                html += `<button class="report-tab" onclick="openReport('${r.file}')">${label}</button>`;
+            });
+            if (indexReports.length < reports.length) {
+                html += `<button class="report-tab" onclick="showAllReports()">📄 All Reports (${reports.length})</button>`;
+            }
+            html += `</div>`;
+        }
+        document.getElementById('security-summary').innerHTML = html;
+        // Load findings
+        loadFindings();
+    }
+
+    // Findings state
+    let findingsState = { tool: '', severity: '', search: '', offset: 0, limit: 50 };
+
+    async function loadFindings() {
+        const params = new URLSearchParams();
+        if (findingsState.tool) params.set('tool', findingsState.tool);
+        if (findingsState.severity) params.set('severity', findingsState.severity);
+        if (findingsState.search) params.set('search', findingsState.search);
+        params.set('offset', findingsState.offset);
+        params.set('limit', findingsState.limit);
+
+        try {
+            const r = await fetch('/api/findings?' + params.toString());
+            const data = await r.json();
+            renderFindingsToolbar(data);
+            renderFindingsTable(data);
+            renderFindingsPagination(data);
+        } catch (e) {
+            document.getElementById('security-findings').innerHTML = msg('Error loading findings');
+        }
+    }
+
+    function renderFindingsToolbar(data) {
+        const sevCounts = data.severity_counts || {};
+        const toolCounts = data.tool_counts || {};
+        let html = `<div class="findings-toolbar">
+            <input type="text" id="findings-search" placeholder="Search findings..." value="${findingsState.search}" onkeyup="debounceSearch(this.value)">
+            <select id="findings-tool" onchange="filterTool(this.value)">
+                <option value="">All Tools</option>`;
+        Object.entries(toolCounts).forEach(([t, c]) => {
+            html += `<option value="${t}" ${findingsState.tool===t?'selected':''}>${t} (${c})</option>`;
+        });
+        html += `</select>
+            <div class="view-toggle">
+                <button class="${!findingsState.severity?'active':''}" onclick="filterSeverity('')">All</button>
+                <button class="${findingsState.severity==='CRITICAL'?'active':''}" onclick="filterSeverity('CRITICAL')">Critical</button>
+                <button class="${findingsState.severity==='HIGH'?'active':''}" onclick="filterSeverity('HIGH')">High</button>
+                <button class="${findingsState.severity==='MEDIUM'?'active':''}" onclick="filterSeverity('MEDIUM')">Medium</button>
+                <button class="${findingsState.severity==='LOW'?'active':''}" onclick="filterSeverity('LOW')">Low</button>
+            </div>
+        </div>`;
+        // Severity bar
+        html += `<div class="sev-bar">`;
+        ['CRITICAL','HIGH','MEDIUM','LOW'].forEach(s => {
+            const count = sevCounts[s] || 0;
+            if (count > 0) html += `<span class="sev-chip ${s.toLowerCase()} ${findingsState.severity===s?'active':''}" onclick="filterSeverity('${findingsState.severity===s?'':s}')">${s}: ${count}</span>`;
+        });
+        html += `<span style="margin-left:auto;font-size:0.8rem;color:var(--secondary)">${data.total} findings</span></div>`;
+        document.getElementById('security-toolbar').innerHTML = html;
+    }
+
+    function renderFindingsTable(data) {
+        const findings = data.findings || [];
+        if (!findings.length) {
+            document.getElementById('security-findings').innerHTML = msg('No findings match the current filters');
+            return;
+        }
+        let html = `<div class="findings-wrap"><table class="findings-table"><thead><tr><th>Severity</th><th>Tool</th><th>ID</th><th>Finding</th><th>File</th><th>Resource</th></tr></thead><tbody>`;
+        findings.forEach(f => {
+            const sev = (f.severity||'MEDIUM').toLowerCase();
+            const file = f.file || '';
+            const shortFile = file.length > 45 ? '...' + file.slice(-42) : file;
+            const line = f.line ? ':' + f.line : '';
+            html += `<tr onclick="showFindingDetail(this)" data-guideline="${f.guideline||''}">
+                <td><span class="sev-badge ${sev}">${(f.severity||'').toUpperCase()}</span></td>
+                <td><span class="tool-badge">${f.tool||''}</span></td>
+                <td style="font-family:monospace;font-size:0.7rem">${f.id||''}</td>
+                <td><strong>${f.name||f.title||''}</strong></td>
+                <td style="font-size:0.7rem;color:var(--secondary)" title="${file}">${shortFile}${line}</td>
+                <td style="font-size:0.7rem">${f.resource||''}</td>
+            </tr>`;
+        });
+        html += `</tbody></table></div>`;
+        document.getElementById('security-findings').innerHTML = html;
+    }
+
+    function renderFindingsPagination(data) {
+        const { total, offset, limit } = data;
+        const page = Math.floor(offset / limit) + 1;
+        const pages = Math.ceil(total / limit);
+        document.getElementById('security-pagination').innerHTML = `<div class="findings-pagination">
+            <button onclick="prevPage()" ${offset===0?'disabled':''}>← Prev</button>
+            <span>Page ${page} of ${pages} (${total} total)</span>
+            <button onclick="nextPage()" ${offset+limit>=total?'disabled':''}>Next →</button>
+        </div>`;
+    }
+
+    let searchTimeout;
+    function debounceSearch(val) { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { findingsState.search = val; findingsState.offset = 0; loadFindings(); }, 300); }
+    function filterTool(val) { findingsState.tool = val; findingsState.offset = 0; loadFindings(); }
+    function filterSeverity(val) { findingsState.severity = findingsState.severity === val ? '' : val; findingsState.offset = 0; loadFindings(); }
+    function prevPage() { findingsState.offset = Math.max(0, findingsState.offset - findingsState.limit); loadFindings(); }
+    function nextPage() { findingsState.offset += findingsState.limit; loadFindings(); }
+
+    function showFindingDetail(row) {
+        const guideline = row.dataset.guideline;
+        if (guideline) window.open(guideline, '_blank');
+    }
+
+    function openReport(filePath) {
+        document.getElementById('security-toolbar').style.display = 'none';
+        document.getElementById('security-findings').style.display = 'none';
+        document.getElementById('security-pagination').style.display = 'none';
+        document.getElementById('security-report-viewer').style.display = 'block';
+        document.getElementById('report-iframe').src = '/api/reports/' + filePath;
+    }
+
+    function closeReportViewer() {
+        document.getElementById('security-toolbar').style.display = '';
+        document.getElementById('security-findings').style.display = '';
+        document.getElementById('security-pagination').style.display = '';
+        document.getElementById('security-report-viewer').style.display = 'none';
+        document.getElementById('report-iframe').src = '';
+    }
+
+    function showAllReports() {
+        const reports = (D.security||{}).reports || [];
+        let html = `<div class="findings-wrap"><table class="findings-table"><thead><tr><th>Report</th><th>Tool</th><th>Date</th><th>Size</th><th></th></tr></thead><tbody>`;
+        reports.forEach(r => {
+            const name = r.file.split('/').pop();
+            html += `<tr><td>${name}</td><td><span class="tool-badge">${r.tool||'—'}</span></td><td>${r.timestamp?new Date(r.timestamp).toLocaleDateString():''}</td><td>${r.size?(r.size/1024).toFixed(1)+'KB':''}</td><td><button class="report-tab" onclick="openReport('${r.file}')">View</button></td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+        document.getElementById('security-findings').innerHTML = html;
+        document.getElementById('security-pagination').innerHTML = '';
     }
 
     function renderCosts() {

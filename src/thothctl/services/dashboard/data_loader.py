@@ -62,19 +62,31 @@ class DashboardDataLoader:
             return self.cache[cache_key]["data"]
         
         try:
-            results = {"reports": [], "summary": {"total_issues": 0}}
+            results = {"reports": [], "summary": {"total_issues": 0}, "tools": []}
             
             html_reports = list(self.reports_dir.rglob("*.html"))
             xml_reports = list(self.reports_dir.rglob("*.xml"))
             
+            # Track which tools have reports
+            tools_found = set()
+
             for html_file in html_reports:
-                if "index.html" not in html_file.name:
-                    results["reports"].append({
-                        "file": str(html_file.relative_to(self.base_dir)),
-                        "type": "html",
-                        "timestamp": datetime.fromtimestamp(html_file.stat().st_mtime).isoformat(),
-                        "size": html_file.stat().st_size
-                    })
+                rel_path = str(html_file.relative_to(self.base_dir))
+                # Determine tool from path
+                tool = "other"
+                for t in ("checkov", "trivy", "kics", "opa", "terraform-compliance"):
+                    if t in rel_path:
+                        tool = t
+                        tools_found.add(t)
+                        break
+
+                results["reports"].append({
+                    "file": rel_path,
+                    "type": "html",
+                    "tool": tool,
+                    "timestamp": datetime.fromtimestamp(html_file.stat().st_mtime).isoformat(),
+                    "size": html_file.stat().st_size
+                })
             
             for xml_file in xml_reports:
                 try:
@@ -86,6 +98,8 @@ class DashboardDataLoader:
                 except:
                     pass
             
+            results["tools"] = sorted(tools_found)
+
             if not results["reports"]:
                 return {
                     "error": "No scan results found",
@@ -102,6 +116,166 @@ class DashboardDataLoader:
                 "action": "Check file permissions and try again", 
                 "command": "ls -la Reports/"
             }
+
+    def get_findings(self, tool: str = None, severity: str = None, search: str = None, limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+        """Load individual findings from JSON reports with filtering."""
+        cache_key = "findings_all"
+        if not self._is_cache_valid(cache_key):
+            all_findings = []
+
+            # Parse Checkov JSON reports
+            checkov_dir = self.reports_dir / "checkov" / "security-scan"
+            if checkov_dir.exists():
+                for json_file in checkov_dir.rglob("results_json.json"):
+                    try:
+                        with open(json_file, "r") as f:
+                            data = json.load(f)
+                        results = data.get("results", {})
+                        # Handle both formats
+                        failed_checks = results.get("failed_checks", [])
+                        if not failed_checks:
+                            for check_type_data in results.values():
+                                if isinstance(check_type_data, dict):
+                                    failed_checks.extend(check_type_data.get("failed_checks", []))
+                        for check in failed_checks:
+                            all_findings.append({
+                                "tool": "checkov",
+                                "id": check.get("check_id", ""),
+                                "severity": check.get("severity", "MEDIUM") or "MEDIUM",
+                                "title": check.get("check_result", {}).get("name", check.get("name", "")),
+                                "name": check.get("name", ""),
+                                "file": check.get("file_path", ""),
+                                "line": check.get("file_line_range", [0, 0])[0],
+                                "resource": check.get("resource", ""),
+                                "guideline": check.get("guideline", ""),
+                            })
+                    except (json.JSONDecodeError, KeyError):
+                        continue
+
+            # Parse OPA/Conftest JSON reports
+            opa_report = self.reports_dir / "opa" / "conftest_results.json"
+            if opa_report.exists():
+                try:
+                    with open(opa_report, "r") as f:
+                        data = json.load(f)
+                    if isinstance(data, list):
+                        for result in data:
+                            filename = result.get("filename", "")
+                            for failure in result.get("failures", []):
+                                all_findings.append({
+                                    "tool": "opa",
+                                    "id": "OPA",
+                                    "severity": "HIGH",
+                                    "title": failure.get("msg", ""),
+                                    "name": failure.get("msg", ""),
+                                    "file": filename,
+                                    "line": 0,
+                                    "resource": "",
+                                    "guideline": "",
+                                })
+                            for warning in result.get("warnings", []):
+                                all_findings.append({
+                                    "tool": "opa",
+                                    "id": "OPA",
+                                    "severity": "MEDIUM",
+                                    "title": warning.get("msg", ""),
+                                    "name": warning.get("msg", ""),
+                                    "file": filename,
+                                    "line": 0,
+                                    "resource": "",
+                                    "guideline": "",
+                                })
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+            # Parse Trivy JSON reports
+            trivy_dir = self.reports_dir / "trivy"
+            if trivy_dir.exists():
+                for json_file in trivy_dir.rglob("results.json"):
+                    try:
+                        with open(json_file, "r") as f:
+                            data = json.load(f)
+                        for result in data.get("Results", []):
+                            for misconf in result.get("Misconfigurations", []):
+                                all_findings.append({
+                                    "tool": "trivy",
+                                    "id": misconf.get("ID", ""),
+                                    "severity": misconf.get("Severity", "MEDIUM"),
+                                    "title": misconf.get("Title", ""),
+                                    "name": misconf.get("Message", misconf.get("Title", "")),
+                                    "file": result.get("Target", ""),
+                                    "line": 0,
+                                    "resource": misconf.get("CauseMetadata", {}).get("Resource", ""),
+                                    "guideline": misconf.get("PrimaryURL", ""),
+                                })
+                    except (json.JSONDecodeError, KeyError):
+                        continue
+
+            # Parse KICS JSON reports
+            kics_report = self.reports_dir / "kics-results.json"
+            if kics_report.exists():
+                try:
+                    with open(kics_report, "r") as f:
+                        data = json.load(f)
+                    for query in data.get("queries", []):
+                        sev = (query.get("severity") or "MEDIUM").upper()
+                        for file_entry in query.get("files", []):
+                            all_findings.append({
+                                "tool": "kics",
+                                "id": query.get("query_id", "")[:12],
+                                "severity": sev,
+                                "title": query.get("query_name", ""),
+                                "name": query.get("query_name", ""),
+                                "file": file_entry.get("file_name", ""),
+                                "line": file_entry.get("line", 0),
+                                "resource": file_entry.get("resource_type", ""),
+                                "guideline": query.get("query_url", ""),
+                            })
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+            self._cache_data(cache_key, all_findings)
+        else:
+            all_findings = self.cache[cache_key]["data"]
+
+        # Apply filters
+        filtered = all_findings
+        if tool:
+            filtered = [f for f in filtered if f["tool"] == tool]
+        if severity:
+            filtered = [f for f in filtered if f["severity"].upper() == severity.upper()]
+        if search:
+            search_lower = search.lower()
+            filtered = [f for f in filtered if (
+                search_lower in f.get("title", "").lower() or
+                search_lower in f.get("file", "").lower() or
+                search_lower in f.get("resource", "").lower() or
+                search_lower in f.get("id", "").lower()
+            )]
+
+        # Severity counts for the filtered set
+        sev_counts = {}
+        for f in filtered:
+            s = f.get("severity", "UNKNOWN").upper()
+            sev_counts[s] = sev_counts.get(s, 0) + 1
+
+        # Tool counts
+        tool_counts = {}
+        for f in filtered:
+            t = f.get("tool", "unknown")
+            tool_counts[t] = tool_counts.get(t, 0) + 1
+
+        total = len(filtered)
+        page = filtered[offset:offset + limit]
+
+        return {
+            "findings": page,
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "severity_counts": sev_counts,
+            "tool_counts": tool_counts,
+        }
     
     def get_cost_analysis(self) -> Dict[str, Any]:
         """Load from terraform plan files or cost analysis cache."""

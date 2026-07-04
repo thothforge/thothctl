@@ -59,6 +59,49 @@ class DashboardService:
             except Exception as e:
                 logger.error(f"Scan results API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/findings")
+        async def api_findings(
+            tool: str = None,
+            severity: str = None,
+            search: str = None,
+            limit: int = 100,
+            offset: int = 0,
+        ):
+            """API endpoint for individual findings with filtering."""
+            try:
+                result = self.data_loader.get_findings(
+                    tool=tool, severity=severity, search=search,
+                    limit=limit, offset=offset,
+                )
+                return result
+            except Exception as e:
+                logger.error(f"Findings API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/reports/{report_path:path}")
+        async def api_serve_report(report_path: str):
+            """Serve individual HTML report files for iframe viewing."""
+            from fastapi.responses import FileResponse
+            import os
+
+            # Resolve path safely within the project directory
+            full_path = Path(os.getcwd()) / report_path
+            # Security: ensure the resolved path is within the project
+            try:
+                full_path = full_path.resolve()
+                cwd = Path(os.getcwd()).resolve()
+                if not str(full_path).startswith(str(cwd)):
+                    raise HTTPException(status_code=403, detail="Access denied")
+            except Exception:
+                raise HTTPException(status_code=403, detail="Invalid path")
+
+            if not full_path.exists() or not full_path.is_file():
+                raise HTTPException(status_code=404, detail="Report not found")
+            if full_path.suffix not in (".html", ".json", ".xml", ".sarif"):
+                raise HTTPException(status_code=403, detail="File type not allowed")
+
+            return FileResponse(str(full_path), media_type="text/html" if full_path.suffix == ".html" else "application/json")
         
         @self.app.get("/api/cost-analysis")
         async def api_cost_analysis():
