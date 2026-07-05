@@ -762,20 +762,61 @@
     function renderCosts() {
         const d = D.costs;
         if (!d || err(d)) { document.getElementById('costs-content').innerHTML = msg(d?.error||d?.message||'No data', d?.command); return; }
-        const monthly = d.total_monthly_cost||0, annual = d.total_annual_cost||0;
-        let html = `<div class="summary-grid"><div class="card" style="border-color:var(--warning)"><div class="card-number" style="color:var(--warning)">$${monthly.toFixed(2)}</div><div class="card-label">Monthly</div></div><div class="card" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">$${annual.toFixed(2)}</div><div class="card-label">Annual</div></div></div>`;
-        if (d.cost_breakdown_by_service) {
-            html += '<table class="data-table"><thead><tr><th>Service</th><th>Monthly Cost</th></tr></thead><tbody>';
-            Object.entries(d.cost_breakdown_by_service).sort((a,b)=>b[1]-a[1]).forEach(([svc,cost]) => {
-                html += `<tr><td>${svc}</td><td>$${cost.toFixed(2)}</td></tr>`;
+        // Handle both flat and nested (summary) structures
+        const summary = d.summary || d;
+        const monthly = summary.total_monthly_cost || d.total_monthly_cost || 0;
+        const annual = summary.total_annual_cost || d.total_annual_cost || 0;
+        const services = d.cost_by_service || d.cost_breakdown_by_service || {};
+        const resources = d.resources || [];
+        const recommendations = d.recommendations || [];
+        const warnings = d.warnings || [];
+        const region = summary.region || '—';
+
+        let html = `<div class="summary-grid">
+            <div class="card" style="border-color:var(--warning)"><div class="card-number" style="color:var(--warning)">$${monthly.toFixed(2)}</div><div class="card-label">Monthly</div></div>
+            <div class="card" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">$${annual.toFixed(2)}</div><div class="card-label">Annual</div></div>
+            <div class="card"><div class="card-number">${resources.length}</div><div class="card-label">Resources</div></div>
+            <div class="card" style="border-color:var(--info)"><div class="card-number" style="font-size:1rem;color:var(--info)">${region}</div><div class="card-label">Region</div></div>
+        </div>`;
+
+        // Service breakdown
+        const serviceEntries = Object.entries(services).sort((a,b) => b[1] - a[1]);
+        if (serviceEntries.length) {
+            html += '<h3 style="margin:20px 0 12px;color:var(--primary)">📊 Cost by Service</h3>';
+            html += '<table class="findings-table"><thead><tr><th>Service</th><th>Monthly Cost</th><th>% of Total</th></tr></thead><tbody>';
+            serviceEntries.forEach(([svc, cost]) => {
+                const pct = monthly > 0 ? (cost / monthly * 100).toFixed(1) : '0.0';
+                html += `<tr><td><strong>${svc}</strong></td><td>$${cost.toFixed(2)}</td><td>${pct}%</td></tr>`;
             });
             html += '</tbody></table>';
         }
-        if (d.recommendations && d.recommendations.length) {
-            html += '<h3 style="margin:16px 0 8px">💡 Recommendations</h3><ul style="padding-left:20px">';
-            d.recommendations.forEach(r => html += `<li style="margin:4px 0">${r}</li>`);
+
+        // Resources detail
+        if (resources.length) {
+            html += '<h3 style="margin:20px 0 12px;color:var(--primary)">🏗️ Resource Details</h3>';
+            html += '<div class="findings-wrap"><table class="findings-table"><thead><tr><th>Resource</th><th>Service</th><th>Action</th><th>Monthly</th><th>Confidence</th></tr></thead><tbody>';
+            resources.slice(0, 30).forEach(r => {
+                const confClass = r.confidence === 'high' ? 'updated' : (r.confidence === 'low' ? 'outdated' : 'unknown');
+                html += `<tr><td title="${r.address}"><strong>${r.address?.split('.').pop() || r.address || '—'}</strong><div style="font-size:0.65rem;color:var(--secondary)">${r.type||''}</div></td><td>${r.service||'—'}</td><td>${r.action||'—'}</td><td>$${(r.monthly_cost||0).toFixed(2)}</td><td><span class="status-chip ${confClass}">${r.confidence||'—'}</span></td></tr>`;
+            });
+            if (resources.length > 30) html += `<tr><td colspan="5" style="text-align:center;color:var(--secondary)">... and ${resources.length - 30} more resources</td></tr>`;
+            html += '</tbody></table></div>';
+        }
+
+        // Recommendations
+        if (recommendations.length) {
+            html += '<h3 style="margin:20px 0 12px;color:var(--success)">💡 Recommendations</h3><ul style="padding-left:20px">';
+            recommendations.forEach(r => html += `<li style="margin:6px 0">${r}</li>`);
             html += '</ul>';
         }
+
+        // Warnings
+        if (warnings.length) {
+            html += '<h3 style="margin:20px 0 12px;color:var(--warning)">⚠️ Warnings</h3><ul style="padding-left:20px">';
+            warnings.forEach(w => html += `<li style="margin:6px 0;color:var(--warning)">${w}</li>`);
+            html += '</ul>';
+        }
+
         document.getElementById('costs-content').innerHTML = html;
     }
 
