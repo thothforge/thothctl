@@ -47,6 +47,16 @@ class DashboardService:
             except Exception as e:
                 logger.error(f"Inventory API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/sbom")
+        async def api_sbom():
+            """API endpoint for CycloneDX SBOM data."""
+            try:
+                result = self.data_loader.get_sbom_data()
+                return result
+            except Exception as e:
+                logger.error(f"SBOM API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
         
         @self.app.get("/api/scan-results")
         async def api_scan_results():

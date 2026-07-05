@@ -55,6 +55,31 @@ class DashboardDataLoader:
                 "command": "ls -la Reports/"
             }
     
+    def get_sbom_data(self) -> Dict[str, Any]:
+        """Load CycloneDX SBOM JSON for detailed component browsing."""
+        cache_key = "sbom"
+        if self._is_cache_valid(cache_key):
+            return self.cache[cache_key]["data"]
+
+        try:
+            sbom_files = list(self.reports_dir.glob("**/InventoryIaC_cyclonedx_*.json"))
+            if not sbom_files:
+                return {
+                    "error": "No SBOM data found",
+                    "action": "Run inventory to generate CycloneDX SBOM",
+                    "command": "thothctl inventory iac --check-versions"
+                }
+
+            latest_file = max(sbom_files, key=lambda f: f.stat().st_mtime)
+            with open(latest_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            self._cache_data(cache_key, data)
+            return data
+
+        except Exception as e:
+            return {"error": f"Error loading SBOM: {str(e)}"}
+
     def get_scan_results(self) -> Dict[str, Any]:
         """Load from existing scan report files."""
         cache_key = "scan_results"
