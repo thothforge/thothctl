@@ -103,6 +103,28 @@
         .view-toggle { display:flex; gap:4px; margin-left:auto; }
         .view-toggle button { padding:4px 10px; border:1px solid #dee2e6; background:#fff; border-radius:4px; cursor:pointer; font-size:0.75rem; }
         .view-toggle button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+        /* Inventory SBOM Viewer */
+        .inv-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:#f8f9fa; border-radius:var(--radius); }
+        .inv-toolbar input { padding:6px 12px; border:1px solid #dee2e6; border-radius:6px; font-size:0.8rem; font-family:inherit; flex:1; min-width:180px; }
+        .inv-toolbar select { padding:6px 12px; border:1px solid #dee2e6; border-radius:6px; font-size:0.8rem; font-family:inherit; min-width:120px; }
+        .status-chip { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.68rem; font-weight:600; text-transform:uppercase; }
+        .status-chip.outdated { background:#fef2f2; color:#dc2626; }
+        .status-chip.updated, .status-chip.current { background:#f0fdf4; color:#16a34a; }
+        .status-chip.unknown { background:#f3f4f6; color:#6b7280; }
+        .ver-current { font-family:monospace; color:#2563eb; font-size:0.78rem; }
+        .ver-latest { font-family:monospace; color:#16a34a; font-size:0.78rem; }
+        .ver-mismatch { color:#dc2626; }
+        .stack-group { margin-bottom:12px; border:1px solid #e5e7eb; border-radius:var(--radius); overflow:hidden; }
+        .stack-group-header { padding:10px 14px; background:#f9fafb; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-weight:600; font-size:0.85rem; transition:background .2s; }
+        .stack-group-header:hover { background:#f3f4f6; }
+        .stack-group-body { display:none; }
+        .stack-group-body.open { display:block; }
+        .stack-group-count { font-size:0.7rem; color:var(--secondary); font-weight:400; }
+        .inv-tabs { display:flex; gap:4px; margin-bottom:16px; }
+        .inv-tab { padding:6px 14px; border-radius:16px; font-size:0.75rem; font-weight:500; cursor:pointer; background:#e9ecef; color:var(--dark); transition:all .2s; border:none; }
+        .inv-tab:hover { background:var(--primary); color:#fff; }
+        .inv-tab.active { background:var(--primary); color:#fff; }
     </style>
 </head>
 <body>
@@ -127,7 +149,12 @@
         </div>
 
         <section id="overview" class="content-section active"><h2 class="section-title">📊 Overview</h2><div id="overview-content"><div class="message">Loading...</div></div></section>
-        <section id="inventory" class="content-section"><h2 class="section-title">📦 Infrastructure Inventory</h2><div id="inventory-content"><div class="message">Loading...</div></div></section>
+        <section id="inventory" class="content-section">
+            <h2 class="section-title">📦 Infrastructure Inventory (SBOM)</h2>
+            <div id="inv-summary"></div>
+            <div id="inv-toolbar"></div>
+            <div id="inv-content"><div class="message">Loading...</div></div>
+        </section>
         <section id="security" class="content-section">
             <h2 class="section-title">🔒 Security Scan Results</h2>
             <div id="security-summary"></div>
@@ -202,19 +229,169 @@
 
     function renderInventory() {
         const d = D.inventory;
-        if (!d || err(d)) { document.getElementById('inventory-content').innerHTML = msg(d?.error||d?.message||'No data', d?.command); return; }
-        const stacks = d.stacks || d.components || [];
-        if (!stacks.length) { document.getElementById('inventory-content').innerHTML = msg('No components found'); return; }
-        let html = `<div class="summary-grid"><div class="card"><div class="card-number">${stacks.length}</div><div class="card-label">Stacks</div></div></div>`;
-        html += '<table class="data-table"><thead><tr><th>Stack</th><th>Modules</th><th>Providers</th></tr></thead><tbody>';
+        if (!d || err(d)) { document.getElementById('inv-summary').innerHTML = msg(d?.error||d?.message||'No data', d?.command); return; }
+        const stacks = d.components || [];
+        if (!stacks.length) { document.getElementById('inv-summary').innerHTML = msg('No components found'); return; }
+
+        // Calculate stats
+        let totalMods = 0, outdated = 0, updated = 0, unknown = 0, totalProvs = 0, localMods = 0;
         stacks.forEach(s => {
-            const name = s.stack || s.name || 'unknown';
-            const mods = s.modules ? s.modules.length : (s.components ? s.components.length : 0);
-            const provs = s.providers ? s.providers.length : 0;
-            html += `<tr><td><strong>${name}</strong></td><td>${mods}</td><td>${provs}</td></tr>`;
+            (s.components||[]).forEach(c => {
+                totalMods++;
+                const st = (c.status||'').toLowerCase();
+                if (st === 'outdated') outdated++;
+                else if (st === 'updated') updated++;
+                else unknown++;
+                const src = Array.isArray(c.source) ? c.source[0]||'' : c.source||'';
+                if (src.startsWith('./') || src.startsWith('../')) localMods++;
+            });
+            totalProvs += (s.providers||[]).length;
         });
-        html += '</tbody></table>';
-        document.getElementById('inventory-content').innerHTML = html;
+
+        // Summary cards
+        let html = `<div class="summary-grid">
+            <div class="card"><div class="card-number">${stacks.length}</div><div class="card-label">Stacks</div></div>
+            <div class="card"><div class="card-number">${totalMods}</div><div class="card-label">Modules</div></div>
+            <div class="card" style="border-color:var(--success)"><div class="card-number" style="color:var(--success)">${updated}</div><div class="card-label">Up to Date</div></div>
+            <div class="card" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">${outdated}</div><div class="card-label">Outdated</div></div>
+            <div class="card" style="border-color:var(--secondary)"><div class="card-number" style="color:var(--secondary)">${totalProvs}</div><div class="card-label">Providers</div></div>
+            <div class="card" style="border-color:var(--info)"><div class="card-number" style="color:var(--info)">${localMods}</div><div class="card-label">Local</div></div>
+        </div>`;
+        document.getElementById('inv-summary').innerHTML = html;
+
+        // Toolbar with search and filter
+        let toolbar = `<div class="inv-toolbar">
+            <input type="text" id="inv-search" placeholder="Search modules, providers, sources..." oninput="filterInventory()">
+            <select id="inv-status-filter" onchange="filterInventory()">
+                <option value="">All Status</option>
+                <option value="outdated">Outdated</option>
+                <option value="updated">Up to Date</option>
+                <option value="unknown">Unknown</option>
+            </select>
+            <div class="inv-tabs">
+                <button class="inv-tab active" onclick="setInvView('all',this)">All</button>
+                <button class="inv-tab" onclick="setInvView('modules',this)">Modules</button>
+                <button class="inv-tab" onclick="setInvView('providers',this)">Providers</button>
+            </div>
+        </div>`;
+        document.getElementById('inv-toolbar').innerHTML = toolbar;
+
+        // Store data for filtering
+        window._invData = stacks;
+        window._invView = 'all';
+        renderInventoryContent();
+    }
+
+    function setInvView(view, btn) {
+        window._invView = view;
+        document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        renderInventoryContent();
+    }
+
+    function filterInventory() {
+        renderInventoryContent();
+    }
+
+    function renderInventoryContent() {
+        const stacks = window._invData || [];
+        const search = (document.getElementById('inv-search')?.value||'').toLowerCase();
+        const statusFilter = document.getElementById('inv-status-filter')?.value||'';
+        const view = window._invView || 'all';
+        let html = '';
+
+        stacks.forEach((stack, idx) => {
+            const stackName = stack.stack || stack.name || 'unknown';
+            const components = stack.components || [];
+            const providers = stack.providers || [];
+
+            // Filter components
+            const filteredComps = components.filter(c => {
+                if (statusFilter && (c.status||'unknown').toLowerCase() !== statusFilter) return false;
+                if (search) {
+                    const src = Array.isArray(c.source) ? c.source[0]||'' : c.source||'';
+                    const haystack = `${c.name||''} ${src} ${c.version||''} ${c.latest_version||''}`.toLowerCase();
+                    if (!haystack.includes(search)) return false;
+                }
+                return true;
+            });
+
+            // Filter providers
+            const filteredProvs = providers.filter(p => {
+                if (statusFilter && (p.status||'unknown').toLowerCase() !== statusFilter) return false;
+                if (search) {
+                    const haystack = `${p.name||''} ${p.source||''} ${p.version||''} ${p.latest_version||''}`.toLowerCase();
+                    if (!haystack.includes(search)) return false;
+                }
+                return true;
+            });
+
+            const showMods = view === 'all' || view === 'modules';
+            const showProvs = view === 'all' || view === 'providers';
+            const visibleCount = (showMods ? filteredComps.length : 0) + (showProvs ? filteredProvs.length : 0);
+            if (visibleCount === 0) return;
+
+            html += `<div class="stack-group">
+                <div class="stack-group-header" onclick="toggleStack(${idx})">
+                    <span>📁 ${stackName}</span>
+                    <span class="stack-group-count">${visibleCount} component${visibleCount!==1?'s':''}</span>
+                </div>
+                <div class="stack-group-body" id="stack-body-${idx}">`;
+
+            // Modules table
+            if (showMods && filteredComps.length) {
+                html += `<table class="findings-table"><thead><tr><th>Module</th><th>Source</th><th>Current</th><th>Latest</th><th>Status</th></tr></thead><tbody>`;
+                filteredComps.forEach(c => {
+                    const ver = Array.isArray(c.version) ? c.version[0]||'—' : c.version||'—';
+                    const latest = c.latest_version||'—';
+                    const src = Array.isArray(c.source) ? c.source[0]||'' : c.source||'';
+                    const shortSrc = src.length > 50 ? '...' + src.slice(-47) : src;
+                    const status = (c.status||'Unknown').toLowerCase();
+                    const statusLabel = status === 'updated' ? 'Current' : status.charAt(0).toUpperCase()+status.slice(1);
+                    const verClass = (status === 'outdated') ? 'ver-mismatch' : '';
+                    html += `<tr>
+                        <td><strong>${c.name||'—'}</strong></td>
+                        <td title="${src}" style="font-size:0.7rem;color:var(--secondary)">${shortSrc||'—'}</td>
+                        <td><span class="ver-current">${ver}</span></td>
+                        <td><span class="ver-latest ${verClass}">${latest}</span></td>
+                        <td><span class="status-chip ${status}">${statusLabel}</span></td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+
+            // Providers table
+            if (showProvs && filteredProvs.length) {
+                html += `<table class="findings-table"><thead><tr><th>Provider</th><th>Source</th><th>Current</th><th>Latest</th><th>Status</th><th>Module</th></tr></thead><tbody>`;
+                filteredProvs.forEach(p => {
+                    const status = (p.status||'Unknown').toLowerCase();
+                    const statusLabel = status === 'current' ? 'Current' : status.charAt(0).toUpperCase()+status.slice(1);
+                    const verClass = (status === 'outdated') ? 'ver-mismatch' : '';
+                    html += `<tr>
+                        <td><strong>${p.name||'—'}</strong></td>
+                        <td style="font-size:0.7rem;color:var(--secondary)">${p.source||'—'}</td>
+                        <td><span class="ver-current">${p.version||'—'}</span></td>
+                        <td><span class="ver-latest ${verClass}">${p.latest_version||'—'}</span></td>
+                        <td><span class="status-chip ${status}">${statusLabel}</span></td>
+                        <td style="font-size:0.7rem">${p.module||p.component||'—'}</td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+
+            html += `</div></div>`;
+        });
+
+        if (!html) html = msg('No components match the current filters');
+        document.getElementById('inv-content').innerHTML = html;
+        // Auto-expand first stack
+        const first = document.getElementById('stack-body-0');
+        if (first) first.classList.add('open');
+    }
+
+    function toggleStack(idx) {
+        const el = document.getElementById('stack-body-' + idx);
+        if (el) el.classList.toggle('open');
     }
 
     function renderSecurity() {
