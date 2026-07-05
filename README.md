@@ -1,453 +1,205 @@
 [![Publish Python Package](https://github.com/thothforge/thothctl/actions/workflows/python-publish.yml/badge.svg)](https://github.com/thothforge/thothctl/actions/workflows/python-publish.yml)
-# Thoth Framework
+[![Documentation](https://github.com/thothforge/thothctl/actions/workflows/docs.yml/badge.svg)](https://thothforge.github.io/thothctl/)
+[![PyPI version](https://img.shields.io/pypi/v/thothctl)](https://pypi.org/project/thothctl/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
-![ThothCTL MCP](./docs/img/framework/thothctl_mcp.png)
+# ThothCTL
 
-Thoth Framework is a framework to create and manage the [Internal Developer Platform](https://internaldeveloperplatform.org/what-is-an-internal-developer-platform/) tasks for infrastructure, devops, devsecops, software developers, and platform engineering teams aligned with the business objectives:
+**AI-Powered Infrastructure Lifecycle CLI** for DevSecOps, Platform Engineering, and IaC governance.
 
-1. [x] Minimize mistakes.
-2. [x] Increase velocity
-3. [x] Improve products
-4. [x] Enforce compliance
-5. [x] Reduce lock-in
+![ThothCTL](./docs/img/framework/thothctl_mcp.png)
 
-## Mapping Mechanisms 
-| Business Objective | Mechanism          | Implementation |
-|-------------------|--------------------|----------------|
-| Minimize mistakes | Meaninful defaults | Templates      |
-| Increase velocity | Automation         | IaC Scripts    |
-| Improve products | Fill product gaps  | New components |
-| Enforce compliance | Restrict choinces  | Wrappers       |
-| Reduce lock-in | Abstraction        | Service layers |
+ThothCTL accelerates the adoption of Internal Developer Platforms by combining security scanning, inventory management, cost analysis, AI-driven code review, and organizational policy enforcement into a single CLI.
 
-Thoth allows you to extend and operate your Developer Control Plane, and enable the developer experience with the internal developer platform trough command line.
-
-![Thoth and DCP ](./docs/img/framework/thothfr.png)
-
-# Tools
-
-## ThothCTL
-
-Package for accelerating the adoption of Internal Frameworks, enable reusing and interaction with the Internal Developer Platform. 
-
-# Use cases
-- **[Template Engine](template_engine/template_engine.md)**:
-  - Build and configure any kind of template
-  - Handling templates to create, add, remove or update components
-  - Code generation
-  
-- **Automate tasks**:
-  - Create and bootstrap local development environment
-  - Extend CI/CD pull request workflow
-  - Create documentation for projects (IaC), Generative AI doc generation
-
-- **Check and compliance**:
-  - Check project structure
-    - DevSecOps for IaC (Terraform, tofu)
-      - Scan your IaC terraform,tofu templates
-      - Generate reports 
-      - Manage inventory and dependencies
-      - Review IaC changes and make suggestions (Generative AI)
-      - **AWS Cost Analysis** - Estimate infrastructure costs from Terraform plans
-        - Offline pricing estimates (regularly updated)
-        - Service-by-service cost breakdown
-        - Optimization recommendations
-        - Support for 14 AWS services (EC2, RDS, S3, Lambda, EKS, ECS, etc.)
-      - **Drift Detection** - Detect infrastructure drift between IaC and live cloud
-        - Compares terraform state against actual cloud resources
-        - Severity-based classification (critical/high/medium/low)
-        - IaC coverage percentage tracking and trending over time
-        - Tag-based filtering, `.driftignore`, and `.driftpolicy` support
-- **🤖 AI Agent for IaC Security** *(NEW)*:
-  - Multi-agent orchestrator with specialized Security, Architecture, Fix, and Decision agents
-  - Auto-decision engine for PRs (approve/reject/request-changes) with safety controls
-  - Code improvement & auto-fix generation for Checkov/KICS/Trivy findings
-  - Multi-provider support: OpenAI, AWS Bedrock, Azure OpenAI, Ollama (local models)
-  - Adaptive memory: local filesystem or S3 (auto-detects Bedrock AgentCore runtime)
-  - MCP integration for AI assistant interoperability
-      
-- **Internal Developer Platform CLI**
-  - Create projects from your templates
-  - Source control setup
-  - Scaffold - quickly set up the structure of a project.
-  
-
-
-# Getting Started
+## Quick Start
 
 ```bash
-$ thothctl --help
-Usage: thothctl [OPTIONS] COMMAND [ARGS]...
+pip install --upgrade thothctl
 
-  ThothForge CLI - The Internal Developer Platform CLI
+# Scan for security issues
+thothctl scan iac -t checkov -t trivy -t opa
 
-Options:
-  --version                  Show the version and exit.
-  --debug                    Enable debug mode
-  -d, --code-directory PATH  Configuration file path
-  --help                     Show this message and exit.
+# Create infrastructure inventory (SBOM)
+thothctl inventory iac --check-versions
 
-Commands:
-  ai-review  AI-powered security analysis and code review for IaC
-  check      Initialize and setup project configurations
-  document   Initialize and setup project configurations
-  generate   Generate IaC from rules, use cases, and components
-  init       Initialize and setup project configurations
-  inventory  Create Inventory for the iac composition.
-  list       List Projects and Spaces managed by thothctl locally
-  mcp        Model Context Protocol (MCP) server for ThothCTL
-  project    Convert, clean up and manage the current project
-  remove     Remove Projects manage by thothctl
-  scan       Scan infrastructure code for security issues.
-  upgrade    Upgrade thothctl to the latest version
+# Launch web dashboard
+thothctl dashboard launch
 
-## 💰 AWS Cost Analysis
-
-ThothCTL includes comprehensive AWS cost analysis capabilities:
-
-```bash
-# Analyze Terraform plan costs
-thothctl check iac -type cost-analysis --recursive
-
-# Features:
-# ✅ 14 AWS services supported (EC2, RDS, S3, Lambda, EKS, ECS, etc.)
-# ✅ Monthly/annual cost projections
-# ✅ Service-by-service breakdown
-# ✅ Optimization recommendations
-# ✅ No AWS credentials required
-# ✅ Works offline
-```
-
-**Supported Services**: EC2, RDS, S3, Lambda, ELB/ALB/NLB, VPC, EBS, DynamoDB, CloudWatch, EKS, ECS, Secrets Manager, API Gateway, Bedrock
-
-
-## 🔍 Drift Detection
-
-ThothCTL can detect infrastructure drift between your IaC definitions and live cloud resources:
-
-```bash
-# Detect drift across all stacks
-thothctl check iac -type drift --recursive
-
-# Filter by environment tags
-thothctl check iac -type drift --recursive --filter-tags "env=prod"
-
-# With AI-powered analysis
-thothctl check iac -type drift --recursive --ai-provider ollama
-
-# Post drift results to a PR
-thothctl check iac -type drift --recursive --post-to-pr
-
-# Features:
-# ✅ Parses tfplan.json or runs live plans
-# ✅ Severity classification (critical/high/medium/low)
-# ✅ IaC coverage percentage and trending over time
-# ✅ Tag-based filtering (--filter-tags "env=prod,team=*")
-# ✅ Policy-based drift response (.driftpolicy)
-# ✅ AI-powered risk assessment and remediation guidance
-# ✅ .driftignore support
-# ✅ Reports: console, JSON, HTML, markdown
-# ✅ Multi-cloud: AWS, GCP, Azure
-```
-
-## 🔄 Template ↔ Project Conversion
-
-ThothCTL enables bidirectional conversion between working projects and reusable templates:
-
-```bash
-# Convert a working project into a reusable template
-thothctl project convert --make-template --template-project-type terraform
-
-# Create a new project from an existing template
-thothctl project convert --make-project --template-project-type terraform
-
-# Supported types: terraform, tofu, cdkv2, terraform-terragrunt, terragrunt, terraform_module, custom
-```
-
-**Workflow:** Develop a reference architecture → convert to template with `#{placeholder}#` expressions → publish to Git → consume via self-service (Backstage, CLI, or CI/CD).
-
-```
-Working Project ──► make-template ──► Reusable Template ──► make-project ──► New Project
-```
-
-- ✅ Automatic placeholder generation for parameterizable values
-- ✅ `.thothcf.toml` configuration with validation rules per parameter
-- ✅ Backstage integration for self-service consumption
-- ✅ Template upgrade workflow to keep projects in sync with template changes
-- ✅ Support for Terraform, OpenTofu, CDK v2, and Terragrunt
-
-📖 **Full guide**: [Platform Engineering Templates](docs/framework/use_cases/platform_engineering_templates.md) | [Convert Command Reference](docs/framework/commands/project/project_convert.md)
-
-## 🤖 AI Agent for IaC Security
-
-ThothCTL includes a multi-agent AI system for automated security analysis, code review, and PR decisions on Infrastructure as Code projects.
-
-### Architecture
-
-```
-                    ┌──────────────────────┐
-                    │  AgentOrchestrator   │
-                    │  (builds context,    │
-                    │   dispatches agents) │
-                    └──────┬───────────────┘
-           ┌───────────────┼───────────────┐
-           ▼               ▼               ▼
-    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-    │  Security   │ │Architecture │ │    Fix      │
-    │   Agent     │ │   Agent     │ │   Agent     │
-    └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
-           └───────────────┼───────────────┘
-                           ▼
-                    ┌─────────────┐
-                    │  Decision   │
-                    │   Agent     │
-                    └─────────────┘
-```
-
-### Quick Start
-
-```bash
-# Analyze a Terraform project
+# AI-powered security review
 thothctl ai-review analyze -d ./terraform -p ollama
-
-# Generate code fixes for scan findings
-thothctl ai-review improve -d ./terraform --severity high -o fixes.json
-
-# Apply fixes with backup
-thothctl ai-review apply-fix --fixes-file fixes.json --dry-run
-
-# Run multi-agent orchestrated review
-thothctl ai-review orchestrate -d ./terraform -a security -a fix
-
-# Auto-decide on a PR (approve/reject/request-changes)
-thothctl ai-review decide -d ./terraform --pr-number 42 --repository owner/repo --dry-run
-
-# Configure auto-decision thresholds
-thothctl ai-review configure-decisions --enable --approve-threshold 20 --reject-threshold 85
 ```
 
-### Commands
+## Key Features
+
+### 🔒 Security Scanning
+
+Multi-tool scanning with unified HTML reports and enforcement:
+
+```bash
+# All scanners with hard enforcement (fails pipeline on violations)
+thothctl scan iac -t checkov -t trivy -t kics -t opa -t terraform-compliance --enforcement hard
+```
+
+- **5 integrated tools**: Checkov, Trivy, KICS, OPA/Conftest, Terraform-compliance
+- **Unified HTML reports** with severity badges, per-stack breakdown
+- **Non-compliance findings table** on enforcement failure
+- **SARIF output** for GitHub Code Scanning integration
+- **Organization policy repos** via `THOTH_ORG_POLICY` env var (HCL + CloudFormation)
+- **Scan trend tracking** with local SQLite history
+
+### 📦 Infrastructure Inventory (SBOM)
+
+CycloneDX 1.6 compliant Software Bill of Materials:
+
+```bash
+thothctl inventory iac --check-versions
+```
+
+- **Module & provider version tracking** with staleness detection
+- **CycloneDX 1.6 SBOM** with formulation, evidence, standards, attestations, dependency graph, hashes, and licenses
+- **Technical debt scoring** with risk levels and recommendations
+- **Schema compatibility analysis** for safe upgrades
+- **Professional HTML reports** with collapsible stack groups
+
+### 📊 Web Dashboard
+
+Modern FastAPI-based dashboard with dark mode:
+
+```bash
+thothctl dashboard launch
+```
+
+- **Security findings viewer** — filter by tool/severity/search, pagination, inline report iframe
+- **SBOM details browser** — CycloneDX metadata, dependency graph, formulation, attestations
+- **Inventory explorer** — collapsible stacks, module/provider tabs, version comparison
+- **Cost analysis** — service breakdown, monthly/annual projections
+- **Drift detection** — severity-classified drifted resources
+- **AI usage tracking** — token counts, costs per request
+
+### 🤖 AI Agent for IaC Security
+
+Multi-agent system for automated code review and PR decisions:
+
+```bash
+thothctl ai-review analyze -d ./terraform -p ollama
+thothctl ai-review decide -d ./terraform --pr-number 42 --dry-run
+```
+
+- **4 specialized agents**: Security, Architecture, Fix, Decision
+- **Multi-provider**: OpenAI, AWS Bedrock, Azure OpenAI, Ollama (local)
+- **Auto-decisions** with confidence thresholds and safety controls
+- **Adaptive memory**: filesystem or S3 (auto-detects runtime)
+- **MCP integration** for AI assistant interoperability
+
+### 💰 Cost Analysis & Risk Assessment
+
+```bash
+thothctl check iac -type cost-analysis --recursive
+thothctl check iac -type blast-radius --recursive
+thothctl check iac -type drift --recursive
+```
+
+- **14 AWS services** supported (EC2, RDS, S3, Lambda, EKS, etc.)
+- **Blast radius** with ITIL v4 risk classification
+- **Drift detection** with severity scoring and IaC coverage tracking
+
+### 🔄 Template Engine & Project Management
+
+```bash
+thothctl project convert --make-template --template-project-type terraform
+thothctl init project --name my-infra --template terraform-aws
+```
+
+- **Bidirectional conversion** between projects and reusable templates
+- **Backstage integration** for self-service consumption
+- **Template upgrade workflow** to keep projects in sync
+
+## All Commands
 
 | Command | Description |
 |---------|-------------|
-| `analyze` | Run AI security analysis on IaC code |
-| `improve` | Generate actionable code fixes for findings |
-| `apply-fix` | Apply generated fixes with automatic backup |
-| `orchestrate` | Run multiple specialized agents in parallel |
-| `decide` | Auto-decide on PRs with safety controls |
-| `serve` | Start REST API server for CI/CD integration |
-| `configure` | Configure AI provider (OpenAI, Bedrock, Azure, Ollama) |
-| `configure-decisions` | Set auto-decision thresholds and safety rules |
-| `history` | View past AI decision records |
-| `override` | Manually override an AI decision |
-| `report` | Generate analysis reports |
+| `scan iac` | Multi-tool security scanning with enforcement |
+| `inventory iac` | Infrastructure SBOM with version tracking |
+| `check iac` | Cost analysis, blast radius, drift detection, structure validation |
+| `ai-review` | AI-powered security analysis and PR decisions |
+| `dashboard launch` | Web dashboard for all reports |
+| `document iac` | Auto-generate documentation |
+| `project convert` | Template ↔ project conversion |
+| `init project` | Scaffold new IaC projects |
+| `mcp` | Model Context Protocol server |
+| `generate` | Generate IaC from rules and components |
 
-### AI Providers
-
-| Provider | Model | Use Case |
-|----------|-------|----------|
-| OpenAI | GPT-4 Turbo | Best quality analysis |
-| AWS Bedrock | Claude 3 Sonnet | AWS-native, direct model invocation |
-| AWS Bedrock Agent | Claude Sonnet | CI/CD pipelines, production APIs, sessions |
-| Azure OpenAI | GPT-4 | Enterprise Azure environments |
-| Ollama | Llama 3, Mistral, etc. | Local/offline, no data leaves your machine |
-
-### Adaptive Memory
-
-The agent automatically selects the right memory backend based on the runtime:
-
-| Runtime | Memory Backend | Storage |
-|---------|---------------|---------|
-| Local (CLI) | Filesystem | `.thothctl/ai_sessions/` |
-| Bedrock AgentCore | S3 | `s3://{bucket}/thothctl/ai_sessions/` |
-
-Memory stores previous analysis results per repository, enabling the agent to track trends and provide continuity across reviews.
+## Installation
 
 ```bash
-# Environment variables for memory configuration
-export THOTH_MEMORY_MODE=auto            # auto, local, or agentcore
-export THOTH_MEMORY_S3_BUCKET=my-bucket  # S3 bucket for agentcore mode
-export THOTH_MEMORY_DIR=.thothctl/ai_sessions  # Local storage directory
-```
-
-### Safety Controls
-
-Auto-decisions are **disabled by default** and include multiple safety layers:
-
-- Confidence thresholds (90% for approve, 85% for reject)
-- Daily rate limits (50 approvals, 20 rejections per day)
-- Cooldown between actions (5 minutes)
-- Emergency label detection (hotfix, security-patch)
-- Trusted bot bypass (dependabot, renovate)
-- `--dry-run` always available for previewing decisions
-
-### MCP Integration
-
-The AI review is exposed as an MCP tool (`thothctl_ai_review`) with four modes:
-
-```json
-{
-  "mode": "analyze | decide | improve | orchestrate",
-  "directory": "./terraform",
-  "provider": "ollama",
-  "agents": ["security", "architecture", "fix", "decision"]
-}
-```
-
-## Enabling Command Autocompletion
-
-ThothCTL supports command autocompletion to make it easier to use. To enable it:
-
-```bash
-# Install the package
-pip install thothctl
-
-# Run the autocomplete setup script
-thothctl-register-autocomplete
-
-# Follow the instructions to add the autocomplete configuration to your shell
-```
-
-After setting up autocomplete, you can use the Tab key to complete commands, options, and arguments.
-
-For example, you can type `thothctl i<TAB>` and it will expand to `thothctl init`.
-
-## 🎯 Recent Improvements - Inventory Command
-
-### **Modern Infrastructure Inventory with Professional Reports** ✨
-
-The `thothctl inventory iac` command has been significantly enhanced with:
-
-#### **🎨 Modern HTML Reports**
-- **Professional styling** with Inter font and gradient design
-- **Responsive layout** that works on desktop, tablet, and mobile
-- **Color-coded status badges** for easy identification of outdated components
-- **Print optimization** perfect for documentation and sharing
-
-#### **🚀 Unified Version Checking**
-```bash
-# Before: Confusing multiple flags
-thothctl inventory iac --check-providers --check-provider-versions --check-versions
-
-# After: Simple and intuitive
-thothctl inventory iac --check-versions
-```
-
-#### **📊 Enhanced Provider Analysis**
-- **Provider version columns** showing "Latest Version" and "Status"
-- **Comprehensive provider tracking** with registry information
-- **Automatic provider checking** when version analysis is enabled
-- **Provider statistics** in summary reports
-
-#### **Quick Start**
-```bash
-# Create comprehensive inventory with modern reporting
-thothctl inventory iac --check-versions
-
-# Generate professional documentation
-thothctl inventory iac --check-versions --project-name "Production Infrastructure"
-
-# CI/CD integration with JSON output
-thothctl inventory iac --check-versions --report-type json
-```
-
-**Benefits:**
-- ✅ **50% reduction** in command complexity
-- ✅ **Professional reports** suitable for business presentations
-- ✅ **Enhanced provider analysis** with version tracking
-- ✅ **Simplified user experience** with intelligent automation
-
-## Third Party Tools
-
-### [OpenTofu](https://opentofu.org/)
-OpenTofu is a fork of Terraform that is open-source, community-driven, and managed by the Linux Foundation.
-
-### [Backstage](https://backstage.io/)
-An open source framework for building developer portals.
-
-### [Terragrunt](https://terragrunt.gruntwork.io/)
-Terragrunt is a flexible orchestration tool that allows Infrastructure as Code to scale. 
-
-### [Terraform-docs](https://terraform-docs.io/)
-Generate Terraform modules documentation in various formats.
-
-### [Checkov](https://www.checkov.io/)
-Checkov scans cloud infrastructure configurations to find misconfigurations before they're deployed.
-
-### [KICS](https://docs.kics.io/latest/)
-KICS (Keeping Infrastructure as Code Secure) by Checkmarx finds security vulnerabilities, compliance issues, and infrastructure misconfigurations in IaC.
-
-**Requirements**: Docker must be installed and running to use KICS scanner.
-- Install Docker: https://docs.docker.com/get-docker/
-- KICS runs via Docker container (checkmarx/kics:latest)
-
-### [Trivy](https://trivy.dev/latest/)
-Use Trivy to find vulnerabilities (CVE) & misconfigurations (IaC) across code repositories, binary artifacts, container images, Kubernetes clusters, and more. All in one tool! 
-
-# Requirements
- - Linux Environment or Windows environment
-
-> This documentation uses wsl with ubuntu 24.04 but you can use other superior version
-
-## OS Packages
-
-- dot or graphviz
-- graph-easy (optional, for `--format boxart` topology view)
-
-You can install them with:
-
-### Windows
- Chocolatey packages Graphviz for **Windows**.
-
-`choco install graphviz`
-
-> For `graph-easy` on Windows, use WSL: `sudo apt install libgraph-easy-perl`
-
-### Linux
-Install packages with apt for Linux/Debian
-- 
-```bash 
-sudo apt install graphviz libgraph-easy-perl -y
-```
-
-### macOS
-```bash
-brew install graphviz graph-easy
-```
-- python >= 3.8 
-    - check: `python --version` 
-
-### AddOns
-
-If you are going to send messages to Microsoft Teams channel you must set an environment variable with name `webhook`
-> Visit [Webhooks and connectors](https://docs.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/what-are-webhooks-and-connectors) for more.
-
-### Python packages
-
-There are many dependencies for thothctl functions, these dependencies are automatically installed when run `pip install` command.
-
-
-# Install
-
-```Bash
 pip install --upgrade thothctl
 ```
 
-## Version control Systems (Azure DevOps, Github, Gitlab)
+**Requirements**: Python 3.10+ | Linux, macOS, or Windows (WSL)
 
-# RoadMap 🧗‍♂
+**Optional system packages**:
+```bash
+# Linux/Debian
+sudo apt install graphviz libgraph-easy-perl -y
 
- - ~~Add Autocomplete to Commands and subcommands~~
- - ~~Integrate MCP to improve compatibility and interoperability with AI LLM~~
- - ~~Improve Inventory capabilities~~
- - ~~AI Agent for IaC Security — multi-agent orchestrator, auto-decisions, code fixes, adaptive memory~~
- - Create Stacks and Infrastructure composition engine
- - Strands Agents SDK integration for advanced memory and session management
- - **Intent-to-IaC Generation** — Natural language → governed Terraform/Tofu code, grounded in organizational templates and rules
- - **Organizational Rulesets / Policy Engine** — Custom naming, tagging, security, and architecture rules enforced at generation and CI/CD time (OPA/Rego support)
- - **Compliance Scoring with Evidence** — Scored findings mapped to SOC2/ISO27001/CIS/NIST, code citations, auditor-ready evidence export
- - **Composable Workflow Engine** — Declarative YAML workflows with DAG dependencies for multi-step IaC operations (scan → review → fix → validate → deploy)
- - **Graph-Aware State Visibility** — Parse tfstate into queryable resource graph (SQLite), blast radius analysis, SQL queries across all infrastructure
- - **Architecture Diagram Generation** — Auto-generate Mermaid/Graphviz topology diagrams from IaC, synced with code changes
+# macOS
+brew install graphviz graph-easy
+```
 
-📖 **Full roadmap**: [ThothCTL Roadmap 2026 — Competitive Analysis & Plan](../thothctl_roadmap_2026.md)
+### Dev Container
+
+A ready-to-use [Dev Container](.devcontainer/) is available with all tools pre-configured:
+
+```bash
+# Open in VS Code → "Reopen in Container"
+# Or use the devcontainer CLI:
+devcontainer up --workspace-folder .
+```
+
+## Documentation
+
+📖 **Full docs**: [thothforge.github.io/thothctl](https://thothforge.github.io/thothctl/)
+
+- [Quick Start](docs/quick_start.md)
+- [DevSecOps SDLC Guide](docs/framework/use_cases/devsecops_sdlc.md)
+- [Scan Command Reference](docs/framework/commands/scan/scan_overview.md)
+- [Inventory & SBOM](docs/framework/commands/inventory/inventory_overview.md)
+- [Dashboard](docs/dashboard/README.md)
+- [AI Review](docs/framework/commands/ai-review/README.md)
+- [Template Engine](docs/template_engine/template_engine.md)
+- [Dev Container Setup](docs/installation/devcontainer_setup.md)
+
+## CI/CD Integration
+
+```yaml
+# GitHub Actions
+- name: Security scan
+  run: thothctl scan iac -t checkov -t trivy -t opa --enforcement hard --post-to-pr
+
+- name: Inventory check
+  run: thothctl inventory iac --check-versions --report-type json
+```
+
+## Roadmap
+
+- [x] Multi-tool security scanning with unified reports
+- [x] AI Agent for IaC Security (multi-agent, auto-decisions)
+- [x] CycloneDX 1.6 SBOM with full supply chain metadata
+- [x] Organization policy engine (OPA/Rego, HCL + CloudFormation)
+- [x] Web Dashboard with findings viewer and SBOM browser
+- [ ] Intent-to-IaC generation (natural language → governed Terraform)
+- [ ] Composable workflow engine (declarative YAML DAG pipelines)
+- [ ] Graph-aware state visibility (tfstate → queryable resource graph)
+- [ ] Architecture diagram generation (Mermaid/Graphviz from IaC)
+- [ ] Strands Agents SDK integration
+
+📖 [Full Roadmap](docs/framework/roadmap_fdi.md)
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+[Apache-2.0](LICENSE)
