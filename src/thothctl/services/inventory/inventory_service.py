@@ -611,6 +611,12 @@ class InventoryService:
             reports_path = source_path / reports_path
             
         reports_path.mkdir(exist_ok=True, parents=True)
+
+        # Always produce JSON (required by dashboard and API consumers)
+        self.report_service.create_json_report(
+            inventory_dict,
+            reports_directory=str(reports_path)
+        )
         
         if report_type in ("html", "all"):
             html_reports_path = reports_path / "html_reports"
@@ -618,12 +624,6 @@ class InventoryService:
             html_path = self.report_service.create_html_report(
                 inventory_dict, 
                 reports_directory=str(html_reports_path)
-            )
-
-        if report_type in ("json", "all"):
-            self.report_service.create_json_report(
-                inventory_dict,
-                reports_directory=str(reports_path)
             )
 
         if report_type in ("cyclonedx", "all"):
@@ -1071,12 +1071,13 @@ class InventoryService:
         reports_path = Path(reports_directory) / "inventory"
         reports_path.mkdir(parents=True, exist_ok=True)
 
+        # Always produce JSON (required by dashboard)
+        self.report_service.create_json_report(inventory_dict, reports_directory=str(reports_path))
+
         if report_type in ("html", "all"):
             html_reports_path = reports_path / "html_reports"
             html_reports_path.mkdir(parents=True, exist_ok=True)
             self.report_service.create_html_report(inventory_dict, reports_directory=str(html_reports_path))
-        if report_type in ("json", "all"):
-            self.report_service.create_json_report(inventory_dict, reports_directory=str(reports_path))
         if print_console:
             self.report_service.print_inventory_console(inventory_dict)
 
@@ -1410,6 +1411,12 @@ class InventoryService:
             try:
                 reports_path = Path(reports_directory) / "inventory"
                 reports_path.mkdir(exist_ok=True, parents=True)
+
+                # Always produce JSON (required by dashboard)
+                self.report_service.create_json_report(
+                    inventory_dict,
+                    reports_directory=str(reports_path)
+                )
                 
                 if report_type in ("html", "all"):
                     html_reports_path = reports_path / "html_reports"
@@ -1417,12 +1424,6 @@ class InventoryService:
                     html_path = self.report_service.create_html_report(
                         inventory_dict, 
                         reports_directory=str(html_reports_path)
-                    )
-
-                if report_type in ("json", "all"):
-                    self.report_service.create_json_report(
-                        inventory_dict,
-                        reports_directory=str(reports_path)
                     )
                     
             except Exception as e:
