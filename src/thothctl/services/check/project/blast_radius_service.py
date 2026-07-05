@@ -69,6 +69,10 @@ class BlastRadiusService:
         """
         Assess blast radius combining dependency analysis with plan changes.
         
+        Only actual changes (create, update, delete, replace) contribute to
+        blast radius. No-op resources are excluded. If no changes are detected,
+        returns a LOW risk assessment with context about infrastructure size.
+        
         Args:
             directory: Root directory to analyze
             recursive: Whether to analyze recursively
@@ -82,8 +86,25 @@ class BlastRadiusService:
         # Step 1: Get dependency graph
         dependencies = self._get_dependency_graph(directory, recursive)
         
-        # Step 2: Get planned changes
+        # Step 2: Get planned changes (no-op/read filtered out)
         planned_changes = self._get_planned_changes(directory, plan_file)
+        
+        # Handle no-changes scenario
+        if not planned_changes.get('changes'):
+            total_resources = planned_changes.get('total_resources', 0)
+            return BlastRadiusAssessment(
+                total_components=total_resources,
+                affected_components=[],
+                risk_level=ChangeRisk.LOW,
+                change_type=ChangeType.STANDARD,
+                recommendations=[
+                    f"✅ No infrastructure changes detected ({total_resources} resources in desired state)",
+                    "ℹ️ Blast radius is zero — current plan has no create/update/delete actions",
+                    "💡 Re-run after modifying infrastructure code to see change impact"
+                ],
+                mitigation_steps=[],
+                rollback_plan=[]
+            )
         
         # Step 3: Calculate blast radius
         affected_components = self._calculate_blast_radius(dependencies, planned_changes)
@@ -97,6 +118,15 @@ class BlastRadiusService:
         # Step 6: Generate recommendations
         recommendations = self._generate_recommendations(risk_level, affected_components)
         
+        # Add context about change scope
+        total_resources = planned_changes.get('total_resources', 0)
+        change_count = planned_changes.get('change_count', len(affected_components))
+        if total_resources > 0:
+            change_pct = (change_count / total_resources) * 100
+            recommendations.insert(0,
+                f"📊 Change scope: {change_count}/{total_resources} resources affected ({change_pct:.1f}% of infrastructure)"
+            )
+        
         # Step 7: Create mitigation steps
         mitigation_steps = self._create_mitigation_steps(risk_level, affected_components)
         
@@ -104,7 +134,7 @@ class BlastRadiusService:
         rollback_plan = self._create_rollback_plan(affected_components)
         
         return BlastRadiusAssessment(
-            total_components=len(dependencies.get('nodes', [])),
+            total_components=total_resources or len(dependencies.get('nodes', [])),
             affected_components=affected_components,
             risk_level=risk_level,
             change_type=change_type,
@@ -322,18 +352,50 @@ class BlastRadiusService:
         return {}
     
     def _parse_plan_changes(self, plan_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse terraform plan changes."""
+        """Parse terraform plan changes.
+        
+        Filters out no-op and read actions — only actual changes contribute
+        to blast radius. Also includes total resource count for context.
+        """
         changes = []
+        total_resources = 0
+        no_change_count = 0
         
         if 'resource_changes' in plan_data:
             for change in plan_data['resource_changes']:
+                actions = change.get('change', {}).get('actions', [])
+                total_resources += 1
+                
+                # Skip no-op and read — they don't affect blast radius
+                if actions == ['no-op'] or actions == ['read']:
+                    no_change_count += 1
+                    continue
+                
                 changes.append({
                     'address': change.get('address', ''),
                     'change': change.get('change', {}),
-                    'type': change.get('type', '')
+                    'type': change.get('type', ''),
+                    'actions': actions,
                 })
-        
-        return {'changes': changes}
+
+        # Also count planned_values for total infrastructure scope
+        planned_total = 0
+        root = plan_data.get('planned_values', {}).get('root_module', {})
+        planned_total = self._count_planned_resources(root)
+
+        return {
+            'changes': changes,
+            'total_resources': max(total_resources, planned_total),
+            'no_change_count': no_change_count,
+            'change_count': len(changes),
+        }
+
+    def _count_planned_resources(self, module: Dict) -> int:
+        """Recursively count resources in planned_values."""
+        count = len(module.get('resources', []))
+        for child in module.get('child_modules', []):
+            count += self._count_planned_resources(child)
+        return count
     
     def _propagate_changes(self, changed_components: Set[str], edges: List[Tuple[str, str]]) -> Set[str]:
         """Propagate changes through dependency graph."""
