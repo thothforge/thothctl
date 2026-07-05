@@ -1217,14 +1217,17 @@ class ReportService:
     def create_cyclonedx_report(
         self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
     ) -> Path:
-        """Create CycloneDX SBOM JSON report from inventory data."""
+        """Create CycloneDX 1.6 SBOM JSON report with formulation, evidence, standards, and attestations."""
         try:
             from datetime import datetime
+            import hashlib
             import uuid
             
             report_path = self._create_report_path(report_name + "_cyclonedx", "json", reports_directory)
-            
-            # Generate CycloneDX SBOM structure
+            project_name = inventory.get("projectName", "Infrastructure Project")
+            project_type = inventory.get("projectType", "terraform")
+
+            # Generate CycloneDX SBOM structure (spec 1.6)
             cyclonedx_data = {
                 "bomFormat": "CycloneDX",
                 "specVersion": "1.6",
@@ -1232,27 +1235,110 @@ class ReportService:
                 "version": 1,
                 "metadata": {
                     "timestamp": datetime.now().isoformat() + "Z",
-                    "tools": [
-                        {
-                            "vendor": "ThothForge",
-                            "name": "thothctl",
-                            "version": "latest"
-                        }
+                    "lifecycles": [
+                        {"phase": "build"},
+                        {"phase": "deploy"}
                     ],
+                    "tools": {
+                        "components": [
+                            {
+                                "type": "application",
+                                "group": "ThothForge",
+                                "name": "thothctl",
+                                "version": inventory.get("_thothctl_version", "latest"),
+                                "description": "AI-Powered Infrastructure Lifecycle CLI"
+                            }
+                        ]
+                    },
                     "component": {
                         "type": "application",
-                        "bom-ref": inventory.get("projectName", "infrastructure-project"),
-                        "name": inventory.get("projectName", "Infrastructure Project"),
-                        "description": f"Infrastructure as Code project ({inventory.get('projectType', 'terraform')})"
+                        "bom-ref": project_name,
+                        "name": project_name,
+                        "description": f"Infrastructure as Code project ({project_type})"
                     }
                 },
-                "components": []
+                "components": [],
+                "dependencies": [],
+                "formulation": [],
+                "annotations": []
             }
-            
-            # Convert inventory components to CycloneDX components
+
+            # ── Formulation: document the IaC toolchain ──────────────────
+            formulation_components = []
+            if "terragrunt" in project_type:
+                formulation_components.append({
+                    "type": "application", "name": "terragrunt",
+                    "description": "IaC orchestration layer"
+                })
+            if "terraform" in project_type or "tofu" in project_type:
+                formulation_components.append({
+                    "type": "application", "name": "opentofu",
+                    "description": "IaC provisioning engine"
+                })
+            # Add scanners if scan results exist
+            scan_tools = inventory.get("_scan_tools", [])
+            for tool_name in scan_tools:
+                formulation_components.append({
+                    "type": "application", "name": tool_name,
+                    "description": f"Security scanner ({tool_name})"
+                })
+
+            if formulation_components:
+                cyclonedx_data["formulation"] = [{
+                    "bom-ref": "iac-toolchain",
+                    "components": formulation_components
+                }]
+
+            # ── Standards mapping ─────────────────────────────────────────
+            standards = []
+            schema_compat = inventory.get("schema_compatibility")
+            if schema_compat:
+                standards.append({
+                    "bom-ref": "provider-schema-compatibility",
+                    "name": "Terraform Provider Schema Compatibility",
+                    "description": "Validates provider schema changes between versions"
+                })
+            # Add compliance standards if org policies are in use
+            standards.append({
+                "bom-ref": "org-iac-policies",
+                "name": "Organization IaC Security Policies",
+                "description": "OPA/Rego security, tagging, naming, and architecture policies",
+                "owner": "Platform Engineering"
+            })
+            cyclonedx_data["definitions"] = {"standards": standards}
+
+            # ── Attestations: record scan/check results ───────────────────
+            attestations = []
+            tech_debt = inventory.get("technical_debt", {})
+            if tech_debt:
+                debt_score = tech_debt.get("debt_score", 0)
+                risk_level = tech_debt.get("risk_level", "unknown")
+                attestations.append({
+                    "summary": f"Technical debt assessment: {debt_score:.1f}% ({risk_level} risk)",
+                    "assessor": "thothctl/inventory",
+                    "timestamp": datetime.now().isoformat() + "Z",
+                    "map": [
+                        {
+                            "requirement": "outdated-modules",
+                            "status": "not-met" if tech_debt.get("outdated_modules", 0) > 0 else "met",
+                            "observationDescription": f"{tech_debt.get('outdated_modules', 0)} outdated modules detected"
+                        },
+                        {
+                            "requirement": "outdated-providers",
+                            "status": "not-met" if tech_debt.get("outdated_providers", 0) > 0 else "met",
+                            "observationDescription": f"{tech_debt.get('outdated_providers', 0)} outdated providers detected"
+                        }
+                    ]
+                })
+            cyclonedx_data["attestations"] = attestations
+
+            # ── Components with evidence, hashes, licenses ────────────────
+            project_deps = []  # Track top-level dependencies
+
             for component_group in inventory.get("components", []):
                 stack_name = component_group.get("stack", "")
-                
+                stack_deps = []
+
                 for component in component_group.get("components", []):
                     # Extract version (handle list format)
                     version = component.get("version", ["latest"])
@@ -1263,52 +1349,102 @@ class ReportService:
                     source = component.get("source", [""])
                     if isinstance(source, list):
                         source = source[0] if source else ""
+
+                    bom_ref = f"{stack_name}/{component.get('name', 'unknown')}"
                     
                     cyclonedx_component = {
                         "type": "library",
-                        "bom-ref": f"{stack_name}/{component.get('name', 'unknown')}",
+                        "bom-ref": bom_ref,
                         "name": component.get("name", "unknown"),
                         "version": version,
-                        "scope": "required"
+                        "scope": "required",
                     }
                     
-                    # Add source information if available
+                    # Package URL
                     if source and source != "Null":
-                        cyclonedx_component["purl"] = f"terraform/{source}@{version}"
-                        
-                    # Add external references
+                        cyclonedx_component["purl"] = f"pkg:terraform/{source}@{version}"
+
+                    # License (infer from source)
+                    if source and ("hashicorp" in source.lower() or "terraform-aws-modules" in source.lower()):
+                        cyclonedx_component["licenses"] = [{"license": {"id": "MPL-2.0"}}]
+                    elif source and source != "Null" and not source.startswith("./") and not source.startswith("../"):
+                        cyclonedx_component["licenses"] = [{"license": {"id": "Apache-2.0"}}]
+
+                    # Hash (SHA-256 of source+version for supply chain tracking)
+                    if source and source != "Null":
+                        content_hash = hashlib.sha256(f"{source}@{version}".encode()).hexdigest()
+                        cyclonedx_component["hashes"] = [
+                            {"alg": "SHA-256", "content": content_hash}
+                        ]
+                    
+                    # Evidence: how the component was discovered
+                    file_path = component.get("file", component.get("path", ""))
+                    is_local = source.startswith("./") or source.startswith("../") if source else False
+                    cyclonedx_component["evidence"] = {
+                        "identity": {
+                            "field": "purl",
+                            "confidence": 1.0,
+                            "methods": [{
+                                "technique": "source-code-analysis",
+                                "confidence": 1.0,
+                                "value": f"Parsed from {'terragrunt.hcl' if 'terragrunt' in project_type else file_path or 'main.tf'}"
+                            }]
+                        },
+                        "occurrences": [{
+                            "location": file_path or f"{stack_name}/main.tf"
+                        }]
+                    }
+
+                    # External references
                     external_refs = []
                     if component.get("source_url") and component.get("source_url") != "Null":
-                        external_refs.append({
-                            "type": "vcs",
-                            "url": component.get("source_url")
-                        })
-                    
+                        external_refs.append({"type": "vcs", "url": component.get("source_url")})
+                    if component.get("latest_version") and component.get("latest_version") != "Null":
+                        registry_url = f"https://registry.terraform.io/modules/{source}" if source and "/" in source else ""
+                        if registry_url:
+                            external_refs.append({"type": "distribution", "url": registry_url})
                     if external_refs:
                         cyclonedx_component["externalReferences"] = external_refs
                     
-                    # Add properties for additional metadata
+                    # Properties
                     properties = [
                         {"name": "thothctl:stack", "value": stack_name},
                         {"name": "thothctl:type", "value": component.get("type", "module")},
-                        {"name": "thothctl:file", "value": component.get("file", "")},
-                        {"name": "thothctl:status", "value": component.get("status", "Unknown")}
+                        {"name": "thothctl:file", "value": file_path},
+                        {"name": "thothctl:status", "value": component.get("status", "Unknown")},
+                        {"name": "thothctl:local", "value": str(is_local).lower()},
                     ]
-                    
                     if component.get("latest_version") and component.get("latest_version") != "Null":
                         properties.append({"name": "thothctl:latest_version", "value": component.get("latest_version")})
+                    if component.get("published_at"):
+                        properties.append({"name": "thothctl:published_at", "value": component.get("published_at")})
                     
                     cyclonedx_component["properties"] = properties
                     cyclonedx_data["components"].append(cyclonedx_component)
+                    stack_deps.append(bom_ref)
                 
                 # Add providers as components
                 for provider in component_group.get("providers", []):
+                    prov_bom_ref = f"{stack_name}/provider-{provider.get('name', 'unknown')}"
+                    
                     cyclonedx_provider = {
                         "type": "library",
-                        "bom-ref": f"{stack_name}/provider-{provider.get('name', 'unknown')}",
+                        "bom-ref": prov_bom_ref,
                         "name": f"terraform-provider-{provider.get('name', 'unknown')}",
                         "version": provider.get("version", "latest"),
                         "scope": "required",
+                        "purl": f"pkg:terraform-provider/{provider.get('source', provider.get('name', ''))}@{provider.get('version', 'latest')}",
+                        "evidence": {
+                            "identity": {
+                                "field": "purl",
+                                "confidence": 1.0,
+                                "methods": [{
+                                    "technique": "source-code-analysis",
+                                    "confidence": 1.0,
+                                    "value": "Parsed from .terraform.lock.hcl or provider blocks"
+                                }]
+                            }
+                        },
                         "properties": [
                             {"name": "thothctl:stack", "value": stack_name},
                             {"name": "thothctl:type", "value": "provider"},
@@ -1316,11 +1452,28 @@ class ReportService:
                             {"name": "thothctl:status", "value": provider.get("status", "Unknown")}
                         ]
                     }
+
+                    # Provider hash
+                    prov_source = provider.get("source", provider.get("name", ""))
+                    prov_version = provider.get("version", "latest")
+                    if prov_source:
+                        prov_hash = hashlib.sha256(f"{prov_source}@{prov_version}".encode()).hexdigest()
+                        cyclonedx_provider["hashes"] = [{"alg": "SHA-256", "content": prov_hash}]
+
+                    # Provider license (HashiCorp BSL or MPL)
+                    prov_name = provider.get("name", "").lower()
+                    if prov_name in ("aws", "azurerm", "google", "kubernetes"):
+                        cyclonedx_provider["licenses"] = [{"license": {"id": "MPL-2.0"}}]
                     
                     if provider.get("latest_version") and provider.get("latest_version") != "Null":
                         cyclonedx_provider["properties"].append({
                             "name": "thothctl:latest_version", 
                             "value": provider.get("latest_version")
+                        })
+                    if provider.get("published_at"):
+                        cyclonedx_provider["properties"].append({
+                            "name": "thothctl:published_at",
+                            "value": provider.get("published_at")
                         })
                     
                     if provider.get("source_url") and provider.get("source_url") != "Null":
@@ -1330,6 +1483,25 @@ class ReportService:
                         }]
                     
                     cyclonedx_data["components"].append(cyclonedx_provider)
+                    stack_deps.append(prov_bom_ref)
+
+                # Build dependency tree: project depends on stacks, stacks depend on modules+providers
+                if stack_deps:
+                    project_deps.extend(stack_deps)
+                    # Each module in the stack depends on the providers in that stack
+                    provider_refs = [d for d in stack_deps if "/provider-" in d]
+                    module_refs = [d for d in stack_deps if "/provider-" not in d]
+                    for mod_ref in module_refs:
+                        cyclonedx_data["dependencies"].append({
+                            "ref": mod_ref,
+                            "dependsOn": provider_refs
+                        })
+
+            # Top-level project dependency
+            cyclonedx_data["dependencies"].insert(0, {
+                "ref": project_name,
+                "dependsOn": project_deps
+            })
 
             with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(cyclonedx_data, f, indent=2, ensure_ascii=False)

@@ -626,11 +626,11 @@ class InventoryService:
                 reports_directory=str(html_reports_path)
             )
 
-        if report_type in ("cyclonedx", "all"):
-            self.report_service.create_cyclonedx_report(
-                inventory_dict,
-                reports_directory=str(reports_path)
-            )
+        # Always produce CycloneDX SBOM (required by dashboard SBOM viewer)
+        self.report_service.create_cyclonedx_report(
+            inventory_dict,
+            reports_directory=str(reports_path)
+        )
 
         # Print to console if requested
         if print_console:
