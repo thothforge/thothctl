@@ -86,6 +86,158 @@ Each tool has its own strengths. Combine built-in rule scanners (Checkov, Trivy)
 
 **Organization Policy Repo**: Set `THOTH_ORG_POLICY` env var to point all policy tools (OPA, terraform-compliance, project structure rules) to a single centralized governance repository.
 
+## OPA/Conftest Scanner (v0.19.0)
+
+The OPA/Conftest scanner supports two evaluation modes:
+
+| Mode | Input | Command | Best For |
+|------|-------|---------|----------|
+| **conftest** (default) | Static HCL files | `conftest test` | Naming conventions, tagging, structure rules |
+| **opa exec** | `tfplan.json` | `opa exec` | Plan-based validation (resource counts, blast radius, drift) |
+
+### Key Features
+
+- **Unified HTML reports** matching the same style as Checkov/KICS/Trivy (gradient header, severity badges, cards)
+- **Git-hosted policy repos** — point to a remote Git repository containing your Rego policies
+- **`THOTH_ORG_POLICY` env var** — centralizes policy source for OPA, terraform-compliance, and project structure rules
+- **OPA v1 Rego syntax required** — policies must use `import rego.v1` and the `contains`/`if` keywords
+
+### Example Usage
+
+```bash
+# Scan with OPA using conftest mode (static HCL)
+thothctl scan iac -t opa
+
+# Scan with OPA using plan-based evaluation
+thothctl scan iac -t opa --opa-mode exec
+
+# Use a Git-hosted policy repo
+export THOTH_ORG_POLICY=https://github.com/myorg/infra-policies.git
+thothctl scan iac -t opa
+```
+
+### Policy Structure (OPA v1)
+
+```rego
+package terraform.policies
+
+import rego.v1
+
+deny contains msg if {
+    resource := input.resource_changes[_]
+    resource.type == "aws_s3_bucket"
+    not resource.change.after.tags.Environment
+    msg := sprintf("S3 bucket %q missing 'Environment' tag", [resource.address])
+}
+
+warn contains msg if {
+    resource := input.resource_changes[_]
+    resource.type == "aws_instance"
+    resource.change.after.instance_type == "t2.micro"
+    msg := sprintf("Instance %q uses t2.micro — consider t3.micro for better perf/cost", [resource.address])
+}
+```
+
+## Enforcement (v0.19.0)
+
+When `--enforcement hard` is specified, ThothCTL gates the pipeline based on scan findings:
+
+```bash
+thothctl scan iac -t checkov -t opa --enforcement hard
+```
+
+### Behavior
+
+- **Only `deny` rules trigger enforcement** — `warn` rules are informational and do not cause a non-zero exit
+- Displays a **Non-Compliance Findings** table showing the top 15 HIGH/CRITICAL violations across all tools
+- Shows **per-tool violation counts** so teams know which tool flagged the most issues
+- Provides a **clear guidance message** explaining how to fix or suppress findings
+- Exit code `1` is returned when any deny-level violations exist (hard mode)
+- Exit code `0` is always returned in soft mode regardless of findings
+
+### Example Output
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                  Non-Compliance Findings (Top 15)             ┃
+┡━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Tool          │ Severity │ Finding                            │
+├───────────────┼──────────┼────────────────────────────────────┤
+│ checkov       │ HIGH     │ CKV_AWS_18: S3 access logging      │
+│ opa           │ CRITICAL │ Missing encryption at rest          │
+│ ...           │ ...      │ ...                                │
+└───────────────┴──────────┴────────────────────────────────────┘
+
+Per-tool violations: checkov=5, opa=3, trivy=1
+
+❌ Enforcement HARD: 9 deny-level violations found.
+   Fix the findings above or add suppressions to proceed.
+```
+
+## HTML Reports (v0.19.0)
+
+All scanning tools now generate unified HTML reports with a consistent visual style:
+
+```
+Reports/
+├── checkov/
+│   └── html_reports/
+│       ├── index.html          # Summary index page
+│       ├── stack_main.html     # Per-stack report
+│       └── stack_modules.html
+├── trivy/
+│   └── html_reports/
+│       ├── index.html
+│       └── ...
+├── kics/
+│   └── html_reports/
+│       └── ...
+├── opa/
+│   └── html_reports/
+│       └── ...
+└── terraform-compliance/
+    └── html_reports/
+        └── ...
+```
+
+### Design
+
+- **Gradient header** with tool name and scan metadata
+- **Inter font** for professional, readable typography
+- **Severity badges** color-coded (CRITICAL=red, HIGH=orange, MEDIUM=yellow, LOW=blue)
+- **Card layout** grouping findings by resource or check
+- **Per-stack reports** with a unified index page linking to each stack
+- **Print-friendly** CSS for PDF export and documentation
+
+## Dashboard Integration (v0.19.0)
+
+The ThothCTL web dashboard provides an interactive view of scan findings:
+
+```bash
+# Launch the dashboard after scanning
+thothctl dashboard launch
+```
+
+### Features
+
+- **Search and filter** findings by severity, tool, resource type, or keyword
+- **Inline report viewer** renders HTML reports via iframe for quick inspection
+- **All 5 tools supported**: Checkov, Trivy, KICS, OPA, Terraform-compliance
+- **Findings table** with sortable columns and pagination
+- **Trend visualization** showing scan improvements over time
+
+### Workflow
+
+```bash
+# 1. Run scan with all tools
+thothctl scan iac -t checkov -t trivy -t kics -t opa -t terraform-compliance
+
+# 2. Launch dashboard to explore results
+thothctl dashboard launch --port 8080
+
+# 3. Open http://localhost:8080 in your browser
+```
+
 ## Next Steps
 
 For detailed information about scanning IaC resources, see the [IaC Scanning](scan_iac.md) documentation.

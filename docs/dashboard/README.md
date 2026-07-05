@@ -1,16 +1,20 @@
 # ThothCTL Dashboard
 
-The ThothCTL Dashboard provides a unified web interface to view and manage all your infrastructure data in one place. It integrates scan results, inventory, cost analysis, and risk assessments into a modern, responsive web application.
+The ThothCTL Dashboard provides a unified web interface to view and manage all your infrastructure data in one place. It integrates scan results, inventory, cost analysis, drift detection, AI usage tracking, and risk assessments into a modern, responsive web application.
 
 ## Features
 
 - **📊 Overview Dashboard**: Unified view of all infrastructure metrics
-- **📦 Inventory Management**: View infrastructure components and providers
-- **🔒 Security Results**: Display scan results from Checkov, Trivy, and other tools
+- **📦 Inventory Browser**: Collapsible stack groups with module/provider tabs, status filtering, and search
+- **🔒 Security Findings Viewer**: Filter findings by tool, severity, and keyword search with pagination and inline report viewing
+- **📋 SBOM Details Viewer**: Full CycloneDX 1.6 metadata including formulation, evidence, standards, attestations, and dependency graph
 - **💰 Cost Analysis**: AWS cost estimates and optimization recommendations
 - **⚠️ Risk Assessment**: Blast radius analysis and mitigation strategies
+- **🔍 Drift Detection**: Infrastructure drift visualization between IaC and live cloud state
+- **🤖 AI Token Usage**: Track AI provider token consumption and cost metrics
 - **🔄 Real-time Refresh**: Manual data refresh capability
 - **📱 Responsive Design**: Works on desktop, tablet, and mobile devices
+- **🌙 Complete dark mode support**
 
 ## Quick Start
 
@@ -39,14 +43,19 @@ Once launched, the dashboard will be available at:
 The dashboard automatically loads data from existing ThothCTL reports:
 
 ### Inventory Data
-- **Source**: `Reports/**/InventoryIaC_*.json`
+- **Source**: `Reports/inventory/InventoryIaC_*.json`
 - **Generate**: `thothctl inventory iac --check-versions`
-- **Shows**: Infrastructure components, providers, versions
+- **Shows**: Infrastructure components, providers, versions, collapsible stack groups
+
+### SBOM Data
+- **Source**: `Reports/inventory/InventoryIaC_cyclonedx_*.json`
+- **Generate**: `thothctl inventory iac --check-versions`
+- **Shows**: CycloneDX 1.6 metadata — formulation, evidence, standards, attestations, dependency graph
 
 ### Security Scan Results
-- **Source**: `Reports/**/*.html`, `Reports/**/*.xml`
+- **Source**: `Reports/**/*.html`, `Reports/**/*.xml`, `Reports/opa/html_reports/`
 - **Generate**: `thothctl scan iac`
-- **Shows**: Security issues, scan reports, compliance status
+- **Shows**: Security issues, scan reports, compliance status — with filtering by tool/severity/search and inline report viewing via iframe
 
 ### Cost Analysis
 - **Source**: `Reports/**/cost_analysis_*.json`
@@ -58,6 +67,65 @@ The dashboard automatically loads data from existing ThothCTL reports:
 - **Generate**: `thothctl check project`
 - **Shows**: Risk level, affected components, mitigation steps
 
+### Drift Detection
+- **Source**: `Reports/**/drift_*.json`
+- **Generate**: `thothctl check iac -type drift --recursive`
+- **Shows**: Drift between IaC definitions and live cloud resources, severity classification, coverage percentage
+
+### AI Token Usage
+- **Source**: `.thothctl/ai_sessions/`
+- **Generate**: Collected automatically during `thothctl ai-review` operations
+- **Shows**: Token consumption per provider, cost tracking, usage trends
+
+## Enhanced Features (v0.19.0)
+
+### Security Findings Viewer
+
+The findings viewer provides granular access to individual security findings across all scanning tools:
+
+- **Filter by tool**: Checkov, Trivy, TFSec, KICS
+- **Filter by severity**: Critical, High, Medium, Low
+- **Keyword search**: Search across finding titles, descriptions, and resource IDs
+- **Pagination**: Navigate large result sets with configurable page size
+- **Inline report viewing**: View full HTML reports in an iframe without leaving the dashboard
+
+### SBOM Details Viewer
+
+Full CycloneDX 1.6 support with rich metadata visualization:
+
+- **Formulation**: How the software was built (build tools, environments)
+- **Evidence**: Proof of component presence (call stacks, file occurrences)
+- **Standards**: Compliance standards mappings (CIS, NIST, SOC2)
+- **Attestations**: Signed assertions about software properties
+- **Dependency Graph**: Interactive visualization of component relationships
+
+### Inventory Browser
+
+Enhanced inventory browsing experience:
+
+- **Collapsible stack groups**: Organize components by stack for easier navigation
+- **Module/Provider tabs**: Switch between module and provider views
+- **Status filter**: Filter by up-to-date, outdated, or unknown status
+- **Search**: Full-text search across all inventory items
+
+### Drift Detection
+
+Visualize infrastructure drift directly in the dashboard:
+
+- Severity-based classification (critical/high/medium/low)
+- IaC coverage percentage tracking
+- Resource-level drift details
+- Remediation guidance
+
+### AI Token Usage
+
+Monitor AI provider consumption:
+
+- Per-provider token usage breakdown
+- Cost tracking with daily/monthly views
+- Usage trends over time
+- Budget threshold indicators
+
 ## Architecture
 
 ### Twelve-Factor App Compliance
@@ -65,13 +133,13 @@ The dashboard automatically loads data from existing ThothCTL reports:
 The dashboard follows twelve-factor app principles:
 
 1. **Codebase**: Single codebase in version control
-2. **Dependencies**: Explicitly declared (Flask, etc.)
-3. **Config**: Environment variables (THOTHCTL_SECRET_KEY)
+2. **Dependencies**: Explicitly declared (FastAPI, Uvicorn, etc.)
+3. **Config**: Environment variables (THOTHCTL_DEBUG, THOTHCTL_VERBOSE)
 4. **Backing Services**: File-based data sources as attached resources
 5. **Build/Release/Run**: Separate stages
 6. **Processes**: Stateless with in-memory caching
-7. **Port Binding**: Self-contained service
-8. **Concurrency**: Scalable via process model
+7. **Port Binding**: Self-contained service via Uvicorn
+8. **Concurrency**: Scalable via Uvicorn workers and async handlers
 9. **Disposability**: Fast startup/shutdown
 10. **Dev/Prod Parity**: Same code in all environments
 11. **Logs**: Event streams via Python logging
@@ -87,25 +155,31 @@ class DashboardDataLoader:
         self.cache_ttl = 300  # 5 minutes
     
     def get_inventory_data(self):
-        # Load from Reports/InventoryIaC_*.json
+        # Load from Reports/inventory/InventoryIaC_*.json
         # Cache for 5 minutes
         # Graceful error handling
 ```
 
 ### Performance Features
 
-- **File-based Loading**: No expensive service calls on startup
+- **Async I/O**: FastAPI async endpoints for non-blocking data loading
 - **Smart Caching**: 5-minute TTL to avoid repeated I/O
 - **Lazy Loading**: Data loaded only when requested
 - **Graceful Degradation**: Helpful messages when data missing
+- **Pagination**: Server-side pagination for large datasets (findings, inventory)
 
 ## API Endpoints
 
 ### Data Endpoints
 - `GET /api/inventory` - Infrastructure inventory
-- `GET /api/scan-results` - Security scan results  
+- `GET /api/scan-results` - Security scan results
+- `GET /api/findings?tool=&severity=&search=&limit=&offset=` - Individual findings with filtering and pagination
+- `GET /api/sbom` - CycloneDX SBOM data
 - `GET /api/cost-analysis` - Cost analysis data
 - `GET /api/blast-radius` - Risk assessment data
+- `GET /api/drift` - Drift detection data
+- `GET /api/ai-usage` - AI token/cost usage
+- `GET /api/reports/{path}` - Serve HTML reports for iframe viewing
 
 ### Control Endpoints
 - `GET /api/refresh` - Clear cache and reload data
@@ -120,29 +194,50 @@ class DashboardDataLoader:
 }
 ```
 
+### Findings Response Format
+```json
+{
+  "findings": [...],
+  "total": 142,
+  "limit": 20,
+  "offset": 0,
+  "filters": {
+    "tool": "checkov",
+    "severity": "high",
+    "search": ""
+  }
+}
+```
+
 ## Configuration
 
 ### Environment Variables
 ```bash
-# Security key for Flask sessions
-export THOTHCTL_SECRET_KEY="your-secret-key"
-
 # Debug logging
 export THOTHCTL_DEBUG=true
 
 # Verbose logging  
 export THOTHCTL_VERBOSE=true
+
+# Custom host/port (can also use CLI flags)
+# Default: 127.0.0.1:8080
 ```
 
 ### File Patterns
 The dashboard looks for these file patterns:
 ```
 Reports/
-├── InventoryIaC_*.json      # Inventory data
-├── cost_analysis_*.json     # Cost analysis
-├── blast_radius_*.json      # Risk assessment
-├── **/*.html               # Scan reports
-└── **/*.xml                # Test results
+├── inventory/
+│   ├── InventoryIaC_*.json              # Inventory data
+│   ├── InventoryIaC_cyclonedx_*.json    # CycloneDX SBOM data
+│   └── html_reports/                    # Inventory HTML reports
+├── opa/
+│   └── html_reports/                    # OPA/compliance HTML reports
+├── cost_analysis_*.json                 # Cost analysis
+├── blast_radius_*.json                  # Risk assessment
+├── drift_*.json                         # Drift detection
+├── **/*.html                            # Scan reports
+└── **/*.xml                             # Test results
 ```
 
 ## Development
@@ -155,7 +250,7 @@ src/thothctl/
 │   └── commands/
 │       └── launch.py             # Launch command
 ├── services/dashboard/
-│   ├── dashboard_service.py      # Flask web service
+│   ├── dashboard_service.py      # FastAPI + Uvicorn web service
 │   └── data_loader.py           # Data loading logic
 └── utils/common/templates/
     └── dashboard.html           # Web interface
@@ -178,9 +273,9 @@ def get_new_data_source(self) -> Dict[str, Any]:
 
 2. **Add API Endpoint**:
 ```python
-@self.app.route('/api/new-source')
-def api_new_source():
-    return jsonify(self.data_loader.get_new_data_source())
+@self.app.get("/api/new-source")
+async def api_new_source():
+    return self.data_loader.get_new_data_source()
 ```
 
 3. **Update Frontend**:
@@ -211,13 +306,14 @@ thothctl dashboard launch --port 8081
 thothctl inventory iac
 thothctl scan iac  
 thothctl check iac -type cost-analysis
+thothctl check iac -type drift --recursive
 ```
 
 **Permission errors**
 ```bash
 # Check file permissions
 ls -la Reports/
-chmod 644 Reports/*.json
+chmod 644 Reports/**/*.json
 ```
 
 ### Debug Mode
@@ -234,6 +330,10 @@ python test_dashboard.py
 
 # Manual testing
 curl http://localhost:8080/api/inventory
+curl "http://localhost:8080/api/findings?tool=checkov&severity=high&limit=10"
+curl http://localhost:8080/api/sbom
+curl http://localhost:8080/api/drift
+curl http://localhost:8080/api/ai-usage
 ```
 
 ## Security Considerations
@@ -241,7 +341,7 @@ curl http://localhost:8080/api/inventory
 - **Local Access**: Dashboard binds to 127.0.0.1 by default
 - **No Authentication**: Intended for local development use
 - **File Access**: Only reads from Reports directory
-- **Secret Key**: Use environment variable in production
+- **Report Serving**: HTML reports served via iframe are scoped to the Reports directory
 
 ## Integration Examples
 
@@ -253,6 +353,7 @@ curl http://localhost:8080/api/inventory
     thothctl inventory iac --check-versions
     thothctl scan iac
     thothctl check iac -type cost-analysis
+    thothctl check iac -type drift --recursive
 
 - name: Launch Dashboard
   run: |

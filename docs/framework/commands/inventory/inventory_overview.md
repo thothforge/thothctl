@@ -43,7 +43,7 @@ thothctl inventory iac --check-versions --report-type all
 - **`-cv, --check-versions`**: 🚀 **Recommended** - Checks latest versions for modules and providers (includes provider version checking)
 - **`-r, --report-type [html|json|all]`**: Type of report to generate (default: html with modern styling)
 - **`-pj, --project-name TEXT`**: Custom project name for professional reports
-- **`-iph, --inventory-path PATH`**: Where to save inventory reports
+- **`-iph, --inventory-path PATH`**: Where to save inventory reports (default: `./Reports`)
 
 ### **Framework and Analysis Options**
 
@@ -318,6 +318,85 @@ thothctl inventory iac \
   --check-versions \
   --inventory-path ./reports/production/$(date +%Y-%m) \
   --project-name "Production Infrastructure - $(date +%B\ %Y)"
+```
+
+## v0.19.0 Changes
+
+### 📦 CycloneDX 1.6 SBOM Generation
+
+Starting with v0.19.0, a **CycloneDX 1.6 SBOM** is always generated alongside HTML and JSON reports. This provides a standardized Software Bill of Materials for your infrastructure components.
+
+```bash
+# SBOM is automatically generated with every inventory run
+thothctl inventory iac --check-versions
+```
+
+**CycloneDX SBOM includes:**
+
+| Section | Content |
+|---------|---------|
+| **Formulation** | IaC toolchain (Terraform/OpenTofu version, provider versions) |
+| **Lifecycles** | Build and deploy lifecycle phases |
+| **Evidence** | Source-code-analysis proof of component usage |
+| **Standards** | Organizational IaC policies (`org-iac-policies`) |
+| **Attestations** | Tech debt indicators and version currency |
+| **Dependencies** | Full DAG (Directed Acyclic Graph) of module relationships |
+| **Hashes** | SHA-256 integrity verification for all components |
+| **Licenses** | Inferred license information (MPL-2.0, Apache-2.0) |
+
+**Package URL format:** All components use the `pkg:terraform/` PURL scheme for standard identification.
+
+**Compatible SBOM consumers:**
+- [Dependency-Track](https://dependencytrack.org/) — continuous SBOM analysis and vulnerability monitoring
+- [Grype](https://github.com/anchore/grype) — vulnerability scanning against SBOMs
+- [Trivy](https://trivy.dev/) — comprehensive security scanner with SBOM ingestion
+
+### 📁 Updated Report Paths
+
+Reports are now organized under `Reports/inventory/` for cleaner project structure:
+
+```
+Reports/
+└── inventory/
+    ├── html_reports/
+    │   └── InventoryIaC_<project>_<date>.html
+    ├── InventoryIaC_<project>_<date>.json
+    └── InventoryIaC_cyclonedx_<project>_<date>.json
+```
+
+| Report Type | Path |
+|-------------|------|
+| HTML | `Reports/inventory/html_reports/` |
+| JSON | `Reports/inventory/InventoryIaC_*.json` |
+| CycloneDX SBOM | `Reports/inventory/InventoryIaC_cyclonedx_*.json` |
+
+> **Migration note:** Reports previously written to `Reports/` root are now placed in `Reports/inventory/`. The `--inventory-path` default is `./Reports`.
+
+### 📊 Dashboard Integration
+
+The inventory integrates with the ThothCTL web dashboard for interactive exploration:
+
+```bash
+# Launch the dashboard
+thothctl dashboard launch
+```
+
+**Inventory Tab:**
+- Stack groups overview with component counts
+- Full-text search across all inventory items
+- Status filter (Current, Outdated, Unknown)
+- Click-through to detailed component information
+
+**SBOM Details Tab:**
+- Full CycloneDX 1.6 metadata viewer
+- Interactive dependency graph visualization
+- License and attestation summaries
+- Hash verification status for all components
+
+```bash
+# Generate inventory then explore in dashboard
+thothctl inventory iac --check-versions
+thothctl dashboard launch
 ```
 
 ## Troubleshooting
