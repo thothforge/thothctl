@@ -358,23 +358,38 @@
     }
 
     function closeReportViewer() {
-        document.getElementById('security-toolbar').style.display = '';
+        document.getElementById('security-report-viewer').style.display = 'none';
         document.getElementById('security-findings').style.display = '';
         document.getElementById('security-pagination').style.display = '';
-        document.getElementById('security-report-viewer').style.display = 'none';
+        document.getElementById('security-toolbar').style.display = '';
         document.getElementById('report-iframe').src = '';
+        // Reload findings to restore the correct state
+        loadFindings();
     }
 
     function showAllReports() {
         const reports = (D.security||{}).reports || [];
+        // Hide the findings toolbar to prevent accidental filter overwrites
+        document.getElementById('security-toolbar').style.display = 'none';
+        document.getElementById('security-pagination').innerHTML = `<div class="findings-pagination"><button onclick="backToFindings()">← Back to Findings</button><span>${reports.length} reports</span><span></span></div>`;
+
         let html = `<div class="findings-wrap"><table class="findings-table"><thead><tr><th>Report</th><th>Tool</th><th>Date</th><th>Size</th><th></th></tr></thead><tbody>`;
-        reports.forEach(r => {
+        reports.forEach((r, i) => {
             const name = r.file.split('/').pop();
-            html += `<tr><td>${name}</td><td><span class="tool-badge">${r.tool||'—'}</span></td><td>${r.timestamp?new Date(r.timestamp).toLocaleDateString():''}</td><td>${r.size?(r.size/1024).toFixed(1)+'KB':''}</td><td><button class="report-tab" onclick="openReport('${r.file}')">View</button></td></tr>`;
+            html += `<tr><td title="${r.file}">${name}</td><td><span class="tool-badge">${r.tool||'—'}</span></td><td>${r.timestamp?new Date(r.timestamp).toLocaleDateString():''}</td><td>${r.size?(r.size/1024).toFixed(1)+'KB':''}</td><td><button class="report-tab" data-report-idx="${i}" onclick="openReportByIdx(${i})">View</button></td></tr>`;
         });
         html += `</tbody></table></div>`;
         document.getElementById('security-findings').innerHTML = html;
-        document.getElementById('security-pagination').innerHTML = '';
+    }
+
+    function openReportByIdx(idx) {
+        const reports = (D.security||{}).reports || [];
+        if (reports[idx]) openReport(reports[idx].file);
+    }
+
+    function backToFindings() {
+        document.getElementById('security-toolbar').style.display = '';
+        loadFindings();
     }
 
     function renderCosts() {
