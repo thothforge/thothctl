@@ -1227,7 +1227,7 @@ class ReportService:
             # Generate CycloneDX SBOM structure
             cyclonedx_data = {
                 "bomFormat": "CycloneDX",
-                "specVersion": "1.4",
+                "specVersion": "1.6",
                 "serialNumber": f"urn:uuid:{str(uuid.uuid4())}",
                 "version": 1,
                 "metadata": {
