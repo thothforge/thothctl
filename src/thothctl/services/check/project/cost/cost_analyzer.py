@@ -135,15 +135,24 @@ class CostAnalyzer:
         return providers
     
     def analyze_terraform_plan(self, plan_file: str) -> CostAnalysis:
-        """Analyze costs from terraform plan file"""
+        """Analyze costs from terraform plan file.
+        
+        Provides two cost views:
+        - Change delta: cost of resources being created/modified (for PR reviews)
+        - Total running cost: cost of ALL planned resources regardless of action
+          (uses planned_values for complete desired state)
+        """
         with open(plan_file, 'r') as f:
             plan_data = json.load(f)
         
         resource_costs = []
+        total_costs = []
         warnings = []
         
+        # 1. Change delta: only resources being created/modified/deleted
         for change in plan_data.get('resource_changes', []):
-            if change['change']['actions'] == ['no-op']:
+            actions = change['change']['actions']
+            if actions == ['no-op'] or actions == ['read']:
                 continue
             
             cost = self._calculate_resource_cost(change)
@@ -152,7 +161,77 @@ class CostAnalyzer:
             else:
                 warnings.append(f"No pricing data for {change['address']}")
         
-        return self._create_analysis(resource_costs, warnings, plan_file)
+        # 2. Total running cost: ALL resources from planned_values (desired state)
+        planned_resources = self._collect_planned_resources(plan_data)
+        for resource in planned_resources:
+            mock_change = {
+                'address': f"{resource.get('address', resource['type'] + '.' + resource['name'])}",
+                'type': resource['type'],
+                'change': {
+                    'actions': ['create'],
+                    'after': resource.get('values', {})
+                }
+            }
+            cost = self._calculate_resource_cost(mock_change)
+            if cost:
+                total_costs.append(cost)
+
+        # 3. Also include no-op resources from resource_changes (they have full after values)
+        #    This catches resources not in planned_values child_modules (e.g. root resources)
+        for change in plan_data.get('resource_changes', []):
+            actions = change['change']['actions']
+            if actions == ['no-op'] and change['change'].get('after'):
+                # Check if not already counted from planned_values
+                addr = change.get('address', '')
+                if not any(c.resource_address == addr for c in total_costs):
+                    cost = self._calculate_resource_cost(change)
+                    if cost:
+                        total_costs.append(cost)
+
+        analysis = self._create_analysis(resource_costs, warnings, plan_file)
+        
+        # Attach total running cost metadata
+        total_monthly = sum(c.monthly_cost for c in total_costs)
+        analysis.analysis_metadata['total_running_monthly_cost'] = round(total_monthly, 2)
+        analysis.analysis_metadata['total_running_annual_cost'] = round(total_monthly * 12, 2)
+        analysis.analysis_metadata['total_planned_resources'] = len(planned_resources)
+        analysis.analysis_metadata['change_resources'] = len(resource_costs)
+        
+        # If change delta is $0 but total is not, add context
+        if analysis.total_monthly_cost == 0 and total_monthly > 0:
+            analysis.total_monthly_cost = total_monthly
+            analysis.total_annual_cost = total_monthly * 12
+            analysis.resource_costs = total_costs
+            analysis.cost_breakdown_by_service = self._breakdown_by_service(total_costs)
+            analysis.cost_breakdown_by_action = {"existing": total_monthly}
+            analysis.recommendations.insert(0, 
+                f"ℹ️ No infrastructure changes detected. Showing total running cost of {len(total_costs)} existing resources."
+            )
+        elif resource_costs and total_monthly > analysis.total_monthly_cost:
+            # There are changes AND existing resources — show both
+            analysis.recommendations.insert(0,
+                f"📊 Change delta: ${analysis.total_monthly_cost:,.2f}/mo | Total running cost: ${total_monthly:,.2f}/mo ({len(total_costs)} resources)"
+            )
+        
+        return analysis
+
+    def _collect_planned_resources(self, plan_data: Dict) -> List[Dict]:
+        """Recursively collect all resources from planned_values (complete desired state)."""
+        resources = []
+        root = plan_data.get('planned_values', {}).get('root_module', {})
+        self._collect_module_resources(root, resources)
+        return resources
+
+    def _collect_module_resources(self, module: Dict, resources: List[Dict], prefix: str = ""):
+        """Recursively collect resources from a module and its children."""
+        for r in module.get('resources', []):
+            addr = r.get('address', f"{r['type']}.{r['name']}")
+            if prefix and not addr.startswith(prefix):
+                addr = f"{prefix}.{addr}"
+            resources.append({**r, 'address': addr})
+        for child in module.get('child_modules', []):
+            child_prefix = child.get('address', '')
+            self._collect_module_resources(child, resources, child_prefix)
     
     def analyze_cloudformation_template(self, template_file: str) -> CostAnalysis:
         """Analyze costs from CloudFormation template"""
@@ -384,6 +463,10 @@ class CostAnalyzer:
             'summary': {
                 'total_monthly_cost': round(analysis.total_monthly_cost, 2),
                 'total_annual_cost': round(analysis.total_annual_cost, 2),
+                'total_running_monthly_cost': analysis.analysis_metadata.get('total_running_monthly_cost', round(analysis.total_monthly_cost, 2)),
+                'total_running_annual_cost': analysis.analysis_metadata.get('total_running_annual_cost', round(analysis.total_annual_cost, 2)),
+                'total_planned_resources': analysis.analysis_metadata.get('total_planned_resources', 0),
+                'change_resources': analysis.analysis_metadata.get('change_resources', 0),
                 'region': analysis.analysis_metadata.get('region', 'us-east-1'),
                 'api_available': analysis.analysis_metadata.get('api_available', False),
                 'plan_file': analysis.analysis_metadata.get('plan_file', 'N/A')
@@ -647,7 +730,7 @@ class CostAnalyzer:
                     {''.join(f'''
                     <div class="bar">
                         <div class="bar-label">{service}</div>
-                        <div class="bar-fill" style="width: {max(min(cost / max(analysis.cost_breakdown_by_service.values()) * 100, 100), 15)}%">
+                        <div class="bar-fill" style="width: {max(min(cost / max(max(analysis.cost_breakdown_by_service.values()), 0.01) * 100, 100), 15)}%">
                             ${cost:,.2f}/mo
                         </div>
                     </div>
