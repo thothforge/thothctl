@@ -179,13 +179,17 @@ def render_architecture_diagram(topology, output_path: str, fmt: str = "png") ->
                             if not cls:
                                 continue
 
-                            # Build label
+                            # Build label — use friendly AWS service name
                             short_name = node.name.split("[")[0]
+                            # Use label (e.g. "Aurora", "VPC") unless name is more descriptive
+                            display_name = node.label
+                            if short_name and short_name not in ("this", "default") and short_name != node.label.lower().replace(" ", "_"):
+                                display_name = f"{node.label}\n({short_name})"
                             action_badge = {
                                 "create": " 🆕", "update": " ✏️",
                                 "delete": " 🗑️", "replace": " ♻️"
                             }.get(node.action.value, "")
-                            label = f"{short_name}{action_badge}"
+                            label = f"{display_name}{action_badge}"
 
                             obj = cls(label)
                             node_objects[node.address] = obj
