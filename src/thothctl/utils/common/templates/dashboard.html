@@ -206,7 +206,11 @@
             </div>
         </section>
         <section id="costs" class="content-section"><h2 class="section-title">💰 Cost Analysis</h2><div id="costs-content"><div class="message">Loading...</div></div></section>
-        <section id="risks" class="content-section"><h2 class="section-title">💥 Blast Radius</h2><div id="risks-content"><div class="message">Loading...</div></div></section>
+        <section id="risks" class="content-section">
+            <h2 class="section-title">💥 Blast Radius & Topology</h2>
+            <div id="risks-content"><div class="message">Loading...</div></div>
+            <div id="topology-content"></div>
+        </section>
         <section id="drift" class="content-section"><h2 class="section-title">🔍 Drift Detection</h2><div id="drift-content"><div class="message">Loading...</div></div></section>
         <section id="ai" class="content-section"><h2 class="section-title">🤖 AI Token Usage</h2><div id="ai-content"><div class="message">Loading...</div></div></section>
     </div>
@@ -235,7 +239,7 @@
     async function refreshAll() { await fetch('/api/refresh'); loadAll(); }
 
     async function loadAll() {
-        const endpoints = {inventory:'/api/inventory', security:'/api/scan-results', costs:'/api/cost-analysis', risks:'/api/blast-radius', drift:'/api/drift', ai:'/api/ai-usage'};
+        const endpoints = {inventory:'/api/inventory', security:'/api/scan-results', costs:'/api/cost-analysis', risks:'/api/blast-radius', drift:'/api/drift', topology:'/api/topology', ai:'/api/ai-usage'};
         const results = await Promise.allSettled(Object.entries(endpoints).map(async ([k,url]) => {
             const r = await fetch(url); D[k] = await r.json(); return k;
         }));
@@ -822,15 +826,143 @@
 
     function renderRisks() {
         const d = D.risks;
-        if (!d || err(d)) { document.getElementById('risks-content').innerHTML = msg(d?.error||d?.message||'No data', d?.command); return; }
-        const riskColor = {'LOW':'var(--success)','MEDIUM':'var(--warning)','HIGH':'var(--danger)','CRITICAL':'var(--danger)'}[d.risk_level?.toUpperCase()]||'var(--info)';
-        let html = `<div class="summary-grid"><div class="card" style="border-color:${riskColor}"><div class="card-number" style="color:${riskColor}">${d.risk_level||'—'}</div><div class="card-label">Risk Level</div></div><div class="card"><div class="card-number">${d.change_type||'—'}</div><div class="card-label">Change Type</div></div><div class="card"><div class="card-number">${d.affected_components||d.total_components||0}</div><div class="card-label">Affected</div></div></div>`;
-        if (d.recommendations && d.recommendations.length) {
-            html += '<h3 style="margin:16px 0 8px">📋 Recommendations</h3><ul style="padding-left:20px">';
-            d.recommendations.forEach(r => html += `<li style="margin:4px 0">${r}</li>`);
-            html += '</ul>';
+        const t = D.topology;
+        const hasRisks = d && !err(d);
+        const hasTopo = t && !err(t);
+
+        if (!hasRisks && !hasTopo) {
+            document.getElementById('risks-content').innerHTML = msg(
+                'No blast radius or topology data available',
+                'thothctl check iac -type blast-radius --recursive'
+            );
+            document.getElementById('topology-content').innerHTML = '';
+            return;
         }
+
+        let html = '';
+
+        // ── Risk Assessment Section ──
+        if (hasRisks) {
+            const riskColor = {'LOW':'var(--success)','MEDIUM':'var(--warning)','HIGH':'var(--danger)','CRITICAL':'var(--danger)'}[d.risk_level?.toUpperCase()]||'var(--info)';
+            const affectedCount = Array.isArray(d.affected_components) ? d.affected_components.length : (d.affected_components || d.total_components || 0);
+            const totalRes = d.total_components || (hasTopo ? t.summary?.total_resources : 0) || 0;
+            const changedRes = hasTopo ? (t.summary?.changed_resources||0) : affectedCount;
+
+            html += `<div class="summary-grid">
+                <div class="card" style="border-color:${riskColor}"><div class="card-number" style="color:${riskColor}">${(d.risk_level||'—').toUpperCase()}</div><div class="card-label">Risk Level</div></div>
+                <div class="card"><div class="card-number">${(d.change_type||'—').toUpperCase()}</div><div class="card-label">ITIL Change Type</div></div>
+                <div class="card" style="border-color:var(--info)"><div class="card-number" style="color:var(--info)">${changedRes}</div><div class="card-label">Changed</div></div>
+                <div class="card"><div class="card-number">${totalRes}</div><div class="card-label">Total Resources</div></div>
+                <div class="card"><div class="card-number">${affectedCount}</div><div class="card-label">Blast Radius</div></div>
+            </div>`;
+
+            // Affected components
+            if (Array.isArray(d.affected_components) && d.affected_components.length) {
+                html += `<div class="stack-group"><div class="stack-group-header" onclick="this.nextElementSibling.classList.toggle('open')"><span>💥 Affected Components (${d.affected_components.length})</span><span class="stack-group-count">Click to expand</span></div><div class="stack-group-body"><table class="findings-table"><thead><tr><th>Component</th><th>Change</th><th>Risk Score</th><th>Criticality</th></tr></thead><tbody>`;
+                d.affected_components.forEach(c => {
+                    const riskPct = ((c.risk_score||0)*100).toFixed(0);
+                    const critClass = c.criticality === 'critical' ? 'outdated' : c.criticality === 'high' ? 'outdated' : 'unknown';
+                    html += `<tr><td><strong>${c.name||'—'}</strong></td><td>${c.change_type||'—'}</td><td>${riskPct}%</td><td><span class="status-chip ${critClass}">${c.criticality||'—'}</span></td></tr>`;
+                });
+                html += `</tbody></table></div></div>`;
+            }
+
+            // Recommendations & mitigation
+            if (d.recommendations?.length) {
+                html += `<div class="stack-group" style="margin-top:12px"><div class="stack-group-header" onclick="this.nextElementSibling.classList.toggle('open')"><span>📋 Recommendations & Mitigation</span><span class="stack-group-count">${d.recommendations.length + (d.mitigation_steps?.length||0)} items</span></div><div class="stack-group-body" style="padding:12px"><ul style="padding-left:20px;margin:0">`;
+                d.recommendations.forEach(r => html += `<li style="margin:4px 0">${r}</li>`);
+                if (d.mitigation_steps?.length) {
+                    html += '</ul><h4 style="margin:12px 0 6px">🛡️ Mitigation Steps</h4><ol style="padding-left:20px;margin:0">';
+                    d.mitigation_steps.forEach(s => html += `<li style="margin:4px 0">${s}</li>`);
+                }
+                html += `</ul></div></div>`;
+            }
+        }
+
         document.getElementById('risks-content').innerHTML = html;
+
+        // ── Topology Section (below risk assessment) ──
+        let topoHtml = '';
+        if (hasTopo) {
+            const summary = t.summary || {};
+            const stacks = t.stacks || [];
+            const categories = summary.categories || {};
+
+            // Legend
+            topoHtml += `<div style="margin:20px 0 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <h3 style="margin:0;color:var(--primary)">🗺️ Infrastructure Topology</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:0.7rem">
+                    <span style="padding:2px 8px;border-radius:4px;background:#e8f5e9;color:#2e7d32;border:1px solid #4caf50">● Existing</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:#e3f2fd;color:#0d47a1;border:2px solid #1976d2">● Create</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:#fff3e0;color:#e65100;border:2px solid #f57c00">● Update</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:#ffebee;color:#b71c1c;border:2px dashed #d32f2f">● Delete</span>
+                </div>
+            </div>`;
+
+            // Category chips
+            if (Object.keys(categories).length) {
+                topoHtml += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">`;
+                Object.entries(categories).forEach(([cat, count]) => {
+                    topoHtml += `<span class="sev-chip low">${cat}: ${count}</span>`;
+                });
+                topoHtml += `</div>`;
+            }
+
+            // Mermaid diagram with zoom controls
+            if (t.mermaid) {
+                topoHtml += `<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:16px">
+                    <div style="display:flex;gap:6px;padding:8px 12px;background:#f3f4f6;border-bottom:1px solid #e5e7eb;align-items:center">
+                        <button onclick="zoomTopo(-0.2)" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85rem">−</button>
+                        <button onclick="zoomTopo(0.2)" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85rem">+</button>
+                        <button onclick="zoomTopo(0)" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.75rem">Fit</button>
+                        ${t.diagram_path ? `<a href="/api/reports/${t.diagram_path}" target="_blank" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;font-size:0.75rem;text-decoration:none;color:var(--primary)">📷 PNG (AWS Icons)</a>` : ''}
+                        <span style="margin-left:auto;font-size:0.7rem;color:var(--secondary)">Scroll to pan</span>
+                    </div>
+                    <div id="topology-mermaid-container" style="background:#fff;padding:8px;overflow:auto;height:55vh;min-height:300px"></div>
+                </div>`;
+            }
+
+            // Resources by stack (collapsible)
+            if (stacks.length) {
+                topoHtml += `<h3 style="margin:16px 0 10px;color:var(--primary)">📋 Resources by Stack</h3>`;
+                stacks.forEach(stack => {
+                    const changed = stack.nodes.filter(n => n.action !== 'no-change').length;
+                    const statusIcon = changed ? '🔵' : '🟢';
+                    topoHtml += `<div class="stack-group"><div class="stack-group-header" onclick="this.nextElementSibling.classList.toggle('open')"><span>${statusIcon} ${stack.name} — ${stack.nodes.length} resources${changed ? ', <strong style="color:var(--info)">' + changed + ' changed</strong>' : ''}</span><span class="stack-group-count">▼</span></div><div class="stack-group-body"><table class="findings-table"><thead><tr><th></th><th>Resource</th><th>Type</th><th>Category</th><th>Action</th></tr></thead><tbody>`;
+                    stack.nodes.forEach(n => {
+                        const actionBadge = {'create':'🆕','update':'✏️','delete':'🗑️','replace':'♻️'}[n.action] || '—';
+                        topoHtml += `<tr><td>${n.icon}</td><td><strong>${n.name}</strong><div style="font-size:0.6rem;color:var(--secondary)">${n.address}</div></td><td style="font-size:0.75rem">${n.label}</td><td style="font-size:0.75rem">${n.category}</td><td>${actionBadge}</td></tr>`;
+                    });
+                    topoHtml += `</tbody></table></div></div>`;
+                });
+            }
+        } else {
+            topoHtml = msg('No topology data. Run blast radius to generate.', 'thothctl check iac -type blast-radius --recursive');
+        }
+
+        document.getElementById('topology-content').innerHTML = topoHtml;
+
+        // Render mermaid
+        if (hasTopo && t.mermaid && window.mermaid) {
+            const container = document.getElementById('topology-mermaid-container');
+            if (container) {
+                mermaid.render('topology-mermaid-svg', t.mermaid).then(({svg}) => {
+                    container.innerHTML = svg;
+                    const svgEl = container.querySelector('svg');
+                    if (svgEl) {
+                        // Keep natural diagram size — don't squish
+                        svgEl.removeAttribute('height');
+                        svgEl.style.minWidth = '100%';
+                        svgEl.style.height = 'auto';
+                        svgEl.style.minHeight = '500px';
+                        svgEl.style.maxWidth = 'none';
+                        window._topoZoom = 1;
+                    }
+                }).catch(e => {
+                    container.innerHTML = `<pre style="font-size:0.7rem;overflow:auto;padding:12px">${t.mermaid.replace(/</g,'&lt;')}</pre>`;
+                });
+            }
+        }
     }
 
     function renderDrift() {
@@ -851,6 +983,24 @@
         document.getElementById('drift-content').innerHTML = html;
     }
 
+    function zoomTopo(delta) {
+        const container = document.getElementById('topology-mermaid-container');
+        if (!container) return;
+        const svgEl = container.querySelector('svg');
+        if (!svgEl) return;
+        if (delta === 0) {
+            window._topoZoom = 1;
+            svgEl.style.transform = 'none';
+            svgEl.style.minWidth = '100%';
+            return;
+        }
+        window._topoZoom = Math.max(0.5, Math.min(3, (window._topoZoom||1) + delta));
+        svgEl.style.transform = `scale(${window._topoZoom})`;
+        svgEl.style.transformOrigin = 'top left';
+        // Expand the container scroll area when zooming in
+        svgEl.style.minWidth = `${100 / window._topoZoom}%`;
+    }
+
     function renderAI() {
         const d = D.ai;
         if (!d || err(d)) { document.getElementById('ai-content').innerHTML = msg(d?.error||d?.message||'No data', d?.command); return; }
@@ -865,5 +1015,7 @@
         document.getElementById('ai-content').innerHTML = html;
     }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad: false, theme: 'base'});</script>
 </body>
 </html>

@@ -1067,6 +1067,12 @@ new vis.Network(container, data, options);
             # Display results
             self._display_blast_radius_results(assessment)
 
+            # Save reports to Reports/blast-radius/
+            self._save_blast_radius_reports(assessment, directory)
+
+            # Generate topology report alongside blast radius
+            self._save_topology_report(directory)
+
             # Store for post_execute PR posting
             self._blast_assessment = assessment
 
@@ -1076,6 +1082,108 @@ new vis.Network(container, data, options);
             self.logger.error(f"Blast radius assessment failed: {str(e)}")
             self.ui.print_error(f"Failed to assess blast radius: {str(e)}")
             return False
+
+    def _save_blast_radius_reports(self, assessment, directory: str) -> None:
+        """Save blast radius assessment as JSON and HTML to Reports/blast-radius/."""
+        from datetime import datetime
+        from pathlib import Path
+
+        try:
+            reports_dir = Path(directory) / "Reports" / "blast-radius"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # JSON report
+            report_data = {
+                "timestamp": datetime.now().isoformat(),
+                "total_components": assessment.total_components,
+                "risk_level": assessment.risk_level.value,
+                "change_type": assessment.change_type.value,
+                "affected_components": [
+                    {
+                        "name": c.name,
+                        "path": c.path,
+                        "change_type": c.change_type,
+                        "risk_score": c.risk_score,
+                        "criticality": c.criticality,
+                        "dependencies": c.dependencies,
+                        "dependents": c.dependents,
+                    }
+                    for c in assessment.affected_components
+                ],
+                "recommendations": assessment.recommendations,
+                "mitigation_steps": assessment.mitigation_steps,
+                "rollback_plan": assessment.rollback_plan,
+            }
+
+            json_path = reports_dir / f"blast_radius_{timestamp}.json"
+            with open(json_path, "w") as f:
+                import json as json_mod
+                json_mod.dump(report_data, f, indent=2)
+
+            self.ui.print_info(f"📄 Blast radius report saved: {json_path}")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save blast radius report: {e}")
+
+    def _save_topology_report(self, directory: str) -> None:
+        """Generate and save infrastructure topology to Reports/topology/."""
+        from pathlib import Path
+
+        try:
+            from ....services.document.topology_generator import (
+                generate_topology, render_topology_mermaid, topology_to_dict,
+            )
+
+            reports_dir = Path(directory) / "Reports" / "topology"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate topology from stacks/tfplan directories
+            plan_dirs = [Path(directory) / "stacks", Path(directory)]
+            topology = None
+            for plan_dir in plan_dirs:
+                if plan_dir.exists():
+                    topology = generate_topology(str(plan_dir), Path(directory).name)
+                    if topology.stacks:
+                        break
+
+            if not topology or not topology.stacks:
+                return
+
+            # Save mermaid
+            mermaid = render_topology_mermaid(topology)
+            mermaid_path = reports_dir / "topology.mmd"
+            mermaid_path.write_text(mermaid)
+
+            # Save JSON
+            import json as json_mod
+            from datetime import datetime
+
+            topo_data = topology_to_dict(topology)
+            topo_data["mermaid"] = mermaid
+            topo_data["timestamp"] = datetime.now().isoformat()
+            json_path = reports_dir / "topology.json"
+            with open(json_path, "w") as f:
+                json_mod.dump(topo_data, f, indent=2)
+
+            # Generate architecture diagram with official AWS icons (PNG + SVG)
+            try:
+                from ....services.document.architecture_renderer import render_architecture_diagram
+                png_path = render_architecture_diagram(topology, str(reports_dir), fmt="png")
+                if png_path:
+                    self.ui.print_info(f"📷 Architecture diagram: {png_path}")
+                    topo_data["diagram_path"] = png_path
+                    # Re-save JSON with diagram path
+                    with open(json_path, "w") as f:
+                        json_mod.dump(topo_data, f, indent=2)
+            except Exception as e:
+                self.logger.debug(f"Architecture diagram generation skipped: {e}")
+
+            self.ui.print_info(f"🗺️ Topology report saved: {reports_dir}")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save topology report: {e}")
 
     def _run_cost_analysis(self, directory: str, recursive: bool = False, **kwargs) -> bool:
         """Run cost analysis using the new service"""

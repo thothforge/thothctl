@@ -108,10 +108,15 @@ class DashboardService:
 
             if not full_path.exists() or not full_path.is_file():
                 raise HTTPException(status_code=404, detail="Report not found")
-            if full_path.suffix not in (".html", ".json", ".xml", ".sarif"):
+            if full_path.suffix not in (".html", ".json", ".xml", ".sarif", ".png", ".svg", ".mmd"):
                 raise HTTPException(status_code=403, detail="File type not allowed")
 
-            return FileResponse(str(full_path), media_type="text/html" if full_path.suffix == ".html" else "application/json")
+            media_types = {
+                ".html": "text/html", ".json": "application/json",
+                ".xml": "application/xml", ".sarif": "application/json",
+                ".png": "image/png", ".svg": "image/svg+xml", ".mmd": "text/plain",
+            }
+            return FileResponse(str(full_path), media_type=media_types.get(full_path.suffix, "application/octet-stream"))
         
         @self.app.get("/api/cost-analysis")
         async def api_cost_analysis():
@@ -155,6 +160,15 @@ class DashboardService:
                 return self.data_loader.get_drift_data()
             except Exception as e:
                 logger.error(f"Drift API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/topology")
+        async def api_topology():
+            """API endpoint for infrastructure topology (mermaid + data)."""
+            try:
+                return self.data_loader.get_topology_data()
+            except Exception as e:
+                logger.error(f"Topology API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
         @self.app.get("/api/ai-usage")

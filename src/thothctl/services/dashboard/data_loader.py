@@ -302,6 +302,55 @@ class DashboardDataLoader:
             "tool_counts": tool_counts,
         }
     
+    def get_topology_data(self) -> Dict[str, Any]:
+        """Load infrastructure topology from saved report or generate from plans."""
+        cache_key = "topology"
+        if self._is_cache_valid(cache_key):
+            return self.cache[cache_key]["data"]
+
+        try:
+            # First check for pre-generated topology report
+            topo_file = self.reports_dir / "topology" / "topology.json"
+            if topo_file.exists():
+                with open(topo_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self._cache_data(cache_key, data)
+                return data
+
+            # Otherwise generate live from tfplan.json files
+            from thothctl.services.document.topology_generator import (
+                generate_topology, render_topology_mermaid, topology_to_dict,
+            )
+
+            plan_dirs = [
+                self.base_dir / "stacks",
+                self.base_dir,
+            ]
+            topology = None
+            for plan_dir in plan_dirs:
+                if plan_dir.exists():
+                    topology = generate_topology(str(plan_dir), self.base_dir.name)
+                    if topology.stacks:
+                        break
+
+            if not topology or not topology.stacks:
+                return {
+                    "error": "No topology data available",
+                    "action": "Run blast radius check to generate topology report",
+                    "command": "thothctl check iac -type blast-radius --recursive",
+                }
+
+            mermaid = render_topology_mermaid(topology)
+            data = {
+                **topology_to_dict(topology),
+                "mermaid": mermaid,
+            }
+            self._cache_data(cache_key, data)
+            return data
+
+        except Exception as e:
+            return {"error": f"Error generating topology: {str(e)}"}
+
     def get_cost_analysis(self) -> Dict[str, Any]:
         """Load from terraform plan files or cost analysis cache."""
         cache_key = "cost_analysis"
