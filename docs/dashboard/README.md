@@ -12,6 +12,7 @@ The ThothCTL Dashboard provides a unified web interface to view and manage all y
 - **⚠️ Risk Assessment**: Blast radius analysis and mitigation strategies
 - **🔍 Drift Detection**: Infrastructure drift visualization between IaC and live cloud state
 - **🤖 AI Token Usage**: Track AI provider token consumption and cost metrics
+- **🗺️ Infrastructure Topology** — Mermaid dependency graph with blast radius overlay, zoom controls, AWS architecture PNG download
 - **🔄 Real-time Refresh**: Manual data refresh capability
 - **📱 Responsive Design**: Works on desktop, tablet, and mobile devices
 - **🌙 Complete dark mode support**
@@ -126,6 +127,23 @@ Monitor AI provider consumption:
 - Usage trends over time
 - Budget threshold indicators
 
+### Infrastructure Topology
+
+The infrastructure topology view is integrated within the **Blast Radius** tab, providing a unified visualization of your infrastructure dependencies and change impact:
+
+- **Summary cards**: Total stacks, resources, changed resources, and resource categories at a glance
+- **Color-coded legend**: Resource categories (compute, storage, networking, etc.) with distinct colors for quick identification
+- **Mermaid dependency graph**: Interactive diagram showing resource relationships with blast radius overlay. Includes zoom controls (+/−/Fit) for navigating large topologies
+- **Resources-by-stack tables**: Collapsible tables showing detailed resource breakdown per stack
+- **PNG download**: Export a professional architecture diagram with official AWS icons for documentation and presentations
+
+**Data source**: `Reports/topology/topology.json`
+
+**Generate topology data**:
+```bash
+thothctl check iac -type blast-radius --recursive
+```
+
 ## Architecture
 
 ### Twelve-Factor App Compliance
@@ -177,6 +195,7 @@ class DashboardDataLoader:
 - `GET /api/sbom` - CycloneDX SBOM data
 - `GET /api/cost-analysis` - Cost analysis data
 - `GET /api/blast-radius` - Risk assessment data
+- `GET /api/topology` - Infrastructure topology with mermaid diagram
 - `GET /api/drift` - Drift detection data
 - `GET /api/ai-usage` - AI token/cost usage
 - `GET /api/reports/{path}` - Serve HTML reports for iframe viewing
@@ -231,6 +250,11 @@ Reports/
 │   ├── InventoryIaC_*.json              # Inventory data
 │   ├── InventoryIaC_cyclonedx_*.json    # CycloneDX SBOM data
 │   └── html_reports/                    # Inventory HTML reports
+├── topology/
+│   ├── topology.json                    # Infrastructure topology data
+│   └── architecture.png                 # AWS architecture diagram
+├── blast-radius/
+│   └── blast_radius_*.json              # Blast radius analysis
 ├── opa/
 │   └── html_reports/                    # OPA/compliance HTML reports
 ├── cost_analysis_*.json                 # Cost analysis

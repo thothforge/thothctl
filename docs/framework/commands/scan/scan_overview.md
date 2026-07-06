@@ -138,6 +138,74 @@ warn contains msg if {
 }
 ```
 
+### YAML Data Files for Policy Parameterization (v0.20.2)
+
+OPA/Conftest now supports automatic conversion of YAML data files (`.yaml`/`.yml`) to JSON for policy parameterization. This allows you to externalize policy parameters — such as allowed regions, required tags, and thresholds — from your Rego code into maintainable YAML configuration files.
+
+#### How It Works
+
+- Place YAML files alongside your `.rego` policies (e.g., `policy/config.yaml`)
+- ThothCTL auto-converts YAML data files to JSON before running Conftest
+- Conftest automatically loads the converted JSON as data via its `--data` flag
+- **Caching**: only reconverts if the YAML source is newer than the existing JSON, avoiding unnecessary work on repeated scans
+
+#### Use Case
+
+Externalize policy parameters that change across teams or environments without modifying Rego logic:
+
+- Allowed cloud regions
+- Required resource tags
+- Cost or resource count thresholds
+- Naming convention patterns
+
+#### Example
+
+Define your parameters in YAML:
+
+```yaml
+# policy/config.yaml
+allowed_regions:
+  - us-east-1
+  - eu-west-1
+required_tags:
+  - Environment
+  - Owner
+```
+
+Reference them in your Rego policy via `data.config`:
+
+```rego
+# policy/regions.rego
+package main
+import data.config
+
+deny[msg] {
+  # uses config.allowed_regions from YAML
+  resource := input.resource.aws_instance[name]
+  not resource.provider_region in config.allowed_regions
+  msg := sprintf("Instance '%s' deployed in non-allowed region", [name])
+}
+
+deny[msg] {
+  resource := input.resource.aws_instance[name]
+  missing := {tag | tag := config.required_tags[_]; not resource.tags[tag]}
+  count(missing) > 0
+  msg := sprintf("Instance '%s' missing required tags: %v", [name, missing])
+}
+```
+
+#### Directory Layout
+
+```
+policy/
+├── config.yaml         # Externalized parameters (auto-converted to JSON)
+├── regions.rego        # Policy using data.config.allowed_regions
+├── tagging.rego        # Policy using data.config.required_tags
+└── ...
+```
+
+No additional CLI flags are needed — ThothCTL detects YAML files in the policy directory automatically.
+
 ## Enforcement (v0.19.0)
 
 When `--enforcement hard` is specified, ThothCTL gates the pipeline based on scan findings:

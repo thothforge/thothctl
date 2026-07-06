@@ -257,3 +257,109 @@ Components can be marked with specific criticality levels:
 - [`thothctl check -type plan`](../check/plan.md) - Plan validation
 - [`thothctl inventory iac`](../inventory/iac.md) - Infrastructure inventory
 - [`thothctl scan iac`](../scan/iac.md) - Security scanning
+
+## Blast Radius v0.20.0+ Enhancements
+
+Starting with v0.20.0, the blast radius command includes significant improvements to change detection, topology generation, and report outputs.
+
+### Enhanced Usage
+
+```bash
+thothctl check iac -type blast-radius --recursive
+```
+
+### What it does (v0.20.0+)
+
+1. Finds `tfplan.json` files recursively across all stacks
+2. Filters out no-op/read resources (only create/update/delete/replace affect blast radius)
+3. Propagates changes through the dependency graph
+4. Classifies risk: LOW/MEDIUM/HIGH/CRITICAL using ITIL v4
+5. Generates ITIL change type: STANDARD/NORMAL/EMERGENCY
+6. Saves reports to `Reports/blast-radius/blast_radius_*.json`
+7. Generates infrastructure topology diagram (`Reports/topology/`)
+
+### Report Outputs
+
+```
+Reports/
+├── blast-radius/
+│   └── blast_radius_20260705_*.json    # Risk assessment data
+└── topology/
+    ├── topology.json                    # Full topology + mermaid
+    ├── topology.mmd                     # Standalone mermaid file
+    └── architecture.png                 # Professional AWS diagram
+```
+
+### No-Changes Handling
+
+When terraform plan shows no changes (all no-op), blast radius returns LOW risk with:
+
+- Zero affected components
+- Context about total infrastructure size
+- Clear message that no create/update/delete actions were detected
+
+This ensures pipelines don't fail on plans with no actionable changes while still providing visibility into the existing infrastructure footprint.
+
+### Infrastructure Topology
+
+The blast radius command automatically generates visual topology outputs:
+
+- **Mermaid diagram** with color-coded nodes (create=blue, update=orange, delete=red dashed)
+- **PNG architecture diagram** with official AWS icons via mingrammer/diagrams
+- **Resource-level detail** per stack with category and action badges
+
+The topology files are written to `Reports/topology/` and include both machine-readable JSON and renderable diagram formats suitable for embedding in PRs or documentation.
+
+### Dashboard Integration
+
+The web dashboard shows blast radius + topology in a unified view under the **💥 Blast Radius** tab. This includes:
+
+- Risk summary with ITIL classification
+- Interactive topology diagram
+- Per-stack affected resource breakdown
+- Change action badges (create, update, delete, replace)
+
+## Dual-Mode Cost Analysis (v0.20.0+)
+
+The `thothctl check iac -type cost-analysis` command now provides dual-mode cost estimation:
+
+### Usage
+
+```bash
+thothctl check iac -type cost-analysis --recursive
+```
+
+### Modes
+
+- **Change delta**: Cost of resources being created/modified (for PR reviews). This shows the incremental cost impact of the proposed changes.
+- **Total running cost**: Cost of ALL planned resources (from `planned_values`). This provides a full picture of what the infrastructure costs to run.
+
+### No-Changes Behavior
+
+When no changes are detected in the plan, cost analysis shows the total running cost instead of `$0`. This gives teams continuous visibility into their infrastructure spend even when no modifications are pending.
+
+### JSON Report Fields
+
+The cost analysis JSON report includes:
+
+| Field | Description |
+|-------|-------------|
+| `total_running_monthly_cost` | Monthly cost of all planned resources |
+| `total_running_annual_cost` | Annual projection of all planned resources |
+| `total_planned_resources` | Count of all resources in the plan |
+| `change_delta_monthly_cost` | Monthly cost delta from changes only |
+| `change_delta_annual_cost` | Annual cost delta from changes only |
+
+### Example Output
+
+```json
+{
+  "total_running_monthly_cost": 1250.00,
+  "total_running_annual_cost": 15000.00,
+  "total_planned_resources": 47,
+  "change_delta_monthly_cost": 85.50,
+  "change_delta_annual_cost": 1026.00
+}
+```
+
+This dual-mode approach ensures that PR reviews show the marginal cost of changes while still providing the full cost picture for governance and budgeting.
