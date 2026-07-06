@@ -5,6 +5,10 @@ Supports two modes:
 - opa: Plan-based evaluation using `opa exec` against tfplan.json files
 
 Both modes use the same Rego policy language and can share policies.
+
+Data files (params.yaml / params.json) in the policy directory are automatically
+loaded into OPA's data namespace, enabling externalized policy parameters.
+YAML files are converted to JSON at scan time for OPA compatibility.
 """
 
 import json
@@ -53,6 +57,58 @@ class OPAScanner(ScannerPort):
 
     # ── Conftest mode ──────────────────────────────────────────────────
 
+    def _prepare_data_files(self, policy_dir: str) -> None:
+        """Convert YAML data files to JSON in the policy directory.
+
+        OPA/Conftest natively load .json files into the data namespace but not YAML.
+        This method finds *.yaml/*.yml data files (excluding .rego test data) in the
+        policy directory and generates corresponding .json files so that Rego policies
+        can reference them via data.<filename>.<key>.
+
+        This enables teams to manage policy parameters in human-readable YAML while
+        keeping OPA compatibility transparent.
+        """
+        policy_path = Path(policy_dir)
+        if not policy_path.is_dir():
+            return
+
+        yaml_files = list(policy_path.glob("*.yaml")) + list(policy_path.glob("*.yml"))
+
+        # Filter: only convert files that look like data/param files
+        # (skip files that are test fixtures, conftest config, etc.)
+        skip_prefixes = ("conftest", "opa", ".")
+        data_files = [
+            f for f in yaml_files
+            if not f.name.startswith(skip_prefixes)
+        ]
+
+        if not data_files:
+            return
+
+        try:
+            import yaml
+        except ImportError:
+            self.logger.warning(
+                "PyYAML not installed — cannot convert YAML data files to JSON. "
+                "Install with: pip install pyyaml"
+            )
+            return
+
+        for yaml_file in data_files:
+            json_file = yaml_file.with_suffix(".json")
+            # Only regenerate if YAML is newer than JSON (or JSON doesn't exist)
+            if json_file.exists() and json_file.stat().st_mtime >= yaml_file.stat().st_mtime:
+                continue
+            try:
+                with open(yaml_file, "r", encoding="utf-8") as yf:
+                    data = yaml.safe_load(yf)
+                with open(json_file, "w", encoding="utf-8") as jf:
+                    json.dump(data, jf, indent=2, ensure_ascii=False)
+                self.logger.info(f"Converted {yaml_file.name} → {json_file.name}")
+                self.ui.show_info(f"📄 Data file: {yaml_file.name} → {json_file.name}")
+            except Exception as e:
+                self.logger.warning(f"Failed to convert {yaml_file}: {e}")
+
     def _scan_with_conftest(
         self, directory: str, reports_dir: str, policy_dir: str, options: Dict
     ) -> Dict[str, str]:
@@ -73,6 +129,9 @@ class OPAScanner(ScannerPort):
                 "Skipping OPA/Conftest scan."
             )
             return {"status": "SKIPPED", "error": "No policy directory found"}
+
+        # Convert YAML data files to JSON for OPA data namespace
+        self._prepare_data_files(abs_policy)
 
         # Collect scannable files
         scan_files = self._find_scannable_files(abs_dir)
@@ -100,9 +159,15 @@ class OPAScanner(ScannerPort):
                 "--output", "json",
                 "--namespace", options["namespace"],
             ]
-        # Add data files if specified
+        # Add data files if specified (explicit option)
         if options.get("data_dir"):
             cmd_json.extend(["--data", options["data_dir"]])
+
+        # Auto-detect JSON data files in the policy directory
+        # conftest requires explicit --data to load JSON into data namespace
+        policy_data_files = list(Path(abs_policy).glob("*.json"))
+        for data_file in policy_data_files:
+            cmd_json.extend(["--data", str(data_file)])
 
         cmd_json.extend(scan_files)
 
@@ -195,6 +260,9 @@ class OPAScanner(ScannerPort):
                 "Skipping OPA scan."
             )
             return {"status": "SKIPPED", "error": "No policy directory found"}
+
+        # Convert YAML data files to JSON for OPA data namespace
+        self._prepare_data_files(abs_policy)
 
         # Find tfplan.json files
         plan_files = self._find_plan_files(abs_dir)
