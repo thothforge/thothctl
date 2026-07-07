@@ -263,8 +263,10 @@ class RestoredIaCScanCommand(ClickCommand):
                     border_style="red"
                 )
                 self.console.print(enforcement_panel)
-                ctx.exit(1)
+                raise SystemExit(1)
 
+        except SystemExit:
+            raise  # Let enforcement exit propagate without showing error panel
         except Exception as e:
             error_panel = Panel(
                 f"[bold red]Security scan could not complete[/bold red]\n\n"
