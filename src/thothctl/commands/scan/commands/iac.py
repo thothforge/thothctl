@@ -83,11 +83,19 @@ class RestoredIaCScanCommand(ClickCommand):
             start_time = time.perf_counter()
             
             # Execute scan with original functionality
+            # Build scanner options
+            scan_options = self._parse_options(options) if options else {}
+
+            # Inject --policy-dir into OPA options if provided
+            policy_dir = kwargs.get('policy_dir')
+            if policy_dir:
+                scan_options['policy_dir'] = policy_dir
+
             results = scan_service.execute_scans(
                 directory=code_directory,
                 reports_dir=reports_dir,
                 selected_tools=tools,
-                options=self._parse_options(options) if options else {},
+                options=scan_options,
                 tftool=tftool,
                 max_workers=max_workers,
                 compact=compact,
@@ -716,6 +724,14 @@ cli = RestoredIaCScanCommand.as_click_command(
         "-o",
         help="Additional options for scanning tools (key=value,key2=value2)",
         type=str,
+    ),
+    click.option(
+        "--policy-dir",
+        help="Policy directory or Git URL for OPA/Conftest (default: 'policy'). "
+             "Supports: local path, absolute path, Git URL (https://...), "
+             "or THOTH_ORG_POLICY env var.",
+        type=str,
+        default=None,
     ),
     click.option(
         "--tftool",
