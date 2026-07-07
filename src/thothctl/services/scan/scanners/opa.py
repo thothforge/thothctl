@@ -163,6 +163,12 @@ class OPAScanner(ScannerPort):
         if options.get("data_dir"):
             cmd_json.extend(["--data", options["data_dir"]])
 
+        # Auto-detect JSON data files in the policy directory and pass via --data
+        # conftest requires explicit --data to load JSON into the data namespace
+        # (the --policy flag only loads .rego files)
+        for data_file in sorted(Path(abs_policy).glob("*.json")):
+            cmd_json.extend(["--data", str(data_file)])
+
         cmd_json.extend(scan_files)
 
         self.ui.start_scan_message(abs_dir)
