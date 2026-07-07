@@ -6,8 +6,8 @@ Supports two modes:
 
 Both modes use the same Rego policy language and can share policies.
 
-Data files (params.yaml / params.json) in the policy directory are automatically
-loaded into OPA's data namespace, enabling externalized policy parameters.
+Data files (config.yaml / config.json or params.yaml / params.json) in the policy
+directory are automatically loaded into OPA's data namespace, enabling externalized
 YAML files are converted to JSON at scan time for OPA compatibility.
 """
 
