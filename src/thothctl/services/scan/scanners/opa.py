@@ -51,6 +51,18 @@ class OPAScanner(ScannerPort):
         mode = options.get("mode", "conftest")
         policy_dir = options.get("policy_dir", "policy")
 
+        # Auto-select cloudformation policies for CFN/CDK projects
+        project_type = options.get("_project_type", "terraform")
+        if project_type in ("cloudformation", "cdk") and policy_dir == "policy":
+            # Try cloudformation subdirectory first
+            cfn_policy = os.path.join(os.path.abspath(directory), "policy", "cloudformation")
+            if os.path.isdir(cfn_policy):
+                policy_dir = cfn_policy
+                self.logger.info(f"Auto-selected CloudFormation policies: {cfn_policy}")
+            # Also check org policy repo cloudformation/ path
+            elif os.environ.get("THOTH_ORG_POLICY"):
+                policy_dir = "shared/policy/cloudformation"
+
         if mode == "opa":
             return self._scan_with_opa(directory, reports_dir, policy_dir, options)
         return self._scan_with_conftest(directory, reports_dir, policy_dir, options)

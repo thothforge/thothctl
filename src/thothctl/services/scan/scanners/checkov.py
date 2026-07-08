@@ -267,6 +267,8 @@ class CheckovScanner(ScannerPort):
         if options:
             if options.get("compact"):
                 cmd.append("--compact")
+            if options.get("framework"):
+                cmd.extend(["--framework", options["framework"]])
             if "additional_args" in options:
                 if isinstance(options["additional_args"], list):
                     cmd.extend(options["additional_args"])

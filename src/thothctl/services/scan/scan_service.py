@@ -102,18 +102,49 @@ class ScanService:
                         )
             results = {}
             total_issues = 0
+
+            # Detect project type for scanner routing
+            project_type = self.detect_project_type(directory)
+            self.logger.info(f"Detected project type: {project_type}")
+            options["_project_type"] = project_type
             
             # Process Checkov reports if selected
             if "checkov" in selected_tools:
                 checkov_reports_path = path.join(reports_path, "checkov")
-                self._recursive_terraform_scan(
-                    directory=directory,
-                    reports_dir=checkov_reports_path,
-                    options=options.get("checkov", {}),
-                    tftool=tftool,
-                    max_workers=max_workers,
-                    compact=compact,
-                )
+
+                if project_type in ("cloudformation", "cdk"):
+                    # CloudFormation/CDK: scan templates directly with --framework cloudformation
+                    cfn_options = dict(options.get("checkov", {}))
+                    cfn_options["framework"] = "cloudformation"
+                    templates = (
+                        self._find_cdk_templates(directory) if project_type == "cdk"
+                        else self._find_cloudformation_templates(directory)
+                    )
+                    if templates:
+                        self.logger.info(f"Scanning {len(templates)} CloudFormation templates with Checkov")
+                        scanner = self.available_scanners.get("checkov")
+                        for template in templates:
+                            try:
+                                scanner.execute_scan(
+                                    directory=str(Path(template).parent),
+                                    reports_dir=str(checkov_reports_path),
+                                    options=cfn_options,
+                                    tftool=tftool,
+                                )
+                            except Exception as e:
+                                self.logger.warning(f"Checkov CFN scan failed for {template}: {e}")
+                    else:
+                        self.logger.info("No CloudFormation templates found for Checkov")
+                else:
+                    # Terraform: use recursive scan (existing behavior)
+                    self._recursive_terraform_scan(
+                        directory=directory,
+                        reports_dir=checkov_reports_path,
+                        options=options.get("checkov", {}),
+                        tftool=tftool,
+                        max_workers=max_workers,
+                        compact=compact,
+                    )
                 
                 # Process the directory to generate HTML/compliance reports
                 checkov_scan_dir = path.join(checkov_reports_path, "security-scan")
@@ -257,6 +288,65 @@ class ScanService:
             if (d / "main.tf").exists() or (d / "tfplan.json").exists():
                 stacks.append(str(d))
         return stacks
+
+    def detect_project_type(self, directory: str) -> str:
+        """Detect IaC project type from directory contents.
+
+        Returns:
+            One of: 'terraform', 'cloudformation', 'cdk'
+        """
+        root = Path(directory)
+        has_tf = bool(list(root.rglob("*.tf"))[:1])
+        has_terragrunt = bool(list(root.rglob("terragrunt.hcl"))[:1])
+        has_cdk_out = (root / "cdk.out").is_dir()
+        has_cdk_json = (root / "cdk.json").exists()
+        has_cfn = bool(self._find_cloudformation_templates(directory)[:1])
+
+        if has_cdk_out or has_cdk_json:
+            return "cdk"
+        if has_cfn and not has_tf and not has_terragrunt:
+            return "cloudformation"
+        if has_tf or has_terragrunt:
+            return "terraform"
+        if has_cfn:
+            return "cloudformation"
+        return "terraform"
+
+    def _find_cloudformation_templates(self, directory: str) -> List[str]:
+        """Find CloudFormation template files (YAML/JSON with Resources key)."""
+        templates = []
+        root = Path(directory)
+        exclude = {".terraform", ".git", "node_modules", ".terragrunt-cache",
+                   "Reports", "cdk.out", ".venv", "venv"}
+
+        for f in sorted(root.rglob("*")):
+            if not f.is_file():
+                continue
+            if f.suffix not in (".yaml", ".yml", ".json"):
+                continue
+            if any(part in exclude for part in f.parts):
+                continue
+            if f.stat().st_size < 20 or f.name.startswith("."):
+                continue
+            # Quick check for CFN markers without full parsing
+            try:
+                head = f.read_text(errors="ignore")[:2000]
+                if "AWSTemplateFormatVersion" in head or ('"Resources"' in head and '"Type"' in head) or ("Resources:" in head and "Type:" in head):
+                    templates.append(str(f))
+            except Exception:
+                continue
+
+        return templates
+
+    def _find_cdk_templates(self, directory: str) -> List[str]:
+        """Find CDK synthesized templates in cdk.out/."""
+        templates = []
+        cdk_out = Path(directory) / "cdk.out"
+        if not cdk_out.is_dir():
+            return templates
+        for f in cdk_out.glob("*.template.json"):
+            templates.append(str(f))
+        return templates
 def recursive_scan(
     directory: str,
     tool: str,
