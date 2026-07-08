@@ -1039,6 +1039,30 @@ new vis.Network(container, data, options);
     def _run_blast_radius_check(self, directory: str, recursive: bool = False, **kwargs) -> bool:
         """Run blast radius assessment combining deps and plan analysis."""
         try:
+            live_mode = kwargs.get('live', False)
+            stack_name = kwargs.get('stack_name')
+
+            # Detect project type
+            from ....services.scan.scan_service import ScanService
+            scan_svc = ScanService()
+            project_type = scan_svc.detect_project_type(directory)
+            self.logger.info(f"Blast radius: project_type={project_type}, live={live_mode}")
+
+            # Route to CFN/CDK blast radius for non-terraform projects
+            if project_type in ("cloudformation", "cdk"):
+                # Remove keys that are passed explicitly to avoid duplicates
+                cfn_kwargs = {k: v for k, v in kwargs.items()
+                              if k not in ("live", "stack_name", "plan_file")}
+                return self._run_cfn_blast_radius(
+                    directory=directory,
+                    recursive=recursive,
+                    project_type=project_type,
+                    live=live_mode,
+                    stack_name=stack_name,
+                    **cfn_kwargs,
+                )
+
+            # Terraform: use existing logic
             # Use explicit plan file if provided, otherwise auto-discover
             explicit_plan = kwargs.get('plan_file')
             if explicit_plan and os.path.exists(explicit_plan):
@@ -1082,6 +1106,140 @@ new vis.Network(container, data, options);
             self.logger.error(f"Blast radius assessment failed: {str(e)}")
             self.ui.print_error(f"Failed to assess blast radius: {str(e)}")
             return False
+
+    def _run_cfn_blast_radius(self, directory: str, recursive: bool, project_type: str, live: bool, stack_name: str, **kwargs) -> bool:
+        """Run blast radius for CloudFormation/CDK projects."""
+        from ....services.check.project.cfn_blast_radius_service import CfnBlastRadiusService, result_to_dict
+        from ....services.scan.scan_service import ScanService
+
+        try:
+            cfn_service = CfnBlastRadiusService()
+            scan_svc = ScanService()
+            profile = kwargs.get("profile")
+
+            # Find templates
+            if project_type == "cdk":
+                templates = scan_svc._find_cdk_templates(directory)
+                if not templates:
+                    self.ui.print_warning("No CDK templates found in cdk.out/. Run 'cdk synth' first.")
+                    return False
+            else:
+                templates = scan_svc._find_cloudformation_templates(directory)
+                if not templates:
+                    self.ui.print_warning("No CloudFormation templates found.")
+                    return False
+
+            self.ui.print_info(f"Found {len(templates)} {'CDK' if project_type == 'cdk' else 'CloudFormation'} template(s)")
+
+            all_results = []
+            for template in templates:
+                template_name = Path(template).stem
+                self.ui.print_info(f"  Assessing: {template_name}")
+
+                if live:
+                    if not stack_name:
+                        # Infer stack name from template filename
+                        stack_name_inferred = template_name.replace(".template", "").replace("_", "-")
+                        self.ui.print_info(f"  Using inferred stack name: {stack_name_inferred}")
+                    else:
+                        stack_name_inferred = stack_name
+
+                    result = cfn_service.assess_live(
+                        template_path=template,
+                        stack_name=stack_name_inferred,
+                        region=kwargs.get("region", "us-east-1"),
+                        profile=profile,
+                    )
+                else:
+                    result = cfn_service.assess_static(
+                        template_path=template,
+                        directory=directory,
+                    )
+
+                all_results.append(result)
+
+                # Display per-template results
+                self._display_cfn_blast_radius(result)
+
+            # Save reports
+            self._save_cfn_blast_radius_reports(all_results, directory)
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"CFN blast radius failed: {e}")
+            self.ui.print_error(f"Failed to assess CloudFormation blast radius: {str(e)}")
+            return False
+
+    def _display_cfn_blast_radius(self, result) -> None:
+        """Display CloudFormation blast radius results."""
+        from rich.table import Table
+        import rich.box
+
+        risk_colors = {"LOW": "green", "MEDIUM": "yellow", "HIGH": "red", "CRITICAL": "bold red"}
+        risk_color = risk_colors.get(result.risk_level, "white")
+
+        self.console.print(f"\n{'='*60}")
+        self.console.print(f"💥 [{risk_color}]{result.risk_level}[/{risk_color}] — {result.stack_name} ({result.mode} mode)")
+        self.console.print(f"   Resources: {result.total_resources} total, {len(result.changed_resources)} affected ({result.blast_radius_percentage:.1f}%)")
+
+        if result.changed_resources:
+            table = Table(box=rich.box.SIMPLE, show_lines=False)
+            table.add_column("Resource", style="cyan")
+            table.add_column("Type", style="dim")
+            table.add_column("Action", style="yellow")
+            table.add_column("Scope")
+
+            for r in result.changed_resources[:15]:
+                action_colors = {"add": "green", "modify": "yellow", "remove": "red", "affected": "blue"}
+                action_style = action_colors.get(r.action, "white")
+                table.add_row(
+                    r.logical_id,
+                    r.resource_type.replace("AWS::", ""),
+                    f"[{action_style}]{r.action}[/{action_style}]",
+                    ", ".join(r.scope[:3]) or "—",
+                )
+            if len(result.changed_resources) > 15:
+                table.add_row("...", f"+{len(result.changed_resources)-15} more", "", "")
+
+            self.console.print(table)
+
+        for rec in result.recommendations:
+            self.console.print(f"  {rec}")
+        self.console.print(f"{'='*60}")
+
+    def _save_cfn_blast_radius_reports(self, results, directory: str) -> None:
+        """Save CFN blast radius results to Reports/blast-radius/."""
+        from datetime import datetime
+        from pathlib import Path
+        from ....services.check.project.cfn_blast_radius_service import result_to_dict
+
+        try:
+            reports_dir = Path(directory) / "Reports" / "blast-radius"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            report_data = {
+                "timestamp": datetime.now().isoformat(),
+                "mode": results[0].mode if results else "static",
+                "stacks": [result_to_dict(r) for r in results],
+                "summary": {
+                    "total_stacks": len(results),
+                    "total_resources": sum(r.total_resources for r in results),
+                    "total_affected": sum(len(r.changed_resources) for r in results),
+                    "highest_risk": max((r.risk_level for r in results), default="LOW"),
+                },
+            }
+
+            json_path = reports_dir / f"blast_radius_cfn_{timestamp}.json"
+            with open(json_path, "w") as f:
+                import json as json_mod
+                json_mod.dump(report_data, f, indent=2)
+
+            self.ui.print_info(f"📄 CFN blast radius report saved: {json_path}")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save CFN blast radius report: {e}")
 
     def _save_blast_radius_reports(self, assessment, directory: str) -> None:
         """Save blast radius assessment as JSON and HTML to Reports/blast-radius/."""
@@ -1754,6 +1912,25 @@ cli = CheckIaCCommand.as_click_command(
     click.option(
         '--plan-file',
         help="Path to terraform plan JSON file (for blast-radius)",
+        type=str,
+        default=None,
+    ),
+    click.option(
+        '--live',
+        is_flag=True,
+        default=False,
+        help="Use live AWS change set for blast radius (requires credentials). "
+             "For CloudFormation/CDK projects only.",
+    ),
+    click.option(
+        '--stack-name',
+        help="CloudFormation stack name for live blast radius assessment",
+        type=str,
+        default=None,
+    ),
+    click.option(
+        '--profile',
+        help="AWS CLI profile name for live mode (uses default credential chain if not set)",
         type=str,
         default=None,
     ),
