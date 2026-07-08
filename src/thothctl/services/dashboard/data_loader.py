@@ -13,6 +13,55 @@ class DashboardDataLoader:
         self.reports_dir = self.base_dir / "Reports"
         self.cache = {}
         self.cache_ttl = 300  # 5 minutes
+        self._project_type = None
+
+    @property
+    def project_type(self) -> str:
+        """Detect and cache the project type."""
+        if self._project_type is None:
+            try:
+                from thothctl.services.scan.scan_service import ScanService
+                svc = ScanService()
+                self._project_type = svc.detect_project_type(str(self.base_dir))
+            except Exception:
+                self._project_type = "terraform"
+        return self._project_type
+
+    def get_project_info(self) -> Dict[str, Any]:
+        """Return project metadata including type detection."""
+        project_name = self.base_dir.resolve().name
+        ptype = self.project_type
+
+        # Provide context-aware commands
+        commands = {
+            "terraform": {
+                "scan": "thothctl scan iac -t checkov -t trivy -t opa",
+                "inventory": "thothctl inventory iac --check-versions",
+                "blast_radius": "thothctl check iac -type blast-radius --recursive",
+                "cost": "thothctl check iac -type cost-analysis --recursive",
+            },
+            "cloudformation": {
+                "scan": "thothctl scan iac -t checkov -t opa",
+                "inventory": "thothctl inventory iac --check-versions",
+                "blast_radius": "thothctl check iac -type blast-radius",
+                "blast_radius_live": "thothctl check iac -type blast-radius --live --stack-name <stack>",
+                "cost": "thothctl check iac -type cost-analysis",
+            },
+            "cdk": {
+                "scan": "thothctl scan iac -t checkov -t opa",
+                "inventory": "thothctl inventory iac --check-versions",
+                "blast_radius": "thothctl check iac -type blast-radius",
+                "blast_radius_live": "thothctl check iac -type blast-radius --live --stack-name <stack>",
+                "cost": "thothctl check iac -type cost-analysis",
+                "synth": "cdk synth",
+            },
+        }
+
+        return {
+            "project_name": project_name,
+            "project_type": ptype,
+            "commands": commands.get(ptype, commands["terraform"]),
+        }
     
     def get_inventory_data(self) -> Dict[str, Any]:
         """Load from existing inventory JSON files."""

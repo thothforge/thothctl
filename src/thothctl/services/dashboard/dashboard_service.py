@@ -35,6 +35,15 @@ class DashboardService:
         @self.app.get("/api/test")
         async def api_test():
             return {"status": "API working", "time": time.time()}
+
+        @self.app.get("/api/project")
+        async def api_project():
+            """API endpoint for project info (type, name, commands)."""
+            try:
+                return self.data_loader.get_project_info()
+            except Exception as e:
+                logger.error(f"Project info API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
         
         @self.app.get("/api/inventory")
         async def api_inventory():

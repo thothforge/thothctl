@@ -239,7 +239,7 @@
     async function refreshAll() { await fetch('/api/refresh'); loadAll(); }
 
     async function loadAll() {
-        const endpoints = {inventory:'/api/inventory', security:'/api/scan-results', costs:'/api/cost-analysis', risks:'/api/blast-radius', drift:'/api/drift', topology:'/api/topology', ai:'/api/ai-usage'};
+        const endpoints = {project:'/api/project', inventory:'/api/inventory', security:'/api/scan-results', costs:'/api/cost-analysis', risks:'/api/blast-radius', drift:'/api/drift', topology:'/api/topology', ai:'/api/ai-usage'};
         const results = await Promise.allSettled(Object.entries(endpoints).map(async ([k,url]) => {
             const r = await fetch(url); D[k] = await r.json(); return k;
         }));
@@ -251,13 +251,25 @@
 
     function renderOverview() {
         const inv = D.inventory||{}, sec = D.security||{}, cost = D.costs||{}, risk = D.risks||{}, drift = D.drift||{}, ai = D.ai||{};
+        const proj = D.project||{};
+        const projType = proj.project_type || 'terraform';
+        const projName = proj.project_name || '—';
+        const typeIcons = {terraform:'🏗️', cloudformation:'☁️', cdk:'⚡'};
         const comps = Array.isArray(inv.components) ? inv.components.length : (inv.stacks ? inv.stacks.length : 0);
         const issues = sec.summary ? sec.summary.total_issues : 0;
-        const monthly = typeof cost.total_monthly_cost === 'number' ? cost.total_monthly_cost.toFixed(2) : '—';
+        const summary = cost.summary || cost;
+        const monthly = typeof summary.total_monthly_cost === 'number' ? summary.total_monthly_cost.toFixed(2) : (typeof cost.total_monthly_cost === 'number' ? cost.total_monthly_cost.toFixed(2) : '—');
         const riskLvl = risk.risk_level || risk.overall_risk || '—';
         const drifted = drift.total_drifted || (drift.results ? drift.results.reduce((a,r)=>a+(r.drifted_resources||[]).length,0) : 0);
         const aiCost = typeof ai.total_cost === 'number' ? '$'+ai.total_cost.toFixed(4) : '—';
         document.getElementById('overview-content').innerHTML = `
+            <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px">
+                <span style="font-size:1.5rem">${typeIcons[projType]||'🏗️'}</span>
+                <div>
+                    <div style="font-size:1.1rem;font-weight:600">${projName}</div>
+                    <div style="font-size:0.75rem;color:var(--secondary)">${projType.toUpperCase()} project</div>
+                </div>
+            </div>
             <div class="summary-grid">
                 <div class="card" onclick="nav('inventory')"><div class="card-number">${comps}</div><div class="card-label">Components</div></div>
                 <div class="card" onclick="nav('security')" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">${issues}</div><div class="card-label">Security Issues</div></div>
