@@ -60,6 +60,14 @@ class ProjectService:
             directory=project_path,
             batch_mode=batch_mode
         )
+
+        # Replace template placeholders in all project files
+        replace_template_placeholders(
+            directory=project_path,
+            project_properties=project_props,
+            project_name=project_name,
+        )
+
         set_project_conf(
             project_name=project_name,
             project_properties=project_props,
