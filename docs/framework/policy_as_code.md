@@ -36,6 +36,11 @@ graph TB
         P2["scan iac --tools opa"]
     end
 
+    subgraph Cost["💰 Cost Policy"]
+        C1["cost/policy/*.rego<br/>+ config.yaml"]
+        C2["check iac -type cost-analysis<br/>--enforce-policy"]
+    end
+
     subgraph Operations["⚙️ Operations Policy"]
         O1[".driftpolicy<br/>ai_decision_config.yaml"]
         O2["check iac --type drift<br/>ai-review decide"]
@@ -43,10 +48,12 @@ graph TB
 
     S1 --> S2
     P1 --> P2
+    C1 --> C2
     O1 --> O2
 
     S2 --> Gate{"Policy Gate"}
     P2 --> Gate
+    C2 --> Gate
     O2 --> Gate
 
     Gate -->|All pass| Deploy["✅ Deploy"]
@@ -54,6 +61,7 @@ graph TB
 
     classDef structStyle fill:#3b82f6,stroke:#60a5fa,stroke-width:2px,color:#fff
     classDef secStyle fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
+    classDef costStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
     classDef opsStyle fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
     classDef gateStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
     classDef resultStyle fill:#15803d,stroke:#4ade80,stroke-width:2px,color:#ffffff
@@ -61,6 +69,7 @@ graph TB
 
     class S1,S2 structStyle
     class P1,P2 secStyle
+    class C1,C2 costStyle
     class O1,O2 opsStyle
     class Gate gateStyle
     class Deploy resultStyle
@@ -237,6 +246,117 @@ thothctl ai-review decide --pr-number 42 --dry-run
 # Risk score: 15 → below approve_thresholds.risk_score_max (20)
 # Confidence: 0.95 → above confidence_min (0.90)
 # Decision: APPROVE ✅
+```
+
+---
+
+### 5. Cost Policy (OPA/Rego)
+
+**File**: `cost/policy/*.rego` + `cost/policy/config.yaml`  
+**Evaluated by**: `thothctl check iac -type cost-analysis --enforce-policy <path>`  
+**Purpose**: Enforce budget limits, block expensive resource types, and flag cost anomalies using the same OPA/Rego engine as security policies.
+
+**How it works**: The cost analyzer produces a JSON report with resource costs, service breakdown, and totals. This JSON is fed as `input` to conftest/OPA for policy evaluation.
+
+```rego
+# cost/policy/budget.rego
+package main
+
+import rego.v1
+
+# Deny if monthly cost exceeds budget
+deny contains msg if {
+    data.budget.max_monthly_total
+    input.summary.total_monthly_cost > data.budget.max_monthly_total
+    msg := sprintf("Total monthly cost $%.2f exceeds budget limit $%.2f", [
+        input.summary.total_monthly_cost,
+        data.budget.max_monthly_total,
+    ])
+}
+
+# Deny blocked instance types
+deny contains msg if {
+    data.instance_types.blocked
+    resource := input.resources[_]
+    resource.type == "aws_instance"
+    instance_type := resource.details.instance_type
+    instance_type in data.instance_types.blocked
+    msg := sprintf("Instance type '%s' is blocked by cost policy", [instance_type])
+}
+
+# Warn on expensive individual resources
+warn contains msg if {
+    data.budget.expensive_resource_threshold
+    resource := input.resources[_]
+    resource.monthly_cost > data.budget.expensive_resource_threshold
+    msg := sprintf("Resource '%s' costs $%.2f/month — review for optimization", [
+        resource.address, resource.monthly_cost,
+    ])
+}
+```
+
+**Parameters** (`cost/policy/config.yaml`):
+
+```yaml
+budget:
+  max_monthly_total: 5000
+  max_monthly_increase: 500
+  warn_monthly_total: 2000
+  expensive_resource_threshold: 200
+
+instance_types:
+  blocked:
+    - p4d.24xlarge
+    - p3.16xlarge
+    - x2idn.metal
+
+services:
+  max_per_service:
+    EC2: 2000
+    RDS: 1500
+```
+
+**Enforcement**:
+
+```bash
+# Use local cost policies
+thothctl check iac -type cost-analysis --recursive --enforce-policy ./policy/cost
+
+# Use org-level cost policies (from THOTH_ORG_POLICY repo)
+export THOTH_ORG_POLICY=https://github.com/thothforge/org-iac-policies.git
+thothctl check iac -type cost-analysis --recursive --enforce-policy cost
+
+# Result:
+# ⚠️  Monthly cost $2500 approaching budget limit
+# ⛔  Service 'RDS' cost $1800 exceeds limit $1500/month
+# ⛔  Cost Policy Enforcement Failed
+```
+
+**Cost input JSON structure** (what policies evaluate):
+
+```json
+{
+  "summary": {
+    "total_monthly_cost": 2500.00,
+    "total_running_monthly_cost": 2500.00,
+    "stacks": 5
+  },
+  "resources": [
+    {
+      "address": "module.aurora.aws_rds_cluster.this[0]",
+      "type": "aws_rds_cluster",
+      "service": "RDS",
+      "monthly_cost": 58.40,
+      "action": "create",
+      "confidence": "high",
+      "details": {"instance_class": "db.r6g.large"}
+    }
+  ],
+  "cost_by_service": {
+    "RDS": 58.40,
+    "EC2": 0.00
+  }
+}
 ```
 
 ---
