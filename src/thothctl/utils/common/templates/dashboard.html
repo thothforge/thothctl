@@ -783,19 +783,24 @@
         const monthly = summary.total_monthly_cost || d.total_monthly_cost || 0;
         const annual = summary.total_annual_cost || d.total_annual_cost || 0;
         const services = d.cost_by_service || d.cost_breakdown_by_service || {};
-        const resources = d.resources || [];
+        const allResources = d.resources || [];
         const recommendations = d.recommendations || [];
         const warnings = d.warnings || [];
         const region = summary.region || '—';
 
+        // Filter: only resources with cost > 0
+        const resources = allResources.filter(r => (r.monthly_cost || 0) > 0);
+        const zeroCost = allResources.length - resources.length;
+
         let html = `<div class="summary-grid">
             <div class="card" style="border-color:var(--warning)"><div class="card-number" style="color:var(--warning)">$${monthly.toFixed(2)}</div><div class="card-label">Monthly</div></div>
             <div class="card" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">$${annual.toFixed(2)}</div><div class="card-label">Annual</div></div>
-            <div class="card"><div class="card-number">${resources.length}</div><div class="card-label">Resources</div></div>
+            <div class="card"><div class="card-number">${resources.length}</div><div class="card-label">Costed Resources</div></div>
+            <div class="card" style="border-color:var(--secondary)"><div class="card-number" style="color:var(--secondary)">${zeroCost}</div><div class="card-label">Free/Zero Cost</div></div>
             <div class="card" style="border-color:var(--info)"><div class="card-number" style="font-size:1rem;color:var(--info)">${region}</div><div class="card-label">Region</div></div>
         </div>`;
 
-        // Service breakdown
+        // Service breakdown (sortable)
         const serviceEntries = Object.entries(services).sort((a,b) => b[1] - a[1]);
         if (serviceEntries.length) {
             html += '<h3 style="margin:20px 0 12px;color:var(--primary)">📊 Cost by Service</h3>';
@@ -807,15 +812,32 @@
             html += '</tbody></table>';
         }
 
-        // Resources detail
+        // Resources detail — only those with cost > 0, sortable
         if (resources.length) {
-            html += '<h3 style="margin:20px 0 12px;color:var(--primary)">🏗️ Resource Details</h3>';
-            html += '<div class="findings-wrap"><table class="findings-table"><thead><tr><th>Resource</th><th>Service</th><th>Action</th><th>Monthly</th><th>Confidence</th></tr></thead><tbody>';
-            resources.slice(0, 30).forEach(r => {
+            html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px">
+                <h3 style="margin:0;color:var(--primary)">🏗️ Resource Costs</h3>
+                <span style="font-size:0.75rem;color:var(--secondary)">${zeroCost} free resources hidden • Click column headers to sort</span>
+            </div>`;
+            html += '<div class="findings-wrap" style="max-height:400px"><table class="findings-table" id="cost-resources-table"><thead><tr>';
+            html += '<th onclick="sortCostTable(0)" style="cursor:pointer">Resource ⇅</th>';
+            html += '<th onclick="sortCostTable(1)" style="cursor:pointer">Service ⇅</th>';
+            html += '<th onclick="sortCostTable(2)" style="cursor:pointer">Action ⇅</th>';
+            html += '<th onclick="sortCostTable(3)" style="cursor:pointer">Monthly ⇅</th>';
+            html += '<th onclick="sortCostTable(4)" style="cursor:pointer">Confidence ⇅</th>';
+            html += '</tr></thead><tbody>';
+            // Sort by cost descending initially
+            resources.sort((a,b) => (b.monthly_cost||0) - (a.monthly_cost||0));
+            resources.forEach(r => {
                 const confClass = r.confidence === 'high' ? 'updated' : (r.confidence === 'low' ? 'outdated' : 'unknown');
-                html += `<tr><td title="${r.address}"><strong>${r.address?.split('.').pop() || r.address || '—'}</strong><div style="font-size:0.65rem;color:var(--secondary)">${r.type||''}</div></td><td>${r.service||'—'}</td><td>${r.action||'—'}</td><td>$${(r.monthly_cost||0).toFixed(2)}</td><td><span class="status-chip ${confClass}">${r.confidence||'—'}</span></td></tr>`;
+                const shortAddr = r.address?.split('.').pop() || r.address || '—';
+                html += `<tr>
+                    <td title="${r.address}"><strong>${shortAddr}</strong><div style="font-size:0.6rem;color:var(--secondary)">${r.type||''}</div></td>
+                    <td>${r.service||'—'}</td>
+                    <td>${r.action||'—'}</td>
+                    <td data-sort="${r.monthly_cost||0}"><strong>$${(r.monthly_cost||0).toFixed(2)}</strong></td>
+                    <td><span class="status-chip ${confClass}">${r.confidence||'—'}</span></td>
+                </tr>`;
             });
-            if (resources.length > 30) html += `<tr><td colspan="5" style="text-align:center;color:var(--secondary)">... and ${resources.length - 30} more resources</td></tr>`;
             html += '</tbody></table></div>';
         }
 
@@ -1011,6 +1033,28 @@
         svgEl.style.transformOrigin = 'top left';
         // Expand the container scroll area when zooming in
         svgEl.style.minWidth = `${100 / window._topoZoom}%`;
+    }
+
+    // Cost table column sorting
+    let costSortCol = -1, costSortAsc = true;
+    function sortCostTable(colIdx) {
+        const table = document.getElementById('cost-resources-table');
+        if (!table) return;
+        if (costSortCol === colIdx) { costSortAsc = !costSortAsc; }
+        else { costSortCol = colIdx; costSortAsc = true; }
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+            let aVal = a.cells[colIdx]?.getAttribute('data-sort') || a.cells[colIdx]?.textContent?.trim() || '';
+            let bVal = b.cells[colIdx]?.getAttribute('data-sort') || b.cells[colIdx]?.textContent?.trim() || '';
+            const aNum = parseFloat(aVal.replace(/[^0-9.-]/g, ''));
+            const bNum = parseFloat(bVal.replace(/[^0-9.-]/g, ''));
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                return costSortAsc ? aNum - bNum : bNum - aNum;
+            }
+            return costSortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+        rows.forEach(r => tbody.appendChild(r));
     }
 
     function renderAI() {
