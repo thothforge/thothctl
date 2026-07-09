@@ -279,6 +279,7 @@ def get_project_props(
             project_properties["environment"] = "dev"
             project_properties["owner"] = "thothctl"
             project_properties["client"] = "thothctl"
+            project_properties["cloud_provider"] = cloud_provider
             
             if remote_bkd_cloud_provider == "aws":
                 project_properties["backend_region"] = "us-east-2"
@@ -326,6 +327,8 @@ def get_project_props(
             project_properties["owner"] = answers["owner"]
 
             project_properties["client"] = answers["client"]
+
+            project_properties["cloud_provider"] = cloud_provider
 
             if remote_bkd_cloud_provider == "aws":
                 questions_2 = [
