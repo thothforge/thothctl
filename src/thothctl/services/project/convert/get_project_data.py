@@ -431,14 +431,22 @@ def get_simple_project_props(
                 # Use sensible defaults instead of placeholder values
                 if k in default_values:
                     default_value = default_values[k]
+                elif k in ['project', 'project_name']:
+                    default_value = project_name
+                elif isinstance(input_parameters[k], dict) and 'template_value' in input_parameters[k]:
+                    # Use the template's own default value (from .thothcf.toml)
+                    tv = input_parameters[k]['template_value']
+                    # Skip if it's a placeholder pattern #{...}#
+                    if tv and not tv.startswith("#{"):
+                        default_value = tv
+                    else:
+                        default_value = f"{project_name}-{k}"
                 else:
                     # For unknown keys, use a sensible default
                     if 'region' in k:
                         default_value = 'us-east-2'
                     elif 'bucket' in k:
                         default_value = f"{project_name}-{k}"
-                    elif k in ['project', 'project_name']:
-                        default_value = project_name
                     else:
                         default_value = f"{project_name}-{k}"
                 
@@ -474,25 +482,28 @@ def get_simple_project_props(
                         pattern = input_parameters[k]["condition"]
                         validate = lambda _, x, p=pattern: re.match(pattern=p, string=x) is not None
                     
-                    # Provide smart defaults based on parameter name, but don't use template_value
-                    # template_value is the placeholder (e.g., '#{project}#'), not a default value
+                    # Provide smart defaults based on parameter name
+                    # Use template_value from .thothcf.toml if it's a real value (not a placeholder)
                     default = None
+                    tv = input_parameters[k].get('template_value', '')
+                    if tv and not tv.startswith("#{"):
+                        default = tv  # Use the template's own default
+                    
                     k_lower = k.lower()
                     if 'project' in k_lower and 'name' in k_lower:
                         default = project_name
                     elif k_lower in ['project', 'project_name']:
                         default = project_name
-                    elif k_lower in ['environment', 'env']:
+                    elif k_lower in ['environment', 'env'] and not default:
                         default = 'dev'
-                    elif 'region' in k_lower and 'backend' not in k_lower:
+                    elif 'region' in k_lower and 'backend' not in k_lower and not default:
                         default = 'us-east-1'
-                    elif 'backend' in k_lower and 'region' in k_lower:
+                    elif 'backend' in k_lower and 'region' in k_lower and not default:
                         default = 'us-east-2'
-                    elif 'bucket' in k_lower and 'backend' in k_lower:
+                    elif 'bucket' in k_lower and 'backend' in k_lower and not default:
                         default = f"{project_name}-tfstate"
-                    elif 'dynamodb' in k_lower or 'lock' in k_lower:
+                    elif ('dynamodb' in k_lower or 'lock' in k_lower) and not default:
                         default = 'db-terraform-lock'
-                    # For other parameters, leave default as None to force user input
                     
                     questions = [
                         inquirer.Text(

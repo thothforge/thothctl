@@ -42,3 +42,26 @@ template_value = "#{environment}#"
 condition = "(dev|qa|stg|test|prod)"
 description = "Environment allowed values (dev|qa|stg|test|prod)"
 
+[template_input_parameters.cloud_provider]
+template_value = "#{cloud_provider}#"
+condition = "(aws|azure|oci|gcp)"
+description = "Cloud provider (aws|azure|oci|gcp)"
+default = "aws"
+
+[template_input_parameters.deployment_profile]
+template_value = "#{deployment_profile}#"
+condition = "^[a-zA-Z0-9_.-]{3,255}$"
+description = "Cloud CLI profile for deployment"
+default = "default"
+
+[template_input_parameters.deployment_region]
+template_value = "#{deployment_region}#"
+condition = "^[a-z]{2}-[a-z]{4,10}-\\d$"
+description = "Deployment region"
+default = "us-east-2"
+
+[template_input_parameters.project_name]
+template_value = "#{project_name}#"
+condition = "\\b[a-zA-Z]+([_-][a-zA-Z]+)*\\b"
+description = "Project name for labels and paths"
+
