@@ -10,6 +10,9 @@ class CostAction(Enum):
     UPDATE = "update"
     DELETE = "delete"
     NO_CHANGE = "no-change"
+    NO_OP = "no-op"
+    READ = "read"
+    EXISTING = "existing"
 
 
 @dataclass

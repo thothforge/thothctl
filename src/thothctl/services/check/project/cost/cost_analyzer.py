@@ -301,12 +301,10 @@ class CostAnalyzer:
     def _create_analysis(self, resource_costs: List[ResourceCost], 
                         warnings: List[str], plan_file: str) -> CostAnalysis:
         """Create comprehensive cost analysis"""
+        # Sum all resources that represent running cost (exclude deletes)
         total_monthly = sum(
             cost.monthly_cost for cost in resource_costs 
-            if cost.action.value in ['create', 'update']
-        ) - sum(
-            cost.monthly_cost for cost in resource_costs 
-            if cost.action.value == 'delete'
+            if cost.action.value not in ['delete']
         )
         
         return CostAnalysis(

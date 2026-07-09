@@ -80,7 +80,7 @@ class S3PricingProvider(BasePricingProvider):
                             confidence: str) -> ResourceCost:
         """Create ResourceCost object"""
         actions = resource_change['change']['actions']
-        action = CostAction(actions[0] if actions else 'no-change')
+        action = self._safe_action(actions)
         
         return ResourceCost(
             resource_address=resource_change['address'],
