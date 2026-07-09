@@ -171,15 +171,31 @@ class ScannerUI:
             self.logger.debug(f"Running command with optimized output handling: {' '.join(cmd)}")
             
             # Use subprocess.run with capture_output=False to avoid buffering issues
-            with self.console.status("Running scan...", spinner="dots") as status:
-                process = subprocess.run(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1024*1024,  # 1MB buffer
-                    timeout=timeout
-                )
+            # Try Live status spinner, fall back to simple print if another is active
+            try:
+                with self.console.status("Running scan...", spinner="dots") as status:
+                    process = subprocess.run(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        bufsize=1024*1024,  # 1MB buffer
+                        timeout=timeout
+                    )
+            except Exception as live_err:
+                if "live display" in str(live_err).lower() or "Only one" in str(live_err):
+                    # Parallel execution — fall back to non-live mode
+                    self.logger.debug("Parallel mode: running without live display")
+                    process = subprocess.run(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        bufsize=1024*1024,
+                        timeout=timeout
+                    )
+                else:
+                    raise
             
             # Process has completed, check return code
             self.logger.debug(f"Process completed with return code: {process.returncode}")
