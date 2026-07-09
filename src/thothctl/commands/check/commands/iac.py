@@ -1428,6 +1428,18 @@ new vis.Network(container, data, options);
                 self.ui.print_info(f"  {index_path}")
             
             self._cost_results = cost_results
+
+            # Enforce cost policies via OPA/Conftest if --enforce-policy is set
+            enforce_policy = kwargs.get("enforce_policy")
+            if enforce_policy and cost_results:
+                policy_passed = self._enforce_cost_policy(
+                    cost_results=cost_results,
+                    policy_dir=enforce_policy,
+                    directory=directory,
+                )
+                if not policy_passed:
+                    return False
+
             return True
             
         except Exception as e:
@@ -1656,6 +1668,177 @@ new vis.Network(container, data, options);
             return False
         except Exception:
             return False
+
+    def _enforce_cost_policy(self, cost_results: list, policy_dir: str, directory: str) -> bool:
+        """Enforce OPA/Rego policies against cost analysis results.
+
+        Feeds cost JSON to conftest as input and evaluates deny/warn rules.
+
+        Args:
+            cost_results: List of {"stack": name, "analysis": CostAnalysis}
+            policy_dir: Policy directory, Git URL, or 'cost' for org default
+            directory: Project directory
+
+        Returns:
+            True if all policies pass, False if violations detected
+        """
+        import json as json_mod
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from ....utils.platform_utils import find_executable
+
+        conftest = find_executable("conftest")
+        if not conftest:
+            self.ui.print_warning("conftest not found — skipping cost policy enforcement")
+            return True
+
+        # Resolve policy directory
+        if policy_dir == "cost":
+            # Use org-iac-policies/cost/ from THOTH_ORG_POLICY
+            org_policy = os.environ.get("THOTH_ORG_POLICY")
+            if org_policy:
+                from ....services.scan.scanners.opa import OPAScanner
+                scanner = OPAScanner()
+                resolved = scanner._resolve_policy_dir(directory, "cost")
+                if resolved:
+                    policy_dir = resolved
+                else:
+                    self.ui.print_warning("No 'cost' policy directory found in org policies")
+                    return True
+            else:
+                local_cost = os.path.join(directory, "policy", "cost")
+                if os.path.isdir(local_cost):
+                    policy_dir = local_cost
+                else:
+                    self.ui.print_warning("No cost policy directory found. Create policy/cost/*.rego")
+                    return True
+
+        if not os.path.isdir(policy_dir):
+            # Might be a Git URL — let OPA scanner resolve it
+            from ....services.scan.scanners.opa import OPAScanner
+            scanner = OPAScanner()
+            resolved = scanner._resolve_policy_dir(directory, policy_dir)
+            if resolved:
+                policy_dir = resolved
+            else:
+                self.ui.print_warning(f"Could not resolve policy directory: {policy_dir}")
+                return True
+
+        # Prepare YAML data files (config.yaml → config.json)
+        from ....services.scan.scanners.opa import OPAScanner
+        opa_scanner = OPAScanner()
+        opa_scanner._prepare_data_files(policy_dir)
+
+        # Build combined cost input JSON (all stacks merged)
+        combined = {
+            "summary": {
+                "total_monthly_cost": sum(
+                    r["analysis"].total_monthly_cost for r in cost_results
+                ),
+                "total_annual_cost": sum(
+                    r["analysis"].total_annual_cost for r in cost_results
+                ),
+                "total_running_monthly_cost": sum(
+                    r["analysis"].analysis_metadata.get("total_running_monthly_cost", r["analysis"].total_monthly_cost)
+                    for r in cost_results
+                ),
+                "stacks": len(cost_results),
+            },
+            "resources": [],
+            "cost_by_service": {},
+            "stacks": [],
+        }
+
+        for r in cost_results:
+            analysis = r["analysis"]
+            stack_name = r["stack"]
+            combined["stacks"].append({
+                "name": stack_name,
+                "monthly_cost": analysis.total_monthly_cost,
+            })
+            for rc in analysis.resource_costs:
+                combined["resources"].append({
+                    "address": rc.resource_address,
+                    "type": rc.resource_type,
+                    "service": rc.service_name,
+                    "monthly_cost": rc.monthly_cost,
+                    "action": rc.action.value,
+                    "confidence": rc.confidence_level,
+                    "details": rc.pricing_details,
+                    "stack": stack_name,
+                })
+            for svc, cost in analysis.cost_breakdown_by_service.items():
+                combined["cost_by_service"][svc] = combined["cost_by_service"].get(svc, 0) + cost
+
+        # Write input JSON to temp file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json_mod.dump(combined, f, indent=2, default=str)
+            input_path = f.name
+
+        try:
+            # Find data files in policy directory
+            data_args = []
+            for data_file in sorted(Path(policy_dir).glob("*.json")):
+                data_args.extend(["--data", str(data_file)])
+
+            # Run conftest
+            cmd = [
+                conftest, "test", input_path,
+                "--policy", policy_dir,
+                "--output", "json",
+                "--all-namespaces",
+            ] + data_args
+
+            self.ui.print_info(f"🔒 Enforcing cost policies from: {policy_dir}")
+            self.logger.info(f"Running cost policy: {' '.join(cmd)}")
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+            # Parse results
+            try:
+                results_json = json_mod.loads(result.stdout) if result.stdout else []
+            except json_mod.JSONDecodeError:
+                results_json = []
+
+            failures = []
+            warnings = []
+            for r in results_json:
+                failures.extend(r.get("failures", []))
+                warnings.extend(r.get("warnings", []))
+
+            # Display results
+            if warnings:
+                for w in warnings:
+                    self.ui.print_warning(f"  ⚠️  {w.get('msg', w)}")
+
+            if failures:
+                self.console.print()
+                from rich.panel import Panel
+                violation_msgs = "\n".join(f"  • {f.get('msg', f)}" for f in failures)
+                panel = Panel(
+                    f"[bold red]Cost policy violations detected[/bold red]\n\n"
+                    f"{violation_msgs}\n\n"
+                    f"[dim]Policies:[/dim] {policy_dir}\n"
+                    f"[dim]Total monthly cost:[/dim] ${combined['summary']['total_monthly_cost']:,.2f}",
+                    title="[bold red]⛔ Cost Policy Enforcement Failed[/bold red]",
+                    border_style="red",
+                )
+                self.console.print(panel)
+                return False
+            else:
+                self.ui.print_success("✅ All cost policies passed")
+                return True
+
+        except subprocess.TimeoutExpired:
+            self.ui.print_warning("Cost policy check timed out")
+            return True
+        except Exception as e:
+            self.logger.error(f"Cost policy enforcement failed: {e}")
+            self.ui.print_warning(f"Cost policy enforcement error: {e}")
+            return True
+        finally:
+            os.unlink(input_path)
 
     def _display_cost_analysis(self, analysis) -> None:
         """Display cost analysis results"""
@@ -1931,6 +2114,13 @@ cli = CheckIaCCommand.as_click_command(
     click.option(
         '--profile',
         help="AWS CLI profile name for live mode (uses default credential chain if not set)",
+        type=str,
+        default=None,
+    ),
+    click.option(
+        '--enforce-policy',
+        help="OPA/Rego policy directory to enforce against cost analysis results. "
+             "Supports: local path, Git URL, or 'cost' to use org-iac-policies/cost/",
         type=str,
         default=None,
     ),
