@@ -89,6 +89,7 @@ class ProjectInitCommand(ClickCommand):
         batch: bool = False,
         context: str = None,
         language: str = None,
+        ai_tools: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Execute project initialization"""
@@ -185,7 +186,10 @@ class ProjectInitCommand(ClickCommand):
         # Copy architecture/spec context files into .kiro/steering
         if context:
             self.project_service.copy_context_to_steering(project_path, context)
-        
+
+        # Configure AI tool support (keep/remove .kiro/.claude based on selection)
+        self.project_service.configure_ai_tools(project_path, ai_tools, batch_mode=batch)
+
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
     def _select_template(self, space: str, vcs_provider: str, **vcs_params) -> Optional[dict]:
@@ -630,5 +634,11 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
             case_sensitive=True,
         ),
         help="Programming language for CDK projects (only used with --project-type cdkv2)",
+    ),
+    click.option(
+        "--ai-tools",
+        type=click.Choice(["kiro", "claude-code", "both", "none"], case_sensitive=False),
+        default=None,
+        help="AI coding tool to keep in project: 'kiro', 'claude-code', 'both', or 'none' (interactive if omitted)",
     ),
 )

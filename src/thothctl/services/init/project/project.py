@@ -86,6 +86,102 @@ class ProjectService:
         git.Repo.init(path=str(project_path), mkdir=False)
         self.ui.print_success("🗃️ Git repository initialized")
 
+
+    def configure_ai_tools(self, project_path: Path, ai_tools: str, batch_mode: bool = False) -> None:
+        """Configure AI tool support based on user selection.
+
+        Detects .kiro/ and .claude/ directories in the project and keeps/removes
+        them based on the user's choice.
+
+        Args:
+            project_path: Root of the project
+            ai_tools: One of 'kiro', 'claude-code', 'both', or 'none'. If None, prompts interactively.
+            batch_mode: If True and ai_tools is None, defaults to 'both'
+        """
+        import shutil
+
+        has_kiro = (project_path / ".kiro").exists()
+        has_claude = (project_path / ".claude").exists() or (project_path / "CLAUDE.md").exists()
+
+        # No AI tool directories found — nothing to do
+        if not has_kiro and not has_claude:
+            return
+
+        # Determine selection
+        selection = ai_tools
+        if not selection:
+            if batch_mode:
+                selection = "both"
+            else:
+                # Interactive prompt
+                available = []
+                if has_kiro and has_claude:
+                    available = ["both", "kiro", "claude-code", "none"]
+                elif has_kiro:
+                    available = ["kiro", "none"]
+                elif has_claude:
+                    available = ["claude-code", "none"]
+
+                try:
+                    import inquirer
+                    from colorama import Fore
+                    questions = [
+                        inquirer.List(
+                            "ai_tools",
+                            message=f"{Fore.GREEN}Which AI coding tool do you want to use?",
+                            choices=available,
+                            default=available[0],
+                        ),
+                    ]
+                    answer = inquirer.prompt(questions)
+                    selection = answer["ai_tools"] if answer else available[0]
+                except (ImportError, Exception):
+                    # Fallback if inquirer not available
+                    selection = "both" if (has_kiro and has_claude) else ("kiro" if has_kiro else "claude-code")
+
+        # Apply selection
+        if selection == "kiro":
+            # Remove Claude Code files
+            if has_claude:
+                claude_dir = project_path / ".claude"
+                if claude_dir.exists():
+                    shutil.rmtree(claude_dir)
+                claude_md = project_path / "CLAUDE.md"
+                if claude_md.exists():
+                    claude_md.unlink()
+                mcp_json = project_path / ".mcp.json"
+                if mcp_json.exists():
+                    mcp_json.unlink()
+                self.ui.print_info("🗑️ Removed Claude Code configuration (keeping Kiro)")
+
+        elif selection == "claude-code":
+            # Remove Kiro files
+            if has_kiro:
+                kiro_dir = project_path / ".kiro"
+                if kiro_dir.exists():
+                    shutil.rmtree(kiro_dir)
+                self.ui.print_info("🗑️ Removed Kiro configuration (keeping Claude Code)")
+
+        elif selection == "none":
+            # Remove both
+            if has_kiro:
+                shutil.rmtree(project_path / ".kiro")
+            if has_claude:
+                claude_dir = project_path / ".claude"
+                if claude_dir.exists():
+                    shutil.rmtree(claude_dir)
+                claude_md = project_path / "CLAUDE.md"
+                if claude_md.exists():
+                    claude_md.unlink()
+                mcp_json = project_path / ".mcp.json"
+                if mcp_json.exists():
+                    mcp_json.unlink()
+            self.ui.print_info("🗑️ Removed all AI tool configurations")
+
+        else:
+            # "both" — keep everything
+            self.ui.print_info("✅ Keeping both Kiro and Claude Code configurations")
+
     def copy_context_to_steering(self, project_path: Path, context_path: str) -> None:
         """Copy architecture/spec files into .kiro/steering/.
 
