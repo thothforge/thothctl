@@ -8,20 +8,33 @@ The `thothctl inventory` command creates, manages, and updates inventories of yo
 
 ### inventory iac
 
-Creates an inventory of Infrastructure as Code (IaC) components in your project.
+Creates an inventory of Infrastructure as Code (IaC) components in your project, including modules, providers, and their versions. Generates CycloneDX 1.6 SBOM reports.
 
 ```bash
 thothctl inventory iac [OPTIONS]
 ```
 
-Options:
-- `-ft, --framework-type [auto|terraform|terragrunt|terraform-terragrunt]`: Framework type to analyze (default: auto)
-- `-iph, --inventory-path PATH`: Path for saving inventory reports (default: ./Reports/Inventory)
-- `-ch, --check-versions`: Check remote versions
-- `-updep, --update-dependencies-path`: Pass the inventory json file path for updating dependencies
-- `-auto, --auto-approve`: Use with --update_dependencies option for auto approve updating dependencies
-- `-iact, --inventory-action [create|update|restore]`: Action for inventory tasks (default: create)
-- `--report-type, -r [html|json|all]`: Type of report to generate (default: html)
+**Core Options:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--check-versions` | `-cv` | Check latest versions for modules against Terraform Registry |
+| `--check-provider-versions` | `-cpv` | Check latest versions for providers (Terraform/OpenTofu) |
+| `--check-schema-compatibility` | | Analyze breaking changes between current and latest versions |
+| `--check-providers` | | Report provider information for each stack |
+| `--report-type` | `-r` | Output: `html`, `json`, `cyclonedx`, or `all` (default: html) |
+| `--framework-type` | `-ft` | Framework: `auto`, `terraform`, `terragrunt`, `terraform-terragrunt`, `module`, `cdkv2` |
+| `--provider-tool` | | Registry to query: `tofu` (default) or `terraform` |
+| `--complete` | | Include .terraform/.terragrunt-cache in analysis |
+| `--project-name` | `-pj` | Custom project name for reports |
+| `--inventory-path` | `-iph` | Custom output path (default: `./Reports`) |
+| `--inventory-action` | `-iact` | Action: `create`, `update`, `restore` (default: create) |
+| `--update-dependencies-path` | `-updep` | Pass inventory JSON for dependency updates |
+| `--auto-approve` | `-auto` | Auto-approve dependency updates (for CI/CD) |
+| `--post-to-pr` | | Post inventory summary as PR comment |
+| `--vcs-provider` | | VCS for PR comments: `auto`, `azure_repos`, `github` |
+| `--space` | | Space name for credential resolution |
+| `--terragrunt-args` | `-tg-args` | Additional terragrunt arguments |
 
 [Detailed documentation for inventory iac](../commands/inventory/inventory_iac.md)
 
@@ -42,6 +55,47 @@ thothctl inventory iac --check-versions
 ```
 
 This creates an inventory and checks if the modules are using the latest available versions.
+
+### Check Provider Versions
+
+```bash
+# Check provider versions (independently from module versions)
+thothctl inventory iac --check-provider-versions
+
+# Check both modules and providers
+thothctl inventory iac --check-versions --check-provider-versions
+
+# Analyze schema compatibility (breaking changes between versions)
+thothctl inventory iac --check-versions --check-provider-versions --check-schema-compatibility
+```
+
+### Generate CycloneDX SBOM
+
+```bash
+# Generate OWASP CycloneDX 1.6 compliant SBOM
+thothctl inventory iac --check-versions --report-type cyclonedx
+
+# Generate all report types (HTML + JSON + CycloneDX)
+thothctl inventory iac --check-versions --report-type all
+```
+
+The CycloneDX SBOM includes:
+- Formulation (how components are assembled)
+- Evidence (proof of component presence)
+- Standards mapping
+- Attestations
+- Dependency graph
+- Hashes and licenses
+
+### Post Results to PR
+
+```bash
+# Post inventory summary as a PR comment (auto-detects CI environment)
+thothctl inventory iac --check-versions --post-to-pr
+
+# Specify VCS provider explicitly
+thothctl inventory iac --check-versions --post-to-pr --vcs-provider github
+```
 
 ### Generate Different Report Types
 

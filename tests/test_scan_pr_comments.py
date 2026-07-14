@@ -21,7 +21,7 @@ class TestBuildScanMarkdown:
         }
         md = cmd._build_scan_markdown(results)
         assert "## 🔒 ThothCTL Scan Results" in md
-        assert "| checkov | COMPLETE | 513 | 423 | 90 | 0 | 0 | 82.5% |" in md
+        assert "| checkov | COMPLETE | 513 | 423 | 90 | 0 | 0 | 0 | 82.5% |" in md
         assert "**TOTAL**" in md
         assert "Security Issues Found: 90" in md
         assert "thothforge/thothctl" in md

@@ -8,23 +8,42 @@ The `thothctl check` command group provides tools for validating various aspects
 
 ### check iac
 
-Validates Infrastructure as Code (IaC) artifacts against predefined rules and best practices.
+Validates Infrastructure as Code (IaC) artifacts — plans, costs, blast radius, drift, and project structure.
 
 ```bash
 thothctl check iac [OPTIONS]
 ```
 
-Options:
-- `--mode [soft|hard]`: Validation mode (default: soft)
-- `-deps, --dependencies TEXT`: View a dependency graph in ASCII pretty shell output
-- `--recursive [local|recursive]`: Validate your terraform plan recursively or in one directory
-- `--outmd`: Output markdown file path
-- `-type, --check_type [tfplan|module|project]`: Check module or project structure format, or check tfplan (default: project)
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-type, --check_type` | Check type: `tfplan`, `deps`, `blast-radius`, `cost-analysis`, `drift`, `stack-optimizer` |
+| `--mode [soft\|hard]` | Validation mode (default: soft) |
+| `--recursive` | Validate recursively or in one directory |
+| `-deps, --dependencies` | View dependency graph in ASCII |
+| `--outmd` | Output markdown file path |
+| `--plan-file` | Path to tfplan.json for plan-based analysis |
+| `--filter-tags` | Tag filter for drift detection (e.g., `env=prod,team=platform`) |
+| `--tftool` | Use `terraform` or `tofu` (default: tofu) |
+
+**Check types:**
+
+| Type | Description |
+|------|-------------|
+| `tfplan` | Validate Terraform plan file |
+| `deps` | Dependency analysis and graph |
+| `blast-radius` | Change impact assessment (ITIL v4 risk classification) |
+| `cost-analysis` | AWS cost estimation (17 service providers) |
+| `drift` | Infrastructure drift detection with AI analysis |
+| `stack-optimizer` | DAG dependency optimization for Terragrunt |
 
 This command can validate:
 - Project structure against defined rules
-- Module structure against best practices
 - Terraform plans for security and compliance
+- Cost impact of planned changes
+- Blast radius and change propagation
+- Configuration drift from desired state
 
 [Detailed documentation for check iac](../commands/check/check_iac.md)
 

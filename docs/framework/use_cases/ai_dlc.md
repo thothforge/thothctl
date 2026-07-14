@@ -59,7 +59,7 @@ graph TB
 - Best for: Conversational, exploratory workflows
 
 **Option 2: Manual Execution + AI Analysis**
-- Run: `thothctl scan iac --tool checkov`
+- Run: `thothctl scan iac -t checkov`
 - Start: `kiro-cli chat --agent thoth`
 - Ask: "Analyze the scan results"
 - AI accesses results via MCP and provides insights
@@ -240,9 +240,9 @@ You: "Generate documentation for all modules"
 
 #### Traditional Way:
 ```bash
-thothctl scan iac --tool checkov
-thothctl scan iac --tool trivy
-thothctl scan iac --tool trivy
+thothctl scan iac -t checkov
+thothctl scan iac -t trivy
+thothctl scan iac -t trivy
 # Review multiple reports...
 ```
 
@@ -266,8 +266,8 @@ You: "Scan with trivy and summarize the findings"
 #### AI-Assisted Way (Option 2 - Analysis of existing results):
 ```bash
 # Run scans first
-thothctl scan iac --tool checkov
-thothctl scan iac --tool trivy
+thothctl scan iac -t checkov
+thothctl scan iac -t trivy
 
 # Then use Kiro for analysis
 kiro-cli chat --agent thoth
@@ -335,7 +335,7 @@ You: "How can I reduce costs by 30%?"
 #### ThothCTL + AI Workflow:
 ```bash
 # Run compliance checks
-thothctl scan iac --tool terraform-compliance --feature-path ./policies/
+thothctl scan iac -t terraform-compliance --policy-dir ./policies/
 
 # Use Kiro for compliance review
 kiro-cli chat --agent thoth
@@ -514,9 +514,9 @@ thothctl inventory iac --check-versions
 thothctl document iac --recursive
 
 # Step 5: Run security scans
-thothctl scan iac --tool checkov
-thothctl scan iac --tool trivy
-thothctl scan iac --tool trivy
+thothctl scan iac -t checkov
+thothctl scan iac -t trivy
+thothctl scan iac -t trivy
 
 # Step 6: Create Terraform plan
 terraform init
@@ -586,7 +586,7 @@ You: "Generate an executive summary for stakeholders"
 ```bash
 # Set up scheduled scans (cron or CI/CD)
 # Run scans regularly
-thothctl scan iac --tool checkov --output json > scan-results.json
+thothctl scan iac -t checkov --output json > scan-results.json
 thothctl check iac --type cost-analysis --plan-file tfplan.json
 
 # Use Kiro for analysis
@@ -603,7 +603,7 @@ You: "Compare costs with last week and identify anomalies"
 
 ```bash
 # Run security scan
-thothctl scan iac --tool checkov
+thothctl scan iac -t checkov
 
 # Use Kiro for remediation guidance
 kiro-cli chat --agent thoth
@@ -637,7 +637,7 @@ You: "Create a changelog for infrastructure updates"
 
 ```bash
 # Run checks on PR changes
-thothctl scan iac --tool checkov
+thothctl scan iac -t checkov
 thothctl check iac --type cost-analysis --plan-file tfplan.json
 thothctl check iac --type blast-radius --plan-file tfplan.json
 
@@ -703,8 +703,8 @@ jobs:
       
       - name: Security Scan
         run: |
-          thothctl scan iac --tool checkov
-          thothctl scan iac --tool trivy
+          thothctl scan iac -t checkov
+          thothctl scan iac -t trivy
       
       - name: Terraform Plan
         run: |
@@ -726,7 +726,7 @@ devsecops:
   stage: review
   script:
     - pip install thothctl
-    - thothctl scan iac --tool checkov
+    - thothctl scan iac -t checkov
     - thothctl check iac --type cost-analysis --plan-file tfplan.json
   artifacts:
     reports:

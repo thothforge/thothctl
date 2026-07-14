@@ -146,6 +146,7 @@ class TestUpdateSpaceCommand(unittest.TestCase):
                 vcs_provider=None,
                 orchestration_tool=None,
                 terraform_registry=None,
+                policy_repo=None,
             )
 
         with open(self.spaces_toml) as f:
@@ -169,6 +170,7 @@ class TestUpdateSpaceCommand(unittest.TestCase):
                 vcs_provider="gitlab",
                 orchestration_tool=None,
                 terraform_registry=None,
+                policy_repo=None,
             )
 
         with open(self.spaces_toml) as f:
@@ -191,6 +193,7 @@ class TestUpdateSpaceCommand(unittest.TestCase):
                 vcs_provider=None,
                 orchestration_tool=None,
                 terraform_registry=None,
+                policy_repo=None,
             )
 
     @patch("thothctl.commands.space.commands.update.list_spaces")
@@ -209,6 +212,7 @@ class TestUpdateSpaceCommand(unittest.TestCase):
                 vcs_provider=None,
                 orchestration_tool=None,
                 terraform_registry=None,
+                policy_repo=None,
             )
 
 

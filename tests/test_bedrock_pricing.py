@@ -57,7 +57,7 @@ class TestBedrockPricingProvider:
         assert cost is not None
         assert cost.service_name == 'Bedrock'
         assert cost.action == CostAction.CREATE
-        assert cost.monthly_cost == 2500.0  # High cost for provisioned capacity
+        assert cost.monthly_cost == pytest.approx(2500.0)  # High cost for provisioned capacity
         assert cost.pricing_details['component_type'] == 'provisioned_throughput'
     
     def test_knowledge_base_cost(self, bedrock_provider):
@@ -108,5 +108,5 @@ class TestBedrockPricingProvider:
         cost = bedrock_provider.get_offline_estimate(resource_change, 'us-east-1')
         
         assert cost is not None
-        assert cost.monthly_cost == 500.0
+        assert cost.monthly_cost == pytest.approx(500.0)
         assert cost.pricing_details['component_type'] == 'custom_model'

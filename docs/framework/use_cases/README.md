@@ -100,7 +100,7 @@ thothctl init project --project-name my-infra --reuse --space lab-github
 ### 3. DevSecOps Workflow
 ```bash
 # 1. Validate IaC
-thothctl check iac --path ./terraform
+thothctl check iac --type structure
 
 # 2. Cost analysis
 thothctl check iac --type cost-analysis
@@ -109,13 +109,13 @@ thothctl check iac --type cost-analysis
 thothctl check iac --type blast-radius
 
 # 4. Security scan
-thothctl scan iac --path ./terraform
+thothctl scan iac -t checkov -t trivy
 
 # 5. Generate documentation
-thothctl document iac --ai --path ./terraform
+thothctl document iac --recursive
 
 # 6. Track dependencies
-thothctl inventory iac --check-versions
+thothctl inventory iac --check-versions --check-provider-versions
 ```
 
 ### 4. AI-Assisted Development
@@ -146,7 +146,8 @@ kiro-cli chat --agent thoth
 
 ### Security & Compliance
 - `thothctl scan iac` - Security scanning with Checkov (default)
-- `thothctl scan iac -t checkov -t trivy -t trivy` - Multi-tool scanning
+- `thothctl scan iac -t checkov -t trivy -t opa` - Multi-tool scanning
+- `thothctl scan iac --enforcement hard` - Fail pipeline on violations
 
 ### Documentation
 - `thothctl document iac` - Generate documentation
@@ -154,7 +155,9 @@ kiro-cli chat --agent thoth
 
 ### Dependency Management
 - `thothctl inventory iac` - Create inventory
-- `thothctl inventory iac --check-versions` - Version tracking
+- `thothctl inventory iac --check-versions` - Module version tracking
+- `thothctl inventory iac --check-provider-versions` - Provider version tracking
+- `thothctl inventory iac --report-type cyclonedx` - Generate CycloneDX SBOM
 
 ### Project Management
 - `thothctl project iac` - Manage IaC projects
@@ -195,17 +198,17 @@ kiro-cli chat --agent thoth
 **GitHub Actions:**
 ```yaml
 - name: Security Scan
-  run: thothctl scan iac --path ./terraform --format sarif
+  run: thothctl scan iac -t checkov -t trivy --enforcement hard --output sarif
 
 - name: Cost Analysis
-  run: thothctl check iac --type cost-analysis --format json
+  run: thothctl check iac --type cost-analysis
 ```
 
 **GitLab CI:**
 ```yaml
 security_scan:
   script:
-    - thothctl scan iac --path ./terraform
+    - thothctl scan iac -t checkov -t trivy --enforcement hard
     - thothctl check iac --type blast-radius
 ```
 
@@ -216,16 +219,17 @@ security_scan:
   hooks:
     - id: thothctl-scan
       name: ThothCTL Security Scan
-      entry: thothctl scan iac --path .
+      entry: thothctl scan iac -t checkov
       language: system
 ```
 
 ### AI-Powered Code Review
 ```bash
-# Manual execution + AI analysis
-thothctl scan iac --path ./terraform > scan-results.txt
-kiro-cli chat --agent thoth
-# Paste results for AI analysis
+# Start MCP server for AI assistant integration
+thothctl mcp server
+
+# Or use the AI review directly
+thothctl ai-review analyze -d ./terraform -p ollama
 ```
 
 ## 🏗️ Architecture Patterns

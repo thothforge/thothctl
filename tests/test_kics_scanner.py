@@ -44,7 +44,7 @@ class TestKICSScanner:
             reports_dir="/tmp/reports"
         )
         
-        assert result["status"] == "error"
+        assert result["status"] == "FAIL"
         assert "Docker is required" in result["error"]
 
     @patch('os.path.exists')
@@ -52,25 +52,28 @@ class TestKICSScanner:
     @patch('subprocess.run')
     def test_scan_success(self, mock_run, mock_makedirs, mock_exists):
         """Test successful KICS scan."""
-        # Mock Docker check
+        # Mock Docker check + KICS scan
         mock_run.side_effect = [
             Mock(returncode=0),  # Docker check
-            Mock(returncode=0, stdout="", stderr="")  # KICS scan
+            Mock(returncode=0, stdout="", stderr="")  # KICS scan (exit code 0 = no issues)
         ]
         mock_exists.return_value = True
-        
+
         scanner = KICSScanner()
-        
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = '{"total_counter": 5}'
-            
-            result = scanner.scan(
-                directory="/tmp/test",
-                reports_dir="/tmp/reports"
+
+        with patch.object(scanner, '_parse_kics_results') as mock_parse:
+            mock_parse.return_value = (
+                {"passed_count": 10, "failed_count": 5, "skipped_count": 0, "error_count": 0, "warning_count": 0},
+                [{"severity": "HIGH", "title": "test", "file": "main.tf", "line": 1}]
             )
-        
-        assert result["status"] == "success"
-        assert result["findings"] == 5
+            with patch.object(scanner, '_generate_html_report'):
+                result = scanner.scan(
+                    directory="/tmp/test",
+                    reports_dir="/tmp/reports"
+                )
+
+        assert result["status"] == "COMPLETE"
+        assert result["issues_count"] == 5
 
 
 class TestKICSReportParser:

@@ -43,12 +43,12 @@ graph TB
 |-------|---------------------|-------------------|
 | **Plan** | Cost estimation, Risk assessment, Template selection | `init project`, `check iac --type cost-analysis` |
 | **Develop** | Environment validation, Structure enforcement, Standards | `check environment`, `check iac --type structure` |
-| **Build** | Dependency management, Version tracking, Inventory | `inventory iac --check-versions` |
+| **Build** | Dependency management, Version tracking, SBOM | `inventory iac --check-versions --check-provider-versions` |
 | **Test** | Plan validation, Impact analysis, Change assessment | `check iac --type plan`, `--type blast-radius` |
-| **Secure** | Security scanning, Compliance validation, CVE detection | `scan iac --tool checkov/trivy/opa` |
-| **Deploy** | Pre-deployment validation, Risk gates, Approval workflow | `check iac --type all` |
+| **Secure** | Security scanning, Compliance validation, CVE detection | `scan iac -t checkov -t trivy -t opa` |
+| **Deploy** | Pre-deployment validation, Risk gates, Approval workflow | `check iac --type all`, `scan iac --enforcement hard` |
 | **Operate** | Configuration management, Updates, Documentation | `project upgrade`, `document iac` |
-| **Monitor** | Continuous monitoring, Drift detection, Dashboards | `dashboard launch`, scheduled scans |
+| **Monitor** | Continuous monitoring, Drift detection, Dashboards | `dashboard launch`, `check iac --type drift` |
 
 ## Phase 1: Plan 📋
 
@@ -148,33 +148,87 @@ thothctl document iac --recursive
 ## Phase 3: Build 🔨
 
 ### Objective
-Create infrastructure inventory and validate dependencies.
+Create infrastructure inventory, validate dependencies, and generate Software Bill of Materials (SBOM).
 
 ### ThothCTL Commands
 
 #### 3.1 Create Infrastructure Inventory
 ```bash
-# Scan and catalog all IaC components
-thothctl inventory iac --check-versions --recursive
+# Scan and catalog all IaC components (modules + providers)
+thothctl inventory iac --check-versions --check-provider-versions --recursive
+
+# Specify framework type explicitly
+thothctl inventory iac --check-versions --framework-type terragrunt
+
+# Generate CycloneDX SBOM (OWASP standard)
+thothctl inventory iac --check-versions --report-type cyclonedx
 ```
 
 **Generates:**
-- Component catalog
-- Module dependencies
-- Provider versions
-- Compatibility matrix
+- Component catalog (modules, providers, resources)
+- Module dependencies with source URLs
+- Provider versions and registries
+- CycloneDX 1.6 SBOM with formulation, evidence, and attestations
+- Technical debt scoring with risk levels
 
 #### 3.2 Check for Updates
 ```bash
-# Identify outdated modules and providers
-thothctl inventory iac --check-versions --report-type html
+# Full version analysis: modules + providers + schema compatibility
+thothctl inventory iac \
+  --check-versions \
+  --check-provider-versions \
+  --check-schema-compatibility \
+  --report-type html
+
+# Check only provider versions (faster, no module analysis)
+thothctl inventory iac --check-provider-versions --report-type json
+
+# Use OpenTofu registry instead of Terraform
+thothctl inventory iac --check-versions --provider-tool tofu
+
+# Include hidden folders (.terraform, .terragrunt-cache) for full analysis
+thothctl inventory iac --check-versions --complete
+
+# Custom project name for reports
+thothctl inventory iac --check-versions --project-name "my-platform" --report-type all
 ```
 
+**Available flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--check-versions` | `-cv` | Check latest versions for modules against Terraform Registry |
+| `--check-provider-versions` | `-cpv` | Check latest versions for providers (Terraform/OpenTofu registry) |
+| `--check-schema-compatibility` | | Analyze breaking changes between current and latest provider versions |
+| `--report-type` | `-r` | Output format: `html`, `json`, `cyclonedx`, or `all` |
+| `--framework-type` | `-ft` | Framework: `auto`, `terraform`, `terragrunt`, `terraform-terragrunt`, `module`, `cdkv2` |
+| `--provider-tool` | | Registry to query: `tofu` (default) or `terraform` |
+| `--complete` | | Include .terraform/.terragrunt-cache in analysis |
+| `--check-providers` | | Report provider information for each stack |
+| `--project-name` | `-pj` | Custom project name for report headers |
+| `--inventory-path` | `-iph` | Custom path for saving reports (default: `./Reports`) |
+| `--post-to-pr` | | Post inventory summary as PR comment (GitHub/Azure DevOps) |
+| `--vcs-provider` | | VCS for PR comments: `auto`, `azure_repos`, `github` |
+| `--space` | | Space name for credential resolution |
+| `--terragrunt-args` | `-tg-args` | Additional terragrunt arguments (e.g., `--feature=ci=false`) |
+
 **Provides:**
-- Latest available versions
-- Breaking changes warnings
-- Update recommendations
-- Security advisories
+- Latest available versions (modules and providers)
+- Staleness classification (current, outdated, unknown)
+- Breaking changes warnings (via schema compatibility analysis)
+- Update recommendations with risk levels
+- Technical debt score (0–100) with remediation guidance
+- Module compatibility analysis for safe upgrades
+- Professional HTML reports with collapsible stack groups
+
+#### 3.3 Update Dependencies
+```bash
+# Update dependencies based on inventory analysis (interactive)
+thothctl inventory iac --inventory-action update --inventory-path ./Reports/inventory.json
+
+# Auto-approve updates (for CI/CD)
+thothctl inventory iac --inventory-action update --auto-approve
+```
 
 ---
 
@@ -218,56 +272,73 @@ thothctl check iac --type blast-radius --plan-file tfplan.json
 ## Phase 5: Secure 🔒
 
 ### Objective
-Identify and remediate security vulnerabilities.
+Identify and remediate security vulnerabilities using multi-tool scanning.
 
 ### ThothCTL Commands
 
-#### 5.1 Security Scanning with Checkov
+#### 5.1 Multi-Tool Security Scanning
 ```bash
-# Comprehensive security scan
-thothctl scan iac --tool checkov --recursive
+# Run all available scanners
+thothctl scan iac -t checkov -t trivy -t kics -t opa -t terraform-compliance
+
+# Single tool scan (default: checkov)
+thothctl scan iac -t checkov
+
+# With hard enforcement (fails pipeline on violations)
+thothctl scan iac -t checkov -t trivy --enforcement hard
+
+# With organization policies (OPA/Rego)
+thothctl scan iac -t opa --policy-dir git::https://github.com/myorg/iac-policies.git
+
+# Post results to PR comment
+thothctl scan iac -t checkov -t trivy --post-to-pr
+
+# Output as SARIF for GitHub Code Scanning
+thothctl scan iac -t checkov --output sarif
 ```
 
-**Detects:**
-- Misconfigurations
-- Security vulnerabilities
-- Compliance violations
-- Best practice deviations
+**Available tools:**
 
-#### 5.2 Scan with Trivy
+| Tool | Flag | Detects |
+|------|------|---------|
+| Checkov | `-t checkov` | Misconfigurations, compliance (CIS/SOC2/HIPAA), best practices |
+| Trivy | `-t trivy` | CVEs, exposed secrets, insecure configs, license issues |
+| KICS | `-t kics` | Security vulnerabilities (requires Docker) |
+| OPA/Conftest | `-t opa` | Custom policy-as-code (Rego), org policies |
+| Terraform Compliance | `-t terraform-compliance` | BDD-style compliance testing |
+
+**Scan options:**
+
+| Flag | Description |
+|------|-------------|
+| `--enforcement` | `soft` (report only, exit 0) or `hard` (fail pipeline, exit 1) |
+| `--policy-dir` | Policy directory or Git URL for OPA/Conftest |
+| `--post-to-pr` | Post scan summary as PR comment |
+| `--output` | Output format: `text`, `json`, or `sarif` |
+| `--reports-dir` / `-r` | Directory for reports (default: `Reports`) |
+| `--tftool` | Use `terraform` or `tofu` |
+| `--max-workers` | Parallel checkov scans (default: 2) |
+| `--compact` | Reduce memory usage on constrained CI agents |
+| `--verbose` | Enable verbose output |
+
+#### 5.2 Organization Policy Enforcement
 ```bash
-# Vulnerability scanning
-thothctl scan iac --tool trivy --recursive
-```
+# Use org policies from Git repo (auto-detected from space config)
+export THOTH_ORG_POLICY="git::https://github.com/myorg/iac-policies.git@main"
+thothctl scan iac -t opa
 
-**Finds:**
-- CVEs in dependencies
-- Exposed secrets
-- Insecure configurations
-- License issues
+# Or pass explicitly
+thothctl scan iac -t opa --policy-dir ./policies/
 
-```bash
-# Terraform-specific security
-```
-
-**Checks:**
-- AWS/Azure/GCP security
-- Encryption settings
-- Network exposure
-- IAM policies
-
-#### 5.4 Compliance Testing
-```bash
-# Policy-as-code validation
-thothctl scan iac --tool terraform-compliance \
-  --feature-path ./compliance/
+# Terraform-compliance with BDD features
+thothctl scan iac -t terraform-compliance --policy-dir ./compliance/
 ```
 
 **Validates:**
-- Regulatory compliance (SOC2, HIPAA, PCI-DSS)
-- Organizational policies
-- Tagging standards
-- Naming conventions
+- Regulatory compliance (SOC2, HIPAA, PCI-DSS, CIS)
+- Organizational policies (naming, tagging, architecture)
+- Security baselines (encryption, network exposure, IAM)
+- Custom rules (OPA/Rego)
 
 ---
 
@@ -354,33 +425,65 @@ thothctl project bootstrap --dry-run
 ## Phase 8: Monitor 📊
 
 ### Objective
-Track infrastructure health and compliance.
+Track infrastructure health, detect drift, and maintain compliance.
 
 ### ThothCTL Commands
 
-#### 8.1 Generate Compliance Dashboard
+#### 8.1 Launch Dashboard
 ```bash
-# Create visual dashboard
+# Start web dashboard with all reports
 thothctl dashboard launch
+
+# Custom port
+thothctl dashboard launch --port 9090
 ```
 
 **Displays:**
-- Security scan results
-- Cost analysis
-- Blast radius metrics
-- Inventory status
+- Security scan findings (filter by tool/severity/search)
+- SBOM details (CycloneDX metadata, dependency graph)
+- Inventory explorer (collapsible stacks, module/provider tabs)
+- Cost analysis (service breakdown, monthly/annual projections)
+- Drift detection (severity-classified drifted resources)
+- Blast radius visualization (topology + risk)
+- AI usage tracking (token counts, costs)
 
-#### 8.2 Continuous Monitoring
+#### 8.2 Drift Detection
 ```bash
-# Schedule regular scans
-thothctl scan iac --tool checkov --recursive --output json
+# Detect configuration drift
+thothctl check iac --type drift --recursive
+
+# With AI-powered analysis (root cause, remediation plan)
+thothctl check iac --type drift --recursive --ai-provider ollama
+
+# Filter by tags
+thothctl check iac --type drift --filter-tags "env=prod,team=platform"
+```
+
+**Detects:**
+- Resources that have drifted from desired state
+- Severity classification (critical/high/medium/low)
+- AI-powered root cause analysis
+- Remediation recommendations
+- Historical drift tracking
+
+#### 8.3 Continuous Monitoring (CI/CD)
+```bash
+# Scheduled scan with enforcement
+thothctl scan iac -t checkov -t trivy --enforcement hard --output sarif
+
+# Inventory freshness check
+thothctl inventory iac --check-versions --check-provider-versions --report-type json
+
+# Cost drift monitoring
+thothctl check iac --type cost-analysis --recursive
 ```
 
 **Tracks:**
-- Security posture
+- Security posture over time (SQLite history)
 - Compliance drift
 - Cost trends
-- Version updates
+- Version staleness
+- Infrastructure drift
 
 ---
 
@@ -395,18 +498,16 @@ thothctl init project --name aws-prod --template terraform-aws
 # 2. DEVELOP: Check environment
 thothctl check environment
 
-# 3. BUILD: Create inventory
-thothctl inventory iac --check-versions
+# 3. BUILD: Create inventory with version checks
+thothctl inventory iac --check-versions --check-provider-versions --report-type html
 
 # 4. TEST: Validate plan
 terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > tfplan.json
 thothctl check iac --type plan --plan-file tfplan.json
 
-# 5. SECURE: Run security scans
-thothctl scan iac --tool checkov
-thothctl scan iac --tool trivy
-thothctl scan iac --tool trivy
+# 5. SECURE: Run security scans (multi-tool)
+thothctl scan iac -t checkov -t trivy -t opa --enforcement hard
 
 # 6. ASSESS: Check blast radius
 thothctl check iac --type blast-radius --plan-file tfplan.json
@@ -440,36 +541,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup ThothCTL
         run: pip install thothctl
-      
+
       - name: Check Environment
         run: thothctl check environment
-      
+
       - name: Validate Structure
         run: thothctl check iac --type structure
-      
+
       - name: Create Inventory
-        run: thothctl inventory iac --check-versions
-      
+        run: thothctl inventory iac --check-versions --check-provider-versions --report-type json
+
       - name: Security Scan
-        run: |
-          thothctl scan iac --tool checkov
-          thothctl scan iac --tool trivy
-      
+        run: thothctl scan iac -t checkov -t trivy --enforcement hard --output sarif
+
       - name: Terraform Plan
         run: |
           terraform init
           terraform plan -out=tfplan.binary
           terraform show -json tfplan.binary > tfplan.json
-      
+
       - name: Blast Radius Assessment
         run: thothctl check iac --type blast-radius --plan-file tfplan.json
-      
+
       - name: Cost Analysis
         run: thothctl check iac --type cost-analysis --plan-file tfplan.json
-      
+
       - name: Generate Documentation
         run: thothctl document iac --recursive
 ```
@@ -517,7 +616,7 @@ jobs:
 
 1. **Install ThothCTL**: `pip install thothctl`
 2. **Initialize your first project**: `thothctl init project`
-3. **Run your first scan**: `thothctl scan iac --tool checkov`
+3. **Run your first scan**: `thothctl scan iac -t checkov`
 4. **Explore the dashboard**: `thothctl dashboard launch`
 5. **Read detailed docs**: Visit [thothctl.readthedocs.io](https://thothctl.readthedocs.io)
 

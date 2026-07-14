@@ -25,7 +25,7 @@ thothctl check environment
 #### Step 4: Run Security Scan
 ```bash
 # Scan your infrastructure code
-thothctl scan iac --tool checkov
+thothctl scan iac -t checkov
 ```
 
 #### Step 5: View Results
@@ -42,9 +42,8 @@ thothctl dashboard launch
 
 ### Use Case 1: Security Audit
 ```bash
-# Run all security scanners
-thothctl scan iac --tool checkov
-thothctl scan iac --tool trivy
+# Run multiple security scanners
+thothctl scan iac -t checkov -t trivy
 
 # View consolidated results
 thothctl dashboard launch

@@ -49,7 +49,7 @@ class TestEC2PricingProvider:
         assert cost.resource_type == 'aws_instance'
         assert cost.service_name == 'EC2'
         assert cost.action == CostAction.CREATE
-        assert cost.monthly_cost == 7.6  # t3.micro offline estimate
+        assert cost.monthly_cost == pytest.approx(7.6)  # t3.micro offline estimate
         assert cost.confidence_level == 'medium'
     
     def test_calculate_cost_api_unavailable(self, ec2_provider):
@@ -68,7 +68,7 @@ class TestEC2PricingProvider:
         cost = ec2_provider.calculate_cost(resource_change, 'us-east-1')
         
         assert cost is not None
-        assert cost.monthly_cost == 15.2  # t3.small offline estimate
+        assert cost.monthly_cost == pytest.approx(15.2)  # t3.small offline estimate
         assert cost.confidence_level == 'medium'
     
     def test_region_to_location_mapping(self, ec2_provider):

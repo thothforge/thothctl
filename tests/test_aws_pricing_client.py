@@ -6,90 +6,68 @@ from thothctl.services.check.project.cost.pricing.aws_pricing_client import AWSP
 
 
 class TestAWSPricingClient:
-    """Test AWS Pricing API client"""
-    
+    """Test AWS Pricing API client (public bulk pricing, no credentials)"""
+
     @pytest.fixture
     def pricing_client(self):
         """Pricing client instance"""
         return AWSPricingClient(region='us-east-1')
-    
+
     def test_initialization(self, pricing_client):
         """Test client initialization"""
         assert pricing_client.region == 'us-east-1'
-        assert pricing_client._client is None
-    
-    @patch('boto3.client')
-    def test_client_property_lazy_init(self, mock_boto_client, pricing_client):
-        """Test lazy initialization of boto3 client"""
-        mock_client = Mock()
-        mock_boto_client.return_value = mock_client
-        
-        # Access client property
-        client = pricing_client.client
-        
-        assert client == mock_client
-        mock_boto_client.assert_called_once_with('pricing', region_name='us-east-1')
-    
-    @patch('boto3.client')
-    def test_client_property_exception(self, mock_boto_client, pricing_client):
-        """Test client initialization exception"""
-        mock_boto_client.side_effect = Exception("AWS credentials not found")
-        
-        with pytest.raises(Exception):
-            _ = pricing_client.client
-    
-    @patch('boto3.client')
-    def test_get_products_success(self, mock_boto_client, pricing_client):
-        """Test successful product retrieval"""
-        mock_client = Mock()
-        mock_client.get_products.return_value = {
-            'PriceList': ['{"productFamily": "Compute Instance"}']
-        }
-        mock_boto_client.return_value = mock_client
-        
-        filters = (('TERM_MATCH', 'instanceType', 't3.micro'),)
-        products = pricing_client.get_products('AmazonEC2', filters)
-        
-        assert len(products) == 1
-        assert products[0]['productFamily'] == 'Compute Instance'
-        mock_client.get_products.assert_called_once_with(
-            ServiceCode='AmazonEC2',
-            Filters=list(filters)
-        )
-    
-    @patch('boto3.client')
-    def test_get_products_exception(self, mock_boto_client, pricing_client):
-        """Test product retrieval exception"""
-        mock_client = Mock()
-        mock_client.get_products.side_effect = Exception("API error")
-        mock_boto_client.return_value = mock_client
-        
-        filters = (('TERM_MATCH', 'instanceType', 't3.micro'),)
-        products = pricing_client.get_products('AmazonEC2', filters)
-        
-        assert products == []
-    
-    @patch('boto3.client')
-    def test_is_available_success(self, mock_boto_client, pricing_client):
-        """Test API availability check success"""
-        mock_client = Mock()
-        mock_client.describe_services.return_value = {}
-        mock_boto_client.return_value = mock_client
-        
+        assert pricing_client._index_cache is None
+        assert pricing_client._api_available is None
+
+    @patch('thothctl.services.check.project.cost.pricing.aws_pricing_client.requests.get')
+    def test_is_available_success(self, mock_get, pricing_client):
+        """Test API availability check success (fetches service index)"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"offers": {"AmazonEC2": {}}}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
         assert pricing_client.is_available() is True
-        mock_client.describe_services.assert_called_once_with(MaxResults=1)
-    
-    @patch('boto3.client')
-    def test_is_available_failure(self, mock_boto_client, pricing_client):
-        """Test API availability check failure"""
-        mock_client = Mock()
-        mock_client.describe_services.side_effect = Exception("API unavailable")
-        mock_boto_client.return_value = mock_client
-        
+        mock_get.assert_called_once()
+
+    @patch('thothctl.services.check.project.cost.pricing.aws_pricing_client.requests.get')
+    def test_is_available_failure(self, mock_get, pricing_client):
+        """Test API availability check failure (network error)"""
+        import requests
+        mock_get.side_effect = requests.Timeout("Connection timed out")
+
         assert pricing_client.is_available() is False
-    
+
+    @patch('thothctl.services.check.project.cost.pricing.aws_pricing_client.requests.get')
+    def test_get_service_index_caches(self, mock_get, pricing_client):
+        """Test that service index is cached after first fetch"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"offers": {"AmazonEC2": {}}}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        # First call
+        pricing_client._get_service_index()
+        # Second call (should use cache)
+        pricing_client._get_service_index()
+
+        # Only one HTTP call made
+        assert mock_get.call_count == 1
+
+    def test_get_products_returns_empty(self, pricing_client):
+        """Test get_products returns empty list (triggers offline estimates)"""
+        filters = (('TERM_MATCH', 'instanceType', 't3.micro'),)
+        products = pricing_client.get_products('AmazonEC2', filters)
+
+        # Implementation returns empty to trigger offline estimates
+        assert products == []
+
     def test_get_products_caching(self, pricing_client):
-        """Test that get_products uses caching"""
-        # This test verifies the @lru_cache decorator is applied
-        assert hasattr(pricing_client.get_products, '__wrapped__')
+        """Test that get_products uses lru_cache"""
         assert hasattr(pricing_client.get_products, 'cache_info')
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
