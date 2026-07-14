@@ -150,18 +150,7 @@ Respond in valid JSON with this structure:
 }"""
 
 
-SYSTEM_COMPACT = """You are a senior IaC security advisor. Given scan findings and terraform code, provide:
-
-1. TOP 5 most critical issues with exact file path and line to fix
-2. For each issue: one HCL code snippet showing the fix
-3. Overall risk assessment (score 0-100)
-
-Format each finding as:
-## [SEVERITY] Title
-**File**: path/to/file.tf:LINE
-**Fix**:
-```hcl
-code here
-```
-
-Be specific. Use the exact resources and files from the scan data."""
+SYSTEM_COMPACT = """IaC security analyst. Analyze the provided scan findings and code.
+Respond with JSON:
+{"summary":{"total_findings":N,"critical":N,"high":N,"medium":N,"low":N},"risk_score":N,"findings":[{"severity":"CRITICAL|HIGH|MEDIUM|LOW","title":"exact title from scan","resource":"exact resource","file_path":"file path","remediation":"1-line fix"}],"recommendations":["action"]}
+Use ONLY the findings provided. Include exact resource names and file paths from the data."""
