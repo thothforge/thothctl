@@ -1448,6 +1448,47 @@ new vis.Network(container, data, options);
             return False
 
 
+    def _run_cfn_drift(self, directory: str, recursive: bool, project_type: str,
+                       filter_tags: Optional[Dict] = None, **kwargs):
+        """Run drift detection for CloudFormation/CDK projects.
+
+        Returns a DriftSummary compatible with the rest of the drift pipeline.
+        """
+        from ....services.check.project.drift.cfn_drift_service import CfnDriftDetectionService
+        from ....services.check.project.drift.models import DriftSummary
+
+        region = kwargs.get('region') or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+        profile = kwargs.get('profile')
+        stack_name = kwargs.get('stack_name')
+        live = kwargs.get('live', True)
+
+        service = CfnDriftDetectionService(region=region, profile=profile)
+
+        stack_names = [stack_name] if stack_name else None
+
+        if project_type == "cdk":
+            self.ui.print_info(f"🔍 Detecting drift for CDK project (region: {region})...")
+        else:
+            self.ui.print_info(f"🔍 Detecting drift for CloudFormation project (region: {region})...")
+
+        if stack_names:
+            self.ui.print_info(f"  Stack(s): {', '.join(stack_names)}")
+        elif live:
+            self.ui.print_info("  Auto-discovering deployed stacks from templates...")
+        else:
+            self.ui.print_info("  Static mode: comparing templates vs deployed state...")
+
+        summary = service.detect_drift(
+            directory=directory,
+            recursive=recursive,
+            stack_names=stack_names,
+            live=live,
+            filter_tags=filter_tags,
+        )
+
+        return summary
+
+
     @staticmethod
     def _parse_filter_tags(raw: str) -> dict:
         """Parse 'key=value,key2=value2' into a dict. Supports key-only (implies key=*)."""
@@ -1474,7 +1515,6 @@ new vis.Network(container, data, options);
             from datetime import datetime
 
             tftool = kwargs.get('tftool', 'tofu')
-            service = DriftDetectionService(tftool=tftool)
             reporter = DriftReportGenerator()
 
             # Parse tag filters
@@ -1482,15 +1522,27 @@ new vis.Network(container, data, options);
             if filter_tags:
                 self.ui.print_info(f"🏷️  Filtering by tags: {filter_tags}")
 
-            # Use existing tfplan.json files if available
-            plan_files = self._find_tfplan_files(directory, recursive)
+            # Detect project type and route accordingly
+            from ....services.scan.scan_service import ScanService
+            scan_svc = ScanService()
+            project_type = scan_svc.detect_project_type(directory)
 
-            if plan_files:
-                self.ui.print_info(f"Found {len(plan_files)} tfplan.json file(s), analysing for drift...")
-                summary = service.detect_drift(directory, recursive, plan_files=plan_files, filter_tags=filter_tags)
+            if project_type in ("cloudformation", "cdk"):
+                summary = self._run_cfn_drift(
+                    directory=directory, recursive=recursive,
+                    project_type=project_type, filter_tags=filter_tags, **kwargs
+                )
             else:
-                self.ui.print_info(f"No tfplan.json found. Running live {tftool} plan to detect drift...")
-                summary = service.detect_drift(directory, recursive, filter_tags=filter_tags)
+                # Terraform/Terragrunt path
+                service = DriftDetectionService(tftool=tftool)
+                plan_files = self._find_tfplan_files(directory, recursive)
+
+                if plan_files:
+                    self.ui.print_info(f"Found {len(plan_files)} tfplan.json file(s), analysing for drift...")
+                    summary = service.detect_drift(directory, recursive, plan_files=plan_files, filter_tags=filter_tags)
+                else:
+                    self.ui.print_info(f"No tfplan.json found. Running live {tftool} plan to detect drift...")
+                    summary = service.detect_drift(directory, recursive, filter_tags=filter_tags)
 
             summary_dict = summary.to_dict()
 
