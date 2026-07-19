@@ -124,13 +124,50 @@
   }
 }
 
+/* Mermaid node text color fix - respect classDef color in light mode */
+/* The Material theme overrides Mermaid node text to page fg color (dark gray).
+   This forces nodes to use the color defined in classDef (white on dark fills). */
+[data-md-color-scheme="default"] .mermaid {
+  --md-mermaid-label-fg-color: #ffffff;
+  --md-mermaid-node-fg-color: #ffffff;
+}
+
+/* SVG text within styled nodes must inherit the white color */
+.mermaid .node rect + .label div,
+.mermaid .node polygon + .label div,
+.mermaid .node circle + .label div,
+.mermaid .nodeLabel,
+.mermaid .node .label {
+  color: #ffffff !important;
+}
+
+.mermaid svg .node text,
+.mermaid svg .nodeLabel {
+  fill: #ffffff !important;
+}
+
+/* Edge labels should remain dark/readable on light bg */
+.mermaid .edgeLabel {
+  color: var(--md-default-fg-color) !important;
+  background-color: var(--md-default-bg-color) !important;
+}
+
+.mermaid svg .edgeLabel text {
+  fill: var(--md-default-fg-color) !important;
+}
+
+/* Edge label text within links */
+.mermaid .edgeLabel span {
+  color: var(--md-default-fg-color) !important;
+}
+
 /* Mermaid dark theme support */
 [data-md-color-scheme="slate"] .mermaid {
   --md-mermaid-font-family: var(--md-text-font-family);
   --md-mermaid-edge-color: var(--md-default-fg-color--light);
-  --md-mermaid-node-fg-color: var(--md-default-fg-color);
+  --md-mermaid-node-fg-color: #ffffff;
   --md-mermaid-node-bg-color: var(--md-default-fg-color--lightest);
-  --md-mermaid-label-fg-color: var(--md-default-fg-color);
+  --md-mermaid-label-fg-color: #ffffff;
   --md-mermaid-label-bg-color: var(--md-default-bg-color);
 }
 
