@@ -1016,18 +1016,51 @@
         const recommendations = d.recommendations || [];
         const warnings = d.warnings || [];
         const region = summary.region || '—';
+        const stacks = d.stacks || [];
+        const stacksCount = summary.stacks_analyzed || stacks.length || 0;
 
         // Filter: only resources with cost > 0
         const resources = allResources.filter(r => (r.monthly_cost || 0) > 0);
         const zeroCost = allResources.length - resources.length;
 
         let html = `<div class="summary-grid">
-            <div class="card" style="border-color:var(--warning)"><div class="card-number" style="color:var(--warning)">$${monthly.toFixed(2)}</div><div class="card-label">Monthly</div></div>
-            <div class="card" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">$${annual.toFixed(2)}</div><div class="card-label">Annual</div></div>
+            <div class="card" style="border-color:var(--status-warning)"><div class="card-number" style="color:var(--status-warning)">$${monthly.toFixed(2)}</div><div class="card-label">Monthly Total</div></div>
+            <div class="card" style="border-color:var(--status-error)"><div class="card-number" style="color:var(--status-error)">$${annual.toFixed(2)}</div><div class="card-label">Annual Total</div></div>
+            <div class="card"><div class="card-number">${stacksCount}</div><div class="card-label">Stacks Analyzed</div></div>
             <div class="card"><div class="card-number">${resources.length}</div><div class="card-label">Costed Resources</div></div>
-            <div class="card" style="border-color:var(--secondary)"><div class="card-number" style="color:var(--secondary)">${zeroCost}</div><div class="card-label">Free/Zero Cost</div></div>
-            <div class="card" style="border-color:var(--info)"><div class="card-number" style="font-size:1rem;color:var(--info)">${region}</div><div class="card-label">Region</div></div>
+            <div class="card" style="border-color:var(--status-neutral)"><div class="card-number" style="color:var(--status-neutral)">${zeroCost}</div><div class="card-label">Free/Zero Cost</div></div>
+            <div class="card" style="border-color:var(--status-info)"><div class="card-number" style="font-size:1rem;color:var(--status-info)">${region}</div><div class="card-label">Region</div></div>
         </div>`;
+
+        // Per-stack cost breakdown (collapsible)
+        if (stacks.length > 1) {
+            const sortedStacks = [...stacks].sort((a,b) => (b.monthly_cost||0) - (a.monthly_cost||0));
+            html += `<div style="margin:20px 0 12px">
+                <div onclick="toggleCompatSection('cost-stacks')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:10px 14px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px solid var(--border-light)">
+                    <h3 style="margin:0;color:var(--text-primary)">📦 Cost by Stack <span style="font-size:0.85rem;color:var(--text-secondary);font-weight:normal">(${stacks.length} stacks)</span></h3>
+                    <span id="cost-stacks-icon" style="font-size:1.2rem;transition:transform 0.3s ease">▼</span>
+                </div>
+            </div>`;
+            html += `<div id="cost-stacks" style="display:grid;gap:10px;">`;
+            sortedStacks.forEach(s => {
+                const pct = monthly > 0 ? (s.monthly_cost / monthly * 100).toFixed(1) : '0.0';
+                const barWidth = monthly > 0 ? Math.max(2, (s.monthly_cost / monthly * 100)) : 0;
+                html += `<div style="border:1px solid var(--border-light);border-radius:var(--radius);padding:12px;background:var(--bg-secondary)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                        <strong style="color:var(--text-primary)">${s.name}</strong>
+                        <span style="font-weight:600;color:var(--status-warning)">$${(s.monthly_cost||0).toFixed(2)}/mo</span>
+                    </div>
+                    <div style="background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden">
+                        <div style="width:${barWidth}%;height:100%;background:var(--thoth-gradient);border-radius:4px"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:0.75rem;color:var(--text-secondary)">
+                        <span>${pct}% of total</span>
+                        <span>${s.resources_count} resources</span>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+        }
 
         // Service breakdown (sortable)
         const serviceEntries = Object.entries(services).sort((a,b) => b[1] - a[1]);
@@ -1049,10 +1082,11 @@
             </div>`;
             html += '<div class="findings-wrap" style="max-height:400px"><table class="findings-table" id="cost-resources-table"><thead><tr>';
             html += '<th onclick="sortCostTable(0)" style="cursor:pointer">Resource ⇅</th>';
-            html += '<th onclick="sortCostTable(1)" style="cursor:pointer">Service ⇅</th>';
-            html += '<th onclick="sortCostTable(2)" style="cursor:pointer">Action ⇅</th>';
-            html += '<th onclick="sortCostTable(3)" style="cursor:pointer">Monthly ⇅</th>';
-            html += '<th onclick="sortCostTable(4)" style="cursor:pointer">Confidence ⇅</th>';
+            html += '<th onclick="sortCostTable(1)" style="cursor:pointer">Stack ⇅</th>';
+            html += '<th onclick="sortCostTable(2)" style="cursor:pointer">Service ⇅</th>';
+            html += '<th onclick="sortCostTable(3)" style="cursor:pointer">Action ⇅</th>';
+            html += '<th onclick="sortCostTable(4)" style="cursor:pointer">Monthly ⇅</th>';
+            html += '<th onclick="sortCostTable(5)" style="cursor:pointer">Confidence ⇅</th>';
             html += '</tr></thead><tbody>';
             // Sort by cost descending initially
             resources.sort((a,b) => (b.monthly_cost||0) - (a.monthly_cost||0));
@@ -1060,7 +1094,8 @@
                 const confClass = r.confidence === 'high' ? 'updated' : (r.confidence === 'low' ? 'outdated' : 'unknown');
                 const shortAddr = r.address?.split('.').pop() || r.address || '—';
                 html += `<tr>
-                    <td title="${r.address}"><strong>${shortAddr}</strong><div style="font-size:0.6rem;color:var(--secondary)">${r.type||''}</div></td>
+                    <td title="${r.address}"><strong>${shortAddr}</strong><div style="font-size:0.6rem;color:var(--text-secondary)">${r.type||''}</div></td>
+                    <td style="font-size:0.8rem">${r.stack||'—'}</td>
                     <td>${r.service||'—'}</td>
                     <td>${r.action||'—'}</td>
                     <td data-sort="${r.monthly_cost||0}"><strong>$${(r.monthly_cost||0).toFixed(2)}</strong></td>

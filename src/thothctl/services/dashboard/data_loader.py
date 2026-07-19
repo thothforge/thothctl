@@ -404,7 +404,7 @@ class DashboardDataLoader:
             return {"error": f"Error generating topology: {str(e)}"}
 
     def get_cost_analysis(self) -> Dict[str, Any]:
-        """Load from terraform plan files or cost analysis cache."""
+        """Load from terraform plan files or cost analysis cache. Aggregates multi-stack reports."""
         cache_key = "cost_analysis"
         if self._is_cache_valid(cache_key):
             return self.cache[cache_key]["data"]
@@ -412,11 +412,78 @@ class DashboardDataLoader:
         try:
             cost_files = list(self.reports_dir.glob("**/cost_analysis_*.json"))
             if cost_files:
-                latest_file = max(cost_files, key=lambda f: f.stat().st_mtime)
-                with open(latest_file) as f:
-                    data = json.load(f)
-                self._cache_data(cache_key, data)
-                return data
+                # Aggregate all cost reports (multi-stack support)
+                stacks = []
+                total_monthly = 0
+                total_annual = 0
+                total_resources = 0
+                all_services = {}
+                all_resources = []
+                all_recommendations = set()
+                all_warnings = []
+
+                for cost_file in sorted(cost_files, key=lambda f: f.stat().st_mtime, reverse=True):
+                    try:
+                        with open(cost_file) as f:
+                            data = json.load(f)
+                        summary = data.get("summary", data)
+                        monthly = summary.get("total_monthly_cost", 0)
+                        annual = summary.get("total_annual_cost", 0)
+                        resources = data.get("resources", [])
+                        services = data.get("cost_by_service", {})
+                        plan_file = summary.get("plan_file", "")
+
+                        # Extract stack name from filename or plan path
+                        stack_name = cost_file.stem.replace("cost_analysis_", "").rsplit("_", 1)[0]
+
+                        stacks.append({
+                            "name": stack_name,
+                            "monthly_cost": monthly,
+                            "annual_cost": annual,
+                            "resources_count": len(resources),
+                            "plan_file": plan_file,
+                            "region": summary.get("region", ""),
+                            "services": services,
+                        })
+
+                        total_monthly += monthly
+                        total_annual += annual
+                        total_resources += len(resources)
+
+                        # Aggregate services
+                        for svc, cost in services.items():
+                            all_services[svc] = all_services.get(svc, 0) + cost
+
+                        # Aggregate resources with stack label
+                        for r in resources:
+                            r["stack"] = stack_name
+                            all_resources.append(r)
+
+                        # Aggregate recommendations and warnings
+                        for rec in data.get("recommendations", []):
+                            all_recommendations.add(rec)
+                        all_warnings.extend(data.get("warnings", []))
+
+                    except (json.JSONDecodeError, KeyError):
+                        continue
+
+                result = {
+                    "summary": {
+                        "total_monthly_cost": total_monthly,
+                        "total_annual_cost": total_annual,
+                        "total_planned_resources": total_resources,
+                        "stacks_analyzed": len(stacks),
+                        "region": stacks[0]["region"] if stacks else "",
+                    },
+                    "stacks": stacks,
+                    "cost_by_service": all_services,
+                    "cost_by_action": {"create": total_monthly},
+                    "resources": all_resources,
+                    "recommendations": list(all_recommendations),
+                    "warnings": all_warnings,
+                }
+                self._cache_data(cache_key, result)
+                return result
             
             plan_files = list(self.base_dir.rglob("tfplan.json"))
             if plan_files:
