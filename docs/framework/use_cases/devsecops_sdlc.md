@@ -42,7 +42,7 @@ graph TB
 | Phase | DevSecOps Practices | ThothCTL Commands |
 |-------|---------------------|-------------------|
 | **Plan** | Cost estimation, Risk assessment, Template selection | `init project`, `check iac -type cost-analysis` |
-| **Develop** | Environment validation, Structure enforcement, Standards | `check environment`, `check iac -type deps` |
+| **Develop** | Environment validation, Structure enforcement, Standards | `check environment`, `check project iac` |
 | **Build** | Dependency management, Version tracking, SBOM | `inventory iac --check-versions --check-provider-versions` |
 | **Test** | Plan validation, Impact analysis, Change assessment | `check iac -type tfplan`, `-type blast-radius` |
 | **Secure** | Security scanning, Compliance validation, CVE detection | `scan iac -t checkov -t trivy -t opa` |
@@ -156,7 +156,7 @@ thothctl check environment
 #### 2.2 Validate Project Structure
 ```bash
 # Ensure project follows standards
-thothctl check iac -type deps
+thothctl check project iac
 ```
 
 **Checks:**
@@ -848,7 +848,7 @@ jobs:
         run: thothctl check environment
 
       - name: Validate Structure
-        run: thothctl check iac -type deps
+        run: thothctl check project iac
 
       - name: Create Inventory
         run: thothctl inventory iac --check-versions --check-provider-versions --report-type json
