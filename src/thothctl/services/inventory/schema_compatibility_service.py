@@ -354,40 +354,44 @@ class SchemaCompatibilityService:
     async def _get_schema_from_docs(self, namespace: str, provider_name: str, version: str) -> Optional[Dict]:
         """Get schema information from provider documentation API"""
         try:
-            # Get list of resources and data sources from docs
-            docs_url = f"https://registry.terraform.io/v1/providers/{namespace}/{provider_name}/{version}/docs"
+            # The docs are embedded in the provider version response, not at a separate /docs endpoint
+            docs_url = f"https://registry.terraform.io/v1/providers/{namespace}/{provider_name}/{version}"
             
             response = self.session.get(docs_url, timeout=30)
             if response.status_code != 200:
                 return None
             
-            docs_data = response.json()
+            provider_data = response.json()
+            docs_data = provider_data.get('docs', [])
+            
+            if not docs_data:
+                return None
+            
             resources = []
             data_sources = []
             
-            # Extract resources and data sources
-            if 'data' in docs_data:
-                for doc in docs_data['data']:
-                    doc_type = doc.get('type', '')
-                    doc_path = doc.get('path', '')
-                    doc_title = doc.get('title', '')
-                    
-                    if doc_type == 'resource':
-                        resources.append({
-                            'name': doc_path,
-                            'title': doc_title,
-                            'path': doc_path,
-                            'version_added': self._extract_version_info(doc),
-                            'deprecated': self._check_if_deprecated(doc)
-                        })
-                    elif doc_type == 'data-source':
-                        data_sources.append({
-                            'name': doc_path,
-                            'title': doc_title,
-                            'path': doc_path,
-                            'version_added': self._extract_version_info(doc),
-                            'deprecated': self._check_if_deprecated(doc)
-                        })
+            # Extract resources and data sources from docs list
+            for doc in docs_data:
+                doc_category = doc.get('category', '')
+                doc_path = doc.get('slug', doc.get('path', ''))
+                doc_title = doc.get('title', '')
+                
+                if doc_category == 'resources':
+                    resources.append({
+                        'name': doc_path,
+                        'title': doc_title,
+                        'path': doc_path,
+                        'subcategory': doc.get('subcategory', ''),
+                        'deprecated': 'deprecated' in doc_title.lower()
+                    })
+                elif doc_category == 'data-sources':
+                    data_sources.append({
+                        'name': doc_path,
+                        'title': doc_title,
+                        'path': doc_path,
+                        'subcategory': doc.get('subcategory', ''),
+                        'deprecated': 'deprecated' in doc_title.lower()
+                    })
             
             return {
                 'provider_name': provider_name,
