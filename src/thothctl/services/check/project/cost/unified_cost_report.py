@@ -190,17 +190,27 @@ class UnifiedCostReportGenerator:
         """Get unified CSS matching ThothCTL report standards."""
         return """
         :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --info-color: #17a2b8;
-            --light-color: #f8f9fa;
-            --dark-color: #343a40;
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #3b82f6;
+            --neutral-color: #6b7280;
+            --light-color: #f9fafb;
+            --dark-color: #111827;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --border-light: #e5e7eb;
             --border-radius: 8px;
-            --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            --transition: all 0.3s ease;
+            --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+            --transition: all 0.2s ease;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-header: linear-gradient(135deg, #667eea, #764ba2);
         }
         
         * {
@@ -212,8 +222,8 @@ class UnifiedCostReportGenerator:
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
-            color: var(--dark-color);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--text-primary);
+            background: var(--gradient);
             min-height: 100vh;
             padding: 20px;
         }
@@ -221,20 +231,20 @@ class UnifiedCostReportGenerator:
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            background: white;
+            background: var(--bg-primary);
             border-radius: var(--border-radius);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: var(--shadow-lg);
             overflow: hidden;
         }
         
         .nav-header {
-            background: linear-gradient(135deg, var(--primary-color), #0056b3);
+            background: var(--gradient-header);
             color: white;
             padding: 30px 40px;
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: var(--box-shadow);
         }
         
         .nav-title {
@@ -304,7 +314,7 @@ class UnifiedCostReportGenerator:
         }
         
         .summary-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--gradient);
             color: white;
             padding: 30px;
             border-radius: var(--border-radius);
@@ -481,7 +491,7 @@ class UnifiedCostReportGenerator:
         }
         
         .btn-view:hover {
-            background: #0056b3;
+            background: var(--secondary-color);
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
