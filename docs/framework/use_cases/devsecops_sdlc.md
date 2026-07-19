@@ -680,44 +680,85 @@ thothctl check iac -type blast-radius \
 ## Phase 7: Operate 🔧
 
 ### Objective
-Manage and maintain deployed infrastructure.
+Manage day-to-day operations of deployed infrastructure: keep dependencies current, generate documentation, and clean up residual artifacts.
 
 ### ThothCTL Commands
 
-#### 7.1 Update Project Configuration
+#### 7.1 Keep Infrastructure Up to Date
 ```bash
-# Convert existing project to ThothCTL
-thothctl project convert --project-type terraform
+# Check which modules and providers are outdated
+thothctl inventory iac --check-versions --check-provider-versions
+
+# Analyze upgrade safety before updating
+thothctl inventory iac --check-versions --check-provider-versions --check-schema-compatibility
+
+# Generate upgrade report
+thothctl inventory iac --check-versions --report-type html
 ```
 
-**Adds:**
-- ThothCTL configuration
-- Metadata tracking
-- Version control integration
+**Provides:**
+- Outdated module/provider detection with staleness scoring
+- Breaking change warnings before upgrades
+- Schema compatibility analysis with recommendations
+- Technical debt tracking over time
 
-#### 7.2 Upgrade Project
+#### 7.2 Generate and Update Documentation
 ```bash
-# Update project to latest template
-thothctl project upgrade --interactive
-```
+# Auto-generate documentation for all stacks
+thothctl document iac --recursive
 
-**Updates:**
-- Template files
-- Best practices
-- Configuration standards
-- Documentation
+# Generate dependency graph (Mermaid diagram)
+thothctl document iac --framework terragrunt --graph-type mermaid
 
-#### 7.3 Bootstrap Development Environment
-```bash
-# Set up local development
-thothctl project bootstrap --dry-run
+# Generate documentation for a specific stack
+thothctl document iac --directory stacks/foundation/network/vpc
 ```
 
 **Creates:**
-- Pre-commit hooks
+- README.md with module descriptions and inputs/outputs
+- Dependency graphs (Mermaid, Graphviz)
+- Architecture diagrams
+
+#### 7.3 Project Cleanup
+```bash
+# Remove residual files (.terraform, .terragrunt-cache, etc.)
+thothctl project cleanup
+
+# Dry run to see what would be removed
+thothctl project cleanup --dry-run
+```
+
+**Removes:**
+- `.terraform/` directories
+- `.terragrunt-cache/` directories
+- Orphaned lock files
+- Temporary plan files
+
+#### 7.4 Bootstrap Development Environment
+```bash
+# Set up pre-commit hooks, IDE settings, and development tools
+thothctl project bootstrap
+
+# Preview without applying
+thothctl project bootstrap --dry-run
+```
+
+**Configures:**
+- Pre-commit hooks (terragrunt-hclfmt, terraform-fmt, tflint)
 - Git configuration
-- IDE settings
-- Documentation
+- IDE settings (.vscode, .idea)
+- ThothCTL configuration (`.thothcf.toml`)
+
+!!! note "Platform Engineering Commands"
+    The following commands are for **platform engineering teams** building reusable templates and project scaffolds, not for day-to-day operations:
+
+    ```bash
+    # Convert a project into a reusable template (platform team)
+    thothctl project convert --make-template --template-project-type terraform
+
+    # Upgrade project scaffold from remote template (platform team)
+    thothctl project upgrade --interactive
+    ```
 
 ---
 
