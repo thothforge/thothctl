@@ -70,7 +70,10 @@ class DashboardDataLoader:
             return self.cache[cache_key]["data"]
         
         try:
-            inventory_files = list(self.reports_dir.glob("**/InventoryIaC_*.json"))
+            inventory_files = [
+                f for f in self.reports_dir.glob("**/InventoryIaC_*.json")
+                if "cyclonedx" not in f.name
+            ]
             if not inventory_files:
                 return {
                     "error": "No inventory data found", 
