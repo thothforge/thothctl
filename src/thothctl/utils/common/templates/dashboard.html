@@ -700,6 +700,54 @@
             <div class="card" style="border-color:var(--status-success)"><div class="card-number" style="color:var(--status-success)">${modSafe}</div><div class="card-label">Safe Upgrades</div></div>
         </div>`;
 
+        // Technical Debt Metrics
+        const td = d.technical_debt || {};
+        if (td.debt_score !== undefined) {
+            const score = td.debt_score || 0;
+            const risk = (td.risk_level || 'unknown').toUpperCase();
+            let riskColor = 'var(--status-neutral)';
+            if (risk === 'CRITICAL') riskColor = 'var(--status-error)';
+            else if (risk === 'HIGH') riskColor = 'var(--severity-high)';
+            else if (risk === 'MEDIUM') riskColor = 'var(--status-warning)';
+            else if (risk === 'LOW') riskColor = 'var(--status-success)';
+
+            const recs = (td.recommendations || []).map(r => `<li style="margin:6px 0;font-size:0.9rem;color:var(--text-secondary)">${r}</li>`).join('');
+
+            html += `<div style="margin:20px 0;border:1px solid var(--border-light);border-radius:var(--radius);padding:20px;background:var(--bg-secondary)">
+                <div onclick="toggleCompatSection('tech-debt-details')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+                    <h3 style="margin:0;color:var(--text-primary)">📊 Technical Debt Metrics</h3>
+                    <span id="tech-debt-details-icon" style="font-size:1.2rem;transition:transform 0.3s ease">▼</span>
+                </div>
+                <div id="tech-debt-details" style="margin-top:16px;">
+                    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+                        <div style="position:relative;width:80px;height:80px">
+                            <svg width="80" height="80" viewBox="0 0 80 80">
+                                <circle cx="40" cy="40" r="35" fill="none" stroke="var(--border-light)" stroke-width="6"/>
+                                <circle cx="40" cy="40" r="35" fill="none" stroke="${riskColor}" stroke-width="6"
+                                    stroke-dasharray="${score * 2.2} ${220 - score * 2.2}"
+                                    stroke-dashoffset="55" stroke-linecap="round"/>
+                            </svg>
+                            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.1rem;font-weight:700;color:${riskColor}">${score}%</div>
+                        </div>
+                        <div>
+                            <div style="font-size:1.1rem;font-weight:600;color:var(--text-primary)">Debt Score</div>
+                            <div style="font-size:0.9rem;color:${riskColor};font-weight:600">${risk} Risk</div>
+                        </div>
+                    </div>
+                    <div class="summary-grid" style="margin-bottom:16px">
+                        <div class="card" style="border-color:var(--status-error)"><div class="card-number" style="color:var(--status-error)">${td.outdated_modules || 0}</div><div class="card-label">Outdated Modules</div></div>
+                        <div class="card" style="border-color:var(--status-error)"><div class="card-number" style="color:var(--status-error)">${td.outdated_providers || 0}</div><div class="card-label">Outdated Providers</div></div>
+                        <div class="card" style="border-color:var(--status-warning)"><div class="card-number" style="color:var(--status-warning)">${td.modules_with_breaking_changes || 0}</div><div class="card-label">⚠️ Modules Breaking</div></div>
+                        <div class="card" style="border-color:var(--status-warning)"><div class="card-number" style="color:var(--status-warning)">${td.providers_with_breaking_changes || 0}</div><div class="card-label">⚠️ Providers Breaking</div></div>
+                    </div>
+                    ${recs ? `<div style="background:var(--bg-tertiary);border-radius:var(--radius);padding:14px;border:1px solid var(--border-light)">
+                        <strong style="color:var(--text-primary);font-size:0.9rem">💡 Recommendations</strong>
+                        <ul style="margin:8px 0 0;padding-left:20px">${recs}</ul>
+                    </div>` : ''}
+                </div>
+            </div>`;
+        }
+
         // Provider compatibility section
         if (reports.length) {
             html += `<div style="margin:20px 0 12px;">
