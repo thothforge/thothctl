@@ -685,11 +685,11 @@
 
         // Summary cards
         const compatible = reports.filter(r => r.compatibility_level === 'compatible').length;
-        const breaking = reports.filter(r => r.compatibility_level === 'breaking-changes').length;
-        const warnings = reports.filter(r => r.compatibility_level === 'minor-issues').length;
-        const unknown = reports.filter(r => !['compatible','breaking-changes','minor-issues'].includes(r.compatibility_level)).length;
-        const modSafe = moduleReports.filter(r => r.upgrade_safety === 'safe' || r.compatibility === 'compatible').length;
-        const modBreaking = moduleReports.filter(r => r.upgrade_safety === 'breaking' || r.compatibility === 'breaking').length;
+        const breaking = reports.filter(r => r.compatibility_level === 'breaking_changes' || r.compatibility_level === 'breaking-changes').length;
+        const warnings = reports.filter(r => r.compatibility_level === 'minor_issues' || r.compatibility_level === 'minor-issues').length;
+        const unknown = reports.filter(r => !['compatible','breaking_changes','breaking-changes','minor_issues','minor-issues'].includes(r.compatibility_level)).length;
+        const modSafe = moduleReports.filter(r => (r.upgrade_safety||r.compatibility_level||'') === 'safe' || (r.upgrade_safety||r.compatibility_level||'') === 'compatible').length;
+        const modBreaking = moduleReports.filter(r => (r.upgrade_safety||r.compatibility_level||'').includes('breaking')).length;
 
         html += `<div class="summary-grid">
             <div class="card"><div class="card-number">${reports.length}</div><div class="card-label">Providers Analyzed</div></div>
@@ -708,8 +708,8 @@
                 const level = r.compatibility_level || 'unknown';
                 let badge = '', borderColor = 'var(--border-light)';
                 if (level === 'compatible') { badge = '<span style="background:var(--status-success);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">✅ Compatible</span>'; borderColor = 'var(--status-success)'; }
-                else if (level === 'minor-issues') { badge = '<span style="background:var(--status-warning);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">⚠️ Warnings</span>'; borderColor = 'var(--status-warning)'; }
-                else if (level === 'breaking-changes') { badge = '<span style="background:var(--status-error);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">❌ Breaking</span>'; borderColor = 'var(--status-error)'; }
+                else if (level === 'minor_issues' || level === 'minor-issues') { badge = '<span style="background:var(--status-warning);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">⚠️ Warnings</span>'; borderColor = 'var(--status-warning)'; }
+                else if (level === 'breaking_changes' || level === 'breaking-changes') { badge = '<span style="background:var(--status-error);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">❌ Breaking</span>'; borderColor = 'var(--status-error)'; }
                 else { badge = '<span style="background:var(--status-neutral);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">❓ Unknown</span>'; borderColor = 'var(--status-neutral)'; }
 
                 const recs = (r.recommendations || []).slice(0, 3).map(rec => `<li style="margin:4px 0;font-size:0.85rem;color:var(--text-secondary)">${rec}</li>`).join('');
@@ -723,7 +723,7 @@
                         ${badge}
                     </div>
                     <p style="margin:0 0 8px;font-size:0.85rem;color:var(--text-secondary)">${r.summary || ''}</p>
-                    ${r.breaking_changes_count ? `<span style="font-size:0.8rem;color:var(--status-error)">⚠️ ${r.breaking_changes_count} breaking change(s)</span> ` : ''}
+                    ${r.breaking_changes_count || (Array.isArray(r.breaking_changes) ? r.breaking_changes.length : 0) ? `<span style="font-size:0.8rem;color:var(--status-error)">⚠️ ${r.breaking_changes_count || (Array.isArray(r.breaking_changes) ? r.breaking_changes.length : 0)} breaking change(s)</span> ` : ''}
                     ${r.warnings_count ? `<span style="font-size:0.8rem;color:var(--status-warning)">⚡ ${r.warnings_count} warning(s)</span> ` : ''}
                     ${r.new_features_count ? `<span style="font-size:0.8rem;color:var(--status-info)">✨ ${r.new_features_count} new feature(s)</span>` : ''}
                     ${recs ? `<ul style="margin:8px 0 0;padding-left:20px">${recs}</ul>` : ''}
@@ -737,11 +737,11 @@
             html += `<h3 style="margin:24px 0 12px;color:var(--text-primary)">📦 Module Compatibility</h3>`;
             html += `<div style="display:grid;gap:12px;">`;
             moduleReports.forEach(r => {
-                const safety = r.upgrade_safety || r.compatibility || 'unknown';
+                const safety = r.upgrade_safety || r.compatibility_level || r.compatibility || 'unknown';
                 let badge = '', borderColor = 'var(--border-light)';
                 if (safety === 'safe' || safety === 'compatible') { badge = '<span style="background:var(--status-success);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">✅ Safe</span>'; borderColor = 'var(--status-success)'; }
-                else if (safety === 'caution' || safety === 'minor-issues') { badge = '<span style="background:var(--status-warning);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">⚠️ Caution</span>'; borderColor = 'var(--status-warning)'; }
-                else if (safety === 'breaking' || safety === 'breaking-changes') { badge = '<span style="background:var(--status-error);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">❌ Breaking</span>'; borderColor = 'var(--status-error)'; }
+                else if (safety === 'caution' || safety === 'minor_issues' || safety === 'minor-issues') { badge = '<span style="background:var(--status-warning);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">⚠️ Caution</span>'; borderColor = 'var(--status-warning)'; }
+                else if (safety.includes('breaking')) { badge = '<span style="background:var(--status-error);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">❌ Breaking</span>'; borderColor = 'var(--status-error)'; }
                 else { badge = '<span style="background:var(--status-neutral);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.75rem">❓ Unknown</span>'; borderColor = 'var(--status-neutral)'; }
 
                 html += `<div style="border:1px solid var(--border-light);border-left:4px solid ${borderColor};border-radius:var(--radius);padding:14px;background:var(--bg-secondary)">
