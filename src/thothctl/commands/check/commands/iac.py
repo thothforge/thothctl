@@ -84,6 +84,12 @@ class CheckIaCCommand(ClickCommand):
                 return result
             elif kwargs['check_type'] == "drift":
                 self.ui.print_info("🔍 Running drift detection...")
+                # If --plan-file is a directory, use it as the search root
+                plan_file = kwargs.get('plan_file')
+                if plan_file and os.path.isdir(plan_file):
+                    kwargs['_plan_dir'] = plan_file
+                elif plan_file and os.path.isfile(plan_file):
+                    kwargs['_plan_files'] = [plan_file]
                 result = self._run_drift_detection(directory=directory, **kwargs)
                 return result
             elif kwargs['check_type'] == "stack-optimizer":
@@ -1535,11 +1541,49 @@ new vis.Network(container, data, options);
             else:
                 # Terraform/Terragrunt path
                 service = DriftDetectionService(tftool=tftool)
-                plan_files = self._find_tfplan_files(directory, recursive)
+
+                # Check if explicit plan file/dir was provided via --plan-file
+                plan_files = kwargs.get('_plan_files')
+                if not plan_files:
+                    plan_dir = kwargs.get('_plan_dir')
+                    if plan_dir:
+                        plan_files = self._find_tfplan_files(plan_dir, recursive=True)
+                        if plan_files:
+                            self.ui.print_info(f"Using plan files from --plan-file directory: {plan_dir}")
+
+                # Standard search
+                if not plan_files:
+                    plan_files = self._find_tfplan_files(directory, recursive)
+
+                # Auto-detect: if no plan files found and not recursive,
+                # search common Terragrunt plan output locations
+                if not plan_files and not recursive:
+                    common_plan_dirs = [
+                        os.path.join(directory, "tfplan"),
+                        os.path.join(directory, "infrastructure", "tfplan"),
+                        os.path.join(directory, "stacks"),
+                        os.path.join(directory, "infrastructure"),
+                    ]
+                    for plan_dir in common_plan_dirs:
+                        if os.path.isdir(plan_dir):
+                            plan_files = self._find_tfplan_files(plan_dir, recursive=True)
+                            if plan_files:
+                                self.ui.print_info(f"Auto-detected plan files in {plan_dir}/")
+                                break
+
+                    # If still not found and project has terragrunt markers, force recursive search
+                    if not plan_files:
+                        terragrunt_markers = ["root.hcl", "terragrunt.hcl", "terragrunt.stack.hcl"]
+                        has_terragrunt = any(
+                            os.path.exists(os.path.join(directory, m)) for m in terragrunt_markers
+                        )
+                        if has_terragrunt or project_type in ("terragrunt", "terraform-terragrunt"):
+                            self.ui.print_info("Terragrunt project detected, searching recursively for plan files...")
+                            plan_files = self._find_tfplan_files(directory, recursive=True)
 
                 if plan_files:
                     self.ui.print_info(f"Found {len(plan_files)} tfplan.json file(s), analysing for drift...")
-                    summary = service.detect_drift(directory, recursive, plan_files=plan_files, filter_tags=filter_tags)
+                    summary = service.detect_drift(directory, recursive=True, plan_files=plan_files, filter_tags=filter_tags)
                 else:
                     self.ui.print_info(f"No tfplan.json found. Running live {tftool} plan to detect drift...")
                     summary = service.detect_drift(directory, recursive, filter_tags=filter_tags)
