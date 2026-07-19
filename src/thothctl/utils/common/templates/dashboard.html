@@ -6,64 +6,119 @@
     <title>ThothCTL Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* ─── Color tokens from thoth_colors.py (single source of truth) ─── */
         :root {
-            --primary: #007bff; --secondary: #6c757d; --success: #28a745;
-            --warning: #ffc107; --danger: #dc3545; --info: #17a2b8;
-            --bg: #f8f9fa; --dark: #343a40; --radius: 8px;
-            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --thoth-primary: #667eea;
+            --thoth-secondary: #764ba2;
+            --thoth-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --thoth-gradient-header: linear-gradient(135deg, #667eea, #764ba2);
+            --status-success: #10b981;
+            --status-warning: #f59e0b;
+            --status-error: #ef4444;
+            --status-info: #3b82f6;
+            --status-neutral: #6b7280;
+            --severity-critical: #dc2626;
+            --severity-high: #ef4444;
+            --severity-medium: #f59e0b;
+            --severity-low: #fbbf24;
+            --severity-info: #3b82f6;
+            /* Text-safe variants (WCAG AA on white) */
+            --status-success-text: #047857;
+            --status-warning-text: #b45309;
+            --status-error-text: #dc2626;
+            --status-info-text: #1d4ed8;
+            --severity-critical-text: #991b1b;
+            --severity-high-text: #dc2626;
+            --severity-medium-text: #b45309;
+            --severity-low-text: #a16207;
+            --severity-info-text: #1d4ed8;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-tertiary: #7c8490;
+            --text-placeholder: #9ca3af;
+            --text-inverse: #ffffff;
+            --border-light: #e5e7eb;
+            --border-medium: #d1d5db;
+            --border-dark: #9ca3af;
+            --radius: 8px;
+            --radius-pill: 20px;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+            --transition: all 0.2s ease;
+            /* Legacy aliases */
+            --primary: var(--thoth-primary);
+            --secondary: var(--text-secondary);
+            --success: var(--status-success);
+            --warning: var(--status-warning);
+            --danger: var(--status-error);
+            --info: var(--status-info);
+            --bg: var(--bg-secondary);
+            --dark: var(--text-primary);
         }
+
+        /* ─── Dark mode (only activated by user clicking 🌙 button) ─── */
+        body.dark-mode {
+            --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-tertiary: #334155;
+            --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-tertiary: #64748b;
+            --border-light: #334155; --border-medium: #475569; --border-dark: #64748b;
+            --shadow: 0 2px 8px rgba(0,0,0,0.3);
+            background: #0f172a;
+        }
+        body.dark-mode .container { background: var(--bg-secondary); color: var(--text-primary); }
+        body.dark-mode .nav-header { background: var(--thoth-gradient-header); }
+        body.dark-mode .card { background: var(--bg-tertiary); border-color: var(--border-light); color: var(--text-primary); }
+        body.dark-mode .card-number { opacity: 1; }
+        body.dark-mode .card-label { color: var(--text-secondary); }
+        body.dark-mode .data-table th { background: var(--bg-tertiary); }
+        body.dark-mode .data-table td { border-color: var(--border-light); color: var(--text-primary); }
+        body.dark-mode .findings-table th { background: var(--bg-tertiary); color: var(--text-primary); }
+        body.dark-mode .findings-table td { border-color: var(--border-light); color: var(--text-primary); }
+        body.dark-mode .findings-table tr:hover { background: var(--bg-tertiary); }
+        body.dark-mode .findings-wrap { border-color: var(--border-light); background: var(--bg-secondary); }
+        body.dark-mode .stack-group { border-color: var(--border-light); background: var(--bg-secondary); }
+        body.dark-mode .stack-group-header { background: var(--bg-tertiary); color: var(--text-primary); }
+        body.dark-mode .stack-group-header:hover { background: var(--border-light); }
+        body.dark-mode .stack-group-count { color: var(--text-secondary); }
+        body.dark-mode .inv-toolbar { background: var(--bg-tertiary); }
+        body.dark-mode .inv-toolbar input, body.dark-mode .inv-toolbar select { background: var(--bg-secondary); border-color: var(--border-light); color: var(--text-primary); }
+        body.dark-mode .findings-toolbar { background: var(--bg-tertiary); }
+        body.dark-mode .findings-toolbar input, body.dark-mode .findings-toolbar select { background: var(--bg-secondary); border-color: var(--border-light); color: var(--text-primary); }
+        body.dark-mode .inv-tab { background: var(--bg-tertiary); color: var(--text-primary); }
+        body.dark-mode .report-tab { background: var(--bg-tertiary); color: var(--text-primary); }
+        body.dark-mode .view-toggle button { background: var(--bg-tertiary); border-color: var(--border-light); color: var(--text-primary); }
+        body.dark-mode .message { color: var(--text-secondary); }
+        body.dark-mode .message code { background: var(--bg-tertiary); color: var(--text-primary); }
+        body.dark-mode .tool-badge { background: var(--bg-tertiary); color: #60a5fa; }
+        body.dark-mode .status-chip.unknown { background: var(--bg-tertiary); color: var(--text-secondary); }
+        body.dark-mode .ver-current { color: #60a5fa; }
+        body.dark-mode .ver-latest { color: #34d399; }
+        body.dark-mode .findings-pagination { color: var(--text-secondary); }
+        body.dark-mode .findings-pagination button { background: var(--bg-tertiary); border-color: var(--border-light); color: var(--text-primary); }
+        body.dark-mode .section-title { color: #818cf8; }
+        body.dark-mode .sev-bar { color: var(--text-primary); }
+        body.dark-mode .error { background: #2d1b1b; color: #fca5a5; border-color: var(--severity-critical); }
+
+        /* ─── Dashboard Layout (references tokens above) ─── */
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
             font-family: 'Inter', system-ui, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px; color: var(--dark);
+            background: var(--thoth-gradient);
+            min-height: 100vh; padding: 20px; color: var(--text-primary);
         }
-        body.dark-mode { background: #1a1a2e; }
-        body.dark-mode .container { background: #16213e; color: #e0e0e0; }
-        body.dark-mode .nav-header { background: linear-gradient(135deg, #0f3460, #1a1a2e); }
-        body.dark-mode .card { background: #1a1a2e; border-color: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .card-number { opacity: 1; }
-        body.dark-mode .card-label { color: #9ca3af; }
-        body.dark-mode .data-table th { background: #0f3460; }
-        body.dark-mode .data-table td { border-color: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .findings-table th { background: #0f3460; color: #e0e0e0; }
-        body.dark-mode .findings-table td { border-color: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .findings-table tr:hover { background: #1e2a4a; }
-        body.dark-mode .findings-wrap { border-color: #2a2a4e; background: #16213e; }
-        body.dark-mode .stack-group { border-color: #2a2a4e; background: #16213e; }
-        body.dark-mode .stack-group-header { background: #1a1a2e; color: #e0e0e0; }
-        body.dark-mode .stack-group-header:hover { background: #1e2a4a; }
-        body.dark-mode .stack-group-count { color: #9ca3af; }
-        body.dark-mode .inv-toolbar { background: #1a1a2e; }
-        body.dark-mode .inv-toolbar input, body.dark-mode .inv-toolbar select { background: #0f3460; border-color: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .findings-toolbar { background: #1a1a2e; }
-        body.dark-mode .findings-toolbar input, body.dark-mode .findings-toolbar select { background: #0f3460; border-color: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .inv-tab { background: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .report-tab { background: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .view-toggle button { background: #1a1a2e; border-color: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .message { color: #9ca3af; }
-        body.dark-mode .message code { background: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .tool-badge { background: #1e2a4a; color: #60a5fa; }
-        body.dark-mode .status-chip.unknown { background: #2a2a4e; color: #9ca3af; }
-        body.dark-mode .ver-current { color: #60a5fa; }
-        body.dark-mode .ver-latest { color: #34d399; }
-        body.dark-mode .findings-pagination { color: #9ca3af; }
-        body.dark-mode .findings-pagination button { background: #1a1a2e; border-color: #2a2a4e; color: #e0e0e0; }
-        body.dark-mode .section-title { color: #60a5fa; }
-        body.dark-mode .sev-bar { color: #e0e0e0; }
-        body.dark-mode .error { background: #2d1b1b; color: #fca5a5; border-color: #dc2626; }
-
-        .container { max-width:1400px; margin:0 auto; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
-        .nav-header { background:linear-gradient(135deg, var(--primary), #0056b3); color:#fff; padding:20px 30px; position:sticky; top:0; z-index:100; }
+        .container { max-width:1400px; margin:0 auto; background:var(--bg-primary); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+        .nav-header { background:var(--thoth-gradient-header); color:var(--text-inverse); padding:20px 30px; position:sticky; top:0; z-index:100; }
         .nav-title { font-size:1.6rem; font-weight:700; }
         .nav-subtitle { font-size:0.85rem; opacity:0.85; margin:4px 0 12px; }
         .nav-menu { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
         .nav-link { color:rgba(255,255,255,0.85); text-decoration:none; padding:6px 14px; border-radius:20px; font-size:0.8rem; font-weight:500; cursor:pointer; transition:all .2s; }
-        .nav-link:hover, .nav-link.active { background:rgba(255,255,255,0.2); color:#fff; }
+        .nav-link:hover, .nav-link.active { background:rgba(255,255,255,0.2); color:var(--text-inverse); }
         .nav-actions { margin-left:auto; display:flex; gap:8px; }
         .btn { padding:6px 12px; border:none; border-radius:16px; cursor:pointer; font-size:0.75rem; font-weight:500; transition:all .2s; }
-        .btn-refresh { background:var(--success); color:#fff; }
-        .btn-export { background:rgba(255,255,255,0.2); color:#fff; }
+        .btn-refresh { background:var(--success); color:var(--text-inverse); }
+        .btn-export { background:rgba(255,255,255,0.2); color:var(--text-inverse); }
         .btn:hover { transform:translateY(-1px); opacity:0.9; }
 
         .content-section { padding:24px 30px; display:none; }
@@ -71,94 +126,94 @@
         .section-title { font-size:1.3rem; font-weight:600; color:var(--primary); margin-bottom:16px; }
 
         .summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
-        .card { background:#fff; padding:20px; border-radius:var(--radius); text-align:center; box-shadow:var(--shadow); border-left:4px solid var(--primary); cursor:pointer; transition:all .2s; }
+        .card { background:var(--bg-primary); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:var(--shadow); border-left:4px solid var(--primary); cursor:pointer; transition:all .2s; }
         .card:hover { transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,0.12); }
         .card-number { font-size:2rem; font-weight:700; color:var(--primary); }
         .card-label { font-size:0.75rem; color:var(--secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
 
         .data-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:0.85rem; }
-        .data-table th { background:linear-gradient(135deg, var(--primary), #0056b3); color:#fff; padding:10px 12px; text-align:left; font-weight:600; }
-        .data-table td { padding:10px 12px; border-bottom:1px solid #e9ecef; }
-        .data-table tr:hover { background:#f8f9fa; }
+        .data-table th { background:var(--thoth-gradient-header); color:var(--text-inverse); padding:10px 12px; text-align:left; font-weight:600; }
+        .data-table td { padding:10px 12px; border-bottom:1px solid var(--border-light); }
+        .data-table tr:hover { background:var(--bg-secondary); }
 
         .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:600; }
-        .badge-success { background:#d4edda; color:#155724; }
-        .badge-warning { background:#fff3cd; color:#856404; }
-        .badge-danger { background:#f8d7da; color:#721c24; }
-        .badge-info { background:#d1ecf1; color:#0c5460; }
+        .badge-success { background:rgba(16,185,129,0.15); color:var(--status-success-text); }
+        .badge-warning { background:rgba(245,158,11,0.15); color:var(--status-warning-text); }
+        .badge-danger { background:rgba(239,68,68,0.15); color:var(--status-error-text); }
+        .badge-info { background:rgba(59,130,246,0.15); color:var(--status-info-text); }
 
-        .message { padding:20px; text-align:center; color:var(--secondary); }
-        .message code { background:#e9ecef; padding:2px 6px; border-radius:4px; font-size:0.8rem; }
-        .error { background:#f8d7da; color:#721c24; padding:12px; border-radius:var(--radius); border-left:4px solid var(--danger); }
+        .message { padding:20px; text-align:center; color:var(--text-secondary); }
+        .message code { background:var(--bg-tertiary); padding:2px 6px; border-radius:4px; font-size:0.8rem; }
+        .error { background:rgba(239,68,68,0.1); color:var(--severity-critical-text); padding:12px; border-radius:var(--radius); border-left:4px solid var(--danger); }
 
         @media (max-width:768px) { body { padding:8px; } .content-section { padding:16px; } .nav-menu { gap:4px; } }
         @media print { .nav-header { position:static; } .nav-actions { display:none; } body { background:#fff; padding:0; } }
 
         /* Security Findings Viewer */
-        .findings-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:#f8f9fa; border-radius:var(--radius); }
-        .findings-toolbar input, .findings-toolbar select { padding:6px 12px; border:1px solid #dee2e6; border-radius:6px; font-size:0.8rem; font-family:inherit; }
+        .findings-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:var(--bg-secondary); border-radius:var(--radius); }
+        .findings-toolbar input, .findings-toolbar select { padding:6px 12px; border:1px solid var(--border-light); border-radius:6px; font-size:0.8rem; font-family:inherit; }
         .findings-toolbar input { flex:1; min-width:180px; }
         .findings-toolbar select { min-width:120px; }
-        .findings-toolbar .toolbar-label { font-size:0.7rem; color:var(--secondary); text-transform:uppercase; font-weight:600; }
+        .findings-toolbar .toolbar-label { font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600; }
         .sev-bar { display:flex; gap:6px; margin-bottom:16px; }
         .sev-chip { padding:4px 10px; border-radius:12px; font-size:0.7rem; font-weight:600; cursor:pointer; transition:all .2s; border:1px solid transparent; }
         .sev-chip:hover { transform:translateY(-1px); }
-        .sev-chip.critical { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
-        .sev-chip.high { background:#fff1f2; color:#e11d48; border-color:#fecdd3; }
-        .sev-chip.medium { background:#fffbeb; color:#b45309; border-color:#fde68a; }
-        .sev-chip.low { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+        .sev-chip.critical { background:rgba(220,38,38,0.08); color:var(--severity-critical-text); border-color:rgba(220,38,38,0.2); }
+        .sev-chip.high { background:rgba(239,68,68,0.08); color:var(--severity-high-text); border-color:rgba(239,68,68,0.2); }
+        .sev-chip.medium { background:rgba(245,158,11,0.08); color:var(--severity-medium-text); border-color:rgba(245,158,11,0.2); }
+        .sev-chip.low { background:rgba(16,185,129,0.08); color:var(--status-success-text); border-color:rgba(16,185,129,0.2); }
         .sev-chip.active { box-shadow:0 0 0 2px currentColor; }
         .findings-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
-        .findings-table th { background:#f3f4f6; padding:8px 10px; text-align:left; font-size:0.7rem; text-transform:uppercase; color:var(--secondary); position:sticky; top:0; }
-        .findings-table td { padding:8px 10px; border-top:1px solid #e5e7eb; vertical-align:top; }
-        .findings-table tr:hover { background:#f9fafb; }
+        .findings-table th { background:var(--bg-tertiary); padding:8px 10px; text-align:left; font-size:0.7rem; text-transform:uppercase; color:var(--text-secondary); position:sticky; top:0; }
+        .findings-table td { padding:8px 10px; border-top:1px solid var(--border-light); vertical-align:top; }
+        .findings-table tr:hover { background:var(--bg-secondary); }
         .findings-table tr { cursor:pointer; }
-        .findings-wrap { max-height:500px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:var(--radius); }
+        .findings-wrap { max-height:500px; overflow-y:auto; border:1px solid var(--border-light); border-radius:var(--radius); }
         .sev-badge { padding:2px 8px; border-radius:10px; font-size:0.65rem; font-weight:700; text-transform:uppercase; }
-        .sev-badge.critical { background:#fef2f2; color:#dc2626; }
-        .sev-badge.high { background:#fff1f2; color:#e11d48; }
-        .sev-badge.medium { background:#fffbeb; color:#b45309; }
-        .sev-badge.low { background:#f0fdf4; color:#16a34a; }
-        .tool-badge { background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px; font-size:0.65rem; font-weight:600; }
-        .findings-pagination { display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:0.8rem; color:var(--secondary); }
-        .findings-pagination button { padding:4px 12px; border:1px solid #dee2e6; border-radius:6px; background:#fff; cursor:pointer; font-size:0.75rem; }
+        .sev-badge.critical { background:rgba(220,38,38,0.08); color:var(--severity-critical-text); }
+        .sev-badge.high { background:rgba(239,68,68,0.08); color:var(--severity-high-text); }
+        .sev-badge.medium { background:rgba(245,158,11,0.08); color:var(--severity-medium-text); }
+        .sev-badge.low { background:rgba(16,185,129,0.08); color:var(--status-success-text); }
+        .tool-badge { background:rgba(59,130,246,0.1); color:var(--status-info-text); padding:2px 8px; border-radius:10px; font-size:0.65rem; font-weight:600; }
+        .findings-pagination { display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:0.8rem; color:var(--text-secondary); }
+        .findings-pagination button { padding:4px 12px; border:1px solid var(--border-light); border-radius:6px; background:var(--bg-primary); cursor:pointer; font-size:0.75rem; }
         .findings-pagination button:disabled { opacity:0.4; cursor:not-allowed; }
         .report-viewer { border:none; width:100%; height:600px; border-radius:var(--radius); box-shadow:var(--shadow); margin-top:16px; }
         .report-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:12px; }
-        .report-tab { padding:6px 14px; border-radius:16px; font-size:0.75rem; font-weight:500; cursor:pointer; background:#e9ecef; color:var(--dark); transition:all .2s; border:none; }
-        .report-tab:hover { background:var(--primary); color:#fff; }
-        .report-tab.active { background:var(--primary); color:#fff; }
+        .report-tab { padding:6px 14px; border-radius:16px; font-size:0.75rem; font-weight:500; cursor:pointer; background:var(--bg-tertiary); color:var(--dark); transition:all .2s; border:none; }
+        .report-tab:hover { background:var(--primary); color:var(--text-inverse); }
+        .report-tab.active { background:var(--primary); color:var(--text-inverse); }
         .view-toggle { display:flex; gap:4px; margin-left:auto; }
-        .view-toggle button { padding:4px 10px; border:1px solid #dee2e6; background:#fff; border-radius:4px; cursor:pointer; font-size:0.75rem; }
-        .view-toggle button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .view-toggle button { padding:4px 10px; border:1px solid var(--border-light); background:var(--bg-primary); border-radius:4px; cursor:pointer; font-size:0.75rem; }
+        .view-toggle button.active { background:var(--primary); color:var(--text-inverse); border-color:var(--primary); }
 
         /* Inventory SBOM Viewer */
-        .inv-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:#f8f9fa; border-radius:var(--radius); }
-        .inv-toolbar input { padding:6px 12px; border:1px solid #dee2e6; border-radius:6px; font-size:0.8rem; font-family:inherit; flex:1; min-width:180px; }
-        .inv-toolbar select { padding:6px 12px; border:1px solid #dee2e6; border-radius:6px; font-size:0.8rem; font-family:inherit; min-width:120px; }
+        .inv-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:var(--bg-secondary); border-radius:var(--radius); }
+        .inv-toolbar input { padding:6px 12px; border:1px solid var(--border-light); border-radius:6px; font-size:0.8rem; font-family:inherit; flex:1; min-width:180px; }
+        .inv-toolbar select { padding:6px 12px; border:1px solid var(--border-light); border-radius:6px; font-size:0.8rem; font-family:inherit; min-width:120px; }
         .status-chip { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.68rem; font-weight:600; text-transform:uppercase; }
-        .status-chip.outdated { background:#fef2f2; color:#dc2626; }
-        .status-chip.updated, .status-chip.current { background:#f0fdf4; color:#16a34a; }
-        .status-chip.unknown { background:#f3f4f6; color:#6b7280; }
-        .ver-current { font-family:monospace; color:#2563eb; font-size:0.78rem; }
-        .ver-latest { font-family:monospace; color:#16a34a; font-size:0.78rem; }
-        .ver-mismatch { color:#dc2626; }
-        .stack-group { margin-bottom:12px; border:1px solid #e5e7eb; border-radius:var(--radius); overflow:hidden; }
-        .stack-group-header { padding:10px 14px; background:#f9fafb; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-weight:600; font-size:0.85rem; transition:background .2s; }
-        .stack-group-header:hover { background:#f3f4f6; }
+        .status-chip.outdated { background:rgba(220,38,38,0.08); color:var(--severity-critical-text); }
+        .status-chip.updated, .status-chip.current { background:rgba(16,185,129,0.08); color:var(--status-success-text); }
+        .status-chip.unknown { background:var(--bg-tertiary); color:var(--text-secondary); }
+        .ver-current { font-family:monospace; color:var(--status-info-text); font-size:0.78rem; }
+        .ver-latest { font-family:monospace; color:var(--status-success-text); font-size:0.78rem; }
+        .ver-mismatch { color:var(--status-error-text); }
+        .stack-group { margin-bottom:12px; border:1px solid var(--border-light); border-radius:var(--radius); overflow:hidden; }
+        .stack-group-header { padding:10px 14px; background:var(--bg-secondary); cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-weight:600; font-size:0.85rem; transition:background .2s; color:var(--text-primary); }
+        .stack-group-header:hover { background:var(--bg-tertiary); }
         .stack-group-body { display:none; }
         .stack-group-body.open { display:block; }
-        .stack-group-count { font-size:0.7rem; color:var(--secondary); font-weight:400; }
+        .stack-group-count { font-size:0.7rem; color:var(--text-secondary); font-weight:400; }
         .inv-tabs { display:flex; gap:4px; margin-bottom:16px; }
-        .inv-tab { padding:6px 14px; border-radius:16px; font-size:0.75rem; font-weight:500; cursor:pointer; background:#e9ecef; color:var(--dark); transition:all .2s; border:none; }
-        .inv-tab:hover { background:var(--primary); color:#fff; }
-        .inv-tab.active { background:var(--primary); color:#fff; }
+        .inv-tab { padding:6px 14px; border-radius:16px; font-size:0.75rem; font-weight:500; cursor:pointer; background:var(--bg-tertiary); color:var(--dark); transition:all .2s; border:none; }
+        .inv-tab:hover { background:var(--primary); color:var(--text-inverse); }
+        .inv-tab.active { background:var(--primary); color:var(--text-inverse); }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="nav-header">
-            <div class="nav-title">🚀 ThothCTL Dashboard</div>
+            <div class="nav-title">🪶 ThothCTL Dashboard</div>
             <div class="nav-subtitle">Infrastructure Lifecycle Console</div>
             <nav class="nav-menu">
                 <a class="nav-link active" data-section="overview">📊 Overview</a>
@@ -275,8 +330,8 @@
                 <div class="card" onclick="nav('security')" style="border-color:var(--danger)"><div class="card-number" style="color:var(--danger)">${issues}</div><div class="card-label">Security Issues</div></div>
                 <div class="card" onclick="nav('costs')" style="border-color:var(--warning)"><div class="card-number" style="color:var(--warning)">$${monthly}</div><div class="card-label">Monthly Cost</div></div>
                 <div class="card" onclick="nav('risks')" style="border-color:var(--info)"><div class="card-number" style="color:var(--info)">${riskLvl}</div><div class="card-label">Risk Level</div></div>
-                <div class="card" onclick="nav('drift')" style="border-color:#9c27b0"><div class="card-number" style="color:#9c27b0">${drifted}</div><div class="card-label">Drifted Resources</div></div>
-                <div class="card" onclick="nav('ai')" style="border-color:#00bcd4"><div class="card-number" style="color:#00bcd4">${aiCost}</div><div class="card-label">AI Cost (Month)</div></div>
+                <div class="card" onclick="nav('drift')" style="border-color:var(--thoth-secondary)"><div class="card-number" style="color:var(--thoth-secondary)">${drifted}</div><div class="card-label">Drifted Resources</div></div>
+                <div class="card" onclick="nav('ai')" style="border-color:var(--status-info)"><div class="card-number" style="color:var(--status-info-text)">${aiCost}</div><div class="card-label">AI Cost (Month)</div></div>
             </div>`;
     }
 
@@ -926,10 +981,10 @@
             topoHtml += `<div style="margin:20px 0 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
                 <h3 style="margin:0;color:var(--primary)">🗺️ Infrastructure Topology</h3>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:0.7rem">
-                    <span style="padding:2px 8px;border-radius:4px;background:#e8f5e9;color:#2e7d32;border:1px solid #4caf50">● Existing</span>
-                    <span style="padding:2px 8px;border-radius:4px;background:#e3f2fd;color:#0d47a1;border:2px solid #1976d2">● Create</span>
-                    <span style="padding:2px 8px;border-radius:4px;background:#fff3e0;color:#e65100;border:2px solid #f57c00">● Update</span>
-                    <span style="padding:2px 8px;border-radius:4px;background:#ffebee;color:#b71c1c;border:2px dashed #d32f2f">● Delete</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:rgba(16,185,129,0.1);color:var(--status-success-text);border:1px solid var(--status-success)">● Existing</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:rgba(59,130,246,0.1);color:var(--status-info-text);border:2px solid var(--status-info)">● Create</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:rgba(245,158,11,0.1);color:var(--status-warning-text);border:2px solid var(--status-warning)">● Update</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:rgba(239,68,68,0.1);color:var(--status-error-text);border:2px dashed var(--status-error)">● Delete</span>
                 </div>
             </div>`;
 
@@ -944,15 +999,15 @@
 
             // Mermaid diagram with zoom controls
             if (t.mermaid) {
-                topoHtml += `<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:16px">
-                    <div style="display:flex;gap:6px;padding:8px 12px;background:#f3f4f6;border-bottom:1px solid #e5e7eb;align-items:center">
-                        <button onclick="zoomTopo(-0.2)" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85rem">−</button>
-                        <button onclick="zoomTopo(0.2)" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85rem">+</button>
-                        <button onclick="zoomTopo(0)" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.75rem">Fit</button>
-                        ${t.diagram_path ? `<a href="/api/reports/${t.diagram_path}" target="_blank" style="border:1px solid #dee2e6;background:#fff;border-radius:4px;padding:4px 10px;font-size:0.75rem;text-decoration:none;color:var(--primary)">📷 PNG (AWS Icons)</a>` : ''}
+                topoHtml += `<div style="border:1px solid var(--border-light);border-radius:8px;overflow:hidden;margin-bottom:16px">
+                    <div style="display:flex;gap:6px;padding:8px 12px;background:var(--bg-tertiary);border-bottom:1px solid var(--border-light);align-items:center">
+                        <button onclick="zoomTopo(-0.2)" style="border:1px solid var(--border-light);background:var(--bg-primary);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85rem">−</button>
+                        <button onclick="zoomTopo(0.2)" style="border:1px solid var(--border-light);background:var(--bg-primary);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85rem">+</button>
+                        <button onclick="zoomTopo(0)" style="border:1px solid var(--border-light);background:var(--bg-primary);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.75rem">Fit</button>
+                        ${t.diagram_path ? `<a href="/api/reports/${t.diagram_path}" target="_blank" style="border:1px solid var(--border-light);background:var(--bg-primary);border-radius:4px;padding:4px 10px;font-size:0.75rem;text-decoration:none;color:var(--primary)">📷 PNG (AWS Icons)</a>` : ''}
                         <span style="margin-left:auto;font-size:0.7rem;color:var(--secondary)">Scroll to pan</span>
                     </div>
-                    <div id="topology-mermaid-container" style="background:#fff;padding:8px;overflow:auto;height:55vh;min-height:300px"></div>
+                    <div id="topology-mermaid-container" style="background:var(--bg-primary);padding:8px;overflow:auto;height:55vh;min-height:300px"></div>
                 </div>`;
             }
 
@@ -1005,7 +1060,7 @@
         const results = d.results || [];
         const totalDrifted = results.reduce((a,r)=>a+(r.drifted_resources||[]).length, 0);
         const coverage = d.iac_coverage_percentage != null ? d.iac_coverage_percentage.toFixed(1)+'%' : '—';
-        let html = `<div class="summary-grid"><div class="card" style="border-color:#9c27b0"><div class="card-number" style="color:#9c27b0">${totalDrifted}</div><div class="card-label">Drifted Resources</div></div><div class="card"><div class="card-number">${coverage}</div><div class="card-label">IaC Coverage</div></div><div class="card"><div class="card-number">${results.length}</div><div class="card-label">Stacks Checked</div></div></div>`;
+        let html = `<div class="summary-grid"><div class="card" style="border-color:var(--thoth-secondary)"><div class="card-number" style="color:var(--thoth-secondary)">${totalDrifted}</div><div class="card-label">Drifted Resources</div></div><div class="card"><div class="card-number">${coverage}</div><div class="card-label">IaC Coverage</div></div><div class="card"><div class="card-number">${results.length}</div><div class="card-label">Stacks Checked</div></div></div>`;
         if (totalDrifted > 0) {
             html += '<table class="data-table"><thead><tr><th>Resource</th><th>Type</th><th>Drift Type</th><th>Severity</th></tr></thead><tbody>';
             results.forEach(r => (r.drifted_resources||[]).forEach(res => {
@@ -1060,7 +1115,7 @@
     function renderAI() {
         const d = D.ai;
         if (!d || err(d)) { document.getElementById('ai-content').innerHTML = msg(d?.error||d?.message||'No data', d?.command); return; }
-        let html = `<div class="summary-grid"><div class="card" style="border-color:#00bcd4"><div class="card-number" style="color:#00bcd4">$${(d.total_cost||0).toFixed(4)}</div><div class="card-label">Total Cost</div></div><div class="card"><div class="card-number">${d.total_requests||0}</div><div class="card-label">Requests</div></div><div class="card"><div class="card-number">${(d.total_input_tokens||0).toLocaleString()}</div><div class="card-label">Input Tokens</div></div><div class="card"><div class="card-number">${(d.total_output_tokens||0).toLocaleString()}</div><div class="card-label">Output Tokens</div></div></div>`;
+        let html = `<div class="summary-grid"><div class="card" style="border-color:var(--status-info)"><div class="card-number" style="color:var(--status-info-text)">$${(d.total_cost||0).toFixed(4)}</div><div class="card-label">Total Cost</div></div><div class="card"><div class="card-number">${d.total_requests||0}</div><div class="card-label">Requests</div></div><div class="card"><div class="card-number">${(d.total_input_tokens||0).toLocaleString()}</div><div class="card-label">Input Tokens</div></div><div class="card"><div class="card-number">${(d.total_output_tokens||0).toLocaleString()}</div><div class="card-label">Output Tokens</div></div></div>`;
         if (d.records && d.records.length) {
             html += '<table class="data-table"><thead><tr><th>Time</th><th>Provider</th><th>Model</th><th>In</th><th>Out</th><th>Cost</th></tr></thead><tbody>';
             d.records.slice().reverse().forEach(r => {

@@ -1,57 +1,41 @@
-"""Utility functions for consistent HTML report generation."""
+"""Utility functions for consistent HTML report generation.
+
+All report styling flows from thoth_colors.py (single source of truth).
+"""
 import os
 from pathlib import Path
 from typing import Optional
 
+from thothctl.utils.thoth_colors import get_full_css
+
 
 class HTMLReportUtils:
     """Utility class for consistent HTML report generation."""
-    
+
     @staticmethod
     def get_unified_css() -> str:
-        """Get the unified CSS styles for all reports."""
+        """Get the unified CSS styles for all reports.
+
+        Combines the color tokens from thoth_colors.py with the layout
+        styles from unified_report_styles.css.
+        """
+        # Colors come from the single source of truth
+        colors_css = get_full_css()
+
+        # Layout/component CSS from the stylesheet
         css_file = Path(__file__).parent / "templates" / "unified_report_styles.css"
         try:
-            with open(css_file, 'r', encoding='utf-8') as f:
-                return f.read()
+            with open(css_file, "r", encoding="utf-8") as f:
+                layout_css = f.read()
         except FileNotFoundError:
-            # Fallback to inline CSS if file doesn't exist
-            return HTMLReportUtils._get_fallback_css()
-    
+            layout_css = ""
+
+        return colors_css + "\n" + layout_css
+
     @staticmethod
     def _get_fallback_css() -> str:
-        """Fallback CSS in case the external file is not found."""
-        return """
-        /* Unified Report Styles for ThothCTL - Inventory & Scan Reports */
-        :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --info-color: #17a2b8;
-            --light-color: #f8f9fa;
-            --dark-color: #343a40;
-            --border-radius: 8px;
-            --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            --transition: all 0.3s ease;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: var(--dark-color);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        """
+        """Fallback CSS — uses thoth_colors.py tokens directly."""
+        return get_full_css()
     
     @staticmethod
     def get_html_head(title: str, additional_meta: Optional[str] = None) -> str:
