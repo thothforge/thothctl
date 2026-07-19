@@ -84,13 +84,47 @@ thothctl init project --name my-infrastructure \
 - Sets up configuration files
 
 #### 1.3 Cost Estimation (Before Writing Code)
-```bash
-# Estimate costs from Terraform plan
-terraform plan -out=tfplan.binary
-terraform show -json tfplan.binary > tfplan.json
 
-thothctl check iac --type cost-analysis --plan-file tfplan.json
-```
+=== "Terragrunt"
+
+    ```bash
+    # Generate plans for all stacks with JSON output
+    terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+
+    # Run cost analysis on all generated plans
+    thothctl check iac --type cost-analysis --plan-file tfplan/ --recursive
+    ```
+
+=== "Terraform"
+
+    ```bash
+    # Generate plan
+    terraform plan -out=tfplan.binary
+    terraform show -json tfplan.binary > tfplan.json
+
+    # Run cost analysis
+    thothctl check iac --type cost-analysis --plan-file tfplan.json
+    ```
+
+=== "CloudFormation"
+
+    ```bash
+    # Cost estimation from template
+    thothctl check iac --type cost-analysis --template template.yaml
+    ```
+
+=== "CDK"
+
+    ```bash
+    # Synthesize and estimate costs
+    cdk synth --output cdk.out
+    thothctl check iac --type cost-analysis --template cdk.out/MyStack.template.json
+    ```
 
 **Output:**
 - Monthly/annual cost projections
@@ -239,31 +273,235 @@ Validate infrastructure changes before deployment.
 
 ### ThothCTL Commands
 
-#### 4.1 Terraform Plan Validation
-```bash
-# Validate Terraform plan
-terraform plan -out=tfplan.binary
-terraform show -json tfplan.binary > tfplan.json
+#### 4.1 Plan Generation by Framework
 
+Plan validation requires generating a plan file first. Each IaC framework has different commands and considerations.
+
+=== "Terragrunt"
+
+    **Single Stack Plan**
+    ```bash
+    # Plan a single stack
+    cd stacks/foundation/network/vpc
+    terragrunt plan -out=tfplan.binary -lock=false
+    terragrunt show -json tfplan.binary > tfplan.json
+    ```
+
+    **All Stacks Plan (Recommended for CI/CD)**
+    ```bash
+    # Plan all stacks with JSON output for ThothCTL analysis
+    # --working-dir: root of your infrastructure stacks
+    # --out-dir: directory to store binary plan files
+    # --json-out-dir: directory to store JSON plan files for ThothCTL
+    terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+    ```
+
+    **Layer-Specific Plan**
+    ```bash
+    # Plan only the foundation layer
+    terragrunt run \
+      --working-dir stacks/foundation \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+
+    # Plan only the platform layer
+    terragrunt run \
+      --working-dir stacks/platform \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+    ```
+
+    **Environment-Specific Plan**
+    ```bash
+    # Plan for production environment
+    TF_VAR_ENVIRONMENT=prd terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+
+    # Plan for QA environment
+    TF_VAR_ENVIRONMENT=qa terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+    ```
+
+    **Stack Generation (Terragrunt 1.1)**
+    ```bash
+    # Generate stack units from terragrunt.stack.hcl before planning
+    terragrunt stack generate
+
+    # Then plan the generated stacks
+    terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+    ```
+
+    **Change-Based Plan (CI/CD Optimization)**
+    ```bash
+    # Only plan stacks affected by changes (Terragrunt 1.1)
+    # Uses CAS + file tracking to detect which units are impacted
+    terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --filter 'reading=stacks/foundation/network/vpc/terragrunt.hcl' \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+    ```
+
+    **Plan Output Structure**
+    ```
+    tfplan/
+    ├── foundation/
+    │   ├── network/vpc/tfplan.binary
+    │   ├── network/vpc/tfplan.json
+    │   ├── network/security-groups/tfplan.binary
+    │   └── iam/roles/tfplan.json
+    ├── platform/
+    │   ├── containers/eks/tfplan.json
+    │   └── data/rds/tfplan.json
+    └── application/
+        ├── compute/alb/tfplan.json
+        └── storage/s3/tfplan.json
+    ```
+
+    !!! tip "Terragrunt Plan Best Practices"
+        - Use `-lock=false` in CI/CD to avoid state lock conflicts during plan
+        - Always use `--out-dir` and `--json-out-dir` to capture plans for ThothCTL analysis
+        - Use `--working-dir` instead of `cd` for reproducible commands
+        - Leverage `TF_VAR_ENVIRONMENT` to plan specific environments
+        - Use change-based filtering in CI to reduce plan time on large estates
+
+=== "Terraform"
+
+    **Standard Plan**
+    ```bash
+    # Generate plan
+    terraform plan -out=tfplan.binary
+    terraform show -json tfplan.binary > tfplan.json
+    ```
+
+    **With Variable Files**
+    ```bash
+    # Plan with environment-specific variables
+    terraform plan \
+      -var-file=environments/dev.tfvars \
+      -out=tfplan.binary
+    terraform show -json tfplan.binary > tfplan.json
+    ```
+
+    **Targeted Plan**
+    ```bash
+    # Plan specific resources only
+    terraform plan \
+      -target=module.vpc \
+      -out=tfplan.binary
+    terraform show -json tfplan.binary > tfplan.json
+    ```
+
+=== "CloudFormation"
+
+    **Generate Change Set**
+    ```bash
+    # Create a change set (CloudFormation equivalent of plan)
+    aws cloudformation create-change-set \
+      --stack-name my-stack \
+      --template-body file://template.yaml \
+      --change-set-name my-changeset \
+      --parameters ParameterKey=Environment,ParameterValue=dev
+
+    # Describe the change set for ThothCTL
+    aws cloudformation describe-change-set \
+      --stack-name my-stack \
+      --change-set-name my-changeset \
+      --output json > changeset.json
+    ```
+
+    **With SAM**
+    ```bash
+    # SAM build and package
+    sam build
+    sam package --output-template-file packaged.yaml
+
+    # Create change set from SAM template
+    aws cloudformation create-change-set \
+      --stack-name my-sam-stack \
+      --template-body file://packaged.yaml \
+      --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+      --change-set-name deploy-changeset
+    ```
+
+=== "CDK"
+
+    **CDK Diff (Plan Equivalent)**
+    ```bash
+    # Synthesize and diff
+    cdk synth
+    cdk diff 2>&1 | tee cdk-diff.txt
+
+    # Generate CloudFormation template for analysis
+    cdk synth --output cdk.out
+    ```
+
+    **CDK with Specific Stack**
+    ```bash
+    # Diff a specific stack
+    cdk diff MyVpcStack
+    cdk diff MyEksStack
+
+    # Export template for ThothCTL scan
+    cdk synth MyVpcStack > template.yaml
+    ```
+
+#### 4.2 ThothCTL Plan Validation
+
+Once plan files are generated, use ThothCTL to validate them:
+
+```bash
+# Validate plan file (single)
 thothctl check iac --type plan --plan-file tfplan.json
+
+# Validate all plans in a directory (Terragrunt multi-stack)
+thothctl check iac --type plan --plan-file tfplan/ --recursive
 ```
 
 **Validates:**
-- Resource changes
+- Resource changes (create, update, destroy)
 - Dependency order
 - Configuration syntax
 - State consistency
+- Drift from expected state
 
-#### 4.2 Blast Radius Assessment
+#### 4.3 Blast Radius Assessment
 ```bash
-# Assess impact of changes
+# Assess impact of changes (single plan)
 thothctl check iac --type blast-radius --plan-file tfplan.json
+
+# Assess across all stacks (Terragrunt)
+thothctl check iac --type blast-radius --plan-file tfplan/ --recursive
 ```
 
 **Analyzes:**
-- Affected resources
-- Change propagation
-- Risk levels (Low/Medium/High/Critical)
+- Affected resources count and type
+- Change propagation across dependencies
+- Risk levels (Low/Medium/High/Critical) using ITIL v4 classification
 - Rollback complexity
 - Mitigation strategies
 
@@ -353,6 +591,9 @@ Deploy infrastructure safely with proper validation.
 ```bash
 # Run all checks before deployment
 thothctl check iac --type all --plan-file tfplan.json
+
+# For Terragrunt multi-stack (all plans in directory)
+thothctl check iac --type all --plan-file tfplan/ --recursive
 ```
 
 **Performs:**
@@ -361,11 +602,69 @@ thothctl check iac --type all --plan-file tfplan.json
 - Security scanning
 - Compliance validation
 
-#### 6.2 Generate Deployment Report
+#### 6.2 Apply Infrastructure Changes
+
+=== "Terragrunt"
+
+    ```bash
+    # Apply all stacks (respects dependency order)
+    terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      -- apply -auto-approve
+
+    # Apply a specific layer only
+    terragrunt run \
+      --working-dir stacks/foundation \
+      --all \
+      -- apply -auto-approve
+
+    # Apply with saved plan files (safer — matches what was reviewed)
+    terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --out-dir tfplan \
+      -- apply
+
+    # Apply for specific environment
+    TF_VAR_ENVIRONMENT=prd terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      -- apply -auto-approve
+    ```
+
+=== "Terraform"
+
+    ```bash
+    # Apply saved plan
+    terraform apply tfplan.binary
+    ```
+
+=== "CloudFormation"
+
+    ```bash
+    # Execute the change set
+    aws cloudformation execute-change-set \
+      --stack-name my-stack \
+      --change-set-name my-changeset
+    ```
+
+=== "CDK"
+
+    ```bash
+    # Deploy all stacks
+    cdk deploy --all --require-approval never
+
+    # Deploy specific stack
+    cdk deploy MyVpcStack
+    ```
+
+#### 6.3 Generate Deployment Report
 ```bash
 # Create comprehensive deployment report
 thothctl check iac --type blast-radius \
-  --plan-file tfplan.json \
+  --plan-file tfplan/ \
+  --recursive \
   --output deployment-report.html
 ```
 
