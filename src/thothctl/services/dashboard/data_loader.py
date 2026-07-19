@@ -141,8 +141,17 @@ class DashboardDataLoader:
         try:
             results = {"reports": [], "summary": {"total_issues": 0}, "tools": []}
             
-            html_reports = list(self.reports_dir.rglob("*.html"))
-            xml_reports = list(self.reports_dir.rglob("*.xml"))
+            # Only search in scan-related directories, exclude non-scan reports
+            excluded_dirs = {"cost-analysis", "inventory", "drift-detection", "blast-radius", "html_reports"}
+            
+            html_reports = [
+                f for f in self.reports_dir.rglob("*.html")
+                if not any(excl in f.parts for excl in excluded_dirs)
+            ]
+            xml_reports = [
+                f for f in self.reports_dir.rglob("*.xml")
+                if not any(excl in f.parts for excl in excluded_dirs)
+            ]
             
             # Track which tools have reports
             tools_found = set()
