@@ -189,7 +189,7 @@ Create infrastructure inventory, validate dependencies, and generate Software Bi
 #### 3.1 Create Infrastructure Inventory
 ```bash
 # Scan and catalog all IaC components (modules + providers)
-thothctl inventory iac --check-versions --check-provider-versions --recursive
+thothctl inventory iac --check-versions --check-provider-versions
 
 # Specify framework type explicitly
 thothctl inventory iac --check-versions --framework-type terragrunt
