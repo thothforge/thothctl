@@ -100,13 +100,13 @@ thothctl init project --project-name my-infra --reuse --space lab-github
 ### 3. DevSecOps Workflow
 ```bash
 # 1. Validate IaC
-thothctl check iac --type structure
+thothctl check iac -type deps
 
 # 2. Cost analysis
-thothctl check iac --type cost-analysis
+thothctl check iac -type cost-analysis
 
 # 3. Blast radius assessment
-thothctl check iac --type blast-radius
+thothctl check iac -type blast-radius
 
 # 4. Security scan
 thothctl scan iac -t checkov -t trivy
@@ -141,8 +141,8 @@ kiro-cli chat --agent thoth
 ### Validation & Analysis
 - `thothctl check environment` - Validate tool versions
 - `thothctl check iac` - Validate IaC configuration
-- `thothctl check iac --type cost-analysis` - AWS cost estimation
-- `thothctl check iac --type blast-radius` - Change impact assessment
+- `thothctl check iac -type cost-analysis` - AWS cost estimation
+- `thothctl check iac -type blast-radius` - Change impact assessment
 
 ### Security & Compliance
 - `thothctl scan iac` - Security scanning with Checkov (default)
@@ -201,7 +201,7 @@ kiro-cli chat --agent thoth
   run: thothctl scan iac -t checkov -t trivy --enforcement hard --output sarif
 
 - name: Cost Analysis
-  run: thothctl check iac --type cost-analysis
+  run: thothctl check iac -type cost-analysis
 ```
 
 **GitLab CI:**
@@ -209,7 +209,7 @@ kiro-cli chat --agent thoth
 security_scan:
   script:
     - thothctl scan iac -t checkov -t trivy --enforcement hard
-    - thothctl check iac --type blast-radius
+    - thothctl check iac -type blast-radius
 ```
 
 ### Pre-commit Hooks

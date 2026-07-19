@@ -56,13 +56,13 @@ terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > tfplan.json
 
 # Analyze costs
-thothctl check iac --type cost-analysis --plan-file tfplan.json
+thothctl check iac -type cost-analysis --plan-file tfplan.json
 ```
 
 ### Use Case 3: Change Impact Analysis
 ```bash
 # Assess blast radius
-thothctl check iac --type blast-radius --plan-file tfplan.json
+thothctl check iac -type blast-radius --plan-file tfplan.json
 ```
 
 ### Use Case 4: Dependency Management

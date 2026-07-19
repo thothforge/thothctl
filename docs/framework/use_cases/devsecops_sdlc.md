@@ -41,14 +41,14 @@ graph TB
 
 | Phase | DevSecOps Practices | ThothCTL Commands |
 |-------|---------------------|-------------------|
-| **Plan** | Cost estimation, Risk assessment, Template selection | `init project`, `check iac --type cost-analysis` |
-| **Develop** | Environment validation, Structure enforcement, Standards | `check environment`, `check iac --type structure` |
+| **Plan** | Cost estimation, Risk assessment, Template selection | `init project`, `check iac -type cost-analysis` |
+| **Develop** | Environment validation, Structure enforcement, Standards | `check environment`, `check iac -type deps` |
 | **Build** | Dependency management, Version tracking, SBOM | `inventory iac --check-versions --check-provider-versions` |
-| **Test** | Plan validation, Impact analysis, Change assessment | `check iac --type plan`, `--type blast-radius` |
+| **Test** | Plan validation, Impact analysis, Change assessment | `check iac -type tfplan`, `-type blast-radius` |
 | **Secure** | Security scanning, Compliance validation, CVE detection | `scan iac -t checkov -t trivy -t opa` |
-| **Deploy** | Pre-deployment validation, Risk gates, Approval workflow | `check iac --type all`, `scan iac --enforcement hard` |
+| **Deploy** | Pre-deployment validation, Risk gates, Approval workflow | `check iac -type blast-radius`, `scan iac --enforcement hard` |
 | **Operate** | Configuration management, Updates, Documentation | `project upgrade`, `document iac` |
-| **Monitor** | Continuous monitoring, Drift detection, Dashboards | `dashboard launch`, `check iac --type drift` |
+| **Monitor** | Continuous monitoring, Drift detection, Dashboards | `dashboard launch`, `check iac -type drift` |
 
 ## Phase 1: Plan 📋
 
@@ -97,7 +97,7 @@ thothctl init project --name my-infrastructure \
       -- plan -lock=false
 
     # Run cost analysis on all generated plans
-    thothctl check iac --type cost-analysis --plan-file tfplan/ --recursive
+    thothctl check iac -type cost-analysis --plan-file tfplan/ --recursive
     ```
 
 === "Terraform"
@@ -108,14 +108,14 @@ thothctl init project --name my-infrastructure \
     terraform show -json tfplan.binary > tfplan.json
 
     # Run cost analysis
-    thothctl check iac --type cost-analysis --plan-file tfplan.json
+    thothctl check iac -type cost-analysis --plan-file tfplan.json
     ```
 
 === "CloudFormation"
 
     ```bash
     # Cost estimation from template
-    thothctl check iac --type cost-analysis --template template.yaml
+    thothctl check iac -type cost-analysis --template template.yaml
     ```
 
 === "CDK"
@@ -123,7 +123,7 @@ thothctl init project --name my-infrastructure \
     ```bash
     # Synthesize and estimate costs
     cdk synth --output cdk.out
-    thothctl check iac --type cost-analysis --template cdk.out/MyStack.template.json
+    thothctl check iac -type cost-analysis --template cdk.out/MyStack.template.json
     ```
 
 **Output:**
@@ -156,7 +156,7 @@ thothctl check environment
 #### 2.2 Validate Project Structure
 ```bash
 # Ensure project follows standards
-thothctl check iac --type structure --mode hard
+thothctl check iac -type deps
 ```
 
 **Checks:**
@@ -224,7 +224,7 @@ thothctl inventory iac --check-versions --provider-tool tofu
 thothctl inventory iac --check-versions --complete
 
 # Custom project name for reports
-thothctl inventory iac --check-versions --project-name "my-platform" --report-type all
+thothctl inventory iac --check-versions --project-name "my-platform" --report-type blast-radius
 ```
 
 **Available flags:**
@@ -476,10 +476,10 @@ Once plan files are generated, use ThothCTL to validate them:
 
 ```bash
 # Validate plan file (single)
-thothctl check iac --type plan --plan-file tfplan.json
+thothctl check iac -type tfplan --plan-file tfplan.json
 
 # Validate all plans in a directory (Terragrunt multi-stack)
-thothctl check iac --type plan --plan-file tfplan/ --recursive
+thothctl check iac -type tfplan --plan-file tfplan/ --recursive
 ```
 
 **Validates:**
@@ -492,10 +492,10 @@ thothctl check iac --type plan --plan-file tfplan/ --recursive
 #### 4.3 Blast Radius Assessment
 ```bash
 # Assess impact of changes (single plan)
-thothctl check iac --type blast-radius --plan-file tfplan.json
+thothctl check iac -type blast-radius --plan-file tfplan.json
 
 # Assess across all stacks (Terragrunt)
-thothctl check iac --type blast-radius --plan-file tfplan/ --recursive
+thothctl check iac -type blast-radius --plan-file tfplan/ --recursive
 ```
 
 **Analyzes:**
@@ -590,10 +590,10 @@ Deploy infrastructure safely with proper validation.
 #### 6.1 Pre-Deployment Checks
 ```bash
 # Run all checks before deployment
-thothctl check iac --type all --plan-file tfplan.json
+thothctl check iac -type blast-radius --plan-file tfplan.json
 
 # For Terragrunt multi-stack (all plans in directory)
-thothctl check iac --type all --plan-file tfplan/ --recursive
+thothctl check iac -type blast-radius --plan-file tfplan/ --recursive
 ```
 
 **Performs:**
@@ -662,7 +662,7 @@ thothctl check iac --type all --plan-file tfplan/ --recursive
 #### 6.3 Generate Deployment Report
 ```bash
 # Create comprehensive deployment report
-thothctl check iac --type blast-radius \
+thothctl check iac -type blast-radius \
   --plan-file tfplan/ \
   --recursive \
   --output deployment-report.html
@@ -749,13 +749,13 @@ thothctl dashboard launch --port 9090
 #### 8.2 Drift Detection
 ```bash
 # Detect configuration drift
-thothctl check iac --type drift --recursive
+thothctl check iac -type drift --recursive
 
 # With AI-powered analysis (root cause, remediation plan)
-thothctl check iac --type drift --recursive --ai-provider ollama
+thothctl check iac -type drift --recursive --ai-provider ollama
 
 # Filter by tags
-thothctl check iac --type drift --filter-tags "env=prod,team=platform"
+thothctl check iac -type drift --filter-tags "env=prod,team=platform"
 ```
 
 **Detects:**
@@ -774,7 +774,7 @@ thothctl scan iac -t checkov -t trivy --enforcement hard --output sarif
 thothctl inventory iac --check-versions --check-provider-versions --report-type json
 
 # Cost drift monitoring
-thothctl check iac --type cost-analysis --recursive
+thothctl check iac -type cost-analysis --recursive
 ```
 
 **Tracks:**
@@ -803,16 +803,16 @@ thothctl inventory iac --check-versions --check-provider-versions --report-type 
 # 4. TEST: Validate plan
 terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > tfplan.json
-thothctl check iac --type plan --plan-file tfplan.json
+thothctl check iac -type tfplan --plan-file tfplan.json
 
 # 5. SECURE: Run security scans (multi-tool)
 thothctl scan iac -t checkov -t trivy -t opa --enforcement hard
 
 # 6. ASSESS: Check blast radius
-thothctl check iac --type blast-radius --plan-file tfplan.json
+thothctl check iac -type blast-radius --plan-file tfplan.json
 
 # 7. COST: Estimate expenses
-thothctl check iac --type cost-analysis --plan-file tfplan.json
+thothctl check iac -type cost-analysis --plan-file tfplan.json
 
 # 8. DEPLOY: Apply changes
 terraform apply tfplan.binary
@@ -848,7 +848,7 @@ jobs:
         run: thothctl check environment
 
       - name: Validate Structure
-        run: thothctl check iac --type structure
+        run: thothctl check iac -type deps
 
       - name: Create Inventory
         run: thothctl inventory iac --check-versions --check-provider-versions --report-type json
@@ -863,10 +863,10 @@ jobs:
           terraform show -json tfplan.binary > tfplan.json
 
       - name: Blast Radius Assessment
-        run: thothctl check iac --type blast-radius --plan-file tfplan.json
+        run: thothctl check iac -type blast-radius --plan-file tfplan.json
 
       - name: Cost Analysis
-        run: thothctl check iac --type cost-analysis --plan-file tfplan.json
+        run: thothctl check iac -type cost-analysis --plan-file tfplan.json
 
       - name: Generate Documentation
         run: thothctl document iac --recursive

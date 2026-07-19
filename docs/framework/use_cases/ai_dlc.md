@@ -286,7 +286,7 @@ You: "Help me remediate the S3 encryption issue"
 ```bash
 terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > tfplan.json
-thothctl check iac --type cost-analysis --plan-file tfplan.json
+thothctl check iac -type cost-analysis --plan-file tfplan.json
 # Analyze JSON output...
 ```
 
@@ -307,7 +307,7 @@ You: "What's the most expensive resource and how can I reduce costs?"
 ```
 
 **The AI will:**
-1. Execute `thothctl check iac --type cost-analysis` via MCP
+1. Execute `thothctl check iac -type cost-analysis` via MCP
 2. Analyze cost breakdown
 3. Identify expensive resources
 4. Suggest alternatives and optimizations
@@ -318,7 +318,7 @@ You: "What's the most expensive resource and how can I reduce costs?"
 # Run cost analysis first
 terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > tfplan.json
-thothctl check iac --type cost-analysis --plan-file tfplan.json
+thothctl check iac -type cost-analysis --plan-file tfplan.json
 
 # Use Kiro for insights
 kiro-cli chat --agent thoth
@@ -524,10 +524,10 @@ terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > tfplan.json
 
 # Step 7: Cost analysis
-thothctl check iac --type cost-analysis --plan-file tfplan.json
+thothctl check iac -type cost-analysis --plan-file tfplan.json
 
 # Step 8: Blast radius assessment
-thothctl check iac --type blast-radius --plan-file tfplan.json
+thothctl check iac -type blast-radius --plan-file tfplan.json
 
 # Step 9: Start AI chat for insights
 kiro-cli chat --agent thoth
@@ -587,7 +587,7 @@ You: "Generate an executive summary for stakeholders"
 # Set up scheduled scans (cron or CI/CD)
 # Run scans regularly
 thothctl scan iac -t checkov --output json > scan-results.json
-thothctl check iac --type cost-analysis --plan-file tfplan.json
+thothctl check iac -type cost-analysis --plan-file tfplan.json
 
 # Use Kiro for analysis
 kiro-cli chat --agent thoth
@@ -638,8 +638,8 @@ You: "Create a changelog for infrastructure updates"
 ```bash
 # Run checks on PR changes
 thothctl scan iac -t checkov
-thothctl check iac --type cost-analysis --plan-file tfplan.json
-thothctl check iac --type blast-radius --plan-file tfplan.json
+thothctl check iac -type cost-analysis --plan-file tfplan.json
+thothctl check iac -type blast-radius --plan-file tfplan.json
 
 # Use Kiro for comprehensive review
 kiro-cli chat --agent thoth
@@ -713,10 +713,10 @@ jobs:
           terraform show -json tfplan.binary > tfplan.json
       
       - name: Cost Analysis
-        run: thothctl check iac --type cost-analysis --plan-file tfplan.json
+        run: thothctl check iac -type cost-analysis --plan-file tfplan.json
       
       - name: Blast Radius Assessment
-        run: thothctl check iac --type blast-radius --plan-file tfplan.json
+        run: thothctl check iac -type blast-radius --plan-file tfplan.json
 ```
 
 ### GitLab CI with ThothCTL
@@ -727,7 +727,7 @@ devsecops:
   script:
     - pip install thothctl
     - thothctl scan iac -t checkov
-    - thothctl check iac --type cost-analysis --plan-file tfplan.json
+    - thothctl check iac -type cost-analysis --plan-file tfplan.json
   artifacts:
     reports:
       - security-scan-report.html

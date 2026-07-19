@@ -43,7 +43,7 @@ graph TB
 
     subgraph Operations["⚙️ Operations Policy"]
         O1[".driftpolicy<br/>ai_decision_config.yaml"]
-        O2["check iac --type drift<br/>ai-review decide"]
+        O2["check iac -type drift<br/>ai-review decide"]
     end
 
     S1 --> S2
@@ -163,7 +163,7 @@ thothctl scan iac --tools opa --opa-mode opa --policy-dir ./policy
 ### 3. Drift Response Policy
 
 **File**: `.driftpolicy` (YAML)  
-**Evaluated by**: `thothctl check iac --type drift`  
+**Evaluated by**: `thothctl check iac -type drift`  
 **Purpose**: Define per-resource tolerance for infrastructure drift — block, alert, accept, or ignore.
 
 ```yaml
@@ -198,7 +198,7 @@ rules:
 **Enforcement**:
 
 ```bash
-thothctl check iac --type drift --recursive
+thothctl check iac -type drift --recursive
 # Drift in aws_security_group.api → ACTION: block_deploy → ❌ CI fails
 # Drift in aws_instance.web tags  → ACTION: auto_accept → ✅ Ignored
 ```
@@ -648,7 +648,7 @@ Developer writes IaC
        │
        ├──► thothctl scan iac --tools checkov → Built-in CIS/AWS rules
        │
-       ├──► thothctl check iac --type drift   → Drift policy
+       ├──► thothctl check iac -type drift   → Drift policy
        │
        └──► thothctl ai-review decide         → Decision policy
                                                  (uses scan results as input)
@@ -682,7 +682,7 @@ jobs:
       
       # Layer 3: Drift (if state available)
       - name: Drift detection
-        run: thothctl check iac --type drift --recursive
+        run: thothctl check iac -type drift --recursive
 
       # Layer 4: AI decision
       - name: AI review decision
