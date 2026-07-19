@@ -702,8 +702,13 @@
 
         // Provider compatibility section
         if (reports.length) {
-            html += `<h3 style="margin:20px 0 12px;color:var(--text-primary)">🔧 Provider Schema Compatibility</h3>`;
-            html += `<div style="display:grid;gap:12px;">`;
+            html += `<div style="margin:20px 0 12px;">
+                <div onclick="toggleCompatSection('provider-compat')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:10px 14px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px solid var(--border-light)">
+                    <h3 style="margin:0;color:var(--text-primary)">🔧 Provider Schema Compatibility <span style="font-size:0.85rem;color:var(--text-secondary);font-weight:normal">(${reports.length} providers)</span></h3>
+                    <span id="provider-compat-icon" style="font-size:1.2rem;transition:transform 0.3s ease">▼</span>
+                </div>
+            </div>`;
+            html += `<div id="provider-compat" style="display:grid;gap:12px;">`;
             reports.forEach(r => {
                 const level = r.compatibility_level || 'unknown';
                 let badge = '', borderColor = 'var(--border-light)';
@@ -734,8 +739,13 @@
 
         // Module compatibility section
         if (moduleReports.length) {
-            html += `<h3 style="margin:24px 0 12px;color:var(--text-primary)">📦 Module Compatibility</h3>`;
-            html += `<div style="display:grid;gap:12px;">`;
+            html += `<div style="margin:24px 0 12px;">
+                <div onclick="toggleCompatSection('module-compat')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:10px 14px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px solid var(--border-light)">
+                    <h3 style="margin:0;color:var(--text-primary)">📦 Module Compatibility <span style="font-size:0.85rem;color:var(--text-secondary);font-weight:normal">(${moduleReports.length} modules)</span></h3>
+                    <span id="module-compat-icon" style="font-size:1.2rem;transition:transform 0.3s ease">▼</span>
+                </div>
+            </div>`;
+            html += `<div id="module-compat" style="display:grid;gap:12px;">`;
             moduleReports.forEach(r => {
                 const safety = r.upgrade_safety || r.compatibility_level || r.compatibility || 'unknown';
                 let badge = '', borderColor = 'var(--border-light)';
@@ -757,6 +767,18 @@
         }
 
         document.getElementById('compatibility-content').innerHTML = html;
+    }
+
+    function toggleCompatSection(id) {
+        const section = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        if (section.style.display === 'none') {
+            section.style.display = 'grid';
+            icon.style.transform = 'rotate(0deg)';
+        } else {
+            section.style.display = 'none';
+            icon.style.transform = 'rotate(-90deg)';
+        }
     }
 
     function renderSecurity() {
