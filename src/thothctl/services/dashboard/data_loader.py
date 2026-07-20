@@ -141,16 +141,28 @@ class DashboardDataLoader:
         try:
             results = {"reports": [], "summary": {"total_issues": 0}, "tools": []}
             
-            # Only search in scan-related directories, exclude non-scan reports
-            excluded_dirs = {"cost-analysis", "inventory", "drift-detection", "blast-radius", "html_reports"}
+            # Exclude non-scan top-level directories within Reports/
+            # Note: html_reports is NOT excluded because scan tools (checkov, kics, trivy)
+            # store their HTML output under Reports/<tool>/html_reports/
+            excluded_top_dirs = {"cost-analysis", "inventory", "drift-detection", "blast-radius", "topology"}
             
+            def _is_scan_report(filepath: Path) -> bool:
+                """Check if a file is under a scan-related directory."""
+                try:
+                    rel_to_reports = filepath.relative_to(self.reports_dir)
+                    # Top-level directory within Reports/
+                    top_dir = rel_to_reports.parts[0] if len(rel_to_reports.parts) > 1 else ""
+                    return top_dir not in excluded_top_dirs
+                except ValueError:
+                    return False
+
             html_reports = [
                 f for f in self.reports_dir.rglob("*.html")
-                if not any(excl in f.parts for excl in excluded_dirs)
+                if _is_scan_report(f)
             ]
             xml_reports = [
                 f for f in self.reports_dir.rglob("*.xml")
-                if not any(excl in f.parts for excl in excluded_dirs)
+                if _is_scan_report(f)
             ]
             
             # Track which tools have reports
