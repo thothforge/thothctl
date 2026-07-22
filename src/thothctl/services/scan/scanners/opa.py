@@ -142,6 +142,14 @@ class OPAScanner(ScannerPort):
             )
             return {"status": "SKIPPED", "error": "No policy directory found"}
 
+        # Inform developer about the policy source when it's a remote repo
+        policy_source_url = self._get_policy_source_url(policy_dir)
+        if policy_source_url:
+            self.ui.show_info(
+                f"📋 Policies from: {policy_source_url}\n"
+                f"   To review or update policies, visit your organization's policy repository."
+            )
+
         # Convert YAML data files to JSON for OPA data namespace
         self._prepare_data_files(abs_policy)
 
@@ -279,6 +287,14 @@ class OPAScanner(ScannerPort):
                 "Skipping OPA scan."
             )
             return {"status": "SKIPPED", "error": "No policy directory found"}
+
+        # Inform developer about the policy source when it's a remote repo
+        policy_source_url = self._get_policy_source_url(policy_dir)
+        if policy_source_url:
+            self.ui.show_info(
+                f"📋 Policies from: {policy_source_url}\n"
+                f"   To review or update policies, visit your organization's policy repository."
+            )
 
         # Convert YAML data files to JSON for OPA data namespace
         self._prepare_data_files(abs_policy)
@@ -587,6 +603,34 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
     def _is_git_url(self, value: str) -> bool:
         """Check if value is a Git URL."""
         return value.startswith(("https://", "git@", "ssh://", "git://"))
+
+    def _get_policy_source_url(self, policy_dir: str) -> Optional[str]:
+        """Return the Git URL of the policy source, or None if local.
+
+        Checks --policy-dir value and THOTH_ORG_POLICY env var.
+        Strips embedded credentials (PAT tokens) from the URL for display.
+        """
+        url = None
+        if self._is_git_url(policy_dir):
+            url = policy_dir
+        else:
+            url = os.environ.get("THOTH_ORG_POLICY")
+            if url and not self._is_git_url(url):
+                url = None
+
+        if not url:
+            return None
+
+        # Strip credentials from URL for safe display
+        # https://PAT@dev.azure.com/org/... → https://dev.azure.com/org/...
+        # https://user:token@github.com/... → https://github.com/...
+        if "://" in url:
+            scheme, rest = url.split("://", 1)
+            if "@" in rest.split("/")[0]:
+                rest = rest.split("@", 1)[1]
+            url = f"{scheme}://{rest}"
+
+        return url
 
     def _clone_policy_repo(self, repo_url: str) -> Optional[str]:
         """Clone a policy Git repository to local cache. Returns path or None."""
