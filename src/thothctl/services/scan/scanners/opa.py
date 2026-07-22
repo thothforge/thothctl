@@ -211,8 +211,15 @@ class OPAScanner(ScannerPort):
                 cwd=abs_dir,
             )
 
+            # Write valid JUnit XML even when conftest returns empty output
+            # (e.g. policy dir has no .rego files matching the input)
+            empty_junit = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<testsuites><testsuite tests="0" failures="0" '
+                'time="0.000" name="conftest"></testsuite></testsuites>\n'
+            )
             with open(junit_report, "w") as f:
-                f.write(result_junit.stdout or "")
+                f.write(result_junit.stdout if result_junit.stdout.strip() else empty_junit)
 
             # Parse JSON results
             report_data, findings = self._parse_conftest_json(result_json.stdout)
@@ -630,13 +637,44 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
             return None
 
     def _find_scannable_files(self, directory: str) -> List[str]:
-        """Find .tf, .yaml, .yml, .json files for conftest."""
+        """Find .tf, .yaml, .yml, .json files for conftest.
+
+        Excludes directories and files that are not IaC definitions to prevent
+        conftest parse errors (one unparseable file aborts the entire scan).
+        """
         extensions = {".tf", ".yaml", ".yml", ".json", ".hcl"}
-        exclude_dirs = {".terraform", ".git", "node_modules", ".terragrunt-cache"}
+        exclude_dirs = {
+            ".terraform", ".git", "node_modules", ".terragrunt-cache",
+            # AI/IDE agent directories
+            ".amazonq", ".kiro", ".claude", ".cursor", ".copilot",
+            ".vscode", ".idea", ".devcontainer", "__pycache__",
+            # ThothCTL generated output
+            "Reports", ".thothctl",
+            # Other non-IaC directories
+            "generated-diagrams",
+        }
+        # Files that match extensions but are not IaC definitions
+        skip_files = {
+            ".terraform.lock.hcl",
+            ".pre-commit-config.yaml",
+            ".pre-commit-config.yml",
+            ".terraform-docs.yml",
+            ".terraform-docs.yaml",
+            ".tflint.hcl",
+            ".checkov.yml",
+            ".checkov.yaml",
+            ".trivyignore.yaml",
+            "terragrunt-debug.tfvars.json",
+        }
         files = []
         for root, dirs, filenames in os.walk(directory):
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
             for f in filenames:
+                if f in skip_files:
+                    continue
+                # Skip hidden files (dotfiles) that aren't .tf
+                if f.startswith(".") and not f.endswith(".tf"):
+                    continue
                 if Path(f).suffix in extensions:
                     files.append(os.path.join(root, f))
         return files
