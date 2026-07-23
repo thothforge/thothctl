@@ -99,23 +99,23 @@ thothctl init project --project-name my-infra --reuse --space lab-github
 
 ### 3. DevSecOps Workflow
 ```bash
-# 1. Validate IaC
-thothctl check iac -type deps
+# Full pipeline (all phases)
+thothctl workflow devsecops --phase all
 
-# 2. Cost analysis
+# Pre-deployment gate (test + secure)
+thothctl workflow devsecops --phase pre-deploy --enforcement hard
+
+# Individual phases
+thothctl workflow devsecops --phase plan      # Cost + blast radius
+thothctl workflow devsecops --phase develop   # Environment + structure + docs
+thothctl workflow devsecops --phase build     # Inventory + versions
+thothctl workflow devsecops --phase secure    # Checkov + Trivy + OPA
+thothctl workflow devsecops --phase monitor   # Drift detection
+
+# Or run individual commands directly:
 thothctl check iac -type cost-analysis
-
-# 3. Blast radius assessment
-thothctl check iac -type blast-radius
-
-# 4. Security scan
 thothctl scan iac -t checkov -t trivy
-
-# 5. Generate documentation
-thothctl document iac --recursive
-
-# 6. Track dependencies
-thothctl inventory iac --check-versions --check-provider-versions
+thothctl inventory iac --check-versions
 ```
 
 ### 4. AI-Assisted Development
@@ -148,6 +148,13 @@ kiro-cli chat --agent thoth
 - `thothctl scan iac` - Security scanning with Checkov (default)
 - `thothctl scan iac -t checkov -t trivy -t opa` - Multi-tool scanning
 - `thothctl scan iac --enforcement hard` - Fail pipeline on violations
+
+### Workflow (Composite Operations)
+- `thothctl workflow devsecops --phase all` - Full DevSecOps pipeline
+- `thothctl workflow devsecops --phase secure` - Security scanning phase
+- `thothctl workflow devsecops --phase pre-deploy` - Pre-deployment gate (test + secure)
+- `thothctl workflow devsecops --phase plan` - Cost estimation + blast radius
+- `thothctl workflow devsecops --enforcement hard` - Block on violations
 
 ### Documentation
 - `thothctl document iac` - Generate documentation

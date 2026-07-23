@@ -131,6 +131,7 @@ ThothCTL exposes these capabilities through MCP:
 | `generate_iac` | Generate IaC code | "Generate infrastructure code" |
 | `document_project` | Generate documentation | "Document all Terraform modules" |
 | `check_compliance` | Validate compliance | "Check if my IaC is compliant" |
+| `workflow_devsecops` | Run DevSecOps SDLC phases | "Run the full DevSecOps pipeline" / "Run security phase" |
 | `manage_project` | Manage project operations | "Manage my infrastructure project" |
 | `get_version` | Get ThothCTL version | "What version of ThothCTL is installed?" |
 | `upgrade_thothctl` | Upgrade ThothCTL | "Upgrade ThothCTL to latest version" |

@@ -73,6 +73,27 @@ thothctl inventory iac --check-versions
 
 ---
 
+---
+
+## ⚡ One-Command Pipeline
+
+Once you're familiar with the basics, use the workflow command to run entire SDLC phases:
+
+```bash
+# Quick security audit
+thothctl workflow devsecops --phase secure
+
+# Full DevSecOps pipeline
+thothctl workflow devsecops --phase all
+
+# Pre-deployment gate (blocks on violations)
+thothctl workflow devsecops --phase pre-deploy --enforcement hard
+```
+
+For the complete phase reference, see the [Workflow Command Documentation](../commands/workflow/workflow_devsecops.md).
+
+---
+
 ## 📚 Learning Path
 
 ### Level 1: Beginner (Week 1)

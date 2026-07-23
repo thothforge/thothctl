@@ -4,6 +4,39 @@
 
 This guide demonstrates how ThothCTL enables a complete DevSecOps Software Development Lifecycle (SDLC) for Infrastructure as Code, from planning to production deployment.
 
+## Quick Start with Workflow Command
+
+The `thothctl workflow devsecops` command abstracts the entire SDLC into a single composable command:
+
+```bash
+# Run the full pipeline
+thothctl workflow devsecops --phase all
+
+# Run a specific phase
+thothctl workflow devsecops --phase secure
+
+# Pre-deployment gate (blocks on failures)
+thothctl workflow devsecops --phase pre-deploy --enforcement hard
+
+# With organization policies
+thothctl workflow devsecops --phase secure \
+  --policy-dir https://github.com/myorg/iac-policies.git@main
+```
+
+| Phase | Workflow Command | What It Runs |
+|-------|-----------------|--------------|
+| 📋 Plan | `--phase plan` | cost-analysis + blast-radius |
+| 💻 Develop | `--phase develop` | check environment + check project + document |
+| 🔨 Build | `--phase build` | inventory with version checks |
+| ✅ Test | `--phase test` | tfplan validation |
+| 🔒 Secure | `--phase secure` | checkov + trivy + opa |
+| 🚀 Deploy | `--phase deploy` | security gate (hard enforcement) |
+| 📊 Monitor | `--phase monitor` | drift detection |
+
+For detailed command reference, see: [Workflow Command Documentation](../commands/workflow/workflow_devsecops.md)
+
+The sections below explain each phase in detail, including the individual commands that the workflow orchestrates.
+
 ## The DevSecOps SDLC Phases
 
 ```mermaid
