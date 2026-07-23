@@ -4,15 +4,20 @@ from typing import Dict, List, Optional
 
 from .models import Phase, WorkflowResult
 from .phases.base import PhaseExecutor
+from .phases.plan import PlanPhaseExecutor
 from .phases.develop import DevelopPhaseExecutor
+from .phases.build import BuildPhaseExecutor
+from .phases.test import TestPhaseExecutor
 from .phases.secure import SecurePhaseExecutor
+from .phases.deploy import DeployPhaseExecutor
+from .phases.monitor import MonitorPhaseExecutor
 
 logger = logging.getLogger(__name__)
 
 
 # Phase execution order
 PHASE_ORDER = [
-    Phase.DEVELOP, Phase.BUILD, Phase.TEST,
+    Phase.PLAN, Phase.DEVELOP, Phase.BUILD, Phase.TEST,
     Phase.SECURE, Phase.DEPLOY, Phase.MONITOR,
 ]
 
@@ -28,8 +33,13 @@ class WorkflowService:
 
     def __init__(self):
         self._executors: Dict[Phase, PhaseExecutor] = {
+            Phase.PLAN: PlanPhaseExecutor(),
             Phase.DEVELOP: DevelopPhaseExecutor(),
+            Phase.BUILD: BuildPhaseExecutor(),
+            Phase.TEST: TestPhaseExecutor(),
             Phase.SECURE: SecurePhaseExecutor(),
+            Phase.DEPLOY: DeployPhaseExecutor(),
+            Phase.MONITOR: MonitorPhaseExecutor(),
         }
 
     def execute(
