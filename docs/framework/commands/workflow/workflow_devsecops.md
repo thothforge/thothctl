@@ -307,25 +307,35 @@ thothctl workflow devsecops -p secure
 
 ## Architecture
 
-```
-thothctl workflow devsecops --phase <X>
-         │
-         ▼
-┌─────────────────────────┐
-│    WorkflowService      │  ← Orchestrator
-│    (workflow_service.py) │
-└─────────┬───────────────┘
-          │
-          ▼  resolves composite phases, executes in order
-┌─────────────────────────┐
-│    PhaseExecutor(s)     │  ← One per phase
-│    (phases/*.py)        │
-└─────────┬───────────────┘
-          │
-          ▼  calls existing services
-┌─────────────────────────────────────────┐
-│  ScanService  │  CheckService  │  ...   │  ← Existing thothctl services
-└─────────────────────────────────────────┘
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3f51b5','primaryTextColor':'#ffffff','primaryBorderColor':'#303f9f','lineColor':'#536dfe','secondaryColor':'#536dfe','tertiaryColor':'#fff','background':'transparent','mainBkg':'#3f51b5','secondBkg':'#536dfe','tertiaryBkg':'#90caf9','textColor':'#ffffff','nodeTextColor':'#ffffff','fontSize':'14px'}}}%%
+graph TB
+    CMD["thothctl workflow devsecops --phase X"]
+    WS["WorkflowService<br/>Orchestrator"]
+    PE["PhaseExecutor(s)<br/>plan · develop · build · test<br/>secure · deploy · monitor"]
+
+    subgraph Services ["Existing ThothCTL Services"]
+        SCAN["ScanService<br/>checkov · trivy · opa"]
+        CHECK["CheckService<br/>cost · blast-radius · drift"]
+        INV["InventoryService<br/>modules · providers · SBOM"]
+        DOC["DocumentService<br/>README · diagrams"]
+    end
+
+    CMD --> WS
+    WS --> PE
+    PE --> SCAN
+    PE --> CHECK
+    PE --> INV
+    PE --> DOC
+
+    classDef cmdStyle fill:#3f51b5,stroke:#303f9f,stroke-width:2px,color:#ffffff
+    classDef svcStyle fill:#004d40,stroke:#00695c,stroke-width:2px,color:#ffffff
+    classDef coreStyle fill:#1b5e20,stroke:#2e7d32,stroke-width:2px,color:#ffffff
+
+    class CMD cmdStyle
+    class WS cmdStyle
+    class PE svcStyle
+    class SCAN,CHECK,INV,DOC coreStyle
 ```
 
 The workflow command does NOT duplicate logic — it orchestrates existing services and commands.
