@@ -5,15 +5,29 @@ import time
 import click
 import rich.box
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
+from rich.spinner import Spinner
 from rich.table import Table
+from rich.text import Text
 
 from ....core.commands import ClickCommand
-from ....services.workflow.models import Phase, StepStatus
-from ....services.workflow.workflow_service import WorkflowService
+from ....services.workflow.models import Phase, PhaseResult, StepStatus
+from ....services.workflow.workflow_service import WorkflowService, COMPOSITE_PHASES, PHASE_ORDER
 
 
 logger = logging.getLogger(__name__)
+
+# Phase icons for display
+PHASE_ICONS = {
+    Phase.PLAN: "📋",
+    Phase.DEVELOP: "💻",
+    Phase.BUILD: "🔨",
+    Phase.TEST: "✅",
+    Phase.SECURE: "🔒",
+    Phase.DEPLOY: "🚀",
+    Phase.MONITOR: "📊",
+}
 
 
 class DevSecOpsWorkflowCommand(ClickCommand):
@@ -24,7 +38,7 @@ class DevSecOpsWorkflowCommand(ClickCommand):
         service = WorkflowService()
 
         # Resolve phase
-        selected = [Phase(phase)]
+        selected_phase = Phase(phase)
 
         ctx = click.get_current_context()
         directory = ctx.obj.get("CODE_DIRECTORY", ".")
@@ -46,18 +60,17 @@ class DevSecOpsWorkflowCommand(ClickCommand):
             border_style="blue",
         ))
 
-        # Execute
+        # Resolve which phases will run
+        phases_to_run = self._resolve_phases(selected_phase, service)
+
+        # Execute with live progress
         start = time.perf_counter()
-        result = service.execute(
-            phases=selected,
-            directory=directory,
-            reports_dir=reports_dir,
-            options=options,
-            enforcement=enforcement,
+        result = self._execute_with_progress(
+            console, service, [selected_phase], directory, reports_dir, options, enforcement, phases_to_run
         )
         total_time = time.perf_counter() - start
 
-        # Display results
+        # Display final results
         self._display_results(console, result, total_time)
 
         if result.stopped_at:
@@ -69,6 +82,72 @@ class DevSecOpsWorkflowCommand(ClickCommand):
                 border_style="red",
             ))
             raise SystemExit(1)
+
+    def _resolve_phases(self, phase: Phase, service: WorkflowService) -> list:
+        """Resolve composite phases into ordered list."""
+        if phase in COMPOSITE_PHASES:
+            resolved = COMPOSITE_PHASES[phase]
+        else:
+            resolved = [phase]
+
+        # Filter to only phases that have executors
+        return [p for p in resolved if p in service._executors]
+
+    def _execute_with_progress(
+        self, console, service, phases, directory, reports_dir, options, enforcement, phases_to_run
+    ):
+        """Execute workflow with live spinner showing current phase."""
+        from ....services.workflow.models import WorkflowResult
+
+        options = options or {}
+        options["enforcement"] = enforcement
+        result = WorkflowResult(enforcement=enforcement)
+
+        total_phases = len(phases_to_run)
+
+        for idx, phase in enumerate(phases_to_run, 1):
+            executor = service._executors.get(phase)
+            if not executor:
+                continue
+
+            icon = PHASE_ICONS.get(phase, "⚙️")
+            phase_name = phase.value.capitalize()
+
+            # Show spinner while phase runs
+            with console.status(
+                f"[bold blue]{icon} Running phase {idx}/{total_phases}: {phase_name}[/bold blue]  "
+                f"[dim]({executor.description})[/dim]",
+                spinner="dots",
+                spinner_style="cyan",
+            ):
+                phase_result = executor.execute(directory, reports_dir, options)
+
+            # Show immediate result after phase completes
+            if phase_result.total_findings > 0:
+                console.print(
+                    f"  {icon} [bold]{phase_name}[/bold] — "
+                    f"[red]{phase_result.total_findings} finding(s)[/red]"
+                )
+            elif any(s.status == StepStatus.SKIPPED for s in phase_result.steps):
+                console.print(
+                    f"  {icon} [bold]{phase_name}[/bold] — "
+                    f"[dim]skipped (prerequisites missing)[/dim]"
+                )
+            else:
+                console.print(
+                    f"  {icon} [bold]{phase_name}[/bold] — "
+                    f"[green]passed[/green]"
+                )
+
+            result.phases.append(phase_result)
+
+            # Stop on hard enforcement failure
+            if enforcement == "hard" and phase_result.gate_blocked:
+                result.stopped_at = phase
+                break
+
+        console.print()  # Blank line before results table
+        return result
 
     def _display_results(self, console: Console, result, total_time: float):
         """Render workflow results."""
