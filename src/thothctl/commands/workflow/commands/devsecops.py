@@ -1,0 +1,155 @@
+"""thothctl workflow devsecops — composite DevSecOps SDLC command."""
+import logging
+import time
+
+import click
+import rich.box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from ....core.commands import ClickCommand
+from ....services.workflow.models import Phase, StepStatus
+from ....services.workflow.workflow_service import WorkflowService
+
+
+logger = logging.getLogger(__name__)
+
+
+class DevSecOpsWorkflowCommand(ClickCommand):
+    """Execute DevSecOps SDLC phases."""
+
+    def _execute(self, phase: str, reports_dir: str, enforcement: str, **kwargs):
+        console = Console()
+        service = WorkflowService()
+
+        # Resolve phase
+        selected = [Phase(phase)]
+
+        ctx = click.get_current_context()
+        directory = ctx.obj.get("CODE_DIRECTORY", ".")
+
+        # Build options from kwargs
+        options = {}
+        if kwargs.get("policy_dir"):
+            options["policy_dir"] = kwargs["policy_dir"]
+        if kwargs.get("tools"):
+            options["tools"] = list(kwargs["tools"])
+
+        # Header
+        console.print(Panel(
+            f"[bold]DevSecOps Workflow[/bold]\n\n"
+            f"Phase: [cyan]{phase}[/cyan]\n"
+            f"Directory: [cyan]{directory}[/cyan]\n"
+            f"Enforcement: [{'red' if enforcement == 'hard' else 'green'}]{enforcement}[/]",
+            title="[bold blue]ThothCTL Workflow[/bold blue]",
+            border_style="blue",
+        ))
+
+        # Execute
+        start = time.perf_counter()
+        result = service.execute(
+            phases=selected,
+            directory=directory,
+            reports_dir=reports_dir,
+            options=options,
+            enforcement=enforcement,
+        )
+        total_time = time.perf_counter() - start
+
+        # Display results
+        self._display_results(console, result, total_time)
+
+        if result.stopped_at:
+            console.print(Panel(
+                f"[bold red]Pipeline blocked at phase: {result.stopped_at.value}[/bold red]\n\n"
+                f"Resolve {result.total_findings} finding(s) before deployment.\n"
+                f"Use [bold]--enforcement soft[/bold] to report without blocking.",
+                title="[bold red]\u26d4 Enforcement Failed[/bold red]",
+                border_style="red",
+            ))
+            raise SystemExit(1)
+
+    def _display_results(self, console: Console, result, total_time: float):
+        """Render workflow results."""
+        table = Table(
+            title="[bold]Workflow Results[/bold]",
+            box=rich.box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta",
+        )
+        table.add_column("Phase", style="cyan")
+        table.add_column("Step", style="white")
+        table.add_column("Status", justify="center")
+        table.add_column("Findings", justify="center")
+        table.add_column("Duration", justify="right", style="dim")
+        table.add_column("Summary")
+
+        status_icons = {
+            StepStatus.PASSED: "[green]\u2705 PASS[/green]",
+            StepStatus.FAILED: "[red]\u274c FAIL[/red]",
+            StepStatus.SKIPPED: "[dim]\u23ed SKIP[/dim]",
+            StepStatus.WARNING: "[yellow]\u26a0\ufe0f  WARN[/yellow]",
+        }
+
+        for phase_result in result.phases:
+            for i, step in enumerate(phase_result.steps):
+                phase_label = phase_result.phase.value if i == 0 else ""
+                table.add_row(
+                    phase_label,
+                    step.name,
+                    status_icons.get(step.status, "?"),
+                    str(step.findings_count) if step.findings_count > 0 else "-",
+                    f"{step.duration_seconds:.1f}s",
+                    step.summary,
+                )
+            if phase_result.steps:
+                table.add_section()
+
+        console.print(table)
+
+        # Summary
+        status_color = "green" if result.passed else "red"
+        status_text = "\u2705 All phases passed" if result.passed else f"\u274c {result.total_findings} finding(s) detected"
+        console.print(Panel(
+            f"[bold {status_color}]{status_text}[/bold {status_color}]\n\n"
+            f"\u23f1\ufe0f  Total time: [cyan]{total_time:.1f}s[/cyan]\n"
+            f"Phases executed: [cyan]{len(result.phases)}[/cyan]",
+            title="[bold green]Workflow Complete[/bold green]" if result.passed else "[bold red]Workflow Complete[/bold red]",
+            border_style=status_color,
+        ))
+
+
+# Click wiring
+cli = DevSecOpsWorkflowCommand.as_click_command(
+    help="Execute DevSecOps SDLC workflow phases."
+)(
+    click.option(
+        "--phase", "-p",
+        type=click.Choice([p.value for p in Phase]),
+        default="all",
+        help="SDLC phase to execute (default: all)",
+    ),
+    click.option(
+        "--reports-dir", "-r",
+        default="Reports",
+        help="Directory to save reports",
+    ),
+    click.option(
+        "--enforcement",
+        type=click.Choice(["soft", "hard"]),
+        default="soft",
+        help="Enforcement mode: soft (report) or hard (block on violations)",
+    ),
+    click.option(
+        "--policy-dir",
+        default=None,
+        help="OPA policy directory or Git URL for secure phase",
+    ),
+    click.option(
+        "--tools", "-t",
+        multiple=True,
+        default=None,
+        help="Override scan tools for secure phase (e.g., -t checkov -t trivy)",
+    ),
+)
