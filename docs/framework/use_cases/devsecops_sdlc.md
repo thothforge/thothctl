@@ -948,6 +948,223 @@ jobs:
 
 ---
 
+## Automated Workflow: One-Command Pipeline
+
+The phases described above can be executed individually, or you can use the **workflow command** to orchestrate them automatically. This provides two levels of automation:
+
+### Level 1: CLI Workflow (Traditional)
+
+The `thothctl workflow devsecops` command chains all phases with live progress, enforcement gates, and consolidated reporting:
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3f51b5','primaryTextColor':'#ffffff','primaryBorderColor':'#303f9f','lineColor':'#536dfe','secondaryColor':'#536dfe','tertiaryColor':'#fff','background':'transparent','mainBkg':'#3f51b5','secondBkg':'#536dfe','tertiaryBkg':'#90caf9','textColor':'#ffffff','nodeTextColor':'#ffffff','fontSize':'14px'}}}%%
+graph LR
+    subgraph Workflow ["thothctl workflow devsecops --phase all"]
+        A["📋 Plan"] --> B["💻 Develop"]
+        B --> C["🔨 Build"]
+        C --> D["✅ Test"]
+        D --> E["🔒 Secure"]
+        E --> F["🚀 Deploy"]
+        F --> G["📊 Monitor"]
+    end
+
+    subgraph Gate ["Enforcement Gate"]
+        H{"Violations?"}
+        H -->|"Yes + hard"| I["⛔ Block"]
+        H -->|"No"| J["✅ Continue"]
+    end
+
+    E --> H
+
+    classDef phaseStyle fill:#3f51b5,stroke:#303f9f,stroke-width:2px,color:#ffffff
+    classDef gatePass fill:#1b5e20,stroke:#2e7d32,stroke-width:2px,color:#ffffff
+    classDef gateFail fill:#b71c1c,stroke:#c62828,stroke-width:2px,color:#ffffff
+    classDef gateCheck fill:#e65100,stroke:#ef6c00,stroke-width:2px,color:#ffffff
+
+    class A,B,C,D,E,F,G phaseStyle
+    class H gateCheck
+    class I gateFail
+    class J gatePass
+```
+
+#### Run Full Pipeline
+
+```bash
+# All phases sequentially with soft enforcement (report only)
+thothctl workflow devsecops --phase all
+
+# All phases with hard enforcement (exit 1 on violations)
+thothctl workflow devsecops --phase all --enforcement hard
+```
+
+#### Run Individual Phases
+
+```bash
+# Cost estimation and risk assessment (requires tfplan.json)
+thothctl workflow devsecops --phase plan
+
+# Environment + structure + documentation
+thothctl workflow devsecops --phase develop
+
+# Inventory with version analysis
+thothctl workflow devsecops --phase build
+
+# Plan validation (requires tfplan.json)
+thothctl workflow devsecops --phase test
+
+# Multi-tool security scanning
+thothctl workflow devsecops --phase secure
+
+# Deployment gate (always enforces hard)
+thothctl workflow devsecops --phase deploy --enforcement hard
+
+# Drift detection (requires cloud credentials)
+thothctl workflow devsecops --phase monitor
+```
+
+#### Run Composite Phases
+
+```bash
+# Pre-deployment: test + secure (ideal for PR validation)
+thothctl workflow devsecops --phase pre-deploy --enforcement hard
+
+# With organization OPA policies from Git
+thothctl workflow devsecops --phase pre-deploy \
+  --policy-dir https://github.com/myorg/iac-policies.git@main \
+  --enforcement hard
+```
+
+#### CI/CD Integration
+
+=== "GitHub Actions"
+
+    ```yaml
+    name: DevSecOps Pipeline
+
+    on: [pull_request]
+
+    jobs:
+      devsecops:
+        runs-on: ubuntu-latest
+        env:
+          THOTH_ORG_POLICY: ${{ secrets.POLICY_REPO_URL }}
+        steps:
+          - uses: actions/checkout@v4
+          - run: pip install thothctl
+
+          - name: Generate Plans
+            run: |
+              terraform init
+              terraform plan -out=tfplan.binary
+              terraform show -json tfplan.binary > tfplan.json
+
+          - name: DevSecOps Gate
+            run: thothctl workflow devsecops --phase pre-deploy --enforcement hard
+    ```
+
+=== "Azure Pipelines"
+
+    ```yaml
+    trigger:
+      - main
+
+    pool:
+      vmImage: ubuntu-latest
+
+    variables:
+      THOTH_ORG_POLICY: "https://$(POLICY_PAT)@dev.azure.com/myorg/myproject/_git/iac-policies@main"
+
+    steps:
+      - checkout: self
+      - script: pip install thothctl
+        displayName: Install ThothCTL
+
+      - script: |
+          terragrunt run-all plan --out-dir tfplan --json-out-dir tfplan
+        displayName: Generate Plans
+
+      - script: |
+          thothctl workflow devsecops --phase pre-deploy --enforcement hard
+        displayName: DevSecOps Gate
+    ```
+
+=== "GitLab CI"
+
+    ```yaml
+    devsecops:
+      stage: validate
+      image: python:3.12
+      script:
+        - pip install thothctl
+        - terraform init && terraform plan -out=tfplan.binary
+        - terraform show -json tfplan.binary > tfplan.json
+        - thothctl workflow devsecops --phase pre-deploy --enforcement hard
+      rules:
+        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    ```
+
+### Level 2: AI Agent (Kiro CLI)
+
+For conversational, context-aware automation, use the ThothCTL MCP server with Kiro CLI:
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3f51b5','primaryTextColor':'#ffffff','primaryBorderColor':'#303f9f','lineColor':'#536dfe','secondaryColor':'#536dfe','tertiaryColor':'#fff','background':'transparent','mainBkg':'#3f51b5','secondBkg':'#536dfe','tertiaryBkg':'#90caf9','textColor':'#ffffff','nodeTextColor':'#ffffff','fontSize':'14px'}}}%%
+graph TB
+    A["🤖 Developer<br/>Natural Language Intent"] --> B["Kiro CLI<br/>AI Agent + Skill"]
+    B --> C["MCP Server<br/>thothctl mcp server --stdio"]
+    C --> D["workflow_devsecops<br/>Orchestrates Phases"]
+    D --> E["📊 Results + Remediation<br/>AI analyzes and explains"]
+    E --> A
+
+    classDef userStyle fill:#3f51b5,stroke:#303f9f,stroke-width:2px,color:#ffffff
+    classDef aiStyle fill:#7b1fa2,stroke:#9c27b0,stroke-width:2px,color:#ffffff
+    classDef mcpStyle fill:#004d40,stroke:#00695c,stroke-width:2px,color:#ffffff
+    classDef wfStyle fill:#e65100,stroke:#ef6c00,stroke-width:2px,color:#ffffff
+    classDef resultStyle fill:#1b5e20,stroke:#2e7d32,stroke-width:2px,color:#ffffff
+
+    class A userStyle
+    class B aiStyle
+    class C mcpStyle
+    class D wfStyle
+    class E resultStyle
+```
+
+#### Example Conversations
+
+```bash
+# Start Kiro CLI with ThothCTL agent
+kiro-cli chat --agent thoth
+```
+
+| User Says | AI Executes |
+|-----------|-------------|
+| "Check if my code is ready for production" | `workflow devsecops --phase pre-deploy` |
+| "Run security scan" | `workflow devsecops --phase secure` |
+| "What would this change cost?" | `workflow devsecops --phase plan` |
+| "Full audit of my infrastructure" | `workflow devsecops --phase all` |
+| "Is there drift in production?" | `workflow devsecops --phase monitor` |
+
+The AI agent adds intelligence on top:
+- **Adapts** commands based on project type (Terraform vs Terragrunt vs CDK)
+- **Explains** findings in context with specific remediation steps
+- **Remembers** previous results to track improvement over time
+- **Routes** to the right phase based on natural language intent
+
+For full AI integration details, see: [AI-Powered Development Lifecycle](ai_dlc.md)
+
+### Comparison: Manual vs Workflow vs AI
+
+| Aspect | Manual (Individual Commands) | Workflow Command | AI Agent |
+|--------|-------------------------------|------------------|----------|
+| **Entry point** | Multiple `thothctl` commands | Single `thothctl workflow devsecops` | Natural language |
+| **Best for** | Learning, debugging, custom flows | CI/CD pipelines, standardized gates | Exploration, remediation guidance |
+| **Enforcement** | Per-command `--enforcement` | Single flag for all phases | AI decides based on context |
+| **Prerequisites** | User must know command order | Automatic phase ordering | AI detects and guides |
+| **Output** | Per-command reports | Consolidated table + reports | Explained findings + fixes |
+| **CI/CD** | Script multiple commands | One-liner in pipeline | Not applicable |
+
+---
+
 ## Best Practices
 
 ### For Beginners
