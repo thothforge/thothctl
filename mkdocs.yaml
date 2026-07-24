@@ -18,6 +18,7 @@ site_dir: 'site'
 # Navigation
 nav:
   - Home: index.md
+  - Toolkit Overview: toolkit_overview.md
   - Getting Started:
     - Quick Start: quick_start.md
     - Installation:
@@ -39,6 +40,9 @@ nav:
       - Overview: framework/commands/scan/scan_overview.md
       - IaC Scanning: framework/commands/scan/scan_iac.md
       - Use Cases: framework/commands/scan/use_cases.md
+    - Workflow:
+      - Overview: framework/commands/workflow/workflow_overview.md
+      - DevSecOps: framework/commands/workflow/workflow_devsecops.md
     - Inventory:
       - Overview: framework/commands/inventory/inventory_overview.md
       - IaC Inventory: framework/commands/inventory/inventory_iac.md
@@ -53,6 +57,9 @@ nav:
     - Generate:
       - Components: framework/commands/generate/generate_components.md
       - Stacks: framework/commands/generate/generate_stacks.md
+    - Dashboard: framework/commands/dashboard/dashboard_overview.md
+    - Space:
+      - Overview: framework/commands/space/space_overview.md
     - AI Review:
       - Overview: framework/commands/ai-review/README.md
       - Agent Specifications: framework/commands/ai-review/agent_specifications.md
@@ -72,6 +79,7 @@ nav:
       - Overview: framework/commands/remove/remove_overview.md
       - Projects: framework/commands/remove/remove_project.md
       - Spaces: framework/commands/remove/remove_space.md
+    - Upgrade: framework/commands/upgrade/upgrade_overview.md
   - Use Cases:
     - Overview: framework/use_cases/README.md
     - AI Development Lifecycle (AI-DLC): framework/use_cases/ai_dlc.md
