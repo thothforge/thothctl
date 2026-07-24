@@ -53,6 +53,44 @@ async def serve_amazon_q():
                 description="Generate infrastructure stacks based on configuration",
                 inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
             ),
+            Tool(
+                name="thothctl_generate_iac",
+                description="Generate governed Infrastructure as Code from natural language intent. "
+                            "Uses organizational rules from .thothcf.toml and validates output with Checkov/OPA. "
+                            "Supports self-correction: if validation fails, the AI fixes violations automatically.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "intent": {
+                            "type": "string",
+                            "description": "Natural language description of the infrastructure to generate"
+                        },
+                        "project_type": {
+                            "type": "string",
+                            "description": "Target IaC project type",
+                            "default": "auto",
+                            "enum": ["auto", "terraform", "terraform-terragrunt", "terragrunt", "cloudformation", "cdkv2"]
+                        },
+                        "self_correct": {
+                            "type": "boolean",
+                            "default": True,
+                            "description": "Re-prompt AI to fix validation violations (max 3 iterations)"
+                        },
+                        "apply": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Write files to disk (False = dry-run, returns file contents only)"
+                        },
+                        "skip_validation": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Skip Checkov/OPA validation"
+                        }
+                    },
+                    "required": ["intent"],
+                    "additionalProperties": False
+                }
+            ),
             
             # Init commands
             Tool(
@@ -234,6 +272,39 @@ async def serve_amazon_q():
                     },
                     "additionalProperties": False
                 }
+            ),
+
+            # Workflow
+            Tool(
+                name="thothctl_workflow_devsecops",
+                description="Execute DevSecOps SDLC workflow phases. Orchestrates multiple commands into cohesive phases: plan (cost + blast-radius), develop (environment + structure + docs), build (inventory + versions), test (tfplan validation), secure (checkov + trivy + opa), deploy (enforcement gate), monitor (drift detection). Use 'pre-deploy' for test+secure combined, or 'all' for full pipeline.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "phase": {
+                            "type": "string",
+                            "enum": ["plan", "develop", "build", "test", "secure", "deploy", "monitor", "pre-deploy", "all"],
+                            "default": "all",
+                            "description": "SDLC phase to execute"
+                        },
+                        "enforcement": {
+                            "type": "string",
+                            "enum": ["soft", "hard"],
+                            "default": "soft",
+                            "description": "soft=report only, hard=exit 1 on violations"
+                        },
+                        "policy_dir": {
+                            "type": "string",
+                            "description": "OPA policy directory or Git URL for secure phase"
+                        },
+                        "tools": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Override scan tools for secure phase (e.g. ['checkov', 'trivy', 'opa'])"
+                        }
+                    },
+                    "additionalProperties": False
+                }
             )
         ]
 
@@ -259,6 +330,18 @@ async def serve_amazon_q():
             # Generate commands
             elif name == "thothctl_generate_stacks":
                 cmd = ["thothctl", "generate", "stacks"]
+            elif name == "thothctl_generate_iac":
+                cmd = ["thothctl", "generate", "iac", "--intent", arguments["intent"]]
+                if arguments.get("project_type", "auto") != "auto":
+                    cmd.extend(["--project-type", arguments["project_type"]])
+                if arguments.get("apply"):
+                    cmd.append("--apply")
+                else:
+                    cmd.append("--dry-run")
+                if arguments.get("skip_validation"):
+                    cmd.append("--skip-validation")
+                if not arguments.get("self_correct", True):
+                    cmd.append("--no-self-correct")
             
             # Init commands
             elif name == "thothctl_init_env":
@@ -348,6 +431,19 @@ async def serve_amazon_q():
                 cmd = ["thothctl", "upgrade"]
                 if arguments.get("check_only", False):
                     cmd.append("--check-only")
+
+            # Workflow
+            elif name == "thothctl_workflow_devsecops":
+                cmd = ["thothctl", "workflow", "devsecops"]
+                phase = arguments.get("phase", "all")
+                cmd.extend(["--phase", phase])
+                if arguments.get("enforcement"):
+                    cmd.extend(["--enforcement", arguments["enforcement"]])
+                if arguments.get("policy_dir"):
+                    cmd.extend(["--policy-dir", arguments["policy_dir"]])
+                if arguments.get("tools"):
+                    for tool in arguments["tools"]:
+                        cmd.extend(["-t", tool])
             
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]

@@ -286,6 +286,19 @@ class SimpleHTTPMCPServer:
                         "check_only": {"type": "boolean", "default": False}
                     }
                 }
+            },
+            {
+                "name": "thothctl_workflow_devsecops",
+                "description": "Execute DevSecOps SDLC workflow phases. Orchestrates: plan (cost + blast-radius), develop (environment + structure + docs), build (inventory + versions), test (tfplan validation), secure (checkov + trivy + opa), deploy (enforcement gate), monitor (drift). Use 'pre-deploy' for test+secure, or 'all' for full pipeline.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "phase": {"type": "string", "enum": ["plan", "develop", "build", "test", "secure", "deploy", "monitor", "pre-deploy", "all"], "default": "all", "description": "SDLC phase to execute"},
+                        "enforcement": {"type": "string", "enum": ["soft", "hard"], "default": "soft", "description": "soft=report only, hard=exit 1 on violations"},
+                        "policy_dir": {"type": "string", "description": "OPA policy directory or Git URL for secure phase"},
+                        "tools": {"type": "array", "items": {"type": "string"}, "description": "Override scan tools for secure phase"}
+                    }
+                }
             }
         ]
     
@@ -433,6 +446,17 @@ class SimpleHTTPMCPServer:
             cmd.extend(["upgrade"])
             if arguments.get("check_only", False):
                 cmd.append("--check-only")
+        elif name == "thothctl_workflow_devsecops":
+            cmd.extend(["workflow", "devsecops"])
+            phase = arguments.get("phase", "all")
+            cmd.extend(["--phase", phase])
+            if arguments.get("enforcement"):
+                cmd.extend(["--enforcement", arguments["enforcement"]])
+            if arguments.get("policy_dir"):
+                cmd.extend(["--policy-dir", arguments["policy_dir"]])
+            if arguments.get("tools"):
+                for tool in arguments["tools"]:
+                    cmd.extend(["-t", tool])
         else:
             return f"Unknown tool: {name}"
         
