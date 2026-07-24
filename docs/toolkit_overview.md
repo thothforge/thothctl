@@ -7,33 +7,69 @@
 The Thoth IaC Toolkit is an integrated set of tools, policies, skills, and templates that enables DevSecOps for Infrastructure as Code. It combines a CLI platform, AI assistance, and organizational governance into a cohesive developer workflow.
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3f51b5','primaryTextColor':'#ffffff','primaryBorderColor':'#303f9f','lineColor':'#536dfe','secondaryColor':'#536dfe','tertiaryColor':'#fff','background':'transparent','mainBkg':'#3f51b5','secondBkg':'#536dfe','tertiaryBkg':'#90caf9','textColor':'#ffffff','nodeTextColor':'#ffffff','fontSize':'14px'}}}%%
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
 graph TB
-    subgraph toolkit["Thoth IaC Toolkit"]
-        CLI["<b>ThothCTL</b><br/>Platform CLI<br/>15 commands"]
-        WF["<b>Workflow Engine</b><br/>DevSecOps SDLC<br/>7 phases"]
-        POL["<b>Org Policies</b><br/>OPA/Rego<br/>Centralized governance"]
-        SKILL["<b>Skills</b><br/>AI knowledge<br/>Decision logic"]
-        SCAFFOLD["<b>Scaffolds</b><br/>Project templates<br/>Best practices"]
-        MCP["<b>MCP Server</b><br/>24 AI tools<br/>Kiro CLI integration"]
-        DASH["<b>Dashboard</b><br/>Web UI<br/>Unified reporting"]
+    subgraph toolkit["<b>🛡️ Thoth IaC Toolkit</b>"]
+        direction TB
+        subgraph experience["<b>🎨 Developer Experience</b>"]
+            direction LR
+            CLI["<b>ThothCTL</b><br/>Platform CLI<br/>15 commands"]
+            MCP["<b>MCP Server</b><br/>24 AI tools<br/>Kiro CLI"]
+            SKILL["<b>Skills</b><br/>AI knowledge<br/>Decision logic"]
+            DASH["<b>Dashboard</b><br/>Web UI<br/>Reporting"]
+        end
+        subgraph platform["<b>⚡ Platform Capabilities</b>"]
+            direction LR
+            WF["<b>Workflow</b><br/>DevSecOps SDLC<br/>7 phases"]
+            SEC["<b>Security</b><br/>Checkov · Trivy<br/>KICS · OPA"]
+            COST["<b>Cost & Drift</b><br/>AWS pricing<br/>State sync"]
+            INV["<b>Inventory</b><br/>Dependencies<br/>SBOM"]
+        end
+        subgraph foundation["<b>🏗️ Foundation</b>"]
+            direction LR
+            POL["<b>Org Policies</b><br/>OPA/Rego<br/>Governance"]
+            SCAFFOLD["<b>Scaffolds</b><br/>Templates<br/>Best practices"]
+            SPACE["<b>Spaces</b><br/>Multi-tenancy<br/>Credentials"]
+        end
     end
 
-    DEV["👩‍💻 Developer"] --> CLI
-    DEV --> |"AI-assisted"| MCP
-    CI["⚙️ CI/CD Pipeline"] --> WF
-    PLATFORM["🏗️ Platform Team"] --> POL
-    PLATFORM --> SCAFFOLD
+    DEV["<b>👩‍💻 Developer</b><br/>Write IaC"] --> CLI
+    DEV -.->|"natural language"| MCP
+    CICD["<b>⚙️ CI/CD</b><br/>Pipeline gate"] --> WF
+    PLAT["<b>🏗️ Platform Team</b><br/>Define standards"] --> POL
+    PLAT --> SCAFFOLD
 
-    classDef toolStyle fill:#3f51b5,stroke:#303f9f,stroke-width:2px,color:#ffffff
-    classDef userStyle fill:#1b5e20,stroke:#2e7d32,stroke-width:2px,color:#ffffff
-    classDef ciStyle fill:#e65100,stroke:#ef6c00,stroke-width:2px,color:#ffffff
-    classDef platStyle fill:#7b1fa2,stroke:#9c27b0,stroke-width:2px,color:#ffffff
+    experience --> platform
+    platform --> foundation
 
-    class CLI,WF,POL,SKILL,SCAFFOLD,MCP,DASH toolStyle
-    class DEV userStyle
-    class CI ciStyle
-    class PLATFORM platStyle
+    classDef expStyle fill:#3b82f6,stroke:#60a5fa,stroke-width:2px,color:#fff
+    classDef platStyle fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
+    classDef foundStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
+    classDef userStyle fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
+
+    class CLI,MCP,SKILL,DASH expStyle
+    class WF,SEC,COST,INV platStyle
+    class POL,SCAFFOLD,SPACE foundStyle
+    class DEV,CICD,PLAT userStyle
 ```
 
 ## 3 Minutes to First Scan
@@ -321,30 +357,60 @@ kiro-cli chat --agent thoth
 
 ## Quick Reference Card
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  THOTH IAC TOOLKIT                       │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  INSTALL     pip install thothctl                       │
-│                                                         │
-│  SCAN        thothctl scan iac -t checkov -t trivy     │
-│  WORKFLOW    thothctl workflow devsecops -p secure      │
-│  COST        thothctl check iac -type cost-analysis    │
-│  INVENTORY   thothctl inventory iac --check-versions   │
-│  DRIFT       thothctl check iac -type drift            │
-│  DASHBOARD   thothctl dashboard launch                 │
-│                                                         │
-│  FULL PIPE   thothctl workflow devsecops -p all        │
-│  CI/CD GATE  thothctl workflow devsecops -p pre-deploy │
-│              --enforcement hard                         │
-│                                                         │
-│  AI MODE     kiro-cli chat --agent thoth               │
-│              "scan my code for security issues"         │
-│                                                         │
-│  POLICIES    export THOTH_ORG_POLICY=<git-url>         │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
+graph LR
+    subgraph install["<b>Install</b>"]
+        A["pip install thothctl"]
+    end
+    subgraph develop["<b>Develop</b>"]
+        B["thothctl init project"]
+        C["thothctl check environment"]
+    end
+    subgraph validate["<b>Validate</b>"]
+        D["thothctl workflow devsecops<br/>--phase secure"]
+        E["thothctl workflow devsecops<br/>--phase plan"]
+    end
+    subgraph deploy["<b>Deploy</b>"]
+        F["thothctl workflow devsecops<br/>--phase pre-deploy<br/>--enforcement hard"]
+    end
+    subgraph monitor["<b>Monitor</b>"]
+        G["thothctl dashboard launch"]
+        H["thothctl workflow devsecops<br/>--phase monitor"]
+    end
+
+    install --> develop --> validate --> deploy --> monitor
+
+    classDef installStyle fill:#8b5cf6,stroke:#a78bfa,stroke-width:2px,color:#fff
+    classDef devStyle fill:#3b82f6,stroke:#60a5fa,stroke-width:2px,color:#fff
+    classDef valStyle fill:#f59e0b,stroke:#fbbf24,stroke-width:2px,color:#fff
+    classDef deployStyle fill:#10b981,stroke:#34d399,stroke-width:2px,color:#fff
+    classDef monStyle fill:#ef4444,stroke:#f87171,stroke-width:2px,color:#fff
+
+    class A installStyle
+    class B,C devStyle
+    class D,E valStyle
+    class F deployStyle
+    class G,H monStyle
 ```
 
 ---
