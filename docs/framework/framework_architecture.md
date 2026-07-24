@@ -31,7 +31,8 @@ graph TB
     subgraph layer4["<b>🎨 Developer Experience Layer</b><br/><i>Intuitive interfaces and AI assistance</i>"]
         direction LR
         CLI["<b>CLI Interface</b><br/>Rich terminal UI<br/>Autocompletion<br/>Cross-platform"]
-        AI["<b>AI Assistant</b><br/>Kiro CLI + MCP<br/>Natural language<br/>19 AI tools"]
+        AI["<b>AI Assistant</b><br/>Kiro CLI + MCP<br/>Natural language<br/>24 AI tools"]
+        SKILLS["<b>Skills</b><br/>Reusable knowledge<br/>Decision logic<br/>Remediation"]
         DOCS["<b>Documentation</b><br/>Auto-generation<br/>AI-powered<br/>Multi-format"]
         TMPL["<b>Templates</b><br/>Jinja2 engine<br/>Code generation<br/>Scaffolding"]
     end
@@ -43,6 +44,8 @@ graph TB
         INV["<b>Inventory</b><br/>Dependencies<br/>Version tracking<br/>Reports"]
         VAL["<b>Validation</b><br/>Environment<br/>IaC checks<br/>Blast radius"]
         GEN["<b>Generation</b><br/>Stacks<br/>Components<br/>Boilerplate"]
+        WF["<b>Workflow</b><br/>DevSecOps SDLC<br/>Phase orchestration<br/>Enforcement gates"]
+        POL["<b>Policy</b><br/>OPA/Rego<br/>Org policies<br/>Remote repos"]
     end
     
     subgraph layer2["<b>🔧 IaC Tool Integration Layer</b><br/><i>Multi-tool support through parsers and CLI</i>"]
@@ -71,20 +74,24 @@ graph TB
     INV -.->|tracks| TOFU
     VAL -.->|validates| CFN
     GEN -.->|generates| CDK
+    WF -.->|orchestrates| SEC
+    POL -.->|enforces| TF
     
     TF -.->|uses| SCAFFOLD
     TG -.->|operates in| SPACE
     TOFU -.->|requires| ENV
     CFN -.->|reads| CONFIG
     CDK -.->|uses| SCAFFOLD
+
+    SKILLS -.->|guides| AI
     
     classDef layer4Style fill:#3b82f6,stroke:#60a5fa,stroke-width:3px,color:#fff
     classDef layer3Style fill:#10b981,stroke:#34d399,stroke-width:3px,color:#fff
     classDef layer2Style fill:#8b5cf6,stroke:#a78bfa,stroke-width:3px,color:#fff
     classDef layer1Style fill:#f59e0b,stroke:#fbbf24,stroke-width:3px,color:#fff
     
-    class CLI,AI,DOCS,TMPL layer4Style
-    class SEC,COST,INV,VAL,GEN layer3Style
+    class CLI,AI,SKILLS,DOCS,TMPL layer4Style
+    class SEC,COST,INV,VAL,GEN,WF,POL layer3Style
     class TF,TG,TOFU,CFN,CDK layer2Style
     class SCAFFOLD,SPACE,ENV,CONFIG layer1Style
 ```
@@ -183,6 +190,28 @@ Stack generation, component creation, boilerplate automation.
 
 📖 **Details:** [Code Generation](commands/generate/generate_stacks.md)
 
+#### Workflow Engine
+Composite DevSecOps pipeline orchestration — chains multiple commands into SDLC phases with enforcement gates and live progress.
+
+**Phases:** plan → develop → build → test → secure → deploy → monitor
+
+**Commands:** `thothctl workflow devsecops --phase all`, `--phase secure`, `--phase pre-deploy`
+
+📖 **Details:** [Workflow Command](commands/workflow/workflow_overview.md) | [DevSecOps SDLC](use_cases/devsecops_sdlc.md)
+
+#### Policy as Code
+Organization-level governance via OPA/Rego policies distributed from centralized Git repositories.
+
+**Features:**
+- Remote policy repos (GitHub, Azure DevOps, GitLab)
+- Auto-cloning and caching
+- Multi-IaC support (HCL + CloudFormation policies)
+- Parameterized configs (config.yaml → data namespace)
+
+**Commands:** `thothctl scan iac -t opa --policy-dir <git-url>`
+
+📖 **Details:** [Policy as Code](policy_as_code.md)
+
 ---
 
 ### Layer 4: Developer Experience Layer 🎨
@@ -206,8 +235,28 @@ Amazon Q integration with 19 specialized tools via Model Context Protocol (MCP).
 - Code generation and modification
 - Documentation generation
 - Cost analysis assistance
+- DevSecOps workflow orchestration via `thothctl_workflow_devsecops` MCP tool
 
 📖 **Details:** [AI-Powered Development](use_cases/ai_dlc.md)
+
+#### Skills System
+Reusable knowledge packages (`.kiro/skills/`) that teach AI agents domain-specific procedures, decision logic, and remediation patterns.
+
+**Bundled Skills:**
+- `devsecops` — DevSecOps SDLC orchestration, intent routing, remediation patterns
+- `terraform-skill` — Terraform/Terragrunt patterns, module design, state management
+- `iac-versioning-commits` — Conventional commits and versioning for IaC
+
+**Structure:**
+```
+.kiro/skills/<skill-name>/
+├── SKILL.md              # Decision logic, procedures, response patterns
+└── references/           # Domain knowledge (commands, fixes, templates)
+```
+
+**Distribution:** Skills are included in scaffold templates and distributed to new projects automatically.
+
+📖 **Details:** [DevSecOps Skill](https://github.com/thothforge/thothctl-devsecops-skill)
 
 #### Documentation Generation
 Automated documentation with AI-powered content generation.
@@ -236,11 +285,15 @@ ThothCTL supports comprehensive IDP workflows:
 | Use Case | Commands | Documentation |
 |----------|----------|---------------|
 | **Project Initialization** | `init env`, `init space`, `init project` | [Getting Started](use_cases/README.md) |
-| **Security Scanning** | `scan iac` | [Security](use_cases/README.md#security-compliance) |
+| **DevSecOps Pipeline** | `workflow devsecops --phase all` | [DevSecOps SDLC](use_cases/devsecops_sdlc.md) |
+| **Security Scanning** | `scan iac -t checkov -t trivy -t opa` | [Security](commands/scan/scan_overview.md) |
+| **Policy Enforcement** | `scan iac -t opa --policy-dir <url>` | [Policy as Code](policy_as_code.md) |
 | **Cost Analysis** | `check iac -type cost-analysis` | [Cost Analysis](commands/check/cost-analysis.md) |
-| **Dependency Management** | `inventory iac --check-versions` | [Inventory](use_cases/README.md#dependency-management) |
-| **Documentation** | `document iac --ai` | [Documentation](use_cases/README.md#documentation) |
-| **AI Development** | Kiro CLI integration | [AI-DLC](use_cases/ai_dlc.md) |
+| **Dependency Management** | `inventory iac --check-versions` | [Inventory](commands/inventory/inventory_overview.md) |
+| **Drift Detection** | `check iac -type drift` | [Check Command](commands/check/check_overview.md) |
+| **Documentation** | `document iac --ai` | [Documentation](commands/document/document_overview.md) |
+| **AI Development** | Kiro CLI + MCP + Skills | [AI-DLC](use_cases/ai_dlc.md) |
+| **Observability** | `dashboard launch` | [Dashboard](commands/dashboard/dashboard_overview.md) |
 
 📖 **Complete Use Cases:** [Use Cases Documentation](use_cases/README.md)
 
