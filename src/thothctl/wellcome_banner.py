@@ -1,4 +1,5 @@
 """Get Versions."""
+
 import pyfiglet
 from colorama import Fore
 

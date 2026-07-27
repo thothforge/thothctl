@@ -1,11 +1,12 @@
 """Configure command - manage AI provider settings."""
+
 import logging
 
 import click
 from rich.table import Table
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 from ....services.ai_review.config.ai_settings import AISettings
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,16 @@ class ConfigureCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
 
-    def _execute(self, provider=None, api_key=None, model=None,
-                 daily_limit=None, monthly_budget=None, show=False, **kwargs):
+    def _execute(
+        self,
+        provider=None,
+        api_key=None,
+        model=None,
+        daily_limit=None,
+        monthly_budget=None,
+        show=False,
+        **kwargs,
+    ):
         settings = AISettings.load()
 
         if show:
@@ -59,7 +68,9 @@ class ConfigureCommand(ClickCommand):
             settings.save()
             self.ui.print_success("Configuration saved.")
         else:
-            self.ui.print_warning("No changes specified. Use --show to view current config.")
+            self.ui.print_warning(
+                "No changes specified. Use --show to view current config."
+            )
 
     def _display_config(self, settings: AISettings):
         table = Table(title="AI Review Configuration")
@@ -83,7 +94,8 @@ class ConfigureCommand(ClickCommand):
 
 cli = ConfigureCommand.as_click_command(name="configure")(
     click.option(
-        "-p", "--provider",
+        "-p",
+        "--provider",
         type=click.Choice(["openai", "bedrock", "bedrock_agent", "azure", "ollama"]),
         help="Set default AI provider",
     ),

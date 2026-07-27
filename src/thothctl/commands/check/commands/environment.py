@@ -1,4 +1,3 @@
-import click
 from rich.console import Console
 
 from ....core.commands import ClickCommand
@@ -20,7 +19,7 @@ class CheckEnvironmentCommand(ClickCommand):
     def _execute(self, **kwargs) -> None:
         """Execute environment check"""
         results = self.environment_checker.check_environment()
-        
+
         # Exit with error code if tools are missing (for CI/CD integration)
         if results["missing"]:
             exit(1)

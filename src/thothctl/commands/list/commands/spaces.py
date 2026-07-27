@@ -1,8 +1,6 @@
-import click
-
-from ....core.commands import ClickCommand
 from ....common.common import print_list_spaces
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 
 
 class ListSpacesCommand(ClickCommand):
@@ -30,6 +28,4 @@ class ListSpacesCommand(ClickCommand):
 
 
 # Create the Click command
-cli = ListSpacesCommand.as_click_command(
-    help="List all spaces managed by thothctl"
-)()
+cli = ListSpacesCommand.as_click_command(help="List all spaces managed by thothctl")()

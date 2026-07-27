@@ -1,13 +1,20 @@
 import logging
+import os
+import platform
 import queue
 import re
+import signal
 import subprocess
 import threading
 import time
-import os
-import platform
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
+
+from rich import print as rprint
+from rich.console import Console, Group
+from rich.live import Live
+from rich.spinner import Spinner
+from rich.text import Text
 
 # Platform-specific imports
 if platform.system() == "Windows":
@@ -22,12 +29,6 @@ else:
     except ImportError:
         fcntl = None
         select = None
-
-from rich import print as rprint
-from rich.console import Console, Group
-from rich.live import Live
-from rich.spinner import Spinner
-from rich.text import Text
 
 
 class ScannerUI:
@@ -57,7 +58,7 @@ class ScannerUI:
     def show_warning(self, message: str):
         """Display warning message."""
         rprint(f"[yellow]⚠️ {message}[/yellow]")
-        
+
     def show_info(self, message: str):
         """Display info message."""
         rprint(f"[blue]ℹ️ {message}[/blue]")
@@ -106,61 +107,67 @@ class ScannerUI:
         process = None
         process_started = False
         self.current_process_pid = None
-        
+
         # Add a watchdog thread to monitor for hangs
         def watchdog():
             self.logger.debug("Watchdog thread started")
             start_time = time.time()
             last_activity_time = start_time
-            
+
             while True:
                 time.sleep(10)  # Check every 10 seconds
-                
+
                 current_time = time.time()
                 elapsed_time = current_time - start_time
-                
+
                 # Check if total timeout has been reached
                 if timeout and elapsed_time > timeout:
-                    self.logger.error(f"WATCHDOG: Total timeout of {timeout} seconds reached")
+                    self.logger.error(
+                        f"WATCHDOG: Total timeout of {timeout} seconds reached"
+                    )
                     self.show_error(f"Process timed out after {timeout} seconds")
-                    
+
                     # Kill the process if it exists
                     if self.current_process_pid:
                         self._kill_process_by_pid(self.current_process_pid)
-                    
+
                     # Force exit if necessary
                     try:
                         os._exit(1)
-                    except:
+                    except Exception:
                         pass
                     return
-                
+
                 # Check if there's been activity in the last 60 seconds
                 if not output_queue.empty():
                     last_activity_time = current_time
                 elif current_time - last_activity_time > 60:
                     self.logger.warning("WATCHDOG: No activity for 60 seconds")
-                    
+
                     # After 120 seconds of inactivity, kill the process
                     if current_time - last_activity_time > 120:
-                        self.logger.error("WATCHDOG: No activity for 120 seconds, killing process")
-                        self.show_error("Process appears to be stuck - no activity for 120 seconds")
-                        
+                        self.logger.error(
+                            "WATCHDOG: No activity for 120 seconds, killing process"
+                        )
+                        self.show_error(
+                            "Process appears to be stuck - no activity for 120 seconds"
+                        )
+
                         # Kill the process if it exists
                         if self.current_process_pid:
                             self._kill_process_by_pid(self.current_process_pid)
-                        
+
                         # Force exit if necessary
                         try:
                             os._exit(1)
-                        except:
+                        except Exception:
                             pass
                         return
-                
+
                 # Exit if process has completed
                 if not process_started or (process and process.poll() is not None):
                     return
-                
+
         # Start the watchdog thread
         watchdog_thread = threading.Thread(target=watchdog)
         watchdog_thread.daemon = True
@@ -168,22 +175,26 @@ class ScannerUI:
 
         try:
             # For large output files, use a more efficient approach
-            self.logger.debug(f"Running command with optimized output handling: {' '.join(cmd)}")
-            
+            self.logger.debug(
+                f"Running command with optimized output handling: {' '.join(cmd)}"
+            )
+
             # Use subprocess.run with capture_output=False to avoid buffering issues
             # Try Live status spinner, fall back to simple print if another is active
             try:
-                with self.console.status("Running scan...", spinner="dots") as status:
+                with self.console.status("Running scan...", spinner="dots"):
                     process = subprocess.run(
                         cmd,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
-                        bufsize=1024*1024,  # 1MB buffer
-                        timeout=timeout
+                        bufsize=1024 * 1024,  # 1MB buffer
+                        timeout=timeout,
                     )
             except Exception as live_err:
-                if "live display" in str(live_err).lower() or "Only one" in str(live_err):
+                if "live display" in str(live_err).lower() or "Only one" in str(
+                    live_err
+                ):
                     # Parallel execution — fall back to non-live mode
                     self.logger.debug("Parallel mode: running without live display")
                     process = subprocess.run(
@@ -191,23 +202,27 @@ class ScannerUI:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
-                        bufsize=1024*1024,
-                        timeout=timeout
+                        bufsize=1024 * 1024,
+                        timeout=timeout,
                     )
                 else:
                     raise
-            
+
             # Process has completed, check return code
-            self.logger.debug(f"Process completed with return code: {process.returncode}")
-            
+            self.logger.debug(
+                f"Process completed with return code: {process.returncode}"
+            )
+
             if process.returncode != 0:
-                self.logger.error(f"Process failed with return code {process.returncode}")
+                self.logger.error(
+                    f"Process failed with return code {process.returncode}"
+                )
                 self.show_error(f"Process failed with return code {process.returncode}")
                 return {
                     "status": "FAIL",
-                    "error": f"Command failed with return code {process.returncode}"
+                    "error": f"Command failed with return code {process.returncode}",
                 }
-            
+
             # Process completed successfully
             self.show_success()
             return {"status": "COMPLETE", "report_path": str(report_path)}
@@ -215,18 +230,21 @@ class ScannerUI:
         except subprocess.TimeoutExpired:
             self.logger.error(f"Command timed out after {timeout} seconds")
             self.show_error(f"Command timed out after {timeout} seconds")
-            return {"status": "TIMEOUT", "error": f"Command timed out after {timeout} seconds"}
+            return {
+                "status": "TIMEOUT",
+                "error": f"Command timed out after {timeout} seconds",
+            }
         except Exception as e:
             self.logger.error(f"Command failed: {str(e)}", exc_info=True)
             self.show_error(f"Command failed: {str(e)}")
             return {"status": "FAIL", "error": str(e)}
         finally:
             # Make sure to clean up the process if it's still running
-            if process and hasattr(process, 'poll') and process.poll() is None:
+            if process and hasattr(process, "poll") and process.poll() is None:
                 try:
                     process.kill()
                     self.logger.debug("Killed lingering process")
-                except:
+                except Exception:
                     pass
 
     def _handle_output(self, content: str, live: Optional[Live]):
@@ -267,7 +285,7 @@ class ScannerUI:
             message = Text(f"❌ {content}", style="red")
 
         self.messages.append(message)
-        
+
         # Update live display if available
         if live:
             live.update(self._create_display())
@@ -276,7 +294,7 @@ class ScannerUI:
         """Handle status message type."""
         message = Text(content, style="green")
         self.messages.append(message)
-        
+
         # Update live display if available
         if live:
             live.update(self._create_display())
@@ -308,12 +326,13 @@ class CliUI:
     def print_info(self, message: str) -> None:
         """Print info message."""
         self.console.print(f"ℹ️ {message}", style="blue")
+
     def confirm(self, message: str) -> bool:
         """
         Ask for user confirmation.
-        
+
         :param message: Message to display
         :return: True if confirmed, False otherwise
         """
         response = input(f"{message} (y/n): ")
-        return response.lower() in ('y', 'yes')
+        return response.lower() in ("y", "yes")

@@ -1,10 +1,8 @@
 """Unit tests for topology_generator module."""
+
 import json
-import tempfile
-from pathlib import Path
 
 import pytest
-
 from thothctl.services.document.topology_generator import (
     AWSCategory,
     ChangeAction,
@@ -13,14 +11,14 @@ from thothctl.services.document.topology_generator import (
     TopologyGenerator,
     TopologyNode,
     TopologyStack,
-    get_resource_icon,
     generate_topology,
+    get_resource_icon,
     render_topology_mermaid,
     topology_to_dict,
 )
 
-
 # ── get_resource_icon ────────────────────────────────────────────────────────
+
 
 class TestGetResourceIcon:
     def test_known_ec2_instance(self):
@@ -67,6 +65,7 @@ class TestGetResourceIcon:
 
 # ── TopologyGenerator ────────────────────────────────────────────────────────
 
+
 class TestTopologyGenerator:
     @pytest.fixture
     def sample_plan(self):
@@ -102,12 +101,18 @@ class TestTopologyGenerator:
                 {
                     "address": "module.vpc.aws_vpc.this[0]",
                     "type": "aws_vpc",
-                    "change": {"actions": ["create"], "after": {"cidr_block": "10.0.0.0/16"}},
+                    "change": {
+                        "actions": ["create"],
+                        "after": {"cidr_block": "10.0.0.0/16"},
+                    },
                 },
                 {
                     "address": "module.vpc.aws_subnet.private[0]",
                     "type": "aws_subnet",
-                    "change": {"actions": ["no-op"], "after": {"cidr_block": "10.0.1.0/24"}},
+                    "change": {
+                        "actions": ["no-op"],
+                        "after": {"cidr_block": "10.0.1.0/24"},
+                    },
                 },
             ],
             "configuration": {"root_module": {"module_calls": {}}},
@@ -149,7 +154,9 @@ class TestTopologyGenerator:
     def test_node_icon_assigned(self, plan_dir):
         gen = TopologyGenerator()
         topology = gen.generate_from_plans(str(plan_dir))
-        vpc_node = next(n for n in topology.stacks[0].nodes if n.resource_type == "aws_vpc")
+        vpc_node = next(
+            n for n in topology.stacks[0].nodes if n.resource_type == "aws_vpc"
+        )
         assert vpc_node.icon == "🌐"
         assert vpc_node.label == "VPC"
         assert vpc_node.category == AWSCategory.NETWORK
@@ -171,12 +178,24 @@ class TestTopologyGenerator:
 
     def test_delete_action_detected(self, tmp_path):
         plan = {
-            "planned_values": {"root_module": {"resources": [
-                {"address": "aws_s3_bucket.old", "type": "aws_s3_bucket", "name": "old", "values": {}}
-            ]}},
+            "planned_values": {
+                "root_module": {
+                    "resources": [
+                        {
+                            "address": "aws_s3_bucket.old",
+                            "type": "aws_s3_bucket",
+                            "name": "old",
+                            "values": {},
+                        }
+                    ]
+                }
+            },
             "resource_changes": [
-                {"address": "aws_s3_bucket.old", "type": "aws_s3_bucket",
-                 "change": {"actions": ["delete"], "after": None}}
+                {
+                    "address": "aws_s3_bucket.old",
+                    "type": "aws_s3_bucket",
+                    "change": {"actions": ["delete"], "after": None},
+                }
             ],
             "configuration": {"root_module": {}},
         }
@@ -189,12 +208,24 @@ class TestTopologyGenerator:
 
     def test_replace_action_detected(self, tmp_path):
         plan = {
-            "planned_values": {"root_module": {"resources": [
-                {"address": "aws_instance.web", "type": "aws_instance", "name": "web", "values": {}}
-            ]}},
+            "planned_values": {
+                "root_module": {
+                    "resources": [
+                        {
+                            "address": "aws_instance.web",
+                            "type": "aws_instance",
+                            "name": "web",
+                            "values": {},
+                        }
+                    ]
+                }
+            },
             "resource_changes": [
-                {"address": "aws_instance.web", "type": "aws_instance",
-                 "change": {"actions": ["delete", "create"], "after": {}}}
+                {
+                    "address": "aws_instance.web",
+                    "type": "aws_instance",
+                    "change": {"actions": ["delete", "create"], "after": {}},
+                }
             ],
             "configuration": {"root_module": {}},
         }
@@ -207,6 +238,7 @@ class TestTopologyGenerator:
 
 
 # ── MermaidTopologyRenderer ──────────────────────────────────────────────────
+
 
 class TestMermaidTopologyRenderer:
     @pytest.fixture
@@ -253,8 +285,8 @@ class TestMermaidTopologyRenderer:
     def test_render_contains_subgraph(self, simple_topology):
         renderer = MermaidTopologyRenderer()
         result = renderer.render(simple_topology)
-        assert 'subgraph' in result
-        assert 'network / vpc' in result
+        assert "subgraph" in result
+        assert "network / vpc" in result
 
     def test_render_contains_node_with_icon(self, simple_topology):
         renderer = MermaidTopologyRenderer()
@@ -292,11 +324,15 @@ class TestMermaidTopologyRenderer:
 
     def test_sanitize_id(self):
         renderer = MermaidTopologyRenderer()
-        assert renderer._sanitize_id("module.vpc.aws_vpc.this[0]") == "module_vpc_aws_vpc_this_0"
+        assert (
+            renderer._sanitize_id("module.vpc.aws_vpc.this[0]")
+            == "module_vpc_aws_vpc_this_0"
+        )
         assert renderer._sanitize_id("a/b-c.d") == "a_b_c_d"
 
 
 # ── topology_to_dict ─────────────────────────────────────────────────────────
+
 
 class TestTopologyToDict:
     def test_returns_serializable_dict(self):
@@ -304,12 +340,20 @@ class TestTopologyToDict:
             project_name="proj",
             stacks=[
                 TopologyStack(
-                    name="stack1", path="s1",
-                    nodes=[TopologyNode(
-                        address="aws_vpc.x", resource_type="aws_vpc", name="x",
-                        module="root", icon="🌐", label="VPC",
-                        category=AWSCategory.NETWORK, action=ChangeAction.CREATE,
-                    )],
+                    name="stack1",
+                    path="s1",
+                    nodes=[
+                        TopologyNode(
+                            address="aws_vpc.x",
+                            resource_type="aws_vpc",
+                            name="x",
+                            module="root",
+                            icon="🌐",
+                            label="VPC",
+                            category=AWSCategory.NETWORK,
+                            action=ChangeAction.CREATE,
+                        )
+                    ],
                     edges=[],
                 )
             ],
@@ -334,23 +378,61 @@ class TestTopologyToDict:
 
 # ── Integration test with real-ish plan ──────────────────────────────────────
 
+
 class TestIntegration:
     def test_full_pipeline(self, tmp_path):
         """End-to-end: plan → topology → mermaid → dict."""
         plan = {
-            "planned_values": {"root_module": {"child_modules": [
-                {"address": "module.web", "resources": [
-                    {"address": "module.web.aws_instance.app[0]", "type": "aws_instance", "name": "app", "values": {"instance_type": "t3.micro"}},
-                    {"address": "module.web.aws_security_group.app", "type": "aws_security_group", "name": "app", "values": {}},
-                ]},
-                {"address": "module.db", "resources": [
-                    {"address": "module.db.aws_rds_cluster.main[0]", "type": "aws_rds_cluster", "name": "main", "values": {}},
-                ]}
-            ]}},
+            "planned_values": {
+                "root_module": {
+                    "child_modules": [
+                        {
+                            "address": "module.web",
+                            "resources": [
+                                {
+                                    "address": "module.web.aws_instance.app[0]",
+                                    "type": "aws_instance",
+                                    "name": "app",
+                                    "values": {"instance_type": "t3.micro"},
+                                },
+                                {
+                                    "address": "module.web.aws_security_group.app",
+                                    "type": "aws_security_group",
+                                    "name": "app",
+                                    "values": {},
+                                },
+                            ],
+                        },
+                        {
+                            "address": "module.db",
+                            "resources": [
+                                {
+                                    "address": "module.db.aws_rds_cluster.main[0]",
+                                    "type": "aws_rds_cluster",
+                                    "name": "main",
+                                    "values": {},
+                                },
+                            ],
+                        },
+                    ]
+                }
+            },
             "resource_changes": [
-                {"address": "module.web.aws_instance.app[0]", "type": "aws_instance", "change": {"actions": ["create"], "after": {}}},
-                {"address": "module.web.aws_security_group.app", "type": "aws_security_group", "change": {"actions": ["create"], "after": {}}},
-                {"address": "module.db.aws_rds_cluster.main[0]", "type": "aws_rds_cluster", "change": {"actions": ["update"], "after": {}}},
+                {
+                    "address": "module.web.aws_instance.app[0]",
+                    "type": "aws_instance",
+                    "change": {"actions": ["create"], "after": {}},
+                },
+                {
+                    "address": "module.web.aws_security_group.app",
+                    "type": "aws_security_group",
+                    "change": {"actions": ["create"], "after": {}},
+                },
+                {
+                    "address": "module.db.aws_rds_cluster.main[0]",
+                    "type": "aws_rds_cluster",
+                    "change": {"actions": ["update"], "after": {}},
+                },
             ],
             "configuration": {"root_module": {"module_calls": {}}},
         }

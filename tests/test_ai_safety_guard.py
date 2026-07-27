@@ -1,13 +1,10 @@
 """Unit tests for SafetyGuard — confidence, rate limits, overrides."""
 
 import json
-import time
-import pytest
-from pathlib import Path
-from unittest.mock import patch
 
-from thothctl.services.ai_review.safety.safety_guard import SafetyGuard, ActionRecord
+import pytest
 from thothctl.services.ai_review.config.decision_rules import SafetyConfig
+from thothctl.services.ai_review.safety.safety_guard import SafetyGuard
 
 
 @pytest.fixture
@@ -93,7 +90,9 @@ class TestCanTakeAction:
 
     def test_override_blocks(self, safety):
         ok, reason = safety.can_take_action(
-            "approve", 0.95, "test/repo",
+            "approve",
+            0.95,
+            "test/repo",
             pr_context={"labels": ["emergency"]},
         )
         assert ok is False
@@ -110,6 +109,7 @@ class TestPersistence:
     def test_records_persist_to_file(self, safety, tmp_path):
         safety.record_action("reject", "test/repo", "99", 0.90, "high risk")
         from datetime import date
+
         log_file = tmp_path / "ai_decisions" / f"{date.today().isoformat()}.jsonl"
         assert log_file.exists()
         record = json.loads(log_file.read_text().strip())

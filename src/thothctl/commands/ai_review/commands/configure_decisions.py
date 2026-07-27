@@ -1,11 +1,12 @@
 """Configure-decisions command — manage auto-decision rules and safety controls."""
+
 import logging
 
 import click
 from rich.table import Table
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 from ....services.ai_review.config.decision_rules import DecisionRules
 from ....services.ai_review.safety.safety_guard import SafetyGuard
 
@@ -19,9 +20,17 @@ class ConfigureDecisionsCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
 
-    def _execute(self, enable=False, disable=False,
-                 approve_threshold=None, reject_threshold=None,
-                 confidence=None, show=False, stats=False, **kwargs):
+    def _execute(
+        self,
+        enable=False,
+        disable=False,
+        approve_threshold=None,
+        reject_threshold=None,
+        confidence=None,
+        show=False,
+        stats=False,
+        **kwargs,
+    ):
         rules = DecisionRules.load()
 
         if show:
@@ -31,7 +40,9 @@ class ConfigureDecisionsCommand(ClickCommand):
         if stats:
             guard = SafetyGuard(rules.safety)
             s = guard.get_today_stats()
-            self.ui.console.print(f"Today ({s['date']}): {s['total']} actions — {s['actions']}")
+            self.ui.console.print(
+                f"Today ({s['date']}): {s['total']} actions — {s['actions']}"
+            )
             return
 
         changed = False
@@ -57,13 +68,17 @@ class ConfigureDecisionsCommand(ClickCommand):
             rules.reject.confidence_min = max(confidence - 0.05, 0.70)
             rules.request_changes.confidence_min = max(confidence - 0.10, 0.60)
             changed = True
-            self.ui.print_success(f"Confidence thresholds updated (base: {confidence:.0%})")
+            self.ui.print_success(
+                f"Confidence thresholds updated (base: {confidence:.0%})"
+            )
 
         if changed:
             rules.save()
             self.ui.print_success("Decision rules saved.")
         elif not show and not stats:
-            self.ui.print_warning("No changes. Use --show to view, --enable/--disable to toggle.")
+            self.ui.print_warning(
+                "No changes. Use --show to view, --enable/--disable to toggle."
+            )
 
     def _display_rules(self, rules: DecisionRules):
         table = Table(title="Auto-Decision Configuration")
@@ -84,8 +99,12 @@ class ConfigureDecisionsCommand(ClickCommand):
         table.add_row("  Min critical", str(rules.reject.critical_issues_min))
         table.add_row("", "")
         table.add_row("[bold]Safety[/bold]", "")
-        table.add_row("  Max approvals/day", str(rules.safety.max_auto_approvals_per_day))
-        table.add_row("  Max rejections/day", str(rules.safety.max_auto_rejections_per_day))
+        table.add_row(
+            "  Max approvals/day", str(rules.safety.max_auto_approvals_per_day)
+        )
+        table.add_row(
+            "  Max rejections/day", str(rules.safety.max_auto_rejections_per_day)
+        )
         table.add_row("  Cooldown", f"{rules.safety.cooldown_between_actions}s")
         table.add_row("  Emergency labels", ", ".join(rules.safety.emergency_labels))
         table.add_row("  Trusted bots", ", ".join(rules.safety.trusted_bots) or "none")
@@ -96,9 +115,15 @@ class ConfigureDecisionsCommand(ClickCommand):
 cli = ConfigureDecisionsCommand.as_click_command(name="configure-decisions")(
     click.option("--enable", is_flag=True, help="Enable auto-decisions"),
     click.option("--disable", is_flag=True, help="Disable auto-decisions"),
-    click.option("--approve-threshold", type=int, help="Max risk score for auto-approve (0-100)"),
-    click.option("--reject-threshold", type=int, help="Min risk score for auto-reject (0-100)"),
-    click.option("--confidence", type=float, help="Base confidence threshold (0.0-1.0)"),
+    click.option(
+        "--approve-threshold", type=int, help="Max risk score for auto-approve (0-100)"
+    ),
+    click.option(
+        "--reject-threshold", type=int, help="Min risk score for auto-reject (0-100)"
+    ),
+    click.option(
+        "--confidence", type=float, help="Base confidence threshold (0.0-1.0)"
+    ),
     click.option("--show", is_flag=True, help="Show current decision rules"),
     click.option("--stats", is_flag=True, help="Show today's decision stats"),
 )

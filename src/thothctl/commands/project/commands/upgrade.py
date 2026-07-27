@@ -1,14 +1,13 @@
 """Project upgrade command implementation."""
+
 import logging
 from pathlib import Path
-from typing import Optional
 
 import click
 
 from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
 from ....services.project.upgrade.upgrade_service import ProjectUpgradeService
-
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,7 @@ class ProjectUpgradeCommand(ClickCommand):
         """
         try:
             project_path = Path(project_path).resolve()
-            
+
             if dry_run:
                 self.ui.print_info("🔍 Running upgrade check (dry run)...")
             elif interactive:
@@ -56,7 +55,7 @@ class ProjectUpgradeCommand(ClickCommand):
                 project_path=project_path,
                 dry_run=dry_run,
                 force=force,
-                interactive=interactive
+                interactive=interactive,
             )
 
             if result["success"]:
@@ -67,7 +66,9 @@ class ProjectUpgradeCommand(ClickCommand):
                 else:
                     self._display_upgrade_results(result)
             else:
-                self.ui.print_error(f"❌ Upgrade failed: {result.get('error', 'Unknown error')}")
+                self.ui.print_error(
+                    f"❌ Upgrade failed: {result.get('error', 'Unknown error')}"
+                )
 
         except Exception as e:
             self.ui.print_error(f"Failed to upgrade project: {str(e)}")
@@ -78,49 +79,51 @@ class ProjectUpgradeCommand(ClickCommand):
         """Display dry run results."""
         changes = result.get("changes", {})
         commit_info = changes.get("commit_info", {})
-        
+
         # Show commit comparison
         if commit_info:
             local_hash = commit_info.get("local_hash", "unknown")[:8]
             remote_hash = commit_info.get("remote_hash", "unknown")[:8]
             needs_update = commit_info.get("needs_update", False)
-            
-            self.ui.print_info(f"📋 Commit comparison:")
+
+            self.ui.print_info("📋 Commit comparison:")
             self.ui.print_info(f"  Local:  {local_hash}")
             self.ui.print_info(f"  Remote: {remote_hash}")
-            
+
             if not needs_update:
                 self.ui.print_success("✅ Project is up to date (same commit hash)!")
                 return
             else:
                 self.ui.print_warning("⚠️  Remote template has newer commits")
-        
+
         # Show detailed file changes
         new_files = changes.get("new_files", [])
         updated_files = changes.get("updated_files", [])
         conflicts = changes.get("conflicts", [])
-        
+
         if not any([new_files, updated_files, conflicts]):
             self.ui.print_success("✅ No file changes needed!")
             return
 
         self.ui.print_info("📋 Available changes from template:")
-        
+
         if new_files:
             self.ui.print_info(f"  📄 New files available ({len(new_files)}):")
             for file_path in sorted(new_files):
                 self.ui.print_info(f"    + {file_path}")
-        
+
         if updated_files:
             self.ui.print_info(f"  🔄 Files with updates ({len(updated_files)}):")
             for file_path in sorted(updated_files):
                 self.ui.print_info(f"    ~ {file_path}")
-        
+
         if conflicts:
-            self.ui.print_warning(f"  ⚠️  Files with local modifications ({len(conflicts)}):")
+            self.ui.print_warning(
+                f"  ⚠️  Files with local modifications ({len(conflicts)}):"
+            )
             for file_path in sorted(conflicts):
                 self.ui.print_warning(f"    ! {file_path}")
-        
+
         self.ui.print_info("")
         self.ui.print_info("💡 Run without --dry-run to apply changes")
         self.ui.print_info("💡 Use --force to override local modifications")
@@ -128,7 +131,7 @@ class ProjectUpgradeCommand(ClickCommand):
     def _display_interactive_results(self, result: dict) -> None:
         """Display interactive upgrade results."""
         changes = result.get("changes", {})
-        
+
         if changes.get("selected_files"):
             self.ui.print_success("✅ Interactive upgrade completed!")
             self.ui.print_info(f"  📄 Imported {len(changes['selected_files'])} files")
@@ -141,33 +144,37 @@ class ProjectUpgradeCommand(ClickCommand):
         """Display upgrade results."""
         changes = result.get("changes", {})
         commit_info = changes.get("commit_info", {})
-        
+
         # Show commit comparison
         if commit_info:
             local_hash = commit_info.get("local_hash", "unknown")[:8]
             remote_hash = commit_info.get("remote_hash", "unknown")[:8]
             needs_update = commit_info.get("needs_update", False)
-            
+
             if not needs_update:
-                self.ui.print_success("✅ Project was already up to date (same commit hash)!")
+                self.ui.print_success(
+                    "✅ Project was already up to date (same commit hash)!"
+                )
                 return
             else:
                 self.ui.print_info(f"📋 Updated from {local_hash} to {remote_hash}")
-        
+
         if not any([changes.get("new_files"), changes.get("updated_files")]):
             self.ui.print_success("✅ Commit updated, no file changes needed!")
             return
 
         self.ui.print_success("✅ Project upgrade completed!")
-        
+
         if changes.get("new_files"):
             self.ui.print_info(f"  📄 Downloaded {len(changes['new_files'])} new files")
-        
+
         if changes.get("updated_files"):
             self.ui.print_info(f"  🔄 Updated {len(changes['updated_files'])} files")
-        
+
         if changes.get("skipped"):
-            self.ui.print_warning(f"  ⏭️  Skipped {len(changes['skipped'])} files (use --force to override)")
+            self.ui.print_warning(
+                f"  ⏭️  Skipped {len(changes['skipped'])} files (use --force to override)"
+            )
 
 
 # Create the Click command

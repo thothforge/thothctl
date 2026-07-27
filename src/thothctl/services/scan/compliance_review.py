@@ -1,12 +1,13 @@
 """Define kind of scanning process using tools for modular deployments."""
+
 import logging
+import os
 import subprocess
 import time
 from enum import Enum
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional
 
-import os
 from colorama import Fore
 
 

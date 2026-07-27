@@ -1,15 +1,19 @@
 """Decide command — run AI analysis and auto-decide on a PR."""
+
 import logging
 
 import click
 from rich.table import Table
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 from ....services.ai_review.ai_agent import AIReviewAgent
-from ....services.ai_review.decision_engine import DecisionEngine, Decision
-from ....services.ai_review.pr_decision_publisher import PRDecisionPublisher, format_decision_comment
 from ....services.ai_review.config.decision_rules import DecisionRules
+from ....services.ai_review.decision_engine import Decision, DecisionEngine
+from ....services.ai_review.pr_decision_publisher import (
+    PRDecisionPublisher,
+    format_decision_comment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,16 +31,27 @@ class DecideCommand(ClickCommand):
             return False
         return True
 
-    def _execute(self, directory=None, scan_results=None, provider=None,
-                 model=None, pr_number=None, repository=None,
-                 platform=None, dry_run=False, **kwargs):
+    def _execute(
+        self,
+        directory=None,
+        scan_results=None,
+        provider=None,
+        model=None,
+        pr_number=None,
+        repository=None,
+        platform=None,
+        dry_run=False,
+        **kwargs,
+    ):
         ctx = click.get_current_context()
         code_directory = ctx.obj.get("CODE_DIRECTORY", ".")
         target = scan_results or directory or code_directory
 
         rules = DecisionRules.load()
         if not rules.enabled and not dry_run:
-            self.ui.print_warning("Auto-decisions are disabled. Use --dry-run to preview, or enable with:")
+            self.ui.print_warning(
+                "Auto-decisions are disabled. Use --dry-run to preview, or enable with:"
+            )
             self.ui.print_info("  thothctl ai-review configure-decisions --enable")
             return
 
@@ -72,20 +87,32 @@ class DecideCommand(ClickCommand):
         if pr_number and repository:
             publisher = PRDecisionPublisher(platform=platform or "auto")
             with self.ui.status_spinner("Publishing decision to PR..."):
-                pub_result = publisher.publish(result, analysis, repository, str(pr_number))
+                pub_result = publisher.publish(
+                    result, analysis, repository, str(pr_number)
+                )
 
             if pub_result.get("error"):
                 self.ui.print_error(f"Failed to publish: {pub_result['error']}")
             else:
-                self.ui.print_success(f"Decision published: {result.decision.value.upper()}")
+                self.ui.print_success(
+                    f"Decision published: {result.decision.value.upper()}"
+                )
         else:
-            self.ui.print_info("No --pr-number/--repository provided. Showing result only.")
+            self.ui.print_info(
+                "No --pr-number/--repository provided. Showing result only."
+            )
 
     def _display_decision(self, result):
-        icons = {Decision.APPROVE: "✅", Decision.REJECT: "🚫",
-                 Decision.REQUEST_CHANGES: "🔄", Decision.COMMENT: "💬"}
+        icons = {
+            Decision.APPROVE: "✅",
+            Decision.REJECT: "🚫",
+            Decision.REQUEST_CHANGES: "🔄",
+            Decision.COMMENT: "💬",
+        }
 
-        table = Table(title=f"{icons.get(result.decision, '🤖')} Decision: {result.decision.value.upper()}")
+        table = Table(
+            title=f"{icons.get(result.decision, '🤖')} Decision: {result.decision.value.upper()}"
+        )
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="green")
         table.add_row("Confidence", f"{result.confidence:.0%}")
@@ -101,12 +128,31 @@ class DecideCommand(ClickCommand):
 
 
 cli = DecideCommand.as_click_command(name="decide")(
-    click.option("-d", "--directory", type=click.Path(exists=True), help="Directory to analyze"),
-    click.option("-s", "--scan-results", type=click.Path(exists=True), help="Existing scan results"),
-    click.option("-p", "--provider", type=click.Choice(["openai", "bedrock", "bedrock_agent", "azure", "ollama"]), help="AI provider"),
+    click.option(
+        "-d", "--directory", type=click.Path(exists=True), help="Directory to analyze"
+    ),
+    click.option(
+        "-s",
+        "--scan-results",
+        type=click.Path(exists=True),
+        help="Existing scan results",
+    ),
+    click.option(
+        "-p",
+        "--provider",
+        type=click.Choice(["openai", "bedrock", "bedrock_agent", "azure", "ollama"]),
+        help="AI provider",
+    ),
     click.option("-m", "--model", help="Specific model"),
     click.option("--pr-number", type=int, help="PR number to act on"),
     click.option("--repository", help="Repository (owner/repo)"),
-    click.option("--platform", type=click.Choice(["github", "azure_devops", "auto"]), default="auto", help="VCS platform"),
-    click.option("--dry-run", is_flag=True, help="Preview decision without taking action"),
+    click.option(
+        "--platform",
+        type=click.Choice(["github", "azure_devops", "auto"]),
+        default="auto",
+        help="VCS platform",
+    ),
+    click.option(
+        "--dry-run", is_flag=True, help="Preview decision without taking action"
+    ),
 )

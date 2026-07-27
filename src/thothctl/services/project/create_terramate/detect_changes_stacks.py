@@ -3,14 +3,13 @@
 import base64
 import json
 import logging
+import os
 from datetime import datetime
 
-import os
 from colorama import Fore
 from git import Repo
 
 from .create_terramate_stacks import graph_dependencies_to_json
-
 
 true = "true"
 false = "false"
@@ -199,7 +198,7 @@ def recursive_taint(json_graph):
                     logging.info(o["name"] + " Depends of " + stack_name)
                     after.append(stack_name)
                     after = list(dict.fromkeys(after))
-                    logging.info(f'The {o["name"]} depends of {after}')
+                    logging.info(f"The {o['name']} depends of {after}")
 
     if len(after) > 0:
         check_taint(stack_names=after)

@@ -1,10 +1,10 @@
 """Scan history — SQLite-based local storage for scan trend tracking."""
+
 import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
-
 
 DB_PATH = Path.home() / ".thothcf" / "scan_history.db"
 
@@ -55,7 +55,13 @@ def save_scan(directory: str, results: dict) -> int:
         # Insert run
         cur = conn.execute(
             "INSERT INTO scan_runs (timestamp, directory, total_findings, total_passed, total_failed) VALUES (?, ?, ?, ?, ?)",
-            (datetime.now().isoformat(), os.path.abspath(directory), total_findings, 0, 0),
+            (
+                datetime.now().isoformat(),
+                os.path.abspath(directory),
+                total_findings,
+                0,
+                0,
+            ),
         )
         run_id = cur.lastrowid
 
@@ -121,7 +127,13 @@ def get_previous_run(directory: str) -> Optional[dict]:
             "SELECT tool, passed, failed, skipped, warnings, errors FROM scan_tool_results WHERE run_id = ?",
             (run_id,),
         ):
-            tools[row[0]] = {"passed": row[1], "failed": row[2], "skipped": row[3], "warnings": row[4], "errors": row[5]}
+            tools[row[0]] = {
+                "passed": row[1],
+                "failed": row[2],
+                "skipped": row[3],
+                "warnings": row[4],
+                "errors": row[5],
+            }
 
         # Get severity
         severity = {}
@@ -150,7 +162,9 @@ def build_trend(previous: dict, current_results: dict) -> List[dict]:
     # Total findings
     curr_findings = current_results.get("summary", {}).get("total_issues", 0)
     prev_findings = previous.get("total_findings", 0)
-    rows.append(_trend_row("Findings", prev_findings, curr_findings, lower_is_better=True))
+    rows.append(
+        _trend_row("Findings", prev_findings, curr_findings, lower_is_better=True)
+    )
 
     # Total passed/failed
     curr_passed = curr_failed = 0
@@ -161,8 +175,19 @@ def build_trend(previous: dict, current_results: dict) -> List[dict]:
         curr_passed += rd.get("passed_count", 0)
         curr_failed += rd.get("failed_count", 0) + rd.get("error_count", 0)
 
-    rows.append(_trend_row("Passed", previous.get("total_passed", 0), curr_passed, lower_is_better=False))
-    rows.append(_trend_row("Failed", previous.get("total_failed", 0), curr_failed, lower_is_better=True))
+    rows.append(
+        _trend_row(
+            "Passed",
+            previous.get("total_passed", 0),
+            curr_passed,
+            lower_is_better=False,
+        )
+    )
+    rows.append(
+        _trend_row(
+            "Failed", previous.get("total_failed", 0), curr_failed, lower_is_better=True
+        )
+    )
 
     # Severity
     curr_sev: Dict[str, int] = {}

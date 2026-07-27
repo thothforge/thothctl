@@ -1,7 +1,7 @@
 import click
 
-from ....core.commands import ClickCommand
 from ....common.common import print_list_projects
+from ....core.commands import ClickCommand
 
 
 class ListProjectsCommand(ClickCommand):

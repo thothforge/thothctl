@@ -1,0 +1,15 @@
+[pydocstyle]
+# Use Google convention as baseline.
+convention = google
+# Ignore:
+# D100-D107: Missing docstrings (adopt incrementally)
+# D200: One-line docstring should not occupy multiple lines
+# D202: No blank lines allowed after function docstring
+# D205: 1 blank line required between summary and description
+# D209: Multi-line docstring closing quotes on separate line
+# D212: Multi-line docstring summary should start at the first line
+# D403: First word should be properly capitalized
+# D415: First line should end with a period/question/exclamation
+# D417: Missing argument descriptions in docstring
+# D419: Docstring is empty
+add_ignore = D100,D101,D102,D103,D104,D105,D107,D200,D202,D205,D209,D212,D403,D415,D417,D419

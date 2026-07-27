@@ -1,6 +1,7 @@
 """Tests for the space initialization command."""
+
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from thothctl.commands.init.commands.space import SpaceInitCommand
 

@@ -4,9 +4,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, Final, List
 
-from .template_configs import CDK_CONFIG, TERRAFORM_CONFIG, TERRAGRUNT_CONFIG
-
-
 # Terraform configuration
 TERRAFORM_CONFIG: Final[Dict[str, List[str]]] = {
     "required_files": ["main.tf", "variables.tf", "outputs.tf"],

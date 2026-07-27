@@ -2,6 +2,7 @@
 
 Used as fallback when AI is unavailable or budget is exceeded.
 """
+
 from typing import Dict, Optional
 
 # Map check_id → fix generator function
@@ -18,13 +19,13 @@ _PATTERNS: Dict[str, Dict] = {
         "fix_type": "add_resource",
         "template": (
             'resource "aws_s3_bucket_server_side_encryption_configuration" "{name}" {{\n'
-            '  bucket = aws_s3_bucket.{name}.id\n'
-            '  rule {{\n'
-            '    apply_server_side_encryption_by_default {{\n'
+            "  bucket = aws_s3_bucket.{name}.id\n"
+            "  rule {{\n"
+            "    apply_server_side_encryption_by_default {{\n"
             '      sse_algorithm = "AES256"\n'
-            '    }}\n'
-            '  }}\n'
-            '}}'
+            "    }}\n"
+            "  }}\n"
+            "}}"
         ),
     },
     "CKV_AWS_21": {
@@ -32,11 +33,11 @@ _PATTERNS: Dict[str, Dict] = {
         "fix_type": "add_resource",
         "template": (
             'resource "aws_s3_bucket_versioning" "{name}" {{\n'
-            '  bucket = aws_s3_bucket.{name}.id\n'
-            '  versioning_configuration {{\n'
+            "  bucket = aws_s3_bucket.{name}.id\n"
+            "  versioning_configuration {{\n"
             '    status = "Enabled"\n'
-            '  }}\n'
-            '}}'
+            "  }}\n"
+            "}}"
         ),
     },
     "CKV_AWS_145": {
@@ -44,13 +45,13 @@ _PATTERNS: Dict[str, Dict] = {
         "fix_type": "add_resource",
         "template": (
             'resource "aws_s3_bucket_server_side_encryption_configuration" "{name}" {{\n'
-            '  bucket = aws_s3_bucket.{name}.id\n'
-            '  rule {{\n'
-            '    apply_server_side_encryption_by_default {{\n'
+            "  bucket = aws_s3_bucket.{name}.id\n"
+            "  rule {{\n"
+            "    apply_server_side_encryption_by_default {{\n"
             '      sse_algorithm = "aws:kms"\n'
-            '    }}\n'
-            '  }}\n'
-            '}}'
+            "    }}\n"
+            "  }}\n"
+            "}}"
         ),
     },
     # Security Groups
@@ -65,14 +66,14 @@ _PATTERNS: Dict[str, Dict] = {
         "fix_type": "modify_attribute",
         "attribute": "cidr_blocks",
         "find": '"0.0.0.0/0"',
-        "value": 'var.allowed_ssh_cidrs',
+        "value": "var.allowed_ssh_cidrs",
     },
     "CKV_AWS_25": {
         "description": "Restrict RDP ingress to specific CIDR",
         "fix_type": "modify_attribute",
         "attribute": "cidr_blocks",
         "find": '"0.0.0.0/0"',
-        "value": 'var.allowed_rdp_cidrs',
+        "value": "var.allowed_rdp_cidrs",
     },
     # RDS
     "CKV_AWS_16": {
@@ -106,7 +107,7 @@ _PATTERNS: Dict[str, Dict] = {
         "description": "Add Lambda dead letter config",
         "fix_type": "add_attribute",
         "attribute": "dead_letter_config",
-        "template": '  dead_letter_config {{\n    target_arn = var.dlq_arn\n  }}',
+        "template": "  dead_letter_config {{\n    target_arn = var.dlq_arn\n  }}",
     },
     "CKV_AWS_272": {
         "description": "Enable Lambda code signing",
@@ -163,7 +164,7 @@ def get_pattern_fix(check_id: str, finding: Dict, code_files: Dict) -> Optional[
             fix["original"] = f"  {attr} = [{find}]"
             fix["replacement"] = f"  {attr} = [{value}]"
         else:
-            fix["replacement"] = f'  {attr} = {value}'
+            fix["replacement"] = f"  {attr} = {value}"
             fix["original"] = f"# Modify {attr} in {resource}"
 
     return fix
@@ -171,4 +172,6 @@ def get_pattern_fix(check_id: str, finding: Dict, code_files: Dict) -> Optional[
 
 def list_supported_checks() -> list:
     """Return list of check IDs with known fix patterns."""
-    return [{"check_id": k, "description": v["description"]} for k, v in _PATTERNS.items()]
+    return [
+        {"check_id": k, "description": v["description"]} for k, v in _PATTERNS.items()
+    ]

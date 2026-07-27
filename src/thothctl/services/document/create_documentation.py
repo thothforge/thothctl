@@ -1,17 +1,17 @@
 """Create documentation for project."""
+
 import logging
+import os
 import subprocess
 from pathlib import Path
 from typing import Optional
 
-import os
 from colorama import Fore, init
 
 from .files_content import (
     terraform_docs_content_modules,
     terraform_docs_content_resources,
 )
-
 
 # Initialize colorama for cross-platform color support
 init(autoreset=True)

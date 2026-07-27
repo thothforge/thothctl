@@ -1,9 +1,14 @@
 """Unit tests for IaC command cost analysis integration."""
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from thothctl.commands.check.commands.iac import CheckIaCCommand
-from thothctl.services.check.project.cost.models.cost_models import CostAnalysis, ResourceCost, CostAction
+from thothctl.services.check.project.cost.models.cost_models import (
+    CostAction,
+    CostAnalysis,
+    ResourceCost,
+)
 
 
 class TestIaCCostAnalysisIntegration:
@@ -31,7 +36,7 @@ class TestIaCCostAnalysisIntegration:
             monthly_cost=72.0,
             annual_cost=864.0,
             pricing_details={"instance_type": "t3.micro"},
-            confidence_level="high"
+            confidence_level="high",
         )
 
         return CostAnalysis(
@@ -42,23 +47,33 @@ class TestIaCCostAnalysisIntegration:
             cost_breakdown_by_action={"create": 72.0},
             recommendations=["Consider Reserved Instances"],
             warnings=[],
-            analysis_metadata={"region": "us-east-1", "api_available": True}
+            analysis_metadata={"region": "us-east-1", "api_available": True},
         )
 
     def test_cost_analysis_check_type_supported(self, mock_iac_command):
         """Test that cost-analysis is in supported check types"""
         assert "cost-analysis" in mock_iac_command.supported_check_types
 
-    @patch('thothctl.commands.check.commands.iac.CheckIaCCommand._find_cloudformation_templates')
-    @patch('thothctl.commands.check.commands.iac.CheckIaCCommand._find_tfplan_files')
-    @patch('thothctl.services.check.project.cost.cost_analyzer.CostAnalyzer')
-    @patch('thothctl.services.check.project.cost.unified_cost_report.UnifiedCostReportGenerator')
-    def test_run_cost_analysis_success(self, mock_report_class, mock_analyzer_class,
-                                       mock_find_files, mock_find_cfn,
-                                       mock_iac_command, sample_cost_analysis):
+    @patch(
+        "thothctl.commands.check.commands.iac.CheckIaCCommand._find_cloudformation_templates"
+    )
+    @patch("thothctl.commands.check.commands.iac.CheckIaCCommand._find_tfplan_files")
+    @patch("thothctl.services.check.project.cost.cost_analyzer.CostAnalyzer")
+    @patch(
+        "thothctl.services.check.project.cost.unified_cost_report.UnifiedCostReportGenerator"
+    )
+    def test_run_cost_analysis_success(
+        self,
+        mock_report_class,
+        mock_analyzer_class,
+        mock_find_files,
+        mock_find_cfn,
+        mock_iac_command,
+        sample_cost_analysis,
+    ):
         """Test successful cost analysis execution"""
         # Setup mocks
-        mock_find_files.return_value = ['tfplan.json']
+        mock_find_files.return_value = ["tfplan.json"]
         mock_find_cfn.return_value = []
         mock_analyzer = Mock()
         mock_analyzer.analyze_terraform_plan.return_value = sample_cost_analysis
@@ -68,37 +83,51 @@ class TestIaCCostAnalysisIntegration:
         mock_report_class.return_value = Mock()
 
         # Execute
-        with patch('pathlib.Path.mkdir'):
-            result = mock_iac_command._run_cost_analysis('/test/dir', recursive=True)
+        with patch("pathlib.Path.mkdir"):
+            mock_iac_command._run_cost_analysis("/test/dir", recursive=True)
 
         # Verify cost analysis was run
-        mock_find_files.assert_called_once_with('/test/dir', True)
-        mock_analyzer.analyze_terraform_plan.assert_called_once_with('tfplan.json')
+        mock_find_files.assert_called_once_with("/test/dir", True)
+        mock_analyzer.analyze_terraform_plan.assert_called_once_with("tfplan.json")
 
-    @patch('thothctl.commands.check.commands.iac.CheckIaCCommand._find_cloudformation_templates')
-    @patch('thothctl.commands.check.commands.iac.CheckIaCCommand._find_tfplan_files')
-    def test_run_cost_analysis_no_tfplan_files(self, mock_find_files, mock_find_cfn, mock_iac_command):
+    @patch(
+        "thothctl.commands.check.commands.iac.CheckIaCCommand._find_cloudformation_templates"
+    )
+    @patch("thothctl.commands.check.commands.iac.CheckIaCCommand._find_tfplan_files")
+    def test_run_cost_analysis_no_tfplan_files(
+        self, mock_find_files, mock_find_cfn, mock_iac_command
+    ):
         """Test cost analysis when no tfplan files or CFN templates found"""
         # Setup mocks
         mock_find_files.return_value = []
         mock_find_cfn.return_value = []
 
         # Execute
-        result = mock_iac_command._run_cost_analysis('/test/dir')
+        result = mock_iac_command._run_cost_analysis("/test/dir")
 
         # Verify
         assert result is False
         mock_iac_command.ui.print_warning.assert_called_once()
 
-    @patch('thothctl.commands.check.commands.iac.CheckIaCCommand._find_cloudformation_templates')
-    @patch('thothctl.commands.check.commands.iac.CheckIaCCommand._find_tfplan_files')
-    @patch('thothctl.services.check.project.cost.cost_analyzer.CostAnalyzer')
-    @patch('thothctl.services.check.project.cost.unified_cost_report.UnifiedCostReportGenerator')
-    def test_run_cost_analysis_exception(self, mock_report_class, mock_analyzer_class,
-                                         mock_find_files, mock_find_cfn, mock_iac_command):
+    @patch(
+        "thothctl.commands.check.commands.iac.CheckIaCCommand._find_cloudformation_templates"
+    )
+    @patch("thothctl.commands.check.commands.iac.CheckIaCCommand._find_tfplan_files")
+    @patch("thothctl.services.check.project.cost.cost_analyzer.CostAnalyzer")
+    @patch(
+        "thothctl.services.check.project.cost.unified_cost_report.UnifiedCostReportGenerator"
+    )
+    def test_run_cost_analysis_exception(
+        self,
+        mock_report_class,
+        mock_analyzer_class,
+        mock_find_files,
+        mock_find_cfn,
+        mock_iac_command,
+    ):
         """Test cost analysis with exception"""
         # Setup mocks
-        mock_find_files.return_value = ['tfplan.json']
+        mock_find_files.return_value = ["tfplan.json"]
         mock_find_cfn.return_value = []
         mock_analyzer = Mock()
         mock_analyzer.analyze_terraform_plan.side_effect = Exception("Test error")
@@ -106,7 +135,7 @@ class TestIaCCostAnalysisIntegration:
         mock_report_class.return_value = Mock()
 
         # Execute
-        result = mock_iac_command._run_cost_analysis('/test/dir')
+        result = mock_iac_command._run_cost_analysis("/test/dir")
 
         # Verify
         assert result is False

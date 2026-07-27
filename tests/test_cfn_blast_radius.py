@@ -1,12 +1,11 @@
 """Unit tests for CFN blast radius service."""
+
 import json
-from pathlib import Path
 
 import pytest
-
 from thothctl.services.check.project.cfn_blast_radius_service import (
-    CfnBlastRadiusService,
     CfnBlastRadiusResult,
+    CfnBlastRadiusService,
     CfnResource,
     result_to_dict,
 )
@@ -52,6 +51,7 @@ def simple_cfn_template(tmp_path):
     }
     path = tmp_path / "template.yaml"
     import yaml
+
     path.write_text(yaml.dump(template))
     return str(path)
 
@@ -108,13 +108,12 @@ class TestBuildDependencyGraph:
                 "Lambda": {"Type": "AWS::Lambda::Function", "Properties": {}},
                 "Permission": {
                     "Type": "AWS::Lambda::Permission",
-                    "Properties": {
-                        "FunctionName": {"Fn::Sub": "${Lambda.Arn}"}
-                    },
+                    "Properties": {"FunctionName": {"Fn::Sub": "${Lambda.Arn}"}},
                 },
             }
         }
         import yaml
+
         path = tmp_path / "sub.yaml"
         path.write_text(yaml.dump(template))
         parsed = service._parse_template(str(path))
@@ -154,19 +153,33 @@ class TestPropagateChanges:
 
 class TestCalculateRisk:
     def test_low_risk(self, service):
-        changed = [CfnResource(logical_id="X", resource_type="AWS::S3::Bucket", action="modify")]
+        changed = [
+            CfnResource(
+                logical_id="X", resource_type="AWS::S3::Bucket", action="modify"
+            )
+        ]
         assert service._calculate_risk(10.0, changed) == "LOW"
 
     def test_medium_risk_critical_type(self, service):
-        changed = [CfnResource(logical_id="X", resource_type="AWS::RDS::DBInstance", action="modify")]
+        changed = [
+            CfnResource(
+                logical_id="X", resource_type="AWS::RDS::DBInstance", action="modify"
+            )
+        ]
         assert service._calculate_risk(15.0, changed) == "MEDIUM"
 
     def test_high_risk_removes(self, service):
-        changed = [CfnResource(logical_id="X", resource_type="AWS::S3::Bucket", action="remove")]
+        changed = [
+            CfnResource(
+                logical_id="X", resource_type="AWS::S3::Bucket", action="remove"
+            )
+        ]
         assert service._calculate_risk(25.0, changed) == "HIGH"
 
     def test_critical_risk_high_blast(self, service):
-        changed = [CfnResource(logical_id="X", resource_type="AWS::EC2::VPC", action="remove")]
+        changed = [
+            CfnResource(logical_id="X", resource_type="AWS::EC2::VPC", action="remove")
+        ]
         assert service._calculate_risk(65.0, changed) == "CRITICAL"
 
 

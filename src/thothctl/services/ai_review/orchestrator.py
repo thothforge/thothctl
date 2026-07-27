@@ -15,17 +15,18 @@ Each agent is a (system_prompt, context_formatter) pair that runs through
 the same AI provider. The orchestrator runs them in parallel when possible
 and merges their outputs into a unified result.
 """
+
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
-from .config.ai_settings import AISettings, ProviderConfig
 from .analyzers.context_builder import ContextBuilder, IaCContext
-from .utils.cost_tracker import CostTracker
+from .config.ai_settings import AISettings
 from .memory import AgentMemory, MemoryConfig
 from .tracing import span
+from .utils.cost_tracker import CostTracker
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class AgentRole(str, Enum):
 @dataclass
 class AgentTask:
     """A unit of work for a specialized agent."""
+
     role: AgentRole
     system_prompt: str
     context: str
@@ -50,6 +52,7 @@ class AgentTask:
 @dataclass
 class OrchestratorResult:
     """Merged result from all agents."""
+
     security: Dict[str, Any] = field(default_factory=dict)
     architecture: Dict[str, Any] = field(default_factory=dict)
     fixes: Dict[str, Any] = field(default_factory=dict)
@@ -67,9 +70,14 @@ class AgentOrchestrator:
         result = orchestrator.run_agents("/path", roles=[AgentRole.SECURITY, AgentRole.FIX])
     """
 
-    def __init__(self, provider: str = None, model: str = None,
-                 config_path: str = None, max_parallel: int = 2,
-                 memory_config: MemoryConfig = None):
+    def __init__(
+        self,
+        provider: str = None,
+        model: str = None,
+        config_path: str = None,
+        max_parallel: int = 2,
+        memory_config: MemoryConfig = None,
+    ):
         self.settings = AISettings.load(config_path)
         self.cost_tracker = CostTracker(
             daily_limit=self.settings.cost_controls.daily_limit,
@@ -84,15 +92,19 @@ class AgentOrchestrator:
         self._provider = self._init_provider(provider_name, model)
 
     def _init_provider(self, provider_name: str, model: str = None):
-        from .providers.openai_provider import OpenAIProvider
-        from .providers.bedrock_provider import BedrockProvider
-        from .providers.bedrock_agent_provider import BedrockAgentProvider
         from .providers.azure_provider import AzureOpenAIProvider
+        from .providers.bedrock_agent_provider import BedrockAgentProvider
+        from .providers.bedrock_provider import BedrockProvider
         from .providers.ollama_provider import OllamaProvider
+        from .providers.openai_provider import OpenAIProvider
 
-        providers = {"openai": OpenAIProvider, "bedrock": BedrockProvider,
-                     "bedrock_agent": BedrockAgentProvider,
-                     "azure": AzureOpenAIProvider, "ollama": OllamaProvider}
+        providers = {
+            "openai": OpenAIProvider,
+            "bedrock": BedrockProvider,
+            "bedrock_agent": BedrockAgentProvider,
+            "azure": AzureOpenAIProvider,
+            "ollama": OllamaProvider,
+        }
         cls = providers.get(provider_name)
         if not cls:
             raise ValueError(f"Unknown provider: {provider_name}")
@@ -105,14 +117,22 @@ class AgentOrchestrator:
 
     def run_full_review(self, directory: str) -> OrchestratorResult:
         """Run all agents for a comprehensive review."""
-        return self.run_agents(directory, roles=[
-            AgentRole.SECURITY, AgentRole.ARCHITECTURE, AgentRole.FIX,
-        ])
+        return self.run_agents(
+            directory,
+            roles=[
+                AgentRole.SECURITY,
+                AgentRole.ARCHITECTURE,
+                AgentRole.FIX,
+            ],
+        )
 
-    def run_agents(self, directory: str,
-                   roles: List[AgentRole] = None,
-                   repository: str = "",
-                   run_id: str = "") -> OrchestratorResult:
+    def run_agents(
+        self,
+        directory: str,
+        roles: List[AgentRole] = None,
+        repository: str = "",
+        run_id: str = "",
+    ) -> OrchestratorResult:
         """Run specific agents against a directory.
 
         Args:
@@ -124,12 +144,15 @@ class AgentOrchestrator:
         if roles is None:
             roles = [AgentRole.SECURITY, AgentRole.ARCHITECTURE]
 
-        with span("orchestrator.run_agents", {
-            "directory": directory,
-            "roles": [r.value for r in roles],
-            "repository": repository,
-            "run_id": run_id,
-        }) as s:
+        with span(
+            "orchestrator.run_agents",
+            {
+                "directory": directory,
+                "roles": [r.value for r in roles],
+                "repository": repository,
+                "run_id": run_id,
+            },
+        ) as s:
             # Build shared context once
             logger.info(f"Building context for {directory}")
             ctx = self.context_builder.build_context(directory)
@@ -138,7 +161,9 @@ class AgentOrchestrator:
             if repository:
                 previous = self.memory.load_analysis(repository, run_id=run_id)
                 if previous:
-                    ctx.errors.append(f"Previous analysis loaded from memory ({repository})")
+                    ctx.errors.append(
+                        f"Previous analysis loaded from memory ({repository})"
+                    )
                     self._inject_previous_context(ctx, previous)
 
             # Create tasks for requested roles
@@ -176,10 +201,11 @@ class AgentOrchestrator:
 
     def _create_tasks(self, ctx: IaCContext, roles: List[AgentRole]) -> List[AgentTask]:
         """Create agent tasks from context and requested roles."""
-        from .utils.prompts import (
-            SYSTEM_SECURITY_ANALYST, SYSTEM_CODE_REVIEWER, SYSTEM_FULL_ANALYSIS,
-        )
         from .utils.fix_prompts import SYSTEM_FIX_GENERATOR
+        from .utils.prompts import (
+            SYSTEM_CODE_REVIEWER,
+            SYSTEM_SECURITY_ANALYST,
+        )
 
         tasks = []
 
@@ -188,22 +214,31 @@ class AgentOrchestrator:
             security_ctx = self._format_security_context(ctx)
             if security_ctx:
                 from .utils.prompts import SYSTEM_COMPACT
-                sec_prompt = SYSTEM_COMPACT if self._provider.name == "ollama" else SYSTEM_SECURITY_ANALYST
-                tasks.append(AgentTask(
-                    role=AgentRole.SECURITY,
-                    system_prompt=sec_prompt,
-                    context=security_ctx,
-                ))
+
+                sec_prompt = (
+                    SYSTEM_COMPACT
+                    if self._provider.name == "ollama"
+                    else SYSTEM_SECURITY_ANALYST
+                )
+                tasks.append(
+                    AgentTask(
+                        role=AgentRole.SECURITY,
+                        system_prompt=sec_prompt,
+                        context=security_ctx,
+                    )
+                )
 
         if AgentRole.ARCHITECTURE in roles:
             # Architecture agent gets inventory + blast radius + code structure
             arch_ctx = self._format_architecture_context(ctx)
             if arch_ctx:
-                tasks.append(AgentTask(
-                    role=AgentRole.ARCHITECTURE,
-                    system_prompt=SYSTEM_CODE_REVIEWER,
-                    context=arch_ctx,
-                ))
+                tasks.append(
+                    AgentTask(
+                        role=AgentRole.ARCHITECTURE,
+                        system_prompt=SYSTEM_CODE_REVIEWER,
+                        context=arch_ctx,
+                    )
+                )
 
         if AgentRole.FIX in roles:
             # Fix agent gets findings + affected code
@@ -214,18 +249,20 @@ class AgentOrchestrator:
                     fix_prompt = (
                         "IaC fix generator. Generate fixes for the STACK files (where modules are called), "
                         "NOT inside .terraform/modules/. Add missing parameters to module blocks.\n"
-                        "Respond with JSON: {\"fixes\":[{\"fix_id\":\"fix_001\",\"finding_id\":\"check_id\","
-                        "\"file\":\"stack main.tf path\",\"severity\":\"HIGH\",\"description\":\"what\","
-                        "\"original\":\"exact module block code\",\"replacement\":\"fixed module block\"}],"
-                        "\"summary\":{\"total_findings\":N,\"fixes_generated\":N,\"skipped\":N}}"
+                        'Respond with JSON: {"fixes":[{"fix_id":"fix_001","finding_id":"check_id",'
+                        '"file":"stack main.tf path","severity":"HIGH","description":"what",'
+                        '"original":"exact module block code","replacement":"fixed module block"}],'
+                        '"summary":{"total_findings":N,"fixes_generated":N,"skipped":N}}'
                     )
                 else:
                     fix_prompt = SYSTEM_FIX_GENERATOR
-                tasks.append(AgentTask(
-                    role=AgentRole.FIX,
-                    system_prompt=fix_prompt,
-                    context=fix_ctx,
-                ))
+                tasks.append(
+                    AgentTask(
+                        role=AgentRole.FIX,
+                        system_prompt=fix_prompt,
+                        context=fix_ctx,
+                    )
+                )
 
         return tasks
 
@@ -236,12 +273,17 @@ class AgentOrchestrator:
         if not tasks:
             return
 
-        with span("orchestrator.execute_tasks", {"task_count": len(tasks), "parallel": self.max_parallel > 1}):
+        with span(
+            "orchestrator.execute_tasks",
+            {"task_count": len(tasks), "parallel": self.max_parallel > 1},
+        ):
             if self.max_parallel <= 1 or len(tasks) == 1:
                 for task in tasks:
                     self._run_task(task, result)
             else:
-                with ThreadPoolExecutor(max_workers=min(self.max_parallel, len(tasks))) as pool:
+                with ThreadPoolExecutor(
+                    max_workers=min(self.max_parallel, len(tasks))
+                ) as pool:
                     futures = {pool.submit(self._call_ai, task): task for task in tasks}
                     for future in as_completed(futures):
                         task = futures[future]
@@ -267,11 +309,14 @@ class AgentOrchestrator:
 
     def _call_ai(self, task: AgentTask) -> Dict[str, Any]:
         """Send task to AI provider and track cost."""
-        with span("orchestrator.call_ai", {
-            "agent.role": task.role.value,
-            "provider": self._provider.name,
-            "model": self._provider.model,
-        }) as s:
+        with span(
+            "orchestrator.call_ai",
+            {
+                "agent.role": task.role.value,
+                "provider": self._provider.name,
+                "model": self._provider.model,
+            },
+        ) as s:
             ai_result = self._provider.analyze(task.system_prompt, task.context)
             usage = ai_result.pop("_usage", {})
             input_tokens = usage.get("input_tokens", 0)
@@ -293,8 +338,16 @@ class AgentOrchestrator:
 
         # Use security analysis if available, otherwise build minimal
         analysis = result.security or {
-            "summary": {"total_findings": 0, "critical": 0, "high": 0, "medium": 0, "low": 0},
-            "findings": [], "risk_score": 0, "recommendations": [],
+            "summary": {
+                "total_findings": 0,
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+            },
+            "findings": [],
+            "risk_score": 0,
+            "recommendations": [],
         }
         engine = DecisionEngine()
         decision_result = engine.evaluate(analysis)
@@ -308,18 +361,25 @@ class AgentOrchestrator:
             "safety_reason": decision_result.safety_reason,
         }
 
-    def _offline_result(self, ctx: IaCContext, roles: List[AgentRole]) -> OrchestratorResult:
+    def _offline_result(
+        self, ctx: IaCContext, roles: List[AgentRole]
+    ) -> OrchestratorResult:
         """Generate results without AI when budget is exceeded."""
         from .analyzers.risk_assessor import RiskAssessor
 
         result = OrchestratorResult()
         result.errors.append("AI budget exceeded — offline analysis only")
 
-        if AgentRole.SECURITY in roles and ctx.scan_results.get("total_findings", 0) > 0:
+        if (
+            AgentRole.SECURITY in roles
+            and ctx.scan_results.get("total_findings", 0) > 0
+        ):
             risk = RiskAssessor().assess_risk(ctx.scan_results)
             result.security = {
-                "summary": {"total_findings": risk["total_findings"],
-                            **{k.lower(): v for k, v in risk["by_severity"].items()}},
+                "summary": {
+                    "total_findings": risk["total_findings"],
+                    **{k.lower(): v for k, v in risk["by_severity"].items()},
+                },
                 "risk_score": risk["risk_score"],
                 "findings": risk["top_findings"][:10],
                 "recommendations": [f"Risk level: {risk['risk_level']}"],
@@ -328,8 +388,11 @@ class AgentOrchestrator:
 
         if AgentRole.FIX in roles:
             from .ai_agent import AIReviewAgent
+
             result.fixes = AIReviewAgent._pattern_fixes(
-                ctx.scan_results, ctx.code_files, "medium",
+                ctx.scan_results,
+                ctx.code_files,
+                "medium",
             )
 
         if AgentRole.DECISION in roles:
@@ -349,7 +412,9 @@ class AgentOrchestrator:
         if ctx.scan_results.get("total_findings", 0) > 0:
             sections.append("## Scan Findings")
             for tool, data in ctx.scan_results.get("tools", {}).items():
-                sections.append(f"### {tool.upper()} (passed={data.get('passed', 0)}, failed={data.get('failed', 0)})")
+                sections.append(
+                    f"### {tool.upper()} (passed={data.get('passed', 0)}, failed={data.get('failed', 0)})"
+                )
                 for f in data.get("findings", [])[:40]:
                     sections.append(
                         f"- [{f.get('severity', '?')}] {f.get('check_id', '')}: "
@@ -391,19 +456,27 @@ class AgentOrchestrator:
                 latest = m.get("latest_version", "")
                 if latest and latest != m.get("version"):
                     ver += f" → v{latest} available"
-                sections.append(f"- {m.get('name', '?')} ({ver}) [{m.get('status', '')}]")
+                sections.append(
+                    f"- {m.get('name', '?')} ({ver}) [{m.get('status', '')}]"
+                )
 
         if ctx.providers:
             sections.append(f"\n## Providers ({len(ctx.providers)})")
             for p in ctx.providers[:20]:
-                sections.append(f"- {p.get('name', '?')} v{p.get('version', '?')} ({p.get('source', '')})")
+                sections.append(
+                    f"- {p.get('name', '?')} v{p.get('version', '?')} ({p.get('source', '')})"
+                )
 
         if ctx.blast_radius:
-            sections.append(f"\n## Blast Radius")
-            sections.append(f"Components: {ctx.blast_radius.get('total_components', 0)}")
+            sections.append("\n## Blast Radius")
+            sections.append(
+                f"Components: {ctx.blast_radius.get('total_components', 0)}"
+            )
             sections.append(f"Risk: {ctx.blast_radius.get('risk_level', 'N/A')}")
             for c in ctx.blast_radius.get("affected_components", [])[:15]:
-                sections.append(f"- {c.get('name', '?')} (risk={c.get('risk_score', 0):.1f}, deps={c.get('dependencies', [])})")
+                sections.append(
+                    f"- {c.get('name', '?')} (risk={c.get('risk_score', 0):.1f}, deps={c.get('dependencies', [])})"
+                )
 
         if ctx.code_files:
             sections.append(f"\n## Code Structure ({len(ctx.code_files)} files)")
@@ -425,6 +498,7 @@ class AgentOrchestrator:
             return ""
 
         from .ai_agent import AIReviewAgent
+
         agent = AIReviewAgent.__new__(AIReviewAgent)
         agent._provider = self._provider  # Provide the initialized provider
         return agent._format_fix_request(ctx.scan_results, ctx.code_files, "medium")
@@ -443,8 +517,9 @@ class AgentOrchestrator:
                 f"(critical={summary.get('critical', 0)}, high={summary.get('high', 0)})"
             )
 
-    def _save_to_memory(self, repository: str, result: OrchestratorResult,
-                        run_id: str = "") -> None:
+    def _save_to_memory(
+        self, repository: str, result: OrchestratorResult, run_id: str = ""
+    ) -> None:
         """Persist analysis results and decision to memory.
 
         Analysis is scoped per run_id (pipeline-isolated).

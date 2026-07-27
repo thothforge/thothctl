@@ -3,7 +3,6 @@
 
 from typing import Dict, Final, List
 
-
 DEFAULT_PROPERTIES_PARSE: Final[Dict[str, str]] = {
     "deployment_region": "us-east-2",
     "dynamodb_table": "db-terraform-lock",

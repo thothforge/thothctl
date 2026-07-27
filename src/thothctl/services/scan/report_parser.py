@@ -1,10 +1,10 @@
 """Unified report parser — single place to parse XML/JSON reports from all scan tools."""
+
 import json
 import logging
 import os
-import xml.etree.ElementTree as ET
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
+from xml.etree import ElementTree as ET
 
 from .models import Finding, ToolReport
 
@@ -59,7 +59,9 @@ def find_xml_reports(base_dir: str) -> List[str]:
 
 def parse_checkov_dir(reports_dir: str) -> ToolReport:
     """Parse all Checkov reports under reports_dir into a ToolReport."""
-    report = ToolReport(tool="checkov", report_path=os.path.join(reports_dir, "security-scan"))
+    report = ToolReport(
+        tool="checkov", report_path=os.path.join(reports_dir, "security-scan")
+    )
 
     # Checkov scanner writes to security-scan/ subdirectory
     checkov_dir = os.path.join(reports_dir, "security-scan")
@@ -166,14 +168,18 @@ def _extract_checkov_findings(checkov_dir: str) -> List[Finding]:
                     if not isinstance(check, dict):
                         continue
                     severity = check.get("severity") or "MEDIUM"
-                    findings.append(Finding(
-                        id=check.get("check_id", ""),
-                        severity=severity.upper() if severity else "MEDIUM",
-                        title=check.get("check_name", ""),
-                        resource=check.get("resource", ""),
-                        file=check.get("file_path", ""),
-                        line=check.get("file_line_range", [0])[0] if check.get("file_line_range") else 0,
-                    ))
+                    findings.append(
+                        Finding(
+                            id=check.get("check_id", ""),
+                            severity=severity.upper() if severity else "MEDIUM",
+                            title=check.get("check_name", ""),
+                            resource=check.get("resource", ""),
+                            file=check.get("file_path", ""),
+                            line=check.get("file_line_range", [0])[0]
+                            if check.get("file_line_range")
+                            else 0,
+                        )
+                    )
             except (json.JSONDecodeError, OSError):
                 continue
 

@@ -1,10 +1,9 @@
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import toml
-from abc import ABC, abstractmethod
 from colorama import Fore
 
 from ....common.common import load_iac_conf
@@ -95,7 +94,7 @@ class ProjectTemplateConverter(ProjectConverter):
                 if not project_name:
                     print("❌ Could not determine project name for restoration")
                     return
-                
+
                 self._restore_project_config(project_name)
                 project_props = self._get_project_properties()
                 print(f"👷 {Fore.BLUE} Creating project {project_name} {Fore.RESET}")
@@ -105,8 +104,10 @@ class ProjectTemplateConverter(ProjectConverter):
                 # For make_template, get project props normally
                 project_props = self._get_project_properties()
                 project_name = self._get_project_name()
-                print(f"👷 {Fore.BLUE} Creating template from {project_name} {Fore.RESET}")
-                
+                print(
+                    f"👷 {Fore.BLUE} Creating template from {project_name} {Fore.RESET}"
+                )
+
                 self._process_directory(project_props, project_name)
 
         except Exception as e:
@@ -140,7 +141,9 @@ class ProjectTemplateConverter(ProjectConverter):
             directory=self.config.code_directory, file_name=".thothcf.toml"
         )["thothcf"]["project_id"]
 
-    def _apply_project_configuration(self, project_props: dict, project_name: str = None) -> None:
+    def _apply_project_configuration(
+        self, project_props: dict, project_name: str = None
+    ) -> None:
         """Apply project configuration if properties exist."""
         if project_props:
             set_project_conf(
@@ -168,234 +171,258 @@ class ProjectTemplateConverter(ProjectConverter):
             self._create_clean_template_config(project_name)
             self._clean_original_project_config()
             self._update_global_template_registry(project_name)
-    
+
     def _get_project_name_from_current_or_restore(self) -> str:
         """Get project name from current config or find and restore from backup."""
-        from pathlib import Path
-        import toml
         import shutil
-        
+        from pathlib import Path
+
+        import toml
+
         config_path = Path(self.config.code_directory) / ".thothcf.toml"
-        
+
         # Try to read project_id from current config
         if config_path.exists():
             try:
-                with open(config_path, 'r') as f:
+                with open(config_path, "r") as f:
                     config = toml.load(f)
-                if 'thothcf' in config and 'project_id' in config['thothcf']:
-                    return config['thothcf']['project_id']
+                if "thothcf" in config and "project_id" in config["thothcf"]:
+                    return config["thothcf"]["project_id"]
             except (OSError, toml.TomlDecodeError):
                 pass
-        
+
         # If no project_id found, try to find backup in template directories
         thothcf_home = Path.home() / ".thothcf"
         if thothcf_home.exists():
             for template_dir in thothcf_home.iterdir():
                 if template_dir.is_dir():
-                    backup_config = template_dir / f".thothcf.{template_dir.name}.backup.toml"
+                    backup_config = (
+                        template_dir / f".thothcf.{template_dir.name}.backup.toml"
+                    )
                     if backup_config.exists():
                         # Restore the backup and get project name
                         shutil.copy2(backup_config, config_path)
-                        print(f"✅ Found and restored backup config from template: {template_dir.name}")
+                        print(
+                            f"✅ Found and restored backup config from template: {template_dir.name}"
+                        )
                         return template_dir.name
-        
+
         return None
-    
+
     def _update_global_template_registry(self, project_name: str) -> None:
         """Update the global .thothcf.toml registry with template file hashes."""
         import hashlib
-        import toml
         from pathlib import Path
-        
+
+        import toml
+
         # Global registry path
         thothcf_home = Path.home() / ".thothcf"
         global_registry = thothcf_home / ".thothcf.toml"
-        
+
         # Initialize registry if it doesn't exist
         if not global_registry.exists():
             # Copy template from common
-            template_path = Path(__file__).parent.parent.parent / "common" / ".thothcf_home.toml"
+            template_path = (
+                Path(__file__).parent.parent.parent / "common" / ".thothcf_home.toml"
+            )
             if template_path.exists():
                 import shutil
+
                 shutil.copy2(template_path, global_registry)
             else:
                 # Create empty registry
-                with open(global_registry, 'w') as f:
+                with open(global_registry, "w") as f:
                     f.write("")
-        
+
         # Load existing registry
         try:
-            with open(global_registry, 'r') as f:
+            with open(global_registry, "r") as f:
                 registry = toml.load(f)
         except (OSError, toml.TomlDecodeError):
             registry = {}
-        
+
         # Initialize project section
         if project_name not in registry:
             registry[project_name] = {"template_files": []}
-        
+
         # Scan template directory for files and calculate hashes
         template_dir = thothcf_home / project_name
         template_files = []
-        
+
         for file_path in template_dir.rglob("*"):
-            if file_path.is_file() and not file_path.name.startswith('.'):
+            if file_path.is_file() and not file_path.name.startswith("."):
                 # Calculate relative path from template root
                 relative_path = file_path.relative_to(template_dir)
-                
+
                 # Calculate file hash
-                with open(file_path, 'rb') as f:
+                with open(file_path, "rb") as f:
                     file_hash = hashlib.sha256(f.read()).hexdigest()
-                
-                template_files.append({
-                    "source": str(relative_path.parent) if relative_path.parent != Path('.') else "",
-                    "local": file_path.name,
-                    "hash": file_hash
-                })
-        
+
+                template_files.append(
+                    {
+                        "source": str(relative_path.parent)
+                        if relative_path.parent != Path(".")
+                        else "",
+                        "local": file_path.name,
+                        "hash": file_hash,
+                    }
+                )
+
         # Update registry
         registry[project_name]["template_files"] = template_files
-        
+
         # Save registry
-        with open(global_registry, 'w') as f:
+        with open(global_registry, "w") as f:
             toml.dump(registry, f)
-        
+
         print(f"✅ Updated global template registry with {len(template_files)} files")
-    
+
     def _clean_original_project_config(self) -> None:
         """Remove only project_properties section from the original project .thothcf.toml file."""
         from pathlib import Path
+
         import toml
-        
+
         config_path = Path(self.config.code_directory) / ".thothcf.toml"
-        
+
         if config_path.exists():
             # Read the original config
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config = toml.load(f)
-            
+
             # Remove only project_properties section (keep thothcf for project_id)
-            if 'project_properties' in config:
-                del config['project_properties']
-            
+            if "project_properties" in config:
+                del config["project_properties"]
+
             # Write clean config back to original
-            with open(config_path, 'w') as f:
+            with open(config_path, "w") as f:
                 toml.dump(config, f)
-            
-            print(f"✅ Cleaned original project config (removed project_properties)")
-    
+
+            print("✅ Cleaned original project config (removed project_properties)")
+
     def _restore_project_config(self, project_name: str) -> None:
         """Restore project configuration from template backup if available."""
-        from pathlib import Path
         import shutil
-        
+        from pathlib import Path
+
         template_dir = Path.home() / ".thothcf" / project_name
         backup_config = template_dir / f".thothcf.{project_name}.backup.toml"
         target_config = Path(self.config.code_directory) / ".thothcf.toml"
-        
+
         if backup_config.exists():
             shutil.copy2(backup_config, target_config)
-            print(f"✅ Restored project config from template backup")
+            print("✅ Restored project config from template backup")
             self._check_template_updates(project_name)
         else:
             print("ℹ️  No backup config found in template, using current configuration")
-    
+
     def _check_template_updates(self, project_name: str) -> None:
         """Check if template files have been updated and offer to sync changes."""
         import hashlib
-        import toml
         from pathlib import Path
-        
+
+        import toml
+
         # Load global registry
         thothcf_home = Path.home() / ".thothcf"
         global_registry = thothcf_home / ".thothcf.toml"
-        
+
         if not global_registry.exists():
             return
-        
+
         try:
-            with open(global_registry, 'r') as f:
+            with open(global_registry, "r") as f:
                 registry = toml.load(f)
         except (OSError, toml.TomlDecodeError):
             return
-        
+
         if project_name not in registry:
             return
-        
+
         # Check current project files against registry
         template_files = registry[project_name].get("template_files", [])
         updated_files = []
-        
+
         for file_info in template_files:
             local_file = Path(self.config.code_directory) / file_info["local"]
             if local_file.exists():
                 # Calculate current hash
-                with open(local_file, 'rb') as f:
+                with open(local_file, "rb") as f:
                     current_hash = hashlib.sha256(f.read()).hexdigest()
-                
+
                 # Compare with registry hash
                 if current_hash != file_info["hash"]:
                     updated_files.append(file_info["local"])
-        
+
         if updated_files:
             print(f"ℹ️  Found {len(updated_files)} files that differ from template:")
             for file_name in updated_files[:5]:  # Show first 5
                 print(f"  • {file_name}")
             if len(updated_files) > 5:
                 print(f"  • ... and {len(updated_files) - 5} more")
-            print("💡 Consider updating the template with: thothctl project convert --make-template")
+            print(
+                "💡 Consider updating the template with: thothctl project convert --make-template"
+            )
 
     def _create_clean_template_config(self, project_name: str) -> None:
         """Create a clean .thothcf.toml file for the template and backup the original."""
-        from pathlib import Path
-        import toml
         import shutil
-        
+        from pathlib import Path
+
+        import toml
+
         template_dir = Path.home() / ".thothcf" / project_name
         template_config_path = template_dir / ".thothcf.toml"
         backup_config_path = template_dir / f".thothcf.{project_name}.backup.toml"
-        
+
         # First, backup the original config with sensitive data to template folder
         original_config_path = Path(self.config.code_directory) / ".thothcf.toml"
         if original_config_path.exists():
             shutil.copy2(original_config_path, backup_config_path)
-            print(f"✅ Backed up original config to template folder")
-        
+            print("✅ Backed up original config to template folder")
+
         # Read the template config
-        with open(template_config_path, 'r') as f:
+        with open(template_config_path, "r") as f:
             config = toml.load(f)
-        
+
         # Remove only project_properties section from template (keep thothcf for project_id)
-        if 'project_properties' in config:
-            del config['project_properties']
-        
+        if "project_properties" in config:
+            del config["project_properties"]
+
         # Write clean template config
-        with open(template_config_path, 'w') as f:
+        with open(template_config_path, "w") as f:
             toml.dump(config, f)
-        
-        print(f"✅ Created clean template configuration")
-    
+
+        print("✅ Created clean template configuration")
+
     def _save_template_to_global_directory(self, project_name: str) -> None:
         """Save the template to the global thothcf directory."""
         import shutil
         from pathlib import Path
-        
+
         # Get the global thothcf directory
         thothcf_dir = Path.home() / ".thothcf"
         template_dir = thothcf_dir / project_name
-        
+
         # Create the directory if it doesn't exist
         template_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Copy the current directory to the template directory
         source_dir = Path(self.config.code_directory)
-        
+
         # Remove existing template if it exists
         if template_dir.exists():
             shutil.rmtree(template_dir)
-        
+
         # Copy the directory
-        shutil.copytree(source_dir, template_dir, ignore=shutil.ignore_patterns('.git', '.terraform', '.terragrunt-cache', '.amazonq'))
-        
+        shutil.copytree(
+            source_dir,
+            template_dir,
+            ignore=shutil.ignore_patterns(
+                ".git", ".terraform", ".terragrunt-cache", ".amazonq"
+            ),
+        )
+
         print(f"✅ Template saved to {template_dir}")
         print(f"✅ Template '{project_name}' is now available for project creation")

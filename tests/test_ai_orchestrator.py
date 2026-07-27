@@ -1,14 +1,14 @@
 """Unit tests for AgentOrchestrator."""
 
-import pytest
-from unittest.mock import patch, Mock, MagicMock
-from dataclasses import dataclass, field
-from typing import Dict, List, Any
+from unittest.mock import Mock, patch
 
-from thothctl.services.ai_review.orchestrator import (
-    AgentOrchestrator, AgentRole, AgentTask, OrchestratorResult,
-)
 from thothctl.services.ai_review.analyzers.context_builder import IaCContext
+from thothctl.services.ai_review.orchestrator import (
+    AgentOrchestrator,
+    AgentRole,
+    AgentTask,
+    OrchestratorResult,
+)
 
 
 class TestAgentRole:
@@ -46,7 +46,7 @@ class TestContextFormatters:
 
     def _make_orchestrator(self):
         """Create orchestrator with mocked provider."""
-        with patch.object(AgentOrchestrator, '__init__', lambda self, **kw: None):
+        with patch.object(AgentOrchestrator, "__init__", lambda self, **kw: None):
             orch = AgentOrchestrator.__new__(AgentOrchestrator)
             orch.settings = None
             orch.cost_tracker = Mock()
@@ -59,22 +59,49 @@ class TestContextFormatters:
     def _make_context(self):
         ctx = IaCContext(directory="/test")
         ctx.project_type = "terraform"
-        ctx.modules = [{"name": "vpc", "version": "3.0", "latest_version": "4.0", "status": "outdated"}]
+        ctx.modules = [
+            {
+                "name": "vpc",
+                "version": "3.0",
+                "latest_version": "4.0",
+                "status": "outdated",
+            }
+        ]
         ctx.providers = [{"name": "aws", "version": "5.0", "source": "hashicorp/aws"}]
         ctx.scan_results = {
             "total_findings": 2,
-            "tools": {"checkov": {
-                "passed": 10, "failed": 2,
-                "findings": [
-                    {"severity": "HIGH", "check_id": "CKV_AWS_19", "check_name": "S3 encryption",
-                     "resource": "aws_s3_bucket.data", "file": "s3.tf"},
-                    {"severity": "MEDIUM", "check_id": "CKV_AWS_23", "check_name": "SG description",
-                     "resource": "aws_security_group.web", "file": "sg.tf"},
-                ],
-            }},
+            "tools": {
+                "checkov": {
+                    "passed": 10,
+                    "failed": 2,
+                    "findings": [
+                        {
+                            "severity": "HIGH",
+                            "check_id": "CKV_AWS_19",
+                            "check_name": "S3 encryption",
+                            "resource": "aws_s3_bucket.data",
+                            "file": "s3.tf",
+                        },
+                        {
+                            "severity": "MEDIUM",
+                            "check_id": "CKV_AWS_23",
+                            "check_name": "SG description",
+                            "resource": "aws_security_group.web",
+                            "file": "sg.tf",
+                        },
+                    ],
+                }
+            },
         }
-        ctx.blast_radius = {"total_components": 5, "risk_level": "MEDIUM", "affected_components": []}
-        ctx.code_files = {"s3.tf": 'resource "aws_s3_bucket" "data" {}', "sg.tf": 'resource "aws_security_group" "web" {}'}
+        ctx.blast_radius = {
+            "total_components": 5,
+            "risk_level": "MEDIUM",
+            "affected_components": [],
+        }
+        ctx.code_files = {
+            "s3.tf": 'resource "aws_s3_bucket" "data" {}',
+            "sg.tf": 'resource "aws_security_group" "web" {}',
+        }
         return ctx
 
     def test_security_context_includes_findings(self):
@@ -115,7 +142,7 @@ class TestContextFormatters:
 
 class TestTaskCreation:
     def _make_orchestrator(self):
-        with patch.object(AgentOrchestrator, '__init__', lambda self, **kw: None):
+        with patch.object(AgentOrchestrator, "__init__", lambda self, **kw: None):
             orch = AgentOrchestrator.__new__(AgentOrchestrator)
             orch.settings = None
             orch.cost_tracker = Mock()
@@ -127,11 +154,24 @@ class TestTaskCreation:
     def test_creates_security_task(self):
         orch = self._make_orchestrator()
         ctx = IaCContext(directory="/test")
-        ctx.scan_results = {"total_findings": 1, "tools": {"checkov": {
-            "passed": 0, "failed": 1,
-            "findings": [{"severity": "HIGH", "check_id": "X", "check_name": "Y",
-                          "resource": "R", "file": "f.tf"}],
-        }}}
+        ctx.scan_results = {
+            "total_findings": 1,
+            "tools": {
+                "checkov": {
+                    "passed": 0,
+                    "failed": 1,
+                    "findings": [
+                        {
+                            "severity": "HIGH",
+                            "check_id": "X",
+                            "check_name": "Y",
+                            "resource": "R",
+                            "file": "f.tf",
+                        }
+                    ],
+                }
+            },
+        }
         ctx.code_files = {"f.tf": "content"}
         tasks = orch._create_tasks(ctx, [AgentRole.SECURITY])
         assert len(tasks) == 1
@@ -155,7 +195,7 @@ class TestTaskCreation:
 
 class TestOfflineResult:
     def _make_orchestrator(self):
-        with patch.object(AgentOrchestrator, '__init__', lambda self, **kw: None):
+        with patch.object(AgentOrchestrator, "__init__", lambda self, **kw: None):
             orch = AgentOrchestrator.__new__(AgentOrchestrator)
             orch.settings = None
             orch.cost_tracker = Mock()
@@ -169,10 +209,19 @@ class TestOfflineResult:
         ctx = IaCContext(directory="/test")
         ctx.scan_results = {
             "total_findings": 1,
-            "tools": {"checkov": {"findings": [
-                {"severity": "HIGH", "check_id": "CKV_AWS_19",
-                 "check_name": "S3", "resource": "aws_s3_bucket.x", "file": "s3.tf"},
-            ]}},
+            "tools": {
+                "checkov": {
+                    "findings": [
+                        {
+                            "severity": "HIGH",
+                            "check_id": "CKV_AWS_19",
+                            "check_name": "S3",
+                            "resource": "aws_s3_bucket.x",
+                            "file": "s3.tf",
+                        },
+                    ]
+                }
+            },
         }
         ctx.code_files = {}
         result = orch._offline_result(ctx, [AgentRole.SECURITY, AgentRole.FIX])

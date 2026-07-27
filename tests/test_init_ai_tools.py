@@ -1,11 +1,11 @@
 """Unit tests for AI tool configuration in project initialization."""
 
-import pytest
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
+import pytest
 from thothctl.services.init.project.project import ProjectService
 
 

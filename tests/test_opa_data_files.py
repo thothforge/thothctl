@@ -1,12 +1,9 @@
 """Unit tests for OPA scanner YAML→JSON data file conversion."""
+
 import json
 import os
-import tempfile
-from pathlib import Path
 
-import pytest
 import yaml
-
 from thothctl.services.scan.scanners.opa import OPAScanner
 
 

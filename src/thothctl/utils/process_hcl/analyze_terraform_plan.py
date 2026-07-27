@@ -1,19 +1,18 @@
 """Analyze terraform plan and print summary."""
+
 import json
 import logging
+import os
 import re
 import subprocess
 from collections import defaultdict
 from itertools import groupby
 from pathlib import Path, PurePath
 
-import os
 from colorama import Fore
-from ...platform_utils import find_executable, get_executable_name
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
-
 
 icons = {"update": "♻️", "create": "❇️", "delete": "⛔"}
 
@@ -282,7 +281,7 @@ def convert_tfplan(directory: PurePath, tf_tool: str = "terraform") -> Path:
     )
     tf_plan_json = Path(directory) / "tfplan.json"
 
-    if tf_plan.exists() and tf_plan_json.exists() == False:
+    if tf_plan.exists() and not tf_plan_json.exists():
         print(f"{Fore.CYAN}❇️ Converting ... {Fore.RESET}")
         try:
             result = subprocess.run(

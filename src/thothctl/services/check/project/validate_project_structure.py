@@ -1,11 +1,12 @@
 """Validate project structure."""
+
 import logging
+import os
 import pathlib
 import sys
 import warnings
 from pathlib import Path
 
-import os
 from colorama import Fore
 
 from ....common.common import load_iac_conf

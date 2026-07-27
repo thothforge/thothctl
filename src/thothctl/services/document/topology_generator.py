@@ -4,6 +4,7 @@ Parses tfplan.json to produce a topology data structure that can be
 rendered as Mermaid diagrams (with AWS icons) or interactive HTML.
 Supports blast radius overlay to highlight changed resources.
 """
+
 import json
 import logging
 from dataclasses import dataclass, field
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── AWS Resource Type → Icon Mapping ────────────────────────────────────────
+
 
 class AWSCategory(Enum):
     COMPUTE = "compute"
@@ -33,63 +35,231 @@ class AWSCategory(Enum):
 AWS_RESOURCE_MAP: Dict[str, Dict] = {
     # Compute
     "aws_instance": {"icon": "🖥️", "label": "EC2", "category": AWSCategory.COMPUTE},
-    "aws_launch_template": {"icon": "🖥️", "label": "Launch Template", "category": AWSCategory.COMPUTE},
-    "aws_autoscaling_group": {"icon": "📐", "label": "ASG", "category": AWSCategory.COMPUTE},
+    "aws_launch_template": {
+        "icon": "🖥️",
+        "label": "Launch Template",
+        "category": AWSCategory.COMPUTE,
+    },
+    "aws_autoscaling_group": {
+        "icon": "📐",
+        "label": "ASG",
+        "category": AWSCategory.COMPUTE,
+    },
     # Database
     "aws_db_instance": {"icon": "🗄️", "label": "RDS", "category": AWSCategory.DATABASE},
-    "aws_rds_cluster": {"icon": "🗄️", "label": "Aurora", "category": AWSCategory.DATABASE},
-    "aws_rds_cluster_instance": {"icon": "🗄️", "label": "Aurora Instance", "category": AWSCategory.DATABASE},
-    "aws_dynamodb_table": {"icon": "⚡", "label": "DynamoDB", "category": AWSCategory.DATABASE},
-    "aws_elasticache_cluster": {"icon": "🧊", "label": "ElastiCache", "category": AWSCategory.DATABASE},
+    "aws_rds_cluster": {
+        "icon": "🗄️",
+        "label": "Aurora",
+        "category": AWSCategory.DATABASE,
+    },
+    "aws_rds_cluster_instance": {
+        "icon": "🗄️",
+        "label": "Aurora Instance",
+        "category": AWSCategory.DATABASE,
+    },
+    "aws_dynamodb_table": {
+        "icon": "⚡",
+        "label": "DynamoDB",
+        "category": AWSCategory.DATABASE,
+    },
+    "aws_elasticache_cluster": {
+        "icon": "🧊",
+        "label": "ElastiCache",
+        "category": AWSCategory.DATABASE,
+    },
     # Network
     "aws_vpc": {"icon": "🌐", "label": "VPC", "category": AWSCategory.NETWORK},
     "aws_subnet": {"icon": "🔲", "label": "Subnet", "category": AWSCategory.NETWORK},
-    "aws_internet_gateway": {"icon": "🌍", "label": "IGW", "category": AWSCategory.NETWORK},
-    "aws_nat_gateway": {"icon": "🔀", "label": "NAT GW", "category": AWSCategory.NETWORK},
-    "aws_route_table": {"icon": "🗺️", "label": "Route Table", "category": AWSCategory.NETWORK},
-    "aws_route_table_association": {"icon": "🔗", "label": "RT Assoc", "category": AWSCategory.NETWORK},
-    "aws_security_group": {"icon": "🛡️", "label": "Security Group", "category": AWSCategory.NETWORK},
-    "aws_security_group_rule": {"icon": "🛡️", "label": "SG Rule", "category": AWSCategory.NETWORK},
-    "aws_vpc_security_group_ingress_rule": {"icon": "🛡️", "label": "SG Ingress", "category": AWSCategory.NETWORK},
-    "aws_vpc_security_group_egress_rule": {"icon": "🛡️", "label": "SG Egress", "category": AWSCategory.NETWORK},
+    "aws_internet_gateway": {
+        "icon": "🌍",
+        "label": "IGW",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_nat_gateway": {
+        "icon": "🔀",
+        "label": "NAT GW",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_route_table": {
+        "icon": "🗺️",
+        "label": "Route Table",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_route_table_association": {
+        "icon": "🔗",
+        "label": "RT Assoc",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_security_group": {
+        "icon": "🛡️",
+        "label": "Security Group",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_security_group_rule": {
+        "icon": "🛡️",
+        "label": "SG Rule",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_vpc_security_group_ingress_rule": {
+        "icon": "🛡️",
+        "label": "SG Ingress",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_vpc_security_group_egress_rule": {
+        "icon": "🛡️",
+        "label": "SG Egress",
+        "category": AWSCategory.NETWORK,
+    },
     "aws_lb": {"icon": "⚖️", "label": "ALB/NLB", "category": AWSCategory.NETWORK},
-    "aws_lb_target_group": {"icon": "🎯", "label": "Target Group", "category": AWSCategory.NETWORK},
-    "aws_lb_listener": {"icon": "👂", "label": "Listener", "category": AWSCategory.NETWORK},
-    "aws_vpclattice_service": {"icon": "🔗", "label": "VPC Lattice", "category": AWSCategory.NETWORK},
-    "aws_vpclattice_service_network": {"icon": "🕸️", "label": "Lattice Network", "category": AWSCategory.NETWORK},
-    "aws_vpclattice_service_network_vpc_association": {"icon": "🔗", "label": "Lattice VPC Assoc", "category": AWSCategory.NETWORK},
-    "aws_ec2_network_insights_path": {"icon": "🔍", "label": "Reachability Path", "category": AWSCategory.NETWORK},
-    "aws_ec2_network_insights_analysis": {"icon": "🔍", "label": "Reachability Analysis", "category": AWSCategory.NETWORK},
+    "aws_lb_target_group": {
+        "icon": "🎯",
+        "label": "Target Group",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_lb_listener": {
+        "icon": "👂",
+        "label": "Listener",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_vpclattice_service": {
+        "icon": "🔗",
+        "label": "VPC Lattice",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_vpclattice_service_network": {
+        "icon": "🕸️",
+        "label": "Lattice Network",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_vpclattice_service_network_vpc_association": {
+        "icon": "🔗",
+        "label": "Lattice VPC Assoc",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_ec2_network_insights_path": {
+        "icon": "🔍",
+        "label": "Reachability Path",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_ec2_network_insights_analysis": {
+        "icon": "🔍",
+        "label": "Reachability Analysis",
+        "category": AWSCategory.NETWORK,
+    },
     # Storage
     "aws_s3_bucket": {"icon": "🪣", "label": "S3", "category": AWSCategory.STORAGE},
     "aws_ebs_volume": {"icon": "💾", "label": "EBS", "category": AWSCategory.STORAGE},
-    "aws_efs_file_system": {"icon": "📁", "label": "EFS", "category": AWSCategory.STORAGE},
+    "aws_efs_file_system": {
+        "icon": "📁",
+        "label": "EFS",
+        "category": AWSCategory.STORAGE,
+    },
     # Security/IAM
-    "aws_iam_role": {"icon": "🔑", "label": "IAM Role", "category": AWSCategory.SECURITY},
-    "aws_iam_policy": {"icon": "📜", "label": "IAM Policy", "category": AWSCategory.SECURITY},
-    "aws_iam_role_policy_attachment": {"icon": "📎", "label": "Policy Attach", "category": AWSCategory.SECURITY},
+    "aws_iam_role": {
+        "icon": "🔑",
+        "label": "IAM Role",
+        "category": AWSCategory.SECURITY,
+    },
+    "aws_iam_policy": {
+        "icon": "📜",
+        "label": "IAM Policy",
+        "category": AWSCategory.SECURITY,
+    },
+    "aws_iam_role_policy_attachment": {
+        "icon": "📎",
+        "label": "Policy Attach",
+        "category": AWSCategory.SECURITY,
+    },
     "aws_kms_key": {"icon": "🔐", "label": "KMS Key", "category": AWSCategory.SECURITY},
     # Serverless
-    "aws_lambda_function": {"icon": "λ", "label": "Lambda", "category": AWSCategory.SERVERLESS},
-    "aws_api_gateway_rest_api": {"icon": "🚪", "label": "API Gateway", "category": AWSCategory.SERVERLESS},
-    "aws_apigatewayv2_api": {"icon": "🚪", "label": "API GW v2", "category": AWSCategory.SERVERLESS},
-    "aws_sqs_queue": {"icon": "📬", "label": "SQS", "category": AWSCategory.INTEGRATION},
-    "aws_sns_topic": {"icon": "📢", "label": "SNS", "category": AWSCategory.INTEGRATION},
+    "aws_lambda_function": {
+        "icon": "λ",
+        "label": "Lambda",
+        "category": AWSCategory.SERVERLESS,
+    },
+    "aws_api_gateway_rest_api": {
+        "icon": "🚪",
+        "label": "API Gateway",
+        "category": AWSCategory.SERVERLESS,
+    },
+    "aws_apigatewayv2_api": {
+        "icon": "🚪",
+        "label": "API GW v2",
+        "category": AWSCategory.SERVERLESS,
+    },
+    "aws_sqs_queue": {
+        "icon": "📬",
+        "label": "SQS",
+        "category": AWSCategory.INTEGRATION,
+    },
+    "aws_sns_topic": {
+        "icon": "📢",
+        "label": "SNS",
+        "category": AWSCategory.INTEGRATION,
+    },
     # Containers
-    "aws_ecs_cluster": {"icon": "🐳", "label": "ECS Cluster", "category": AWSCategory.CONTAINERS},
-    "aws_ecs_service": {"icon": "🐳", "label": "ECS Service", "category": AWSCategory.CONTAINERS},
-    "aws_ecs_task_definition": {"icon": "📋", "label": "Task Def", "category": AWSCategory.CONTAINERS},
-    "aws_eks_cluster": {"icon": "☸️", "label": "EKS", "category": AWSCategory.CONTAINERS},
+    "aws_ecs_cluster": {
+        "icon": "🐳",
+        "label": "ECS Cluster",
+        "category": AWSCategory.CONTAINERS,
+    },
+    "aws_ecs_service": {
+        "icon": "🐳",
+        "label": "ECS Service",
+        "category": AWSCategory.CONTAINERS,
+    },
+    "aws_ecs_task_definition": {
+        "icon": "📋",
+        "label": "Task Def",
+        "category": AWSCategory.CONTAINERS,
+    },
+    "aws_eks_cluster": {
+        "icon": "☸️",
+        "label": "EKS",
+        "category": AWSCategory.CONTAINERS,
+    },
     # Monitoring
-    "aws_cloudwatch_log_group": {"icon": "📊", "label": "CloudWatch Logs", "category": AWSCategory.MONITORING},
-    "aws_cloudwatch_metric_alarm": {"icon": "🚨", "label": "CW Alarm", "category": AWSCategory.MONITORING},
-    "aws_cloudtrail": {"icon": "📝", "label": "CloudTrail", "category": AWSCategory.MONITORING},
-    "aws_flow_log": {"icon": "📈", "label": "Flow Log", "category": AWSCategory.MONITORING},
+    "aws_cloudwatch_log_group": {
+        "icon": "📊",
+        "label": "CloudWatch Logs",
+        "category": AWSCategory.MONITORING,
+    },
+    "aws_cloudwatch_metric_alarm": {
+        "icon": "🚨",
+        "label": "CW Alarm",
+        "category": AWSCategory.MONITORING,
+    },
+    "aws_cloudtrail": {
+        "icon": "📝",
+        "label": "CloudTrail",
+        "category": AWSCategory.MONITORING,
+    },
+    "aws_flow_log": {
+        "icon": "📈",
+        "label": "Flow Log",
+        "category": AWSCategory.MONITORING,
+    },
     # Free/structural (hidden from main view but counted)
-    "aws_default_network_acl": {"icon": "🔲", "label": "Default NACL", "category": AWSCategory.NETWORK},
-    "aws_default_route_table": {"icon": "🗺️", "label": "Default RT", "category": AWSCategory.NETWORK},
-    "aws_default_security_group": {"icon": "🛡️", "label": "Default SG", "category": AWSCategory.NETWORK},
-    "aws_db_subnet_group": {"icon": "🔲", "label": "DB Subnet Group", "category": AWSCategory.DATABASE},
+    "aws_default_network_acl": {
+        "icon": "🔲",
+        "label": "Default NACL",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_default_route_table": {
+        "icon": "🗺️",
+        "label": "Default RT",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_default_security_group": {
+        "icon": "🛡️",
+        "label": "Default SG",
+        "category": AWSCategory.NETWORK,
+    },
+    "aws_db_subnet_group": {
+        "icon": "🔲",
+        "label": "DB Subnet Group",
+        "category": AWSCategory.DATABASE,
+    },
 }
 
 
@@ -99,13 +269,26 @@ def get_resource_icon(resource_type: str) -> Dict:
         return AWS_RESOURCE_MAP[resource_type]
     # Fallback: infer from prefix
     if resource_type.startswith("aws_iam"):
-        return {"icon": "🔑", "label": resource_type.replace("aws_", "").replace("_", " ").title(), "category": AWSCategory.SECURITY}
+        return {
+            "icon": "🔑",
+            "label": resource_type.replace("aws_", "").replace("_", " ").title(),
+            "category": AWSCategory.SECURITY,
+        }
     if resource_type.startswith("aws_vpc") or resource_type.startswith("aws_subnet"):
-        return {"icon": "🌐", "label": resource_type.replace("aws_", "").replace("_", " ").title(), "category": AWSCategory.NETWORK}
-    return {"icon": "☁️", "label": resource_type.replace("aws_", "").replace("_", " ").title(), "category": AWSCategory.OTHER}
+        return {
+            "icon": "🌐",
+            "label": resource_type.replace("aws_", "").replace("_", " ").title(),
+            "category": AWSCategory.NETWORK,
+        }
+    return {
+        "icon": "☁️",
+        "label": resource_type.replace("aws_", "").replace("_", " ").title(),
+        "category": AWSCategory.OTHER,
+    }
 
 
 # ── Data Models ─────────────────────────────────────────────────────────────
+
 
 class ChangeAction(Enum):
     CREATE = "create"
@@ -118,6 +301,7 @@ class ChangeAction(Enum):
 @dataclass
 class TopologyNode:
     """A resource node in the topology."""
+
     address: str
     resource_type: str
     name: str
@@ -132,6 +316,7 @@ class TopologyNode:
 @dataclass
 class TopologyEdge:
     """A dependency edge between nodes."""
+
     source: str  # address
     target: str  # address
     label: str = ""
@@ -140,6 +325,7 @@ class TopologyEdge:
 @dataclass
 class TopologyStack:
     """A stack (terragrunt module) in the topology."""
+
     name: str
     path: str
     nodes: List[TopologyNode] = field(default_factory=list)
@@ -149,6 +335,7 @@ class TopologyStack:
 @dataclass
 class InfraTopology:
     """Complete infrastructure topology."""
+
     project_name: str
     stacks: List[TopologyStack] = field(default_factory=list)
     inter_stack_edges: List[TopologyEdge] = field(default_factory=list)
@@ -157,19 +344,22 @@ class InfraTopology:
 
 # ── Topology Generator ──────────────────────────────────────────────────────
 
+
 class TopologyGenerator:
     """Generate infrastructure topology from terraform plan files."""
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def generate_from_plans(self, plan_dir: str, project_name: str = "") -> InfraTopology:
+    def generate_from_plans(
+        self, plan_dir: str, project_name: str = ""
+    ) -> InfraTopology:
         """Generate topology from all tfplan.json files in a directory.
-        
+
         Args:
             plan_dir: Directory containing tfplan.json files (recursive)
             project_name: Project name for the topology
-            
+
         Returns:
             InfraTopology with all stacks, nodes, and edges
         """
@@ -195,7 +385,9 @@ class TopologyGenerator:
         # Build summary
         total_nodes = sum(len(s.nodes) for s in topology.stacks)
         changed_nodes = sum(
-            1 for s in topology.stacks for n in s.nodes
+            1
+            for s in topology.stacks
+            for n in s.nodes
             if n.action != ChangeAction.NO_CHANGE
         )
         topology.summary = {
@@ -207,7 +399,9 @@ class TopologyGenerator:
 
         return topology
 
-    def _parse_plan_to_stack(self, plan_file: Path, base_dir: Path) -> Optional[TopologyStack]:
+    def _parse_plan_to_stack(
+        self, plan_file: Path, base_dir: Path
+    ) -> Optional[TopologyStack]:
         """Parse a single tfplan.json into a TopologyStack."""
         try:
             with open(plan_file, "r") as f:
@@ -251,8 +445,11 @@ class TopologyGenerator:
         return stack
 
     def _collect_nodes(
-        self, module: Dict, stack: TopologyStack,
-        change_actions: Dict[str, ChangeAction], prefix: str
+        self,
+        module: Dict,
+        stack: TopologyStack,
+        change_actions: Dict[str, ChangeAction],
+        prefix: str,
     ):
         """Recursively collect resource nodes from planned_values."""
         for resource in module.get("resources", []):
@@ -260,7 +457,9 @@ class TopologyGenerator:
             res_name = resource.get("name", "")
             address = resource.get("address", f"{res_type}.{res_name}")
             if prefix:
-                full_address = f"{prefix}.{address}" if not address.startswith(prefix) else address
+                full_address = (
+                    f"{prefix}.{address}" if not address.startswith(prefix) else address
+                )
             else:
                 full_address = address
 
@@ -303,14 +502,24 @@ class TopologyGenerator:
 
             # Look for references in expressions
             for attr_name, attr_config in resource.get("expressions", {}).items():
-                refs = attr_config.get("references", []) if isinstance(attr_config, dict) else []
+                refs = (
+                    attr_config.get("references", [])
+                    if isinstance(attr_config, dict)
+                    else []
+                )
                 for ref in refs:
-                    if ref and not ref.startswith("var.") and not ref.startswith("local."):
-                        stack.edges.append(TopologyEdge(
-                            source=res_address,
-                            target=ref,
-                            label=attr_name,
-                        ))
+                    if (
+                        ref
+                        and not ref.startswith("var.")
+                        and not ref.startswith("local.")
+                    ):
+                        stack.edges.append(
+                            TopologyEdge(
+                                source=res_address,
+                                target=ref,
+                                label=attr_name,
+                            )
+                        )
 
         # Recurse into child modules
         for child in config_module.get("module_calls", {}).values():
@@ -330,6 +539,7 @@ class TopologyGenerator:
 
 # ── Mermaid Renderer ────────────────────────────────────────────────────────
 
+
 class MermaidTopologyRenderer:
     """Render InfraTopology as a Mermaid diagram with AWS icons."""
 
@@ -344,11 +554,11 @@ class MermaidTopologyRenderer:
 
     def render(self, topology: InfraTopology, show_unchanged: bool = True) -> str:
         """Render topology as Mermaid flowchart diagram.
-        
+
         Args:
             topology: The infrastructure topology to render
             show_unchanged: If False, only show changed resources
-            
+
         Returns:
             Mermaid diagram string
         """
@@ -396,7 +606,11 @@ class MermaidTopologyRenderer:
                     if p.startswith("module"):
                         continue
                     bare_parts.append(p.split("[")[0])
-                bare_key = ".".join(bare_parts[-2:]) if len(bare_parts) >= 2 else ".".join(bare_parts)
+                bare_key = (
+                    ".".join(bare_parts[-2:])
+                    if len(bare_parts) >= 2
+                    else ".".join(bare_parts)
+                )
                 node_id = self._sanitize_id(node.address)
                 if node_id in valid_node_ids:
                     bare_to_node_id[self._sanitize_id(bare_key)] = node_id
@@ -431,21 +645,27 @@ class MermaidTopologyRenderer:
                             break
 
                 edge_pair = (resolved_source, resolved_target)
-                if (resolved_source in valid_node_ids and resolved_target in valid_node_ids
-                        and resolved_source != resolved_target and edge_pair not in seen_edges):
+                if (
+                    resolved_source in valid_node_ids
+                    and resolved_target in valid_node_ids
+                    and resolved_source != resolved_target
+                    and edge_pair not in seen_edges
+                ):
                     seen_edges.add(edge_pair)
                     lines.append(f"    {resolved_source} -.-> {resolved_target}")
                     edge_count += 1
 
         # Add classDefs for action styling
-        lines.extend([
-            "",
-            "    classDef existingNode fill:#e8f5e9,stroke:#4caf50,stroke-width:1px,color:#2e7d32",
-            "    classDef createNode fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#0d47a1",
-            "    classDef updateNode fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#e65100",
-            "    classDef deleteNode fill:#ffebee,stroke:#d32f2f,stroke-width:3px,color:#b71c1c,stroke-dasharray: 5 5",
-            "    classDef replaceNode fill:#fce4ec,stroke:#c2185b,stroke-width:3px,color:#880e4f",
-        ])
+        lines.extend(
+            [
+                "",
+                "    classDef existingNode fill:#e8f5e9,stroke:#4caf50,stroke-width:1px,color:#2e7d32",
+                "    classDef createNode fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#0d47a1",
+                "    classDef updateNode fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#e65100",
+                "    classDef deleteNode fill:#ffebee,stroke:#d32f2f,stroke-width:3px,color:#b71c1c,stroke-dasharray: 5 5",
+                "    classDef replaceNode fill:#fce4ec,stroke:#c2185b,stroke-width:3px,color:#880e4f",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -474,13 +694,16 @@ class MermaidTopologyRenderer:
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
+
 def generate_topology(plan_dir: str, project_name: str = "") -> InfraTopology:
     """Generate infrastructure topology from plan files."""
     generator = TopologyGenerator()
     return generator.generate_from_plans(plan_dir, project_name)
 
 
-def render_topology_mermaid(topology: InfraTopology, show_unchanged: bool = True) -> str:
+def render_topology_mermaid(
+    topology: InfraTopology, show_unchanged: bool = True
+) -> str:
     """Render topology as Mermaid diagram string."""
     renderer = MermaidTopologyRenderer()
     return renderer.render(topology, show_unchanged)

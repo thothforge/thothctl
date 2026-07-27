@@ -1,13 +1,11 @@
 """Trivy IaC misconfiguration scanner — per-stack with HTML reports."""
+
 import json
 import logging
 import os
 import subprocess
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Optional
-
-from jinja2 import Environment, FileSystemLoader
 
 from ....core.cli_ui import ScannerUI
 from ....utils.platform_utils import find_executable
@@ -61,7 +59,15 @@ class TrivyScanner(ScannerPort):
             os.makedirs(stack_report_dir, exist_ok=True)
             json_report = os.path.join(stack_report_dir, "results.json")
 
-            cmd = [trivy, "config", "--format", "json", "--output", json_report, stack_dir]
+            cmd = [
+                trivy,
+                "config",
+                "--format",
+                "json",
+                "--output",
+                json_report,
+                stack_dir,
+            ]
             if options and options.get("severity"):
                 cmd.insert(3, "--severity")
                 cmd.insert(4, options["severity"])
@@ -81,13 +87,25 @@ class TrivyScanner(ScannerPort):
                 tfplan_report = os.path.join(stack_report_dir, "tfplan_results.json")
                 # If tfplan.json exists, scan it directly; otherwise scan the dir
                 scan_target = tfplan_json if os.path.exists(tfplan_json) else tfplan_dir
-                tfplan_cmd = [trivy, "config", "--format", "json", "--output", tfplan_report, scan_target]
+                tfplan_cmd = [
+                    trivy,
+                    "config",
+                    "--format",
+                    "json",
+                    "--output",
+                    tfplan_report,
+                    scan_target,
+                ]
                 if options and options.get("severity"):
                     tfplan_cmd.insert(3, "--severity")
                     tfplan_cmd.insert(4, options["severity"])
                 try:
-                    subprocess.run(tfplan_cmd, capture_output=True, text=True, timeout=120)
-                    tp_passed, tp_failed, tp_findings = self._parse_stack_results(tfplan_report)
+                    subprocess.run(
+                        tfplan_cmd, capture_output=True, text=True, timeout=120
+                    )
+                    tp_passed, tp_failed, tp_findings = self._parse_stack_results(
+                        tfplan_report
+                    )
                     passed += tp_passed
                     failed += tp_failed
                     # Deduplicate findings by ID+resource (same check may fire on both .tf and plan)
@@ -96,7 +114,9 @@ class TrivyScanner(ScannerPort):
                         if f["id"] + f.get("resource", "") not in existing_ids:
                             findings.append(f)
                 except (subprocess.TimeoutExpired, Exception) as e:
-                    self.logger.warning(f"Trivy tfplan scan failed for {stack_name}: {e}")
+                    self.logger.warning(
+                        f"Trivy tfplan scan failed for {stack_name}: {e}"
+                    )
 
             total_passed += passed
             total_failed += failed
@@ -133,12 +153,19 @@ class TrivyScanner(ScannerPort):
 
     def _find_stacks(self, directory: str) -> List[str]:
         """Find directories with .tf files, excluding internal dirs.
-        
-        Returns a list of stack dirs. tfplan/ dirs are NOT separate stacks — 
+
+        Returns a list of stack dirs. tfplan/ dirs are NOT separate stacks —
         they'll be scanned and merged into their corresponding stack in the scan loop.
         """
         stacks = []
-        exclude = {".terraform", ".git", "node_modules", ".terragrunt-cache", "Reports", "cdk.out"}
+        exclude = {
+            ".terraform",
+            ".git",
+            "node_modules",
+            ".terragrunt-cache",
+            "Reports",
+            "cdk.out",
+        }
 
         for dirpath, dirnames, filenames in os.walk(directory):
             dirnames[:] = [d for d in dirnames if d not in exclude]
@@ -152,12 +179,12 @@ class TrivyScanner(ScannerPort):
 
     def _find_tfplan_for_stack(self, abs_dir: str, stack_dir: str) -> Optional[str]:
         """Find the corresponding tfplan directory for a stack, if it exists.
-        
+
         Pattern: stacks/foundation/network/vpc → stacks/tfplan/foundation/network/vpc
         """
         rel = os.path.relpath(stack_dir, abs_dir)
         parts = rel.split(os.sep)
-        
+
         # Insert 'tfplan' after the first directory (e.g., stacks/ → stacks/tfplan/)
         if len(parts) >= 2:
             tfplan_parts = [parts[0], "tfplan"] + parts[1:]
@@ -167,7 +194,7 @@ class TrivyScanner(ScannerPort):
                 or any(f.endswith(".tf") for f in os.listdir(tfplan_dir))
             ):
                 return tfplan_dir
-        
+
         return None
 
     def _parse_stack_results(self, json_path: str):
@@ -196,14 +223,16 @@ class TrivyScanner(ScannerPort):
                     continue
                 severity = (misconf.get("Severity") or "MEDIUM").upper()
                 cause = misconf.get("CauseMetadata", {})
-                findings.append({
-                    "id": misconf.get("AVDID") or misconf.get("ID", ""),
-                    "severity": severity,
-                    "title": misconf.get("Title", ""),
-                    "resource": cause.get("Resource", ""),
-                    "file": cause.get("Filename", target),
-                    "line": cause.get("StartLine", 0),
-                })
+                findings.append(
+                    {
+                        "id": misconf.get("AVDID") or misconf.get("ID", ""),
+                        "severity": severity,
+                        "title": misconf.get("Title", ""),
+                        "resource": cause.get("Resource", ""),
+                        "file": cause.get("Filename", target),
+                        "line": cause.get("StartLine", 0),
+                    }
+                )
 
         return passed, failed, findings
 
@@ -225,21 +254,25 @@ class TrivyScanner(ScannerPort):
             with open(html_file, "w", encoding="utf-8") as f:
                 f.write(html)
 
-            stack_reports.append({
-                "name": stack_name,
-                "file": f"report_{stack_name}.html",
-                "passed": passed,
-                "failed": failed,
-                "total": total,
-                "rate": round(passed / total * 100, 1) if total > 0 else 100.0,
-            })
+            stack_reports.append(
+                {
+                    "name": stack_name,
+                    "file": f"report_{stack_name}.html",
+                    "passed": passed,
+                    "failed": failed,
+                    "total": total,
+                    "rate": round(passed / total * 100, 1) if total > 0 else 100.0,
+                }
+            )
 
         # Generate index
         index_html = self._render_index_html(stack_reports)
         with open(os.path.join(html_dir, "index.html"), "w", encoding="utf-8") as f:
             f.write(index_html)
 
-    def _render_stack_html(self, stack_name: str, passed: int, failed: int, findings: List[Dict]) -> str:
+    def _render_stack_html(
+        self, stack_name: str, passed: int, failed: int, findings: List[Dict]
+    ) -> str:
         """Render a single stack HTML report using ThothCTL unified style."""
         total = passed + failed
         rate = round(passed / total * 100, 1) if total > 0 else 100.0
@@ -250,10 +283,10 @@ class TrivyScanner(ScannerPort):
             sev_class = sev.lower()
             rows += f"""<tr>
                 <td><span class="sev {sev_class}">{sev}</span></td>
-                <td><code>{f.get('id','')}</code></td>
-                <td>{f.get('title','')}</td>
-                <td>{f.get('file','')}:{f.get('line',0)}</td>
-                <td>{f.get('resource','')}</td>
+                <td><code>{f.get("id", "")}</code></td>
+                <td>{f.get("title", "")}</td>
+                <td>{f.get("file", "")}:{f.get("line", 0)}</td>
+                <td>{f.get("resource", "")}</td>
             </tr>"""
 
         return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -281,7 +314,7 @@ a{{color:#667eea}} code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;fo
 @media print{{body{{background:white;padding:0}} .container{{box-shadow:none}}}}
 </style></head><body>
 <div class="container">
-<div class="header"><h1>🛡️ Security Scan<span class="tool-badge">Trivy</span></h1><p>{stack_name.replace('_','/')}</p></div>
+<div class="header"><h1>🛡️ Security Scan<span class="tool-badge">Trivy</span></h1><p>{stack_name.replace("_", "/")}</p></div>
 <div class="content">
 <div class="cards">
 <div class="card"><div class="val">{total}</div><div class="lbl">Total</div></div>
@@ -289,7 +322,7 @@ a{{color:#667eea}} code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;fo
 <div class="card"><div class="val fail">{failed}</div><div class="lbl">Failed</div></div>
 <div class="card"><div class="val rate">{rate}%</div><div class="lbl">Success Rate</div></div>
 </div>
-{'<table><thead><tr><th>Severity</th><th>Rule</th><th>Title</th><th>File</th><th>Resource</th></tr></thead><tbody>' + rows + '</tbody></table>' if findings else '<p style="color:#10b981;font-weight:600">✅ No misconfigurations found</p>'}
+{"<table><thead><tr><th>Severity</th><th>Rule</th><th>Title</th><th>File</th><th>Resource</th></tr></thead><tbody>" + rows + "</tbody></table>" if findings else '<p style="color:#10b981;font-weight:600">✅ No misconfigurations found</p>'}
 </div>
 <div class="footer"><a href="index.html">← Back to index</a> | Generated by ThothCTL</div>
 </div></body></html>"""
@@ -300,15 +333,17 @@ a{{color:#667eea}} code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;fo
         total_passed = sum(s["passed"] for s in stack_reports)
         total_failed = sum(s["failed"] for s in stack_reports)
         total_all = total_passed + total_failed
-        overall_rate = round(total_passed / total_all * 100, 1) if total_all > 0 else 100.0
+        overall_rate = (
+            round(total_passed / total_all * 100, 1) if total_all > 0 else 100.0
+        )
 
         rows = ""
         for s in sorted(stack_reports, key=lambda x: x["failed"], reverse=True):
             status = "✅" if s["failed"] == 0 else "❌"
             rows += f"""<tr>
-                <td><a href="{s['file']}">{s['name'].replace('_','/')}</a></td>
-                <td>{s['total']}</td><td>{s['passed']}</td><td>{s['failed']}</td>
-                <td>{s['rate']}%</td><td>{status}</td></tr>"""
+                <td><a href="{s["file"]}">{s["name"].replace("_", "/")}</a></td>
+                <td>{s["total"]}</td><td>{s["passed"]}</td><td>{s["failed"]}</td>
+                <td>{s["rate"]}%</td><td>{status}</td></tr>"""
 
         return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Trivy Scan Results</title>
@@ -331,7 +366,7 @@ tr:hover{{background:#f9fafb}}
 @media print{{body{{background:white;padding:0}} .container{{box-shadow:none}}}}
 </style></head><body>
 <div class="container">
-<div class="header"><h1>🛡️ Security Scan Results<span class="tool-badge">Trivy</span></h1><p>{total_stacks} stacks scanned — {datetime.now().strftime('%Y-%m-%d %H:%M')}</p></div>
+<div class="header"><h1>🛡️ Security Scan Results<span class="tool-badge">Trivy</span></h1><p>{total_stacks} stacks scanned — {datetime.now().strftime("%Y-%m-%d %H:%M")}</p></div>
 <div class="content">
 <div class="summary">
 <div class="card"><div class="val">{total_stacks}</div><div class="lbl">Stacks</div></div>

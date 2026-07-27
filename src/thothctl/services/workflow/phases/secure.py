@@ -1,7 +1,8 @@
 """Secure phase: security scanning, compliance, vulnerability detection."""
+
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from ..models import Phase, PhaseResult, StepResult, StepStatus
 from .base import PhaseExecutor
@@ -18,7 +19,9 @@ class SecurePhaseExecutor(PhaseExecutor):
 
     @property
     def description(self) -> str:
-        return "\U0001f512 Secure — Security scanning, compliance, vulnerability detection"
+        return (
+            "\U0001f512 Secure — Security scanning, compliance, vulnerability detection"
+        )
 
     def execute(
         self,
@@ -66,16 +69,18 @@ class SecurePhaseExecutor(PhaseExecutor):
                 if failed == 0 and warnings > 0:
                     status = StepStatus.WARNING
 
-                result.steps.append(StepResult(
-                    name=f"scan-{tool_name}",
-                    status=status,
-                    command=f"thothctl scan iac -t {tool_name}",
-                    duration_seconds=duration / tool_count,
-                    summary=f"{passed_count} passed, {failed} failed, {warnings} warnings",
-                    report_path=tool_result.get("report_path"),
-                    findings_count=failed,
-                    details=rd,
-                ))
+                result.steps.append(
+                    StepResult(
+                        name=f"scan-{tool_name}",
+                        status=status,
+                        command=f"thothctl scan iac -t {tool_name}",
+                        duration_seconds=duration / tool_count,
+                        summary=f"{passed_count} passed, {failed} failed, {warnings} warnings",
+                        report_path=tool_result.get("report_path"),
+                        findings_count=failed,
+                        details=rd,
+                    )
+                )
 
             # Gate logic
             total_failures = sum(s.findings_count for s in result.steps)
@@ -86,13 +91,15 @@ class SecurePhaseExecutor(PhaseExecutor):
 
         except Exception as e:
             logger.error(f"Secure phase failed: {e}")
-            result.steps.append(StepResult(
-                name="scan-error",
-                status=StepStatus.FAILED,
-                command="thothctl scan iac",
-                summary=str(e),
-                findings_count=1,
-            ))
+            result.steps.append(
+                StepResult(
+                    name="scan-error",
+                    status=StepStatus.FAILED,
+                    command="thothctl scan iac",
+                    summary=str(e),
+                    findings_count=1,
+                )
+            )
             result.passed = False
 
         return result

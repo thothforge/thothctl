@@ -1,4 +1,5 @@
 """Tests for scan iac PR comment integration."""
+
 from thothctl.commands.scan.commands.iac import RestoredIaCScanCommand
 
 
@@ -31,11 +32,21 @@ class TestBuildScanMarkdown:
         results = {
             "checkov": {
                 "status": "COMPLETE",
-                "report_data": {"passed_count": 10, "failed_count": 2, "error_count": 0, "skipped_count": 0},
+                "report_data": {
+                    "passed_count": 10,
+                    "failed_count": 2,
+                    "error_count": 0,
+                    "skipped_count": 0,
+                },
             },
             "trivy": {
                 "status": "COMPLETE",
-                "report_data": {"passed_count": 5, "failed_count": 1, "error_count": 0, "skipped_count": 0},
+                "report_data": {
+                    "passed_count": 5,
+                    "failed_count": 1,
+                    "error_count": 0,
+                    "skipped_count": 0,
+                },
             },
             "summary": {"total_issues": 3},
         }
@@ -49,7 +60,12 @@ class TestBuildScanMarkdown:
         results = {
             "checkov": {
                 "status": "COMPLETE",
-                "report_data": {"passed_count": 50, "failed_count": 0, "error_count": 0, "skipped_count": 0},
+                "report_data": {
+                    "passed_count": 50,
+                    "failed_count": 0,
+                    "error_count": 0,
+                    "skipped_count": 0,
+                },
             },
             "summary": {"total_issues": 0},
         }

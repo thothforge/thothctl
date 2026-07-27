@@ -1,9 +1,10 @@
 """Clean up files and folders into a project."""
+
+import os
 import shutil
 from pathlib import Path
 
 import inquirer
-import os
 from colorama import Fore
 
 from ....common.common import dump_iac_conf, load_iac_conf

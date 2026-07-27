@@ -1,12 +1,16 @@
 """Analyze command - AI-powered scan result and code analysis."""
+
 import logging
 
 import click
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 from ....services.ai_review.ai_agent import AIReviewAgent
-from ....services.ai_review.utils.formatters import format_analysis_as_markdown, format_analysis_as_json
+from ....services.ai_review.utils.formatters import (
+    format_analysis_as_json,
+    format_analysis_as_markdown,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +32,15 @@ class AnalyzeCommand(ClickCommand):
                 return False
         return True
 
-    def _execute(self, directory=None, scan_results=None,
-                 provider=None, model=None, output="markdown", **kwargs):
+    def _execute(
+        self,
+        directory=None,
+        scan_results=None,
+        provider=None,
+        model=None,
+        output="markdown",
+        **kwargs,
+    ):
         ctx = click.get_current_context()
         code_directory = ctx.obj.get("CODE_DIRECTORY", ".")
         target = scan_results or directory or code_directory
@@ -76,26 +87,31 @@ class AnalyzeCommand(ClickCommand):
 
 cli = AnalyzeCommand.as_click_command(name="analyze")(
     click.option(
-        "-d", "--directory",
+        "-d",
+        "--directory",
         type=click.Path(exists=True),
         help="Directory to analyze",
     ),
     click.option(
-        "-s", "--scan-results",
+        "-s",
+        "--scan-results",
         type=click.Path(exists=True),
         help="Existing scan results directory",
     ),
     click.option(
-        "-p", "--provider",
+        "-p",
+        "--provider",
         type=click.Choice(["openai", "bedrock", "bedrock_agent", "azure", "ollama"]),
         help="AI provider",
     ),
     click.option(
-        "-m", "--model",
+        "-m",
+        "--model",
         help="Specific model to use",
     ),
     click.option(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=click.Choice(["json", "markdown", "html"]),
         default="markdown",
         help="Output format",

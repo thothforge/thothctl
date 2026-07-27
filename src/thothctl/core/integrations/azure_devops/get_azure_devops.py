@@ -1,14 +1,15 @@
 """Get azure devops projects and templates."""
+
+import os
 import shutil
 
 import git
 import inquirer
-import os
 from azure.devops.connection import Connection
 from colorama import Fore
 from msrest.authentication import BasicAuthentication
 
-from ..pattern_names  import allowed_pattern_prefixes, allowed_pattern_suffixes
+from ..pattern_names import allowed_pattern_prefixes, allowed_pattern_suffixes
 
 
 def create_connection(personal_access_token, organization_url):

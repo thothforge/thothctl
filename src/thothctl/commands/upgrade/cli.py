@@ -1,4 +1,5 @@
 """ThothCTL upgrade command implementation."""
+
 import logging
 import subprocess
 import sys
@@ -9,7 +10,6 @@ import requests
 
 from ...core.cli_ui import CliUI
 from ...core.commands import ClickCommand
-
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,9 @@ class UpgradeCommand(ClickCommand):
                 self.ui.print_success("✅ ThothCTL is already up to date!")
                 return
 
-            self.ui.print_warning(f"⚠️  Update available: {current_version} → {latest_version}")
+            self.ui.print_warning(
+                f"⚠️  Update available: {current_version} → {latest_version}"
+            )
 
             if check_only:
                 self.ui.print_info("💡 Run 'thothctl upgrade' to install the update")
@@ -62,7 +64,7 @@ class UpgradeCommand(ClickCommand):
     def _get_current_version(self) -> str:
         """Get current thothctl version."""
         try:
-            return version('thothctl')
+            return version("thothctl")
         except Exception:
             return "unknown"
 
@@ -75,7 +77,9 @@ class UpgradeCommand(ClickCommand):
             return data["info"]["version"]
         except Exception as e:
             logger.error(f"Failed to get latest version: {e}")
-            raise Exception("Unable to check for updates. Please check your internet connection.")
+            raise Exception(
+                "Unable to check for updates. Please check your internet connection."
+            )
 
     def _confirm_upgrade(self, current: str, latest: str) -> bool:
         """Confirm upgrade with user."""
@@ -84,32 +88,32 @@ class UpgradeCommand(ClickCommand):
     def _perform_upgrade(self) -> None:
         """Perform the actual upgrade."""
         self.ui.print_info("🚀 Upgrading thothctl...")
-        
+
         try:
             # Use pip to upgrade thothctl with --break-system-packages flag
             cmd = [
-                sys.executable, 
-                "-m", 
-                "pip", 
-                "install", 
-                "--upgrade", 
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
                 "--break-system-packages",
-                "thothctl"
+                "thothctl",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+
             self.ui.print_success("✅ ThothCTL upgraded successfully!")
-            self.ui.print_info("💡 Restart your terminal or run 'hash -r' to use the new version")
-            
+            self.ui.print_info(
+                "💡 Restart your terminal or run 'hash -r' to use the new version"
+            )
+
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr if e.stderr else str(e)
             raise Exception(f"Upgrade failed: {error_msg}")
 
 
 # Create the Click command
-cli = UpgradeCommand.as_click_command(
-    help="Upgrade thothctl to the latest version"
-)(
+cli = UpgradeCommand.as_click_command(help="Upgrade thothctl to the latest version")(
     click.option(
         "--check-only",
         is_flag=True,

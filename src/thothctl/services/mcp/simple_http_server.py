@@ -1,22 +1,19 @@
 """Simplified HTTP MCP server for ThothCTL."""
 
-import asyncio
-import json
+import atexit
 import logging
 import os
-import atexit
-from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 import uvicorn
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse
-from starlette.routing import Route
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
-from ...version import __version__
 from ...core.cli_ui import CliUI
+from ...version import __version__
 
 # Initialize CLI UI
 ui = CliUI()
@@ -24,14 +21,15 @@ ui = CliUI()
 # Configure logging
 logger = logging.getLogger("thothctl-mcp-http")
 
+
 class SimpleHTTPMCPServer:
     """Simplified HTTP MCP server for ThothCTL."""
-    
+
     def __init__(self, host: str = "localhost", port: int = 8080):
         self.host = host
         self.port = port
         self.tools = self._get_available_tools()
-    
+
     def _get_available_tools(self) -> list:
         """Get list of available tools."""
         return [
@@ -41,22 +39,32 @@ class SimpleHTTPMCPServer:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "project_name": {"type": "string", "description": "Name of the project"},
-                        "directory": {"type": "string", "description": "Directory to initialize in", "default": "."},
-                        "space": {"type": "string", "description": "Space name (optional)"}
+                        "project_name": {
+                            "type": "string",
+                            "description": "Name of the project",
+                        },
+                        "directory": {
+                            "type": "string",
+                            "description": "Directory to initialize in",
+                            "default": ".",
+                        },
+                        "space": {
+                            "type": "string",
+                            "description": "Space name (optional)",
+                        },
                     },
-                    "required": ["project_name"]
-                }
+                    "required": ["project_name"],
+                },
             },
             {
                 "name": "thothctl_list_projects",
                 "description": "List all projects managed by ThothCTL",
-                "parameters": {"type": "object", "properties": {}}
+                "parameters": {"type": "object", "properties": {}},
             },
             {
                 "name": "thothctl_list_spaces",
                 "description": "List all spaces managed by ThothCTL",
-                "parameters": {"type": "object", "properties": {}}
+                "parameters": {"type": "object", "properties": {}},
             },
             {
                 "name": "thothctl_inventory",
@@ -66,9 +74,13 @@ class SimpleHTTPMCPServer:
                     "properties": {
                         "directory": {"type": "string", "default": "."},
                         "check_versions": {"type": "boolean", "default": False},
-                        "report_type": {"type": "string", "enum": ["html", "json", "all"], "default": "html"}
-                    }
-                }
+                        "report_type": {
+                            "type": "string",
+                            "enum": ["html", "json", "all"],
+                            "default": "html",
+                        },
+                    },
+                },
             },
             {
                 "name": "thothctl_scan",
@@ -79,28 +91,42 @@ class SimpleHTTPMCPServer:
                         "directory": {"type": "string", "default": "."},
                         "tools": {
                             "type": "array",
-                            "items": {"type": "string", "enum": ["checkov", "trivy", "tfsec", "kics", "terraform-compliance", "opa"]},
-                            "default": ["checkov"]
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "checkov",
+                                    "trivy",
+                                    "tfsec",
+                                    "kics",
+                                    "terraform-compliance",
+                                    "opa",
+                                ],
+                            },
+                            "default": ["checkov"],
                         },
                         "enforcement": {
                             "type": "string",
                             "enum": ["soft", "hard"],
                             "description": "soft=report only, hard=exit 1 on violations",
-                            "default": "soft"
+                            "default": "soft",
                         },
                         "reports_dir": {"type": "string", "default": "Reports"},
-                        "tftool": {"type": "string", "enum": ["terraform", "tofu"], "default": "tofu"},
+                        "tftool": {
+                            "type": "string",
+                            "enum": ["terraform", "tofu"],
+                            "default": "tofu",
+                        },
                         "options": {
                             "type": "string",
-                            "description": "Additional key=value options. For OPA: mode=conftest|opa, policy_dir=path, decision=path"
-                        }
-                    }
-                }
+                            "description": "Additional key=value options. For OPA: mode=conftest|opa, policy_dir=path, decision=path",
+                        },
+                    },
+                },
             },
             {
                 "name": "thothctl_version",
                 "description": "Get ThothCTL version",
-                "parameters": {"type": "object", "properties": {}}
+                "parameters": {"type": "object", "properties": {}},
             },
             {
                 "name": "thothctl_cost_analysis",
@@ -109,9 +135,9 @@ class SimpleHTTPMCPServer:
                     "type": "object",
                     "properties": {
                         "directory": {"type": "string", "default": "."},
-                        "recursive": {"type": "boolean", "default": False}
-                    }
-                }
+                        "recursive": {"type": "boolean", "default": False},
+                    },
+                },
             },
             {
                 "name": "thothctl_drift_detection",
@@ -121,13 +147,23 @@ class SimpleHTTPMCPServer:
                     "properties": {
                         "directory": {"type": "string", "default": "."},
                         "recursive": {"type": "boolean", "default": False},
-                        "tftool": {"type": "string", "enum": ["terraform", "tofu"], "default": "tofu"},
-                        "filter_tags": {"type": "string", "description": "Tag filter (e.g. 'env=prod,team=platform')"},
-                        "ai_provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
+                        "tftool": {
+                            "type": "string",
+                            "enum": ["terraform", "tofu"],
+                            "default": "tofu",
+                        },
+                        "filter_tags": {
+                            "type": "string",
+                            "description": "Tag filter (e.g. 'env=prod,team=platform')",
+                        },
+                        "ai_provider": {
+                            "type": "string",
+                            "enum": ["openai", "bedrock", "azure", "ollama"],
+                        },
                         "ai_model": {"type": "string"},
-                        "project_name": {"type": "string"}
-                    }
-                }
+                        "project_name": {"type": "string"},
+                    },
+                },
             },
             {
                 "name": "thothctl_ai_review",
@@ -136,14 +172,33 @@ class SimpleHTTPMCPServer:
                     "type": "object",
                     "properties": {
                         "directory": {"type": "string", "default": "."},
-                        "provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
+                        "provider": {
+                            "type": "string",
+                            "enum": ["openai", "bedrock", "azure", "ollama"],
+                        },
                         "model": {"type": "string"},
-                        "mode": {"type": "string", "enum": ["analyze", "decide", "improve", "orchestrate"], "default": "analyze"},
-                        "scan_results": {"type": "string", "description": "Path to existing scan results to analyze"},
-                        "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
-                        "agents": {"type": "array", "items": {"type": "string", "enum": ["security", "architecture", "fix", "decision"]}}
-                    }
-                }
+                        "mode": {
+                            "type": "string",
+                            "enum": ["analyze", "decide", "improve", "orchestrate"],
+                            "default": "analyze",
+                        },
+                        "scan_results": {
+                            "type": "string",
+                            "description": "Path to existing scan results to analyze",
+                        },
+                        "severity": {
+                            "type": "string",
+                            "enum": ["critical", "high", "medium", "low"],
+                        },
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["security", "architecture", "fix", "decision"],
+                            },
+                        },
+                    },
+                },
             },
             {
                 "name": "thothctl_remove_project",
@@ -151,10 +206,13 @@ class SimpleHTTPMCPServer:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "project_name": {"type": "string", "description": "Name of the project to remove"}
+                        "project_name": {
+                            "type": "string",
+                            "description": "Name of the project to remove",
+                        }
                     },
-                    "required": ["project_name"]
-                }
+                    "required": ["project_name"],
+                },
             },
             {
                 "name": "thothctl_init_space",
@@ -162,11 +220,14 @@ class SimpleHTTPMCPServer:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "space_name": {"type": "string", "description": "Name of the space"},
-                        "directory": {"type": "string", "default": "."}
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of the space",
+                        },
+                        "directory": {"type": "string", "default": "."},
                     },
-                    "required": ["space_name"]
-                }
+                    "required": ["space_name"],
+                },
             },
             {
                 "name": "thothctl_remove_space",
@@ -174,10 +235,13 @@ class SimpleHTTPMCPServer:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "space_name": {"type": "string", "description": "Name of the space to remove"}
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of the space to remove",
+                        }
                     },
-                    "required": ["space_name"]
-                }
+                    "required": ["space_name"],
+                },
             },
             {
                 "name": "thothctl_get_projects_in_space",
@@ -187,28 +251,24 @@ class SimpleHTTPMCPServer:
                     "properties": {
                         "space_name": {"type": "string", "description": "Space name"}
                     },
-                    "required": ["space_name"]
-                }
+                    "required": ["space_name"],
+                },
             },
             {
                 "name": "thothctl_project_bootstrap",
                 "description": "Bootstrap existing projects with ThothCTL support",
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "directory": {"type": "string", "default": "."}
-                    }
-                }
+                    "properties": {"directory": {"type": "string", "default": "."}},
+                },
             },
             {
                 "name": "thothctl_project_cleanup",
                 "description": "Clean up residual files and directories from your project",
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "directory": {"type": "string", "default": "."}
-                    }
-                }
+                    "properties": {"directory": {"type": "string", "default": "."}},
+                },
             },
             {
                 "name": "thothctl_project_convert",
@@ -217,9 +277,12 @@ class SimpleHTTPMCPServer:
                     "type": "object",
                     "properties": {
                         "directory": {"type": "string", "default": "."},
-                        "target_format": {"type": "string", "description": "Target format for conversion"}
-                    }
-                }
+                        "target_format": {
+                            "type": "string",
+                            "description": "Target format for conversion",
+                        },
+                    },
+                },
             },
             {
                 "name": "thothctl_project_upgrade",
@@ -228,9 +291,12 @@ class SimpleHTTPMCPServer:
                     "type": "object",
                     "properties": {
                         "directory": {"type": "string", "default": "."},
-                        "template_url": {"type": "string", "description": "URL of the template to upgrade from"}
-                    }
-                }
+                        "template_url": {
+                            "type": "string",
+                            "description": "URL of the template to upgrade from",
+                        },
+                    },
+                },
             },
             {
                 "name": "thothctl_generate",
@@ -238,21 +304,22 @@ class SimpleHTTPMCPServer:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "template": {"type": "string", "description": "Template to generate from"},
-                        "output": {"type": "string", "default": "."}
+                        "template": {
+                            "type": "string",
+                            "description": "Template to generate from",
+                        },
+                        "output": {"type": "string", "default": "."},
                     },
-                    "required": ["template"]
-                }
+                    "required": ["template"],
+                },
             },
             {
                 "name": "thothctl_document",
                 "description": "Generate documentation for IaC projects",
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "directory": {"type": "string", "default": "."}
-                    }
-                }
+                    "properties": {"directory": {"type": "string", "default": "."}},
+                },
             },
             {
                 "name": "thothctl_check",
@@ -261,9 +328,13 @@ class SimpleHTTPMCPServer:
                     "type": "object",
                     "properties": {
                         "directory": {"type": "string", "default": "."},
-                        "check_type": {"type": "string", "enum": ["environment", "project", "space"], "default": "project"}
-                    }
-                }
+                        "check_type": {
+                            "type": "string",
+                            "enum": ["environment", "project", "space"],
+                            "default": "project",
+                        },
+                    },
+                },
             },
             {
                 "name": "thothctl_project",
@@ -271,21 +342,22 @@ class SimpleHTTPMCPServer:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "action": {"type": "string", "enum": ["bootstrap", "cleanup", "convert", "upgrade"]},
-                        "directory": {"type": "string", "default": "."}
+                        "action": {
+                            "type": "string",
+                            "enum": ["bootstrap", "cleanup", "convert", "upgrade"],
+                        },
+                        "directory": {"type": "string", "default": "."},
                     },
-                    "required": ["action"]
-                }
+                    "required": ["action"],
+                },
             },
             {
                 "name": "thothctl_upgrade",
                 "description": "Upgrade thothctl to the latest version",
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "check_only": {"type": "boolean", "default": False}
-                    }
-                }
+                    "properties": {"check_only": {"type": "boolean", "default": False}},
+                },
             },
             {
                 "name": "thothctl_workflow_devsecops",
@@ -293,64 +365,82 @@ class SimpleHTTPMCPServer:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "phase": {"type": "string", "enum": ["plan", "develop", "build", "test", "secure", "deploy", "monitor", "pre-deploy", "all"], "default": "all", "description": "SDLC phase to execute"},
-                        "enforcement": {"type": "string", "enum": ["soft", "hard"], "default": "soft", "description": "soft=report only, hard=exit 1 on violations"},
-                        "policy_dir": {"type": "string", "description": "OPA policy directory or Git URL for secure phase"},
-                        "tools": {"type": "array", "items": {"type": "string"}, "description": "Override scan tools for secure phase"}
-                    }
-                }
-            }
+                        "phase": {
+                            "type": "string",
+                            "enum": [
+                                "plan",
+                                "develop",
+                                "build",
+                                "test",
+                                "secure",
+                                "deploy",
+                                "monitor",
+                                "pre-deploy",
+                                "all",
+                            ],
+                            "default": "all",
+                            "description": "SDLC phase to execute",
+                        },
+                        "enforcement": {
+                            "type": "string",
+                            "enum": ["soft", "hard"],
+                            "default": "soft",
+                            "description": "soft=report only, hard=exit 1 on violations",
+                        },
+                        "policy_dir": {
+                            "type": "string",
+                            "description": "OPA policy directory or Git URL for secure phase",
+                        },
+                        "tools": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Override scan tools for secure phase",
+                        },
+                    },
+                },
+            },
         ]
-    
+
     async def health_check(self, request):
         """Health check endpoint."""
-        return JSONResponse({
-            "status": "ok",
-            "version": __version__,
-            "server": "ThothCTL MCP Server"
-        })
-    
+        return JSONResponse(
+            {"status": "ok", "version": __version__, "server": "ThothCTL MCP Server"}
+        )
+
     async def list_tools(self, request):
         """List available tools endpoint."""
-        return JSONResponse({
-            "tools": self.tools
-        })
-    
+        return JSONResponse({"tools": self.tools})
+
     async def execute_tool(self, request):
         """Execute a tool endpoint."""
         try:
             body = await request.json()
             tool_name = body.get("tool")
             arguments = body.get("arguments", {})
-            
+
             if not tool_name:
                 return JSONResponse(
-                    {"error": "Missing 'tool' parameter"},
-                    status_code=400
+                    {"error": "Missing 'tool' parameter"}, status_code=400
                 )
-            
+
             # Execute the tool using subprocess (same as Amazon Q server)
             result = await self._execute_thothctl_command(tool_name, arguments)
-            
-            return JSONResponse({
-                "result": result,
-                "status": "success"
-            })
-            
+
+            return JSONResponse({"result": result, "status": "success"})
+
         except Exception as e:
             logger.error(f"Error executing tool: {e}")
-            return JSONResponse(
-                {"error": str(e), "status": "error"},
-                status_code=500
-            )
-    
-    async def _execute_thothctl_command(self, name: str, arguments: Dict[str, Any]) -> str:
+            return JSONResponse({"error": str(e), "status": "error"}, status_code=500)
+
+    async def _execute_thothctl_command(
+        self, name: str, arguments: Dict[str, Any]
+    ) -> str:
         """Execute a ThothCTL command."""
         import subprocess
-        
+
         # Build the command (same logic as Amazon Q server)
         cmd = ["thothctl"]
-        
+
         if name == "thothctl_init_project":
             cmd.extend(["init", "project", "--project-name", arguments["project_name"]])
             if arguments.get("space"):
@@ -459,7 +549,7 @@ class SimpleHTTPMCPServer:
                     cmd.extend(["-t", tool])
         else:
             return f"Unknown tool: {name}"
-        
+
         # Execute the command
         try:
             directory = arguments.get("directory", ".")
@@ -468,9 +558,9 @@ class SimpleHTTPMCPServer:
                 capture_output=True,
                 text=True,
                 timeout=300,
-                cwd=directory if directory != "." else None
+                cwd=directory if directory != "." else None,
             )
-            
+
             if result.returncode == 0:
                 output = result.stdout.strip()
                 if not output and result.stderr.strip():
@@ -479,12 +569,12 @@ class SimpleHTTPMCPServer:
             else:
                 error_output = result.stderr.strip() or result.stdout.strip()
                 return f"Command failed (exit code {result.returncode}): {error_output}"
-        
+
         except subprocess.TimeoutExpired:
             return f"Command timed out after 5 minutes: {' '.join(cmd)}"
         except Exception as e:
             return f"Error executing command: {str(e)}"
-    
+
     def create_app(self):
         """Create the Starlette application."""
         routes = [
@@ -494,13 +584,18 @@ class SimpleHTTPMCPServer:
             Route("/mcp/v1/tools", self.list_tools, methods=["GET"]),
             Route("/mcp/v1/execute", self.execute_tool, methods=["POST"]),
         ]
-        
+
         middleware = [
-            Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["*"],
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
         ]
-        
+
         return Starlette(routes=routes, middleware=middleware)
-    
+
     def run(self):
         """Run the HTTP server."""
         try:
@@ -508,30 +603,32 @@ class SimpleHTTPMCPServer:
             pid_dir = os.path.expanduser("~/.thothctl/mcp")
             os.makedirs(pid_dir, exist_ok=True)
             pid_file = os.path.join(pid_dir, f"server_{self.port}.pid")
-            
-            with open(pid_file, 'w') as f:
+
+            with open(pid_file, "w") as f:
                 f.write(str(os.getpid()))
-            
+
             # Register cleanup
             def cleanup():
                 try:
                     if os.path.exists(pid_file):
                         os.remove(pid_file)
-                except:
+                except Exception:
                     pass
-            
+
             atexit.register(cleanup)
-            
+
             # Create and run the app
             app = self.create_app()
-            
+
             ui.print_success(f"MCP server ready at http://{self.host}:{self.port}")
-            ui.print_info(f"Health check endpoint: http://{self.host}:{self.port}/health")
+            ui.print_info(
+                f"Health check endpoint: http://{self.host}:{self.port}/health"
+            )
             ui.print_info(f"Tools endpoint: http://{self.host}:{self.port}/tools")
             ui.print_info(f"Execute endpoint: http://{self.host}:{self.port}/execute")
-            
+
             uvicorn.run(app, host=self.host, port=self.port, log_level="info")
-            
+
         except Exception as e:
             logger.error(f"Error running HTTP server: {e}")
             ui.print_error(f"Error running HTTP server: {str(e)}")

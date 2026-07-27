@@ -1,10 +1,9 @@
 import logging
+from abc import ABC, abstractmethod
 from functools import wraps
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List
 
 import click
-
-from abc import ABC, abstractmethod
 
 
 class ClickCommand(ABC):
@@ -28,18 +27,18 @@ class ClickCommand(ABC):
     def execute(self, **kwargs) -> Any:
         """Execute the command with telemetry support."""
         from .telemetry import telemetry
-        
-        command_name = self.__class__.__name__.replace('Command', '').lower()
-        
+
+        command_name = self.__class__.__name__.replace("Command", "").lower()
+
         with telemetry.start_span(f"thothctl.{command_name}") as span:
             try:
                 span.set_attribute("command.name", command_name)
                 span.set_attribute("command.args", str(kwargs))
-                
+
                 result = self._execute(**kwargs)
                 span.set_attribute("command.success", True)
                 return result
-                
+
             except Exception as e:
                 span.set_attribute("command.success", False)
                 span.set_attribute("command.error", str(e))
@@ -101,14 +100,15 @@ class ClickCommand(ABC):
                 try:
                     # Extract args from the context
                     args = ctx.protected_args + ctx.args
-                    
+
                     # Get completions from the command instance
                     completions = cmd_instance.get_completions(ctx, args, incomplete)
-                    
+
                     # Return completions in the format Click expects
                     # This is compatible with both older and newer Click versions
                     return [
-                        (completion, description) for completion, description in completions
+                        (completion, description)
+                        for completion, description in completions
                     ]
                 except Exception as e:
                     cmd_instance.logger.error(f"Completion error: {str(e)}")

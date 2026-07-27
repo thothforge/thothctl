@@ -8,11 +8,11 @@ Key principle: Never remove an explicit user stack. Only remove stacks whose
 resolved units are entirely contained within another stack's resolved units
 (including its transitive dependencies via the '...' suffix).
 """
+
 import fnmatch
 import logging
-import re
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 
 logger = logging.getLogger(__name__)
 
@@ -60,17 +60,24 @@ class StackOptimizer:
                 if stack_a in redundant:
                     break
                 # stack_a is redundant only if ALL its units are covered by stack_b
-                if resolved[stack_a] <= resolved[stack_b] and resolved[stack_a] != resolved[stack_b]:
+                if (
+                    resolved[stack_a] <= resolved[stack_b]
+                    and resolved[stack_a] != resolved[stack_b]
+                ):
                     redundant.add(stack_a)
                     break
 
-        optimized = [self._normalize_filter(s) for s in target_stacks if s not in redundant]
+        optimized = [
+            self._normalize_filter(s) for s in target_stacks if s not in redundant
+        ]
 
         return {
             "optimized_filters": optimized,
             "removed_redundant": list(redundant),
             "total_units_before": sum(len(v) for v in resolved.values()),
-            "total_units_after": len(set().union(*(resolved[s] for s in target_stacks if s not in redundant))),
+            "total_units_after": len(
+                set().union(*(resolved[s] for s in target_stacks if s not in redundant))
+            ),
             "details": {
                 stack: {
                     "direct_units": len(self._resolve_stack_direct(stack)),
@@ -113,6 +120,7 @@ class StackOptimizer:
             # Primary strategy: extract /resources/<path> directly from config_path lines
             # This handles all interpolation patterns (get_parent_terragrunt_dir, etc.)
             import re
+
             for match in re.finditer(r'/resources/([^\s"\'}\)]+)', content):
                 dep_path = match.group(1).rstrip('/"')
                 if dep_path in self._all_unit_paths:
@@ -121,7 +129,9 @@ class StackOptimizer:
             # Fallback: handle relative paths (../)
             if not deps:
                 for match in re.finditer(r'config_path\s*=\s*"(\.\.[^"]+)"', content):
-                    resolved = self._resolve_config_path(match.group(1), hcl_file.parent, resources_path)
+                    resolved = self._resolve_config_path(
+                        match.group(1), hcl_file.parent, resources_path
+                    )
                     if resolved:
                         deps.add(resolved)
 
@@ -130,7 +140,9 @@ class StackOptimizer:
 
         return deps
 
-    def _resolve_config_path(self, config_path: str, unit_dir: Path, resources_path: Path) -> str:
+    def _resolve_config_path(
+        self, config_path: str, unit_dir: Path, resources_path: Path
+    ) -> str:
         """Resolve a config_path (may contain terragrunt functions) to a relative unit path."""
         if not config_path:
             return ""
@@ -156,7 +168,6 @@ class StackOptimizer:
                 pass
 
         return ""
-
 
     def _normalize_filter(self, stack_pattern: str) -> str:
         """Normalize a filter for terragrunt compatibility.

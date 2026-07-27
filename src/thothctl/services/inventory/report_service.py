@@ -1,20 +1,19 @@
 """Report generation service for inventory management."""
+
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from json2html import json2html
 from rich import box
 from rich.align import Align
 from rich.console import Console
 from rich.style import Style
 from rich.table import Table
 
-from thothctl.utils.template_loader import get_template_loader
 from thothctl.services.inventory.version_service import classify_staleness
-
+from thothctl.utils.template_loader import get_template_loader
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +29,12 @@ class ReportService:
         self.console = Console()
         self.template_loader = get_template_loader()
 
-    def _create_report_path(self, report_name: str, extension: str, reports_directory: Optional[str] = None) -> Path:
+    def _create_report_path(
+        self, report_name: str, extension: str, reports_directory: Optional[str] = None
+    ) -> Path:
         """Create report file path with timestamp."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         if reports_directory:
             reports_dir = Path(reports_directory)
             reports_dir.mkdir(exist_ok=True, parents=True)
@@ -44,15 +45,20 @@ class ReportService:
             else:
                 reports_dir = self.inventory_dir
             reports_dir.mkdir(exist_ok=True, parents=True)
-            
+
         return reports_dir / f"{report_name}_{timestamp}.{extension}"
 
     def create_json_report(
-        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
+        self,
+        inventory: Dict[str, Any],
+        report_name: str = "InventoryIaC",
+        reports_directory: Optional[str] = None,
     ) -> Path:
         """Create formatted JSON report from inventory data."""
         try:
-            report_path = self._create_report_path(report_name, "json", reports_directory)
+            report_path = self._create_report_path(
+                report_name, "json", reports_directory
+            )
 
             with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(inventory, f, indent=2, default=str, ensure_ascii=False)
@@ -65,7 +71,10 @@ class ReportService:
             raise
 
     def create_html_report(
-        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
+        self,
+        inventory: Dict[str, Any],
+        report_name: str = "InventoryIaC",
+        reports_directory: Optional[str] = None,
     ) -> Path:
         """Create HTML report from inventory data with custom styling."""
         try:
@@ -958,26 +967,32 @@ class ReportService:
 
             # Generate summary statistics
             summary_html = self._generate_summary_html(inventory)
-            
+
             # Generate schema compatibility section if available
             compatibility_html = self._generate_compatibility_html(inventory)
-            
+
             # Generate custom HTML for components and providers
             components_html = self._generate_components_html(inventory)
 
             # Create report file
-            report_path = self._create_report_path(report_name, "html", reports_directory)
+            report_path = self._create_report_path(
+                report_name, "html", reports_directory
+            )
 
             # Write the report with proper formatting
             with open(report_path, "w", encoding="utf-8") as f:
-                f.write(html_template.format(
-                    content=components_html,
-                    summary_table=summary_html,
-                    compatibility_section=compatibility_html,
-                    project_name=inventory.get("projectName", inventory.get("project_name", "Unknown")),
-                    project_type=inventory.get("projectType", "Terraform"),
-                    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                ))
+                f.write(
+                    html_template.format(
+                        content=components_html,
+                        summary_table=summary_html,
+                        compatibility_section=compatibility_html,
+                        project_name=inventory.get(
+                            "projectName", inventory.get("project_name", "Unknown")
+                        ),
+                        project_type=inventory.get("projectType", "Terraform"),
+                        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    )
+                )
 
             logger.info(f"HTML report created at: {report_path}")
             return report_path
@@ -990,14 +1005,16 @@ class ReportService:
         """Generate HTML for components and providers sections."""
         try:
             components_html = ""
-            
+
             for component_group in inventory.get("components", []):
                 stack = component_group.get("stack", "Unknown")
                 stack_path = component_group.get("path", "")
-                
+
                 # Create unique ID for the stack section
-                stack_id = stack.lower().replace("/", "-").replace("\\", "-").replace(" ", "-")
-                
+                stack_id = (
+                    stack.lower().replace("/", "-").replace("\\", "-").replace(" ", "-")
+                )
+
                 components_html += f"""
                 <div class="stack-section" id="stack-{stack_id}">
                     <div class="stack-header">
@@ -1008,7 +1025,7 @@ class ReportService:
                     </div>
                     <div class="collapsible-content">
                 """
-                
+
                 # Add components table
                 components = component_group.get("components", [])
                 if components:
@@ -1032,7 +1049,7 @@ class ReportService:
                                     </thead>
                                     <tbody>
                     """
-                    
+
                     for component in components:
                         source = component.get("source", "Unknown")
                         version = component.get("version", "Unknown")
@@ -1041,19 +1058,33 @@ class ReportService:
                         status = component.get("status", "Unknown")
                         path = component.get("path", "Unknown")
                         name = component.get("name", "Unknown")
-                        
+
                         # Determine status styling
-                        status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>' if status != "Null" else '<span style="color: #9ca3af;">—</span>'
+                        status_display = (
+                            f'<span class="status-badge status-{status.lower()}">{status}</span>'
+                            if status != "Null"
+                            else '<span style="color: #9ca3af;">—</span>'
+                        )
 
                         # Staleness badge
                         staleness = classify_staleness(component.get("published_at"))
-                        staleness_colors = {"critical": "#ef4444", "high": "#f97316", "medium": "#eab308", "low": "#22c55e", "unknown": "#9ca3af"}
-                        s_color = staleness_colors.get(staleness["risk"], "#9ca3af")
-                        release_display = f'<span style="white-space:nowrap;">{staleness["icon"]} {staleness["date_short"]}</span>' if staleness["date_short"] != "—" else '<span style="color:#9ca3af;">—</span>'
-                        
+                        staleness_colors = {
+                            "critical": "#ef4444",
+                            "high": "#f97316",
+                            "medium": "#eab308",
+                            "low": "#22c55e",
+                            "unknown": "#9ca3af",
+                        }
+                        staleness_colors.get(staleness["risk"], "#9ca3af")
+                        release_display = (
+                            f'<span style="white-space:nowrap;">{staleness["icon"]} {staleness["date_short"]}</span>'
+                            if staleness["date_short"] != "—"
+                            else '<span style="color:#9ca3af;">—</span>'
+                        )
+
                         # Add anchor link for component
                         component_id = f"{stack_id}-{name.lower().replace(' ', '-')}"
-                        
+
                         components_html += f"""
                         <tr id="component-{component_id}">
                             <td><strong>{component.get("type", "Unknown")}</strong></td>
@@ -1071,14 +1102,14 @@ class ReportService:
                             <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{path}</code></td>
                         </tr>
                         """
-                    
+
                     components_html += """
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     """
-                
+
                 # Add providers table if available
                 providers = component_group.get("providers", [])
                 if providers:
@@ -1102,7 +1133,7 @@ class ReportService:
                                     </thead>
                                     <tbody>
                     """
-                    
+
                     for provider in providers:
                         name = provider.get("name", "Unknown")
                         version = provider.get("version", "Unknown")
@@ -1112,10 +1143,12 @@ class ReportService:
                         status = provider.get("status", "Unknown")
                         module = provider.get("module", "Unknown")
                         component = provider.get("component", "Unknown")
-                        
+
                         # Create provider anchor
-                        provider_id = f"{stack_id}-provider-{name.lower().replace(' ', '-')}"
-                        
+                        provider_id = (
+                            f"{stack_id}-provider-{name.lower().replace(' ', '-')}"
+                        )
+
                         # Format status badge with proper styling
                         if status.lower() == "current":
                             status_display = f'<span class="status-badge status-current">{status}</span>'
@@ -1125,18 +1158,34 @@ class ReportService:
                             status_display = f'<span class="status-badge status-{status.lower()}">{status}</span>'
                         else:
                             status_display = '<span style="color: #9ca3af;">—</span>'
-                        
+
                         # Format version with color coding
-                        version_display = f'<span style="font-family: monospace; color: var(--info-color);">{version}</span>' if version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
-                        latest_version_display = f'<span style="font-family: monospace; color: var(--success-color);">{latest_version}</span>' if latest_version != "Unknown" else '<span style="color: #9ca3af;">—</span>'
-                        
+                        version_display = (
+                            f'<span style="font-family: monospace; color: var(--info-color);">{version}</span>'
+                            if version != "Unknown"
+                            else '<span style="color: #9ca3af;">—</span>'
+                        )
+                        latest_version_display = (
+                            f'<span style="font-family: monospace; color: var(--success-color);">{latest_version}</span>'
+                            if latest_version != "Unknown"
+                            else '<span style="color: #9ca3af;">—</span>'
+                        )
+
                         # Format source with proper styling
-                        source_display = f'<code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code>' if source != "Unknown" else '<span style="color: #9ca3af;">—</span>'
+                        source_display = (
+                            f'<code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{source}</code>'
+                            if source != "Unknown"
+                            else '<span style="color: #9ca3af;">—</span>'
+                        )
 
                         # Staleness badge
                         staleness = classify_staleness(provider.get("published_at"))
-                        release_display = f'<span style="white-space:nowrap;">{staleness["icon"]} {staleness["date_short"]}</span>' if staleness["date_short"] != "—" else '<span style="color:#9ca3af;">—</span>'
-                        
+                        release_display = (
+                            f'<span style="white-space:nowrap;">{staleness["icon"]} {staleness["date_short"]}</span>'
+                            if staleness["date_short"] != "—"
+                            else '<span style="color:#9ca3af;">—</span>'
+                        )
+
                         components_html += f"""
                         <tr id="provider-{provider_id}">
                             <td>
@@ -1156,15 +1205,14 @@ class ReportService:
                             <td><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; color: var(--secondary-color);">{component}</code></td>
                         </tr>
                         """
-                    
+
                     components_html += """
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     """
-                
-                
+
                 # Add resources table if available (for modules)
                 resources = inventory.get("resources", [])
                 if resources:
@@ -1182,12 +1230,12 @@ class ReportService:
                                     </thead>
                                     <tbody>
                     """
-                    
+
                     for resource in resources:
                         resource_type = resource.get("resource_type", "Unknown")
                         name = resource.get("name", "Unknown")
                         file_name = resource.get("file", "Unknown")
-                        
+
                         components_html += f"""
                         <tr>
                             <td><code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">{resource_type}</code></td>
@@ -1195,35 +1243,39 @@ class ReportService:
                             <td><span style="color: #6c757d;">{file_name}</span></td>
                         </tr>
                         """
-                    
+
                     components_html += """
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                    """                # Close the collapsible content and stack section
+                    """  # Close the collapsible content and stack section
                 components_html += """
                     </div>
                 </div>
                 """
-            
+
             return components_html
-            
+
         except Exception as e:
             logger.error(f"Failed to generate components HTML: {str(e)}")
             return f'<div class="error-message">Error generating components: {str(e)}</div>'
 
-
     def create_cyclonedx_report(
-        self, inventory: Dict[str, Any], report_name: str = "InventoryIaC", reports_directory: Optional[str] = None
+        self,
+        inventory: Dict[str, Any],
+        report_name: str = "InventoryIaC",
+        reports_directory: Optional[str] = None,
     ) -> Path:
         """Create CycloneDX 1.6 SBOM JSON report with formulation, evidence, standards, and attestations."""
         try:
-            from datetime import datetime
             import hashlib
             import uuid
-            
-            report_path = self._create_report_path(report_name + "_cyclonedx", "json", reports_directory)
+            from datetime import datetime
+
+            report_path = self._create_report_path(
+                report_name + "_cyclonedx", "json", reports_directory
+            )
             project_name = inventory.get("projectName", "Infrastructure Project")
             project_type = inventory.get("projectType", "terraform")
 
@@ -1235,10 +1287,7 @@ class ReportService:
                 "version": 1,
                 "metadata": {
                     "timestamp": datetime.now().isoformat() + "Z",
-                    "lifecycles": [
-                        {"phase": "build"},
-                        {"phase": "deploy"}
-                    ],
+                    "lifecycles": [{"phase": "build"}, {"phase": "deploy"}],
                     "tools": {
                         "components": [
                             {
@@ -1246,7 +1295,7 @@ class ReportService:
                                 "group": "ThothForge",
                                 "name": "thothctl",
                                 "version": inventory.get("_thothctl_version", "latest"),
-                                "description": "AI-Powered Infrastructure Lifecycle CLI"
+                                "description": "AI-Powered Infrastructure Lifecycle CLI",
                             }
                         ]
                     },
@@ -1254,57 +1303,69 @@ class ReportService:
                         "type": "application",
                         "bom-ref": project_name,
                         "name": project_name,
-                        "description": f"Infrastructure as Code project ({project_type})"
-                    }
+                        "description": f"Infrastructure as Code project ({project_type})",
+                    },
                 },
                 "components": [],
                 "dependencies": [],
                 "formulation": [],
-                "annotations": []
+                "annotations": [],
             }
 
             # ── Formulation: document the IaC toolchain ──────────────────
             formulation_components = []
             if "terragrunt" in project_type:
-                formulation_components.append({
-                    "type": "application", "name": "terragrunt",
-                    "description": "IaC orchestration layer"
-                })
+                formulation_components.append(
+                    {
+                        "type": "application",
+                        "name": "terragrunt",
+                        "description": "IaC orchestration layer",
+                    }
+                )
             if "terraform" in project_type or "tofu" in project_type:
-                formulation_components.append({
-                    "type": "application", "name": "opentofu",
-                    "description": "IaC provisioning engine"
-                })
+                formulation_components.append(
+                    {
+                        "type": "application",
+                        "name": "opentofu",
+                        "description": "IaC provisioning engine",
+                    }
+                )
             # Add scanners if scan results exist
             scan_tools = inventory.get("_scan_tools", [])
             for tool_name in scan_tools:
-                formulation_components.append({
-                    "type": "application", "name": tool_name,
-                    "description": f"Security scanner ({tool_name})"
-                })
+                formulation_components.append(
+                    {
+                        "type": "application",
+                        "name": tool_name,
+                        "description": f"Security scanner ({tool_name})",
+                    }
+                )
 
             if formulation_components:
-                cyclonedx_data["formulation"] = [{
-                    "bom-ref": "iac-toolchain",
-                    "components": formulation_components
-                }]
+                cyclonedx_data["formulation"] = [
+                    {"bom-ref": "iac-toolchain", "components": formulation_components}
+                ]
 
             # ── Standards mapping ─────────────────────────────────────────
             standards = []
             schema_compat = inventory.get("schema_compatibility")
             if schema_compat:
-                standards.append({
-                    "bom-ref": "provider-schema-compatibility",
-                    "name": "Terraform Provider Schema Compatibility",
-                    "description": "Validates provider schema changes between versions"
-                })
+                standards.append(
+                    {
+                        "bom-ref": "provider-schema-compatibility",
+                        "name": "Terraform Provider Schema Compatibility",
+                        "description": "Validates provider schema changes between versions",
+                    }
+                )
             # Add compliance standards if org policies are in use
-            standards.append({
-                "bom-ref": "org-iac-policies",
-                "name": "Organization IaC Security Policies",
-                "description": "OPA/Rego security, tagging, naming, and architecture policies",
-                "owner": "Platform Engineering"
-            })
+            standards.append(
+                {
+                    "bom-ref": "org-iac-policies",
+                    "name": "Organization IaC Security Policies",
+                    "description": "OPA/Rego security, tagging, naming, and architecture policies",
+                    "owner": "Platform Engineering",
+                }
+            )
             cyclonedx_data["definitions"] = {"standards": standards}
 
             # ── Attestations: record scan/check results ───────────────────
@@ -1313,23 +1374,29 @@ class ReportService:
             if tech_debt:
                 debt_score = tech_debt.get("debt_score", 0)
                 risk_level = tech_debt.get("risk_level", "unknown")
-                attestations.append({
-                    "summary": f"Technical debt assessment: {debt_score:.1f}% ({risk_level} risk)",
-                    "assessor": "thothctl/inventory",
-                    "timestamp": datetime.now().isoformat() + "Z",
-                    "map": [
-                        {
-                            "requirement": "outdated-modules",
-                            "status": "not-met" if tech_debt.get("outdated_modules", 0) > 0 else "met",
-                            "observationDescription": f"{tech_debt.get('outdated_modules', 0)} outdated modules detected"
-                        },
-                        {
-                            "requirement": "outdated-providers",
-                            "status": "not-met" if tech_debt.get("outdated_providers", 0) > 0 else "met",
-                            "observationDescription": f"{tech_debt.get('outdated_providers', 0)} outdated providers detected"
-                        }
-                    ]
-                })
+                attestations.append(
+                    {
+                        "summary": f"Technical debt assessment: {debt_score:.1f}% ({risk_level} risk)",
+                        "assessor": "thothctl/inventory",
+                        "timestamp": datetime.now().isoformat() + "Z",
+                        "map": [
+                            {
+                                "requirement": "outdated-modules",
+                                "status": "not-met"
+                                if tech_debt.get("outdated_modules", 0) > 0
+                                else "met",
+                                "observationDescription": f"{tech_debt.get('outdated_modules', 0)} outdated modules detected",
+                            },
+                            {
+                                "requirement": "outdated-providers",
+                                "status": "not-met"
+                                if tech_debt.get("outdated_providers", 0) > 0
+                                else "met",
+                                "observationDescription": f"{tech_debt.get('outdated_providers', 0)} outdated providers detected",
+                            },
+                        ],
+                    }
+                )
             cyclonedx_data["attestations"] = attestations
 
             # ── Components with evidence, hashes, licenses ────────────────
@@ -1344,14 +1411,14 @@ class ReportService:
                     version = component.get("version", ["latest"])
                     if isinstance(version, list):
                         version = version[0] if version else "latest"
-                    
+
                     # Extract source (handle list format)
                     source = component.get("source", [""])
                     if isinstance(source, list):
                         source = source[0] if source else ""
 
                     bom_ref = f"{stack_name}/{component.get('name', 'unknown')}"
-                    
+
                     cyclonedx_component = {
                         "type": "library",
                         "bom-ref": bom_ref,
@@ -1359,74 +1426,131 @@ class ReportService:
                         "version": version,
                         "scope": "required",
                     }
-                    
+
                     # Package URL
                     if source and source != "Null":
-                        cyclonedx_component["purl"] = f"pkg:terraform/{source}@{version}"
+                        cyclonedx_component[
+                            "purl"
+                        ] = f"pkg:terraform/{source}@{version}"
 
                     # License (infer from source)
-                    if source and ("hashicorp" in source.lower() or "terraform-aws-modules" in source.lower()):
-                        cyclonedx_component["licenses"] = [{"license": {"id": "MPL-2.0"}}]
-                    elif source and source != "Null" and not source.startswith("./") and not source.startswith("../"):
-                        cyclonedx_component["licenses"] = [{"license": {"id": "Apache-2.0"}}]
+                    if source and (
+                        "hashicorp" in source.lower()
+                        or "terraform-aws-modules" in source.lower()
+                    ):
+                        cyclonedx_component["licenses"] = [
+                            {"license": {"id": "MPL-2.0"}}
+                        ]
+                    elif (
+                        source
+                        and source != "Null"
+                        and not source.startswith("./")
+                        and not source.startswith("../")
+                    ):
+                        cyclonedx_component["licenses"] = [
+                            {"license": {"id": "Apache-2.0"}}
+                        ]
 
                     # Hash (SHA-256 of source+version for supply chain tracking)
                     if source and source != "Null":
-                        content_hash = hashlib.sha256(f"{source}@{version}".encode()).hexdigest()
+                        content_hash = hashlib.sha256(
+                            f"{source}@{version}".encode()
+                        ).hexdigest()
                         cyclonedx_component["hashes"] = [
                             {"alg": "SHA-256", "content": content_hash}
                         ]
-                    
+
                     # Evidence: how the component was discovered
                     file_path = component.get("file", component.get("path", ""))
-                    is_local = source.startswith("./") or source.startswith("../") if source else False
+                    is_local = (
+                        source.startswith("./") or source.startswith("../")
+                        if source
+                        else False
+                    )
                     cyclonedx_component["evidence"] = {
                         "identity": {
                             "field": "purl",
                             "confidence": 1.0,
-                            "methods": [{
-                                "technique": "source-code-analysis",
-                                "confidence": 1.0,
-                                "value": f"Parsed from {'terragrunt.hcl' if 'terragrunt' in project_type else file_path or 'main.tf'}"
-                            }]
+                            "methods": [
+                                {
+                                    "technique": "source-code-analysis",
+                                    "confidence": 1.0,
+                                    "value": f"Parsed from {'terragrunt.hcl' if 'terragrunt' in project_type else file_path or 'main.tf'}",
+                                }
+                            ],
                         },
-                        "occurrences": [{
-                            "location": file_path or f"{stack_name}/main.tf"
-                        }]
+                        "occurrences": [
+                            {"location": file_path or f"{stack_name}/main.tf"}
+                        ],
                     }
 
                     # External references
                     external_refs = []
-                    if component.get("source_url") and component.get("source_url") != "Null":
-                        external_refs.append({"type": "vcs", "url": component.get("source_url")})
-                    if component.get("latest_version") and component.get("latest_version") != "Null":
-                        registry_url = f"https://registry.terraform.io/modules/{source}" if source and "/" in source else ""
+                    if (
+                        component.get("source_url")
+                        and component.get("source_url") != "Null"
+                    ):
+                        external_refs.append(
+                            {"type": "vcs", "url": component.get("source_url")}
+                        )
+                    if (
+                        component.get("latest_version")
+                        and component.get("latest_version") != "Null"
+                    ):
+                        registry_url = (
+                            f"https://registry.terraform.io/modules/{source}"
+                            if source and "/" in source
+                            else ""
+                        )
                         if registry_url:
-                            external_refs.append({"type": "distribution", "url": registry_url})
+                            external_refs.append(
+                                {"type": "distribution", "url": registry_url}
+                            )
                     if external_refs:
                         cyclonedx_component["externalReferences"] = external_refs
-                    
+
                     # Properties
                     properties = [
                         {"name": "thothctl:stack", "value": stack_name},
-                        {"name": "thothctl:type", "value": component.get("type", "module")},
+                        {
+                            "name": "thothctl:type",
+                            "value": component.get("type", "module"),
+                        },
                         {"name": "thothctl:file", "value": file_path},
-                        {"name": "thothctl:status", "value": component.get("status", "Unknown")},
+                        {
+                            "name": "thothctl:status",
+                            "value": component.get("status", "Unknown"),
+                        },
                         {"name": "thothctl:local", "value": str(is_local).lower()},
                     ]
-                    if component.get("latest_version") and component.get("latest_version") != "Null":
-                        properties.append({"name": "thothctl:latest_version", "value": component.get("latest_version")})
+                    if (
+                        component.get("latest_version")
+                        and component.get("latest_version") != "Null"
+                    ):
+                        properties.append(
+                            {
+                                "name": "thothctl:latest_version",
+                                "value": component.get("latest_version"),
+                            }
+                        )
                     if component.get("published_at"):
-                        properties.append({"name": "thothctl:published_at", "value": component.get("published_at")})
-                    
+                        properties.append(
+                            {
+                                "name": "thothctl:published_at",
+                                "value": component.get("published_at"),
+                            }
+                        )
+
                     cyclonedx_component["properties"] = properties
                     cyclonedx_data["components"].append(cyclonedx_component)
                     stack_deps.append(bom_ref)
-                
+
                 # Add providers as components
                 for provider in component_group.get("providers", []):
-                    prov_bom_ref = f"{stack_name}/provider-{provider.get('name', 'unknown')}"
-                    
+                    prov_bom_ref = (
+                        f"{stack_name}/provider-{provider.get('name', 'unknown')}"
+                    )
+
                     cyclonedx_provider = {
                         "type": "library",
                         "bom-ref": prov_bom_ref,
@@ -1438,50 +1562,73 @@ class ReportService:
                             "identity": {
                                 "field": "purl",
                                 "confidence": 1.0,
-                                "methods": [{
-                                    "technique": "source-code-analysis",
-                                    "confidence": 1.0,
-                                    "value": "Parsed from .terraform.lock.hcl or provider blocks"
-                                }]
+                                "methods": [
+                                    {
+                                        "technique": "source-code-analysis",
+                                        "confidence": 1.0,
+                                        "value": "Parsed from .terraform.lock.hcl or provider blocks",
+                                    }
+                                ],
                             }
                         },
                         "properties": [
                             {"name": "thothctl:stack", "value": stack_name},
                             {"name": "thothctl:type", "value": "provider"},
-                            {"name": "thothctl:source", "value": provider.get("source", "")},
-                            {"name": "thothctl:status", "value": provider.get("status", "Unknown")}
-                        ]
+                            {
+                                "name": "thothctl:source",
+                                "value": provider.get("source", ""),
+                            },
+                            {
+                                "name": "thothctl:status",
+                                "value": provider.get("status", "Unknown"),
+                            },
+                        ],
                     }
 
                     # Provider hash
                     prov_source = provider.get("source", provider.get("name", ""))
                     prov_version = provider.get("version", "latest")
                     if prov_source:
-                        prov_hash = hashlib.sha256(f"{prov_source}@{prov_version}".encode()).hexdigest()
-                        cyclonedx_provider["hashes"] = [{"alg": "SHA-256", "content": prov_hash}]
+                        prov_hash = hashlib.sha256(
+                            f"{prov_source}@{prov_version}".encode()
+                        ).hexdigest()
+                        cyclonedx_provider["hashes"] = [
+                            {"alg": "SHA-256", "content": prov_hash}
+                        ]
 
                     # Provider license (HashiCorp BSL or MPL)
                     prov_name = provider.get("name", "").lower()
                     if prov_name in ("aws", "azurerm", "google", "kubernetes"):
-                        cyclonedx_provider["licenses"] = [{"license": {"id": "MPL-2.0"}}]
-                    
-                    if provider.get("latest_version") and provider.get("latest_version") != "Null":
-                        cyclonedx_provider["properties"].append({
-                            "name": "thothctl:latest_version", 
-                            "value": provider.get("latest_version")
-                        })
+                        cyclonedx_provider["licenses"] = [
+                            {"license": {"id": "MPL-2.0"}}
+                        ]
+
+                    if (
+                        provider.get("latest_version")
+                        and provider.get("latest_version") != "Null"
+                    ):
+                        cyclonedx_provider["properties"].append(
+                            {
+                                "name": "thothctl:latest_version",
+                                "value": provider.get("latest_version"),
+                            }
+                        )
                     if provider.get("published_at"):
-                        cyclonedx_provider["properties"].append({
-                            "name": "thothctl:published_at",
-                            "value": provider.get("published_at")
-                        })
-                    
-                    if provider.get("source_url") and provider.get("source_url") != "Null":
-                        cyclonedx_provider["externalReferences"] = [{
-                            "type": "distribution",
-                            "url": provider.get("source_url")
-                        }]
-                    
+                        cyclonedx_provider["properties"].append(
+                            {
+                                "name": "thothctl:published_at",
+                                "value": provider.get("published_at"),
+                            }
+                        )
+
+                    if (
+                        provider.get("source_url")
+                        and provider.get("source_url") != "Null"
+                    ):
+                        cyclonedx_provider["externalReferences"] = [
+                            {"type": "distribution", "url": provider.get("source_url")}
+                        ]
+
                     cyclonedx_data["components"].append(cyclonedx_provider)
                     stack_deps.append(prov_bom_ref)
 
@@ -1492,16 +1639,14 @@ class ReportService:
                     provider_refs = [d for d in stack_deps if "/provider-" in d]
                     module_refs = [d for d in stack_deps if "/provider-" not in d]
                     for mod_ref in module_refs:
-                        cyclonedx_data["dependencies"].append({
-                            "ref": mod_ref,
-                            "dependsOn": provider_refs
-                        })
+                        cyclonedx_data["dependencies"].append(
+                            {"ref": mod_ref, "dependsOn": provider_refs}
+                        )
 
             # Top-level project dependency
-            cyclonedx_data["dependencies"].insert(0, {
-                "ref": project_name,
-                "dependsOn": project_deps
-            })
+            cyclonedx_data["dependencies"].insert(
+                0, {"ref": project_name, "dependsOn": project_deps}
+            )
 
             with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(cyclonedx_data, f, indent=2, ensure_ascii=False)
@@ -1519,7 +1664,7 @@ class ReportService:
             # Create project info panel
             project_name = inventory.get("projectName", "Unknown")
             project_type = inventory.get("projectType", "Terraform")
-            
+
             # Create main table
             table = Table(
                 title=f"Infrastructure Inventory Report - {project_name} ({project_type})",
@@ -1538,7 +1683,7 @@ class ReportService:
             # Process components
             for component_group in inventory.get("components", []):
                 stack_path = component_group.get("stack", "Unknown")
-                
+
                 # Create components table
                 components_table = Table(show_lines=True)
                 components_table.add_column("Type", style="cyan")
@@ -1557,7 +1702,7 @@ class ReportService:
                         current_version = current_version[0]
 
                     status = component.get("status", "Unknown")
-                    status_style = {
+                    {
                         "Updated": Style(color="green", bold=True),
                         "Outdated": Style(color="red", bold=True),
                         "Unknown": Style(color="yellow", bold=True),
@@ -1583,7 +1728,7 @@ class ReportService:
                         str(component.get("source_url", "Unknown")),
                         status,
                     )
-                
+
                 # Create providers table if available
                 providers = component_group.get("providers", [])
                 if providers:
@@ -1593,20 +1738,26 @@ class ReportService:
                     providers_table.add_column("Source", style="white", overflow="fold")
                     providers_table.add_column("Latest Version", style="yellow")
                     providers_table.add_column("Release Date", style="dim")
-                    providers_table.add_column("SourceUrl", style="blue", overflow="fold")
+                    providers_table.add_column(
+                        "SourceUrl", style="blue", overflow="fold"
+                    )
                     providers_table.add_column("Status", style="red")
-                    providers_table.add_column("Module", style="yellow", overflow="fold")
-                    providers_table.add_column("Component", style="magenta", overflow="fold")
-                    
+                    providers_table.add_column(
+                        "Module", style="yellow", overflow="fold"
+                    )
+                    providers_table.add_column(
+                        "Component", style="magenta", overflow="fold"
+                    )
+
                     # Get the stack name for this component group
                     stack_name = component_group.get("stack", "Unknown")
-                    
+
                     for provider in providers:
                         # Use the stack name if the module is empty or "Root"
                         module_name = provider.get("module", "")
                         if not module_name or module_name == "Root":
                             module_name = stack_name
-                            
+
                         # Get provider version information
                         latest_version = provider.get("latest_version", "Null")
                         source_url = provider.get("source_url", "Null")
@@ -1614,7 +1765,7 @@ class ReportService:
 
                         staleness = classify_staleness(provider.get("published_at"))
                         release_col = f"{staleness['icon']} {staleness['date_short']}"
-                        
+
                         providers_table.add_row(
                             provider.get("name", "Unknown"),
                             provider.get("version", "Unknown"),
@@ -1626,8 +1777,7 @@ class ReportService:
                             module_name,
                             provider.get("component", ""),
                         )
-                    
-                    
+
                     # Create resources table if available (for modules)
                     resources = inventory.get("resources", [])
                     if resources:
@@ -1635,29 +1785,28 @@ class ReportService:
                         resources_table.add_column("Type", style="cyan")
                         resources_table.add_column("Name", style="green")
                         resources_table.add_column("File", style="white")
-                        
+
                         for resource in resources:
                             resources_table.add_row(
                                 resource.get("resource_type", "Unknown"),
                                 resource.get("name", "Unknown"),
                                 resource.get("file", "Unknown"),
                             )
-                    
+
                     # Add tables to the main table
                     grid = Table.grid()
                     grid.add_row(components_table)
                     grid.add_row(providers_table)
                     if resources:
                         grid.add_row(resources_table)
-                    
+
                     table.add_row(
-                        Align(f'[blue]{stack_path}[/blue]', vertical="middle"),
-                        grid
+                        Align(f"[blue]{stack_path}[/blue]", vertical="middle"), grid
                     )
                 else:
                     # Add only components table
                     table.add_row(
-                        Align(f'[blue]{stack_path}[/blue]', vertical="middle"),
+                        Align(f"[blue]{stack_path}[/blue]", vertical="middle"),
                         components_table,
                     )
 
@@ -1678,22 +1827,22 @@ class ReportService:
         try:
             # Calculate summary statistics using the same logic as CLI
             total_components = len(inventory.get("components", []))
-            
+
             # Count components by status (for version checking)
             outdated_components = 0
             updated_components = 0
             unknown_components = 0
-            
+
             # Count local modules based on source, not status
             local_components = 0
-            
+
             # Use unique providers count if available, otherwise count all providers
             total_providers = inventory.get("unique_providers_count", 0)
             if total_providers == 0:
                 # Fall back to counting all providers if unique count not available
                 for component_group in inventory.get("components", []):
                     total_providers += len(component_group.get("providers", []))
-            
+
             for component_group in inventory.get("components", []):
                 for component in component_group.get("components", []):
                     # Count by version status
@@ -1704,17 +1853,21 @@ class ReportService:
                         updated_components += 1
                     elif status == "Unknown" or status == "Null":
                         unknown_components += 1
-                    
+
                     # Count local modules by source
-                    source = component.get("source", [""])[0] if component.get("source") else ""
+                    source = (
+                        component.get("source", [""])[0]
+                        if component.get("source")
+                        else ""
+                    )
                     if self._is_local_source(source):
                         local_components += 1
 
             # Count framework-specific modules
-            project_type = inventory.get('projectType', 'terraform').lower()
+            project_type = inventory.get("projectType", "terraform").lower()
             terragrunt_modules = 0
             terraform_modules = 0
-            
+
             for component_group in inventory.get("components", []):
                 for component in component_group.get("components", []):
                     comp_type = component.get("type", "").lower()
@@ -1747,7 +1900,7 @@ class ReportService:
                     <div class="summary-label">Local Modules</div>
                 </div>
             """
-            
+
             # Add resources card if we have resources (for modules)
             resources = inventory.get("resources", [])
             if resources:
@@ -1757,7 +1910,7 @@ class ReportService:
                     <div class="summary-label">Resources</div>
                 </div>
                 """
-            
+
             # Add providers card if we have providers
             if total_providers > 0:
                 summary_html += f"""
@@ -1766,9 +1919,9 @@ class ReportService:
                     <div class="summary-label">Providers</div>
                 </div>
                 """
-            
+
             # Add framework-specific cards
-            if project_type == 'terragrunt' and terragrunt_modules > 0:
+            if project_type == "terragrunt" and terragrunt_modules > 0:
                 summary_html += f"""
                 <div class="summary-card">
                     <div class="summary-number" style="color: #8b5cf6;">{terragrunt_modules}</div>
@@ -1794,25 +1947,31 @@ class ReportService:
                     s = classify_staleness(prov.get("published_at"))
                     if s["risk"] in stale_counts:
                         stale_counts[s["risk"]] += 1
-            stale_total = stale_counts["critical"] + stale_counts["high"] + stale_counts["medium"]
+            stale_total = (
+                stale_counts["critical"] + stale_counts["high"] + stale_counts["medium"]
+            )
             if stale_total > 0:
-                stale_color = "var(--danger-color)" if stale_counts["critical"] else ("var(--warning-color)" if stale_counts["high"] else "#eab308")
+                stale_color = (
+                    "var(--danger-color)"
+                    if stale_counts["critical"]
+                    else ("var(--warning-color)" if stale_counts["high"] else "#eab308")
+                )
                 summary_html += f"""
                 <div class="summary-card" style="border-left: 4px solid {stale_color};">
                     <div class="summary-number" style="color: {stale_color};">{stale_total}</div>
                     <div class="summary-label">Stale Dependencies</div>
-                    <div style="font-size:0.75rem;color:var(--secondary-color);margin-top:4px;">🔴 {stale_counts['critical']}  🟠 {stale_counts['high']}  🟡 {stale_counts['medium']}</div>
+                    <div style="font-size:0.75rem;color:var(--secondary-color);margin-top:4px;">🔴 {stale_counts["critical"]}  🟠 {stale_counts["high"]}  🟡 {stale_counts["medium"]}</div>
                 </div>
                 """
-            
+
             summary_html += "</div>"
-            
+
             # Add technical debt metrics section if available
             if "technical_debt" in inventory:
                 tech_debt = inventory["technical_debt"]
                 debt_score = tech_debt.get("debt_score", 0)
                 risk_level = tech_debt.get("risk_level", "low")
-                
+
                 # Determine color based on risk level
                 if risk_level == "critical":
                     risk_color = "var(--danger-color)"
@@ -1822,7 +1981,7 @@ class ReportService:
                     risk_color = "#3b82f6"
                 else:
                     risk_color = "var(--success-color)"
-                
+
                 summary_html += f"""
                 <div style="margin-top: 2rem;">
                     <h3 style="color: var(--dark-color); margin-bottom: 1rem;">📊 Technical Debt Metrics</h3>
@@ -1832,39 +1991,39 @@ class ReportService:
                             <div class="summary-label">Debt Score ({risk_level.upper()} Risk)</div>
                         </div>
                         <div class="summary-card">
-                            <div class="summary-number" style="color: var(--danger-color);">{tech_debt.get('outdated_modules', 0)}</div>
+                            <div class="summary-number" style="color: var(--danger-color);">{tech_debt.get("outdated_modules", 0)}</div>
                             <div class="summary-label">Outdated Modules</div>
                         </div>
                 """
-                
+
                 if tech_debt.get("outdated_providers", 0) > 0:
                     summary_html += f"""
                         <div class="summary-card">
-                            <div class="summary-number" style="color: var(--danger-color);">{tech_debt.get('outdated_providers', 0)}</div>
+                            <div class="summary-number" style="color: var(--danger-color);">{tech_debt.get("outdated_providers", 0)}</div>
                             <div class="summary-label">Outdated Providers</div>
                         </div>
                     """
-                
+
                 if tech_debt.get("modules_with_breaking_changes", 0) > 0:
                     summary_html += f"""
                         <div class="summary-card">
-                            <div class="summary-number" style="color: var(--warning-color);">{tech_debt.get('modules_with_breaking_changes', 0)}</div>
+                            <div class="summary-number" style="color: var(--warning-color);">{tech_debt.get("modules_with_breaking_changes", 0)}</div>
                             <div class="summary-label">⚠️ Modules with Breaking Changes</div>
                         </div>
                     """
-                
+
                 if tech_debt.get("providers_with_breaking_changes", 0) > 0:
                     summary_html += f"""
                         <div class="summary-card">
-                            <div class="summary-number" style="color: var(--warning-color);">{tech_debt.get('providers_with_breaking_changes', 0)}</div>
+                            <div class="summary-number" style="color: var(--warning-color);">{tech_debt.get("providers_with_breaking_changes", 0)}</div>
                             <div class="summary-label">⚠️ Providers with Breaking Changes</div>
                         </div>
                     """
-                
+
                 summary_html += """
                     </div>
                 """
-                
+
                 # Add recommendations if available
                 recommendations = tech_debt.get("recommendations", [])
                 if recommendations:
@@ -1879,9 +2038,9 @@ class ReportService:
                         </ul>
                     </div>
                     """
-                
+
                 summary_html += "</div>"
-            
+
             return summary_html
 
         except Exception as e:
@@ -1893,10 +2052,10 @@ class ReportService:
         providers = component_group.get("providers", [])
         if not providers:
             return ""
-            
+
         # Get the stack name for this component group
         stack_name = component_group.get("stack", "Unknown")
-        
+
         providers_html = f"""
         <h3>Providers for {stack_name}</h3>
         <table class="components-table">
@@ -1913,49 +2072,60 @@ class ReportService:
             </thead>
             <tbody>
         """
-        
+
         for provider in providers:
             # Use the stack name if the module is empty or "Root"
             module_name = provider.get("module", "")
             if not module_name or module_name == "Root":
                 module_name = stack_name
-            
+
             # Get provider version information
             latest_version = provider.get("latest_version", "Null")
             status = provider.get("status", "Unknown")
-            status_class = f"status-{status.lower()}" if status != "Null" and status != "Unknown" else ""
-                
+            status_class = (
+                f"status-{status.lower()}"
+                if status != "Null" and status != "Unknown"
+                else ""
+            )
+
             providers_html += f"""
             <tr>
-                <td>{provider.get('name', 'Unknown')}</td>
-                <td>{provider.get('version', 'Unknown')}</td>
-                <td>{provider.get('source', 'Unknown')}</td>
+                <td>{provider.get("name", "Unknown")}</td>
+                <td>{provider.get("version", "Unknown")}</td>
+                <td>{provider.get("source", "Unknown")}</td>
                 <td>{latest_version}</td>
                 <td class="{status_class}">{status}</td>
                 <td>{module_name}</td>
-                <td>{provider.get('component', '')}</td>
+                <td>{provider.get("component", "")}</td>
             </tr>
             """
-            
+
         providers_html += """
             </tbody>
         </table>
         """
-        
+
         return providers_html
 
     def _is_local_source(self, source: str) -> bool:
         """Check if a source is a local path."""
         if not source or source == "Null":
             return False
-            
-        return (source.startswith("./") or 
-                source.startswith("../") or 
-                source.startswith("/") or
-                source.startswith("../../") or
-                source.startswith("../../../") or
-                source.startswith("../../../../") or
-                (not source.startswith("http") and not source.startswith("git") and "/" in source and not source.count("/") == 2))
+
+        return (
+            source.startswith("./")
+            or source.startswith("../")
+            or source.startswith("/")
+            or source.startswith("../../")
+            or source.startswith("../../../")
+            or source.startswith("../../../../")
+            or (
+                not source.startswith("http")
+                and not source.startswith("git")
+                and "/" in source
+                and not source.count("/") == 2
+            )
+        )
 
     def _print_summary(self, inventory: Dict[str, Any]) -> None:
         """Print inventory summary statistics."""
@@ -1967,10 +2137,10 @@ class ReportService:
 
             # Count by version status
             status_counts = {"Updated": 0, "Outdated": 0, "Unknown": 0}
-            
+
             # Count local modules by source and providers
             local_modules = 0
-            
+
             # Use unique providers count if available, otherwise count all providers
             total_providers = inventory.get("unique_providers_count", 0)
             if total_providers == 0:
@@ -1985,9 +2155,13 @@ class ReportService:
                     if status == "Null":
                         status = "Unknown"
                     status_counts[status] = status_counts.get(status, 0) + 1
-                    
+
                     # Count local modules by source
-                    source = component.get("source", [""])[0] if component.get("source") else ""
+                    source = (
+                        component.get("source", [""])[0]
+                        if component.get("source")
+                        else ""
+                    )
                     if self._is_local_source(source):
                         local_modules += 1
 
@@ -2001,7 +2175,9 @@ class ReportService:
             summary_table.add_column("Metric", style="cyan")
             summary_table.add_column("Value", style="magenta")
 
-            summary_table.add_row("Project Type", inventory.get("projectType", "Terraform"))
+            summary_table.add_row(
+                "Project Type", inventory.get("projectType", "Terraform")
+            )
             summary_table.add_row("Total Components", str(total_components))
             summary_table.add_row(
                 "Updated Components", f"[green]{status_counts['Updated']}[/green]"
@@ -2015,20 +2191,16 @@ class ReportService:
 
             # Add local modules count if any exist
             if local_modules > 0:
-                summary_table.add_row(
-                    "Local Modules", f"[blue]{local_modules}[/blue]"
-                )
-                
+                summary_table.add_row("Local Modules", f"[blue]{local_modules}[/blue]")
+
             # Add providers count if any exist
             if total_providers > 0:
-                summary_table.add_row(
-                    "Providers", str(total_providers)
-                )
+                summary_table.add_row("Providers", str(total_providers))
 
             # Add terragrunt stacks count for terraform-terragrunt projects
-            project_type = inventory.get('projectType', 'terraform').lower()
-            if project_type == 'terraform-terragrunt':
-                terragrunt_stacks_count = inventory.get('terragrunt_stacks_count', 0)
+            project_type = inventory.get("projectType", "terraform").lower()
+            if project_type == "terraform-terragrunt":
+                terragrunt_stacks_count = inventory.get("terragrunt_stacks_count", 0)
                 summary_table.add_row("Terragrunt Stacks", str(terragrunt_stacks_count))
 
             self.console.print(Align.center(summary_table))
@@ -2041,19 +2213,23 @@ class ReportService:
         """Generate HTML section for compatibility analysis with collapsible functionality."""
         try:
             compatibility_html = ""
-            
+
             # Generate provider schema compatibility section
-            provider_compatibility_html = self._generate_provider_compatibility_html(inventory)
+            provider_compatibility_html = self._generate_provider_compatibility_html(
+                inventory
+            )
             if provider_compatibility_html:
                 compatibility_html += provider_compatibility_html
-            
+
             # Generate module compatibility section
-            module_compatibility_html = self._generate_module_compatibility_html(inventory)
+            module_compatibility_html = self._generate_module_compatibility_html(
+                inventory
+            )
             if module_compatibility_html:
                 compatibility_html += module_compatibility_html
-            
+
             return compatibility_html
-            
+
         except Exception as e:
             logger.error(f"Failed to generate compatibility HTML: {str(e)}")
             return f"""
@@ -2070,21 +2246,21 @@ class ReportService:
             compatibility_data = inventory.get("schema_compatibility")
             if not compatibility_data:
                 return ""
-            
+
             # Check if there's an error in compatibility analysis
             if "error" in compatibility_data:
                 return f"""
                 <div style="margin: 20px 0; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
                     <h2 style="color: #856404;">🔧 Provider Schema Compatibility Analysis</h2>
-                    <p><strong>Note:</strong> Schema compatibility analysis encountered an issue: {compatibility_data['error']}</p>
+                    <p><strong>Note:</strong> Schema compatibility analysis encountered an issue: {compatibility_data["error"]}</p>
                 </div>
                 """
-            
+
             # Get compatibility reports
             reports = compatibility_data.get("reports", [])
             if not reports:
                 return ""
-            
+
             # Generate compatibility section HTML with collapsible header
             compatibility_html = f"""
             <div class="compatibility-section">
@@ -2102,7 +2278,7 @@ class ReportService:
                         It identifies potential breaking changes, deprecations, and new features that may affect your infrastructure code.
                     </p>
             """
-            
+
             # Process each compatibility report with individual collapsible sections
             for i, report in enumerate(reports):
                 provider_name = report.get("provider_name", "Unknown")
@@ -2110,10 +2286,10 @@ class ReportService:
                 latest_version = report.get("latest_version", "Unknown")
                 compatibility_level = report.get("compatibility_level", "unknown")
                 summary = report.get("summary", "No summary available")
-                
+
                 # Create unique ID for this provider report
                 provider_id = f"provider-{provider_name.lower()}-{i}"
-                
+
                 # Determine border color based on compatibility level
                 if compatibility_level == "compatible":
                     border_color = "#28a745"
@@ -2131,7 +2307,7 @@ class ReportService:
                     border_color = "#6c757d"
                     bg_color = "#e9ecef"
                     status_icon = "❓"
-                
+
                 compatibility_html += f"""
                 <div class="provider-compatibility-section" style="border-color: {border_color};">
                     <div class="provider-compatibility-header" style="background-color: {bg_color};" onclick="toggleProviderCompatibility('{provider_id}')">
@@ -2145,7 +2321,7 @@ class ReportService:
                             </div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="padding: 2px 8px; background: {border_color}; color: white; border-radius: 12px; font-size: 0.8em; text-transform: uppercase; font-weight: 600;">{compatibility_level.replace('_', ' ')}</span>
+                            <span style="padding: 2px 8px; background: {border_color}; color: white; border-radius: 12px; font-size: 0.8em; text-transform: uppercase; font-weight: 600;">{compatibility_level.replace("_", " ")}</span>
                             <span class="expand-icon" id="{provider_id}-icon" style="font-size: 1rem; color: {border_color}; transition: transform 0.3s ease;">▼</span>
                         </div>
                     </div>
@@ -2156,37 +2332,41 @@ class ReportService:
                                 <p style="margin: 0; color: #495057; font-weight: 500;">{summary}</p>
                             </div>
                 """
-                
+
                 # Add breaking changes section
                 breaking_changes = report.get("breaking_changes", [])
                 if breaking_changes:
-                    compatibility_html += """
+                    compatibility_html += (
+                        """
                             <div style="margin: 15px 0;">
                                 <h5 style="color: #dc3545; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
                                     <span>⚠️</span>
                                     <span>Breaking Changes</span>
-                                    <span style="background: #dc3545; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7em; font-weight: bold;">""" + str(len(breaking_changes)) + """</span>
+                                    <span style="background: #dc3545; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7em; font-weight: bold;">"""
+                        + str(len(breaking_changes))
+                        + """</span>
                                 </h5>
                                 <ul style="margin: 0; padding-left: 20px; background: rgba(220,53,69,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #dc3545;">
                     """
-                    
+                    )
+
                     # Show first 5 breaking changes
                     for change in breaking_changes[:5]:
                         resource = change.get("resource", "Unknown")
                         attribute = change.get("attribute", "")
                         description = change.get("description", "")
-                        
+
                         change_text = f"{resource}"
                         if attribute:
                             change_text += f".{attribute}"
-                        
+
                         compatibility_html += f"""
                                 <li style="margin: 8px 0;">
                                     <strong style="font-family: 'Monaco', 'Menlo', monospace; color: #495057; background: rgba(255,255,255,0.8); padding: 2px 4px; border-radius: 3px;">{change_text}</strong>
                                     <br><span style="color: #6c757d; font-size: 0.9em; margin-left: 5px;">{description}</span>
                                 </li>
                         """
-                    
+
                     # Show count if there are more changes
                     if len(breaking_changes) > 5:
                         compatibility_html += f"""
@@ -2195,12 +2375,12 @@ class ReportService:
                                     <br><span style="font-size: 0.8em;">Click to expand this section for full details</span>
                                 </li>
                         """
-                    
+
                     compatibility_html += """
                                 </ul>
                             </div>
                     """
-                
+
                 # Add changelog data section
                 changelog_data = report.get("changelog_data")
                 if changelog_data and changelog_data.get("breaking_changes"):
@@ -2212,7 +2392,7 @@ class ReportService:
                                 </h5>
                                 <div style="background: rgba(111,66,193,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #6f42c1;">
                     """
-                    
+
                     for change in changelog_data.get("breaking_changes", [])[:3]:
                         compatibility_html += f"""
                                 <div style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.8); border-radius: 3px;">
@@ -2220,7 +2400,7 @@ class ReportService:
                                     <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 0.9em;">{change.get("description", "")}</p>
                                 </div>
                         """
-                    
+
                     upgrade_url = changelog_data.get("upgrade_guide_url")
                     if upgrade_url:
                         compatibility_html += f"""
@@ -2230,12 +2410,12 @@ class ReportService:
                                     </a>
                                 </div>
                         """
-                    
+
                     compatibility_html += """
                                 </div>
                             </div>
                     """
-                
+
                 # Add recommendations section
                 recommendations = report.get("recommendations", [])
                 if recommendations:
@@ -2247,30 +2427,30 @@ class ReportService:
                                 </h5>
                                 <ul style="margin: 0; padding-left: 20px; background: rgba(0,123,255,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #007bff;">
                     """
-                    
+
                     for recommendation in recommendations:
                         compatibility_html += f"""
                                 <li style="margin: 8px 0; color: #495057;">{recommendation}</li>
                         """
-                    
+
                     compatibility_html += """
                                 </ul>
                             </div>
                     """
-                
+
                 compatibility_html += """
                         </div>
                     </div>
                 </div>
                 """
-            
+
             compatibility_html += """
                 </div>
             </div>
             """
-            
+
             return compatibility_html
-            
+
         except Exception as e:
             logger.error(f"Failed to generate provider compatibility HTML: {str(e)}")
             return f"""
@@ -2287,25 +2467,25 @@ class ReportService:
             module_compatibility = inventory.get("module_compatibility")
             if not module_compatibility:
                 return ""
-            
+
             # Check if there's an error in compatibility analysis
             if "error" in module_compatibility:
                 return f"""
                 <div style="margin: 20px 0; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
                     <h2 style="color: #856404;">📦 Module Compatibility Analysis</h2>
-                    <p><strong>Note:</strong> Module compatibility analysis encountered an issue: {module_compatibility['error']}</p>
+                    <p><strong>Note:</strong> Module compatibility analysis encountered an issue: {module_compatibility["error"]}</p>
                 </div>
                 """
-            
+
             # Get compatibility reports
             reports = module_compatibility.get("reports", [])
             if not reports:
                 return ""
-            
+
             total_analyzed = module_compatibility.get("total_modules_analyzed", 0)
             safe_upgrades = module_compatibility.get("safe_upgrades", 0)
             breaking_changes = module_compatibility.get("breaking_changes", 0)
-            
+
             # Generate module compatibility section HTML
             compatibility_html = f"""
             <div class="compatibility-section" style="margin-top: 30px;">
@@ -2325,19 +2505,19 @@ class ReportService:
                         It identifies breaking changes in module inputs, outputs, and dependencies that may require code updates.
                     </p>
             """
-            
+
             # Process each module compatibility report
             for i, report in enumerate(reports):
                 module_name = report.get("module_name", "Unknown")
                 current_version = report.get("current_version", "Unknown")
                 latest_version = report.get("latest_version", "Unknown")
-                compatibility_level = report.get("compatibility_level", "unknown")
+                report.get("compatibility_level", "unknown")
                 upgrade_safe = report.get("upgrade_safe", False)
                 summary = report.get("summary", "No summary available")
-                
+
                 # Create unique ID for this module report
                 module_id = f"module-{module_name.replace('/', '-').replace(' ', '-').lower()}-{i}"
-                
+
                 # Determine styling based on compatibility
                 if upgrade_safe:
                     border_color = "#28a745"
@@ -2349,7 +2529,7 @@ class ReportService:
                     bg_color = "#f8d7da"
                     status_icon = "⚠️"
                     status_text = "Breaking Changes"
-                
+
                 compatibility_html += f"""
                 <div class="provider-compatibility-section" style="border-color: {border_color};">
                     <div class="provider-compatibility-header" style="background-color: {bg_color};" onclick="toggleModuleCompatibility('{module_id}')">
@@ -2374,7 +2554,7 @@ class ReportService:
                                 <p style="margin: 0; color: #495057; font-weight: 500;">{summary}</p>
                             </div>
                 """
-                
+
                 # Add breaking changes section
                 breaking_changes = report.get("breaking_changes", [])
                 if breaking_changes:
@@ -2387,29 +2567,29 @@ class ReportService:
                                 </h5>
                                 <ul style="margin: 0; padding-left: 20px; background: rgba(220,53,69,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #dc3545;">
                     """
-                    
+
                     for change in breaking_changes:
                         category = change.get("category", "unknown")
                         message = change.get("message", "")
                         old_value = change.get("old_value", "")
                         new_value = change.get("new_value", "")
                         recommendation = change.get("recommendation", "")
-                        
+
                         compatibility_html += f"""
                                 <li style="margin: 8px 0;">
                                     <strong style="color: #495057; text-transform: capitalize;">{category}:</strong> {message}
                                     <br><span style="color: #6c757d; font-size: 0.9em; margin-left: 5px;">
                                         {old_value} → {new_value}
                                     </span>
-                                    {f'<br><span style="color: #007bff; font-size: 0.9em; margin-left: 5px;"><strong>Recommendation:</strong> {recommendation}</span>' if recommendation else ''}
+                                    {f'<br><span style="color: #007bff; font-size: 0.9em; margin-left: 5px;"><strong>Recommendation:</strong> {recommendation}</span>' if recommendation else ""}
                                 </li>
                         """
-                    
+
                     compatibility_html += """
                                 </ul>
                             </div>
                     """
-                
+
                 # Add warnings section
                 warnings = report.get("warnings", [])
                 if warnings:
@@ -2422,29 +2602,29 @@ class ReportService:
                                 </h5>
                                 <ul style="margin: 0; padding-left: 20px; background: rgba(255,193,7,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #ffc107;">
                     """
-                    
+
                     for warning in warnings:
                         category = warning.get("category", "unknown")
                         message = warning.get("message", "")
                         old_value = warning.get("old_value", "")
                         new_value = warning.get("new_value", "")
                         recommendation = warning.get("recommendation", "")
-                        
+
                         compatibility_html += f"""
                                 <li style="margin: 8px 0;">
                                     <strong style="color: #495057; text-transform: capitalize;">{category}:</strong> {message}
                                     <br><span style="color: #6c757d; font-size: 0.9em; margin-left: 5px;">
                                         {old_value} → {new_value}
                                     </span>
-                                    {f'<br><span style="color: #007bff; font-size: 0.9em; margin-left: 5px;"><strong>Recommendation:</strong> {recommendation}</span>' if recommendation else ''}
+                                    {f'<br><span style="color: #007bff; font-size: 0.9em; margin-left: 5px;"><strong>Recommendation:</strong> {recommendation}</span>' if recommendation else ""}
                                 </li>
                         """
-                    
+
                     compatibility_html += """
                                 </ul>
                             </div>
                     """
-                
+
                 # Add changelog data section
                 changelog_data = report.get("changelog_data")
                 if changelog_data and changelog_data.get("breaking_changes"):
@@ -2456,7 +2636,7 @@ class ReportService:
                                 </h5>
                                 <div style="background: rgba(111,66,193,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #6f42c1;">
                     """
-                    
+
                     for change in changelog_data.get("breaking_changes", [])[:3]:
                         compatibility_html += f"""
                                 <div style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.8); border-radius: 3px;">
@@ -2464,7 +2644,7 @@ class ReportService:
                                     <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 0.9em;">{change.get("description", "")}</p>
                                 </div>
                         """
-                    
+
                     upgrade_url = changelog_data.get("upgrade_guide_url")
                     if upgrade_url:
                         compatibility_html += f"""
@@ -2474,12 +2654,12 @@ class ReportService:
                                     </a>
                                 </div>
                         """
-                    
+
                     compatibility_html += """
                                 </div>
                             </div>
                     """
-                
+
                 # Add recommendations section
                 recommendations = report.get("recommendations", [])
                 if recommendations:
@@ -2491,31 +2671,31 @@ class ReportService:
                                 </h5>
                                 <ul style="margin: 0; padding-left: 20px; background: rgba(0,123,255,0.1); padding: 15px; border-radius: 5px; border-left: 3px solid #007bff;">
                     """
-                    
+
                     for recommendation in recommendations:
                         if recommendation:  # Skip empty recommendations
                             compatibility_html += f"""
                                 <li style="margin: 8px 0; color: #495057;">{recommendation}</li>
                             """
-                    
+
                     compatibility_html += """
                                 </ul>
                             </div>
                     """
-                
+
                 compatibility_html += """
                         </div>
                     </div>
                 </div>
                 """
-            
+
             compatibility_html += """
                 </div>
             </div>
             """
-            
+
             return compatibility_html
-            
+
         except Exception as e:
             logger.error(f"Failed to generate module compatibility HTML: {str(e)}")
             return f"""

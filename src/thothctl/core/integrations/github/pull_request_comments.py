@@ -1,4 +1,5 @@
 """Post comments to GitHub pull requests."""
+
 import json
 import logging
 import urllib.request
@@ -43,7 +44,9 @@ def post_comment_to_github_pr(
     try:
         response = urllib.request.urlopen(req)
         if response.status == 201:
-            logger.info(f"GitHub PR comment posted successfully to {repository}#{pull_request_number}")
+            logger.info(
+                f"GitHub PR comment posted successfully to {repository}#{pull_request_number}"
+            )
             return True
         else:
             logger.error(f"Unexpected response status: {response.status}")

@@ -1,4 +1,5 @@
 """Default values for terraform-docs content."""
+
 terraform_docs_content_resources = """formatter: "markdown table" # this is required
 
 version: ""

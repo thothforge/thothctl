@@ -1,4 +1,5 @@
 """AI-powered drift analysis — plugs drift results into the existing AI agent orchestrator."""
+
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -46,24 +47,27 @@ Respond in valid JSON:
 """
 
 
-def format_drift_for_ai(summary_dict: Dict[str, Any],
-                        trend: Optional[Dict[str, Any]] = None) -> str:
+def format_drift_for_ai(
+    summary_dict: Dict[str, Any], trend: Optional[Dict[str, Any]] = None
+) -> str:
     """Format drift summary into a context string for the AI agent."""
     sections = ["# Drift Analysis Request\n"]
 
-    sections.append(f"## Overview")
+    sections.append("## Overview")
     sections.append(f"- Stacks scanned: {summary_dict.get('total_stacks', 0)}")
     sections.append(f"- Total resources: {summary_dict.get('total_resources', 0)}")
     sections.append(f"- Drifted resources: {summary_dict.get('total_drifted', 0)}")
     sections.append(f"- IaC coverage: {summary_dict.get('overall_coverage', 100)}%")
 
     if trend and trend.get("snapshots", 0) > 1:
-        sections.append(f"\n## Coverage Trend")
-        sections.append(f"- Trend: {trend['trend']} (delta: {trend['coverage_delta']}%)")
+        sections.append("\n## Coverage Trend")
+        sections.append(
+            f"- Trend: {trend['trend']} (delta: {trend['coverage_delta']}%)"
+        )
         sections.append(f"- Range: {trend['min_coverage']}% — {trend['max_coverage']}%")
         sections.append(f"- Peak drifted: {trend['peak_drifted']}")
 
-    sections.append(f"\n## Drifted Resources")
+    sections.append("\n## Drifted Resources")
     for result in summary_dict.get("results", []):
         if result.get("error"):
             sections.append(f"\n### {result['directory']} — ERROR: {result['error']}")
@@ -94,20 +98,26 @@ def analyze_drift_with_ai(
         return {"error": "No drift data to analyze"}
 
     try:
-        from ...ai_review.orchestrator import AgentOrchestrator
         from ...ai_review.memory import MemoryConfig
+        from ...ai_review.orchestrator import AgentOrchestrator
 
         orchestrator = AgentOrchestrator(
-            provider=provider, model=model,
-            max_parallel=1, memory_config=MemoryConfig(),
+            provider=provider,
+            model=model,
+            max_parallel=1,
+            memory_config=MemoryConfig(),
         )
         result = orchestrator._call_ai(
-            type("Task", (), {
-                "role": type("R", (), {"value": "drift"})(),
-                "system_prompt": SYSTEM_DRIFT_ANALYST,
-                "context": context,
-                "post_process": None,
-            })()
+            type(
+                "Task",
+                (),
+                {
+                    "role": type("R", (), {"value": "drift"})(),
+                    "system_prompt": SYSTEM_DRIFT_ANALYST,
+                    "context": context,
+                    "post_process": None,
+                },
+            )()
         )
         return result
     except Exception as e:
@@ -128,16 +138,25 @@ def _offline_drift_analysis(summary_dict: Dict[str, Any]) -> Dict[str, Any]:
     for result in summary_dict.get("results", []):
         for dr in result.get("drifted_resources", []):
             rtype = dr.get("resource_type", "")
-            is_security = any(k in rtype for k in ("security_group", "iam", "kms", "secret", "policy", "acl"))
+            is_security = any(
+                k in rtype
+                for k in ("security_group", "iam", "kms", "secret", "policy", "acl")
+            )
             if is_security:
                 security_risks += 1
-            findings.append({
-                "address": dr["address"],
-                "security_impact": "high" if is_security else "low",
-                "likely_cause": "manual change or external automation",
-                "remediation": f"Run terraform apply to reconcile, or update IaC to match current state",
-                "priority": 1 if dr["severity"] == "critical" else 2 if dr["severity"] == "high" else 3,
-            })
+            findings.append(
+                {
+                    "address": dr["address"],
+                    "security_impact": "high" if is_security else "low",
+                    "likely_cause": "manual change or external automation",
+                    "remediation": "Run terraform apply to reconcile, or update IaC to match current state",
+                    "priority": 1
+                    if dr["severity"] == "critical"
+                    else 2
+                    if dr["severity"] == "high"
+                    else 3,
+                }
+            )
 
     return {
         "summary": {
@@ -146,7 +165,8 @@ def _offline_drift_analysis(summary_dict: Dict[str, Any]) -> Dict[str, Any]:
             "total_analyzed": total,
             "security_risks": security_risks,
             "recommendation": "Resolve critical and security-related drift before deploying"
-            if security_risks > 0 else "Review drifted resources and reconcile",
+            if security_risks > 0
+            else "Review drifted resources and reconcile",
         },
         "findings": sorted(findings, key=lambda f: f["priority"])[:20],
         "recommendations": _generate_recommendations(summary_dict, security_risks),
@@ -154,17 +174,27 @@ def _offline_drift_analysis(summary_dict: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _generate_recommendations(summary_dict: Dict[str, Any], security_risks: int) -> List[str]:
+def _generate_recommendations(
+    summary_dict: Dict[str, Any], security_risks: int
+) -> List[str]:
     recs = []
     coverage = summary_dict.get("overall_coverage", 100)
     if coverage < 80:
-        recs.append("IaC coverage is critically low — prioritize importing unmanaged resources")
+        recs.append(
+            "IaC coverage is critically low — prioritize importing unmanaged resources"
+        )
     elif coverage < 90:
         recs.append("IaC coverage is below target — schedule drift remediation sprint")
     if security_risks > 0:
-        recs.append(f"{security_risks} security-sensitive resource(s) have drifted — investigate immediately")
+        recs.append(
+            f"{security_risks} security-sensitive resource(s) have drifted — investigate immediately"
+        )
     total = summary_dict.get("total_drifted", 0)
     if total > 10:
-        recs.append("High drift count — consider enabling scheduled drift detection in CI/CD")
-    recs.append("Run `thothctl check iac -type drift --post-to-pr` in CI to track drift per PR")
+        recs.append(
+            "High drift count — consider enabling scheduled drift detection in CI/CD"
+        )
+    recs.append(
+        "Run `thothctl check iac -type drift --post-to-pr` in CI to track drift per PR"
+    )
     return recs

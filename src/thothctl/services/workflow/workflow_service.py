@@ -1,24 +1,30 @@
 """Workflow orchestrator — executes SDLC phases in sequence."""
+
 import logging
 from typing import Dict, List, Optional
 
 from .models import Phase, WorkflowResult
 from .phases.base import PhaseExecutor
-from .phases.plan import PlanPhaseExecutor
-from .phases.develop import DevelopPhaseExecutor
 from .phases.build import BuildPhaseExecutor
-from .phases.test import TestPhaseExecutor
-from .phases.secure import SecurePhaseExecutor
 from .phases.deploy import DeployPhaseExecutor
+from .phases.develop import DevelopPhaseExecutor
 from .phases.monitor import MonitorPhaseExecutor
+from .phases.plan import PlanPhaseExecutor
+from .phases.secure import SecurePhaseExecutor
+from .phases.test import TestPhaseExecutor
 
 logger = logging.getLogger(__name__)
 
 
 # Phase execution order
 PHASE_ORDER = [
-    Phase.PLAN, Phase.DEVELOP, Phase.BUILD, Phase.TEST,
-    Phase.SECURE, Phase.DEPLOY, Phase.MONITOR,
+    Phase.PLAN,
+    Phase.DEVELOP,
+    Phase.BUILD,
+    Phase.TEST,
+    Phase.SECURE,
+    Phase.DEPLOY,
+    Phase.MONITOR,
 ]
 
 # Composite phase mappings

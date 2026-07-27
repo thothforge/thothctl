@@ -1,16 +1,16 @@
 """Create template based in standardization Format."""
+
 import json
 import logging
+import os
 import sys
 
-import os
 from colorama import Fore
 
 from .files_content import (
     common_hcl_content,
     common_tfvars_content,
     git_ignore,
-    thothcf_toml_module_content,
     main_tf_content,
     pre_commit_content,
     terragrunt_hcl_clean,
@@ -18,9 +18,14 @@ from .files_content import (
     terragrunt_root_hcl_content,
     tflint_hcl,
     thothcf_toml_content,
+    thothcf_toml_module_content,
     variables_tf_content,
 )
-from .project_templates import terraform_module_template, terraform_template, terragrunt_template
+from .project_templates import (
+    terraform_module_template,
+    terraform_template,
+    terragrunt_template,
+)
 
 
 # TODO Create project based on type / terraform module / terraform terragrunt / cdkv2 custom / ML /
@@ -86,17 +91,17 @@ def create_project(
 
     # Try to load template from GitHub first
     from .github_template_loader import GitHubTemplateLoader
-    
+
     github_loader = GitHubTemplateLoader()
     repo_metadata = github_loader.load_template(project_name, project_type)
-    
+
     if repo_metadata:
         # Template loaded successfully from GitHub
         return repo_metadata
-    
+
     # Fallback to local hardcoded templates
     print(f"{Fore.YELLOW}⚠️ Using local template as fallback{Fore.RESET}")
-    
+
     if project_type == "terraform":
         template = terraform_template
     elif project_type == "terraform-module":

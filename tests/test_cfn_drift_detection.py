@@ -1,11 +1,11 @@
 """Unit tests for CloudFormation/CDK drift detection service."""
 
-import pytest
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock
 
+import pytest
 from thothctl.services.check.project.drift.cfn_drift_service import (
     CfnDriftDetectionService,
     _matches_tags,
@@ -13,7 +13,6 @@ from thothctl.services.check.project.drift.cfn_drift_service import (
 from thothctl.services.check.project.drift.models import (
     DriftSeverity,
     DriftType,
-    DriftSummary,
 )
 
 
@@ -34,11 +33,15 @@ class TestCfnDriftDetectionService:
     # -- Severity classification --
 
     def test_critical_severity_for_rds(self, service):
-        severity = service._assess_cfn_severity("AWS::RDS::DBInstance", DriftType.DELETED)
+        severity = service._assess_cfn_severity(
+            "AWS::RDS::DBInstance", DriftType.DELETED
+        )
         assert severity == DriftSeverity.CRITICAL
 
     def test_high_severity_for_rds_changed(self, service):
-        severity = service._assess_cfn_severity("AWS::RDS::DBInstance", DriftType.CHANGED)
+        severity = service._assess_cfn_severity(
+            "AWS::RDS::DBInstance", DriftType.CHANGED
+        )
         assert severity == DriftSeverity.HIGH
 
     def test_high_severity_for_eks_deleted(self, service):
@@ -46,11 +49,15 @@ class TestCfnDriftDetectionService:
         assert severity == DriftSeverity.HIGH
 
     def test_medium_severity_for_lambda_changed(self, service):
-        severity = service._assess_cfn_severity("AWS::Lambda::Function", DriftType.CHANGED)
+        severity = service._assess_cfn_severity(
+            "AWS::Lambda::Function", DriftType.CHANGED
+        )
         assert severity == DriftSeverity.MEDIUM
 
     def test_low_severity_for_unknown_type(self, service):
-        severity = service._assess_cfn_severity("AWS::CloudWatch::Alarm", DriftType.CHANGED)
+        severity = service._assess_cfn_severity(
+            "AWS::CloudWatch::Alarm", DriftType.CHANGED
+        )
         assert severity == DriftSeverity.LOW
 
     # -- Drift type classification --
@@ -86,7 +93,11 @@ class TestCfnDriftDetectionService:
             "MySubnet": {"Type": "AWS::EC2::Subnet"},
         }
         deployed = {
-            "MyVpc": {"type": "AWS::EC2::VPC", "status": "CREATE_COMPLETE", "physical_id": "vpc-123"},
+            "MyVpc": {
+                "type": "AWS::EC2::VPC",
+                "status": "CREATE_COMPLETE",
+                "physical_id": "vpc-123",
+            },
         }
 
         result = service._compare_template_vs_deployed(
@@ -103,8 +114,16 @@ class TestCfnDriftDetectionService:
             "MyVpc": {"Type": "AWS::EC2::VPC"},
         }
         deployed = {
-            "MyVpc": {"type": "AWS::EC2::VPC", "status": "CREATE_COMPLETE", "physical_id": "vpc-123"},
-            "ManualSG": {"type": "AWS::EC2::SecurityGroup", "status": "CREATE_COMPLETE", "physical_id": "sg-456"},
+            "MyVpc": {
+                "type": "AWS::EC2::VPC",
+                "status": "CREATE_COMPLETE",
+                "physical_id": "vpc-123",
+            },
+            "ManualSG": {
+                "type": "AWS::EC2::SecurityGroup",
+                "status": "CREATE_COMPLETE",
+                "physical_id": "sg-456",
+            },
         }
 
         result = service._compare_template_vs_deployed(
@@ -121,7 +140,11 @@ class TestCfnDriftDetectionService:
             "MyVpc": {"Type": "AWS::EC2::VPC"},
         }
         deployed = {
-            "MyVpc": {"type": "AWS::EC2::VPC", "status": "CREATE_COMPLETE", "physical_id": "vpc-123"},
+            "MyVpc": {
+                "type": "AWS::EC2::VPC",
+                "status": "CREATE_COMPLETE",
+                "physical_id": "vpc-123",
+            },
         }
 
         result = service._compare_template_vs_deployed(
@@ -135,8 +158,10 @@ class TestCfnDriftDetectionService:
     # -- Template parsing --
 
     def test_parse_yaml_template(self, service):
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            f.write("AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  MyBucket:\n    Type: AWS::S3::Bucket\n")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(
+                "AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  MyBucket:\n    Type: AWS::S3::Bucket\n"
+            )
             f.flush()
             result = service._parse_template(f.name)
 
@@ -146,8 +171,11 @@ class TestCfnDriftDetectionService:
         Path(f.name).unlink()
 
     def test_parse_json_template(self, service):
-        template = {"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"MyFunc": {"Type": "AWS::Lambda::Function"}}}
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        template = {
+            "AWSTemplateFormatVersion": "2010-09-09",
+            "Resources": {"MyFunc": {"Type": "AWS::Lambda::Function"}},
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(template, f)
             f.flush()
             result = service._parse_template(f.name)
@@ -157,7 +185,7 @@ class TestCfnDriftDetectionService:
         Path(f.name).unlink()
 
     def test_parse_invalid_template(self, service):
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("not: valid: yaml: {{{{")
             f.flush()
             result = service._parse_template(f.name)
@@ -171,14 +199,19 @@ class TestCfnDriftDetectionService:
     def test_detect_drift_live_in_sync(self, service):
         """Test live detection when stack is in sync."""
         mock_client = MagicMock()
-        mock_client.detect_stack_drift.return_value = {"StackDriftDetectionId": "test-id"}
+        mock_client.detect_stack_drift.return_value = {
+            "StackDriftDetectionId": "test-id"
+        }
         mock_client.describe_stack_drift_detection_status.return_value = {
             "DetectionStatus": "DETECTION_COMPLETE",
             "StackDriftStatus": "IN_SYNC",
             "DriftedStackResourceCount": 0,
         }
         mock_client.list_stack_resources.return_value = {
-            "StackResourceSummaries": [{"LogicalResourceId": "R1"}, {"LogicalResourceId": "R2"}]
+            "StackResourceSummaries": [
+                {"LogicalResourceId": "R1"},
+                {"LogicalResourceId": "R2"},
+            ]
         }
         # Inject mock client (property returns _client if not None)
         service._client = mock_client
@@ -192,7 +225,9 @@ class TestCfnDriftDetectionService:
     def test_detect_drift_live_drifted(self, service):
         """Test live detection when stack has drifted."""
         mock_client = MagicMock()
-        mock_client.detect_stack_drift.return_value = {"StackDriftDetectionId": "test-id"}
+        mock_client.detect_stack_drift.return_value = {
+            "StackDriftDetectionId": "test-id"
+        }
         mock_client.describe_stack_drift_detection_status.return_value = {
             "DetectionStatus": "DETECTION_COMPLETE",
             "StackDriftStatus": "DRIFTED",
@@ -202,17 +237,21 @@ class TestCfnDriftDetectionService:
         # Mock paginator for resource drifts
         mock_paginator = MagicMock()
         mock_client.get_paginator.return_value = mock_paginator
-        mock_paginator.paginate.return_value = [{
-            "StackResourceDrifts": [{
-                "StackResourceDriftStatus": "MODIFIED",
-                "ResourceType": "AWS::EC2::SecurityGroup",
-                "LogicalResourceId": "WebSG",
-                "PhysicalResourceId": "sg-12345",
-                "PropertyDifferences": [
-                    {"PropertyPath": "/Properties/SecurityGroupIngress"}
-                ],
-            }]
-        }]
+        mock_paginator.paginate.return_value = [
+            {
+                "StackResourceDrifts": [
+                    {
+                        "StackResourceDriftStatus": "MODIFIED",
+                        "ResourceType": "AWS::EC2::SecurityGroup",
+                        "LogicalResourceId": "WebSG",
+                        "PhysicalResourceId": "sg-12345",
+                        "PropertyDifferences": [
+                            {"PropertyPath": "/Properties/SecurityGroupIngress"}
+                        ],
+                    }
+                ]
+            }
+        ]
         mock_client.list_stack_resources.return_value = {
             "StackResourceSummaries": [
                 {"LogicalResourceId": "WebSG"},
@@ -236,10 +275,14 @@ class TestCfnDriftDetectionService:
         """When stack doesn't exist, return error."""
         mock_client = MagicMock()
         service._client = mock_client
-        mock_client.describe_stack_resources.side_effect = Exception("Stack does not exist")
+        mock_client.describe_stack_resources.side_effect = Exception(
+            "Stack does not exist"
+        )
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            f.write("AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  Bucket:\n    Type: AWS::S3::Bucket\n")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(
+                "AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  Bucket:\n    Type: AWS::S3::Bucket\n"
+            )
             f.flush()
             result = service.detect_drift_static(f.name, "nonexistent-stack")
 
@@ -254,7 +297,9 @@ class TestTagMatching:
         assert _matches_tags({"env": "prod"}, {}) is True
 
     def test_exact_match(self):
-        assert _matches_tags({"env": "prod", "team": "platform"}, {"env": "prod"}) is True
+        assert (
+            _matches_tags({"env": "prod", "team": "platform"}, {"env": "prod"}) is True
+        )
 
     def test_no_match(self):
         assert _matches_tags({"env": "dev"}, {"env": "prod"}) is False

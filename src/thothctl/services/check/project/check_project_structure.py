@@ -1,12 +1,15 @@
 """Validate project structure using Clean Architecture principles."""
+
+import logging
+import os
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Set, Optional, Protocol
-import logging
+from typing import Dict, List, Optional, Protocol, Set
+
 from colorama import Fore, init
-import os
-import sys
+
 from ....common.common import load_iac_conf
 
 # Initialize colorama
@@ -18,6 +21,7 @@ IGNORED_DIRECTORIES = {".git", ".terraform", ".terragrunt-cache"}
 
 class ValidationMode(Enum):
     """Validation modes for project structure checking."""
+
     SOFT = "soft"
     HARD = "hard"
 
@@ -25,16 +29,20 @@ class ValidationMode(Enum):
 @dataclass
 class ProjectItem:
     """Represents a project structure item."""
+
     name: str
     type: str
     mandatory: bool = False
     content: List = field(default_factory=list)
-    children: Dict[str, 'ProjectItem'] = field(default_factory=dict)  # Add children field
+    children: Dict[str, "ProjectItem"] = field(
+        default_factory=dict
+    )  # Add children field
 
 
 @dataclass
 class ValidationResult:
     """Result of structure validation."""
+
     differences: List[Dict]
     existing_items: Set[str]
     is_valid: bool
@@ -43,6 +51,7 @@ class ValidationResult:
 @dataclass
 class ProjectStructure:
     """Project structure configuration."""
+
     folders: List[ProjectItem]
     root_files: List[str]
 
@@ -54,14 +63,17 @@ class ProjectValidator(Protocol):
         """Validate project structure."""
         pass
 
+
 class StructureValidator:
     """Handles project structure validation."""
 
-    def __init__(self, base_path: str,logger: logging.Logger):
+    def __init__(self, base_path: str, logger: logging.Logger):
         self.logger = logger
         self.base_path = base_path
 
-    def _validate_content(self, folder_path: Path, required_content: List[str], differences: List[Dict]) -> None:
+    def _validate_content(
+        self, folder_path: Path, required_content: List[str], differences: List[Dict]
+    ) -> None:
         """Validate folder content against required files."""
         if not required_content:
             return
@@ -71,16 +83,24 @@ class StructureValidator:
 
         for required_file in required_content:
             if required_file in existing_content:
-                self._print_success(f"Required file {required_file} exists in {folder_path.name}")
+                self._print_success(
+                    f"Required file {required_file} exists in {folder_path.name}"
+                )
             else:
-                self._print_error(f"Required file {required_file} missing in {folder_path.name}")
-                differences.append({
-                    "Name": required_file,
-                    "Check": "Fail",
-                    "path": str(folder_path / required_file)
-                })
+                self._print_error(
+                    f"Required file {required_file} missing in {folder_path.name}"
+                )
+                differences.append(
+                    {
+                        "Name": required_file,
+                        "Check": "Fail",
+                        "path": str(folder_path / required_file),
+                    }
+                )
 
-    def validate(self, directory: Path, structure: ProjectStructure, mode: ValidationMode) -> ValidationResult:
+    def validate(
+        self, directory: Path, structure: ProjectStructure, mode: ValidationMode
+    ) -> ValidationResult:
         """
         Validate project structure against defined rules.
 
@@ -100,10 +120,12 @@ class StructureValidator:
             print(f"{Fore.GREEN}⚛️ Checking root structure{Fore.RESET}")
 
             # Check folders and their children
-            self._validate_folders(directory, existing_items, structure.folders, differences)
+            self._validate_folders(
+                directory, existing_items, structure.folders, differences
+            )
 
             # Check root files
-            self._validate_files( existing_items, structure.root_files, differences)
+            self._validate_files(existing_items, structure.root_files, differences)
 
             # Process results
             is_valid = len(differences) == 0
@@ -114,7 +136,7 @@ class StructureValidator:
             return ValidationResult(
                 differences=differences,
                 existing_items=existing_items,
-                is_valid=is_valid
+                is_valid=is_valid,
             )
 
         except Exception as e:
@@ -122,11 +144,11 @@ class StructureValidator:
             raise
 
     def _validate_folders(
-            self,
-            directory: Path,
-            existing_items: Set[str],
-            folders: List[ProjectItem],
-            differences: List[Dict]
+        self,
+        directory: Path,
+        existing_items: Set[str],
+        folders: List[ProjectItem],
+        differences: List[Dict],
     ) -> None:
         """Validate folder structure including subfolder content."""
         for folder in folders:
@@ -135,32 +157,39 @@ class StructureValidator:
 
             if folder.name in existing_items:
                 if folder_path.is_dir():
-                    self._print_success(f"{folder.name} {folder.type} exists! in {directory}")
+                    self._print_success(
+                        f"{folder.name} {folder.type} exists! in {directory}"
+                    )
                     self.logger.debug(f"{folder.name} exists")
 
                     # If this is a root folder with content rules, check applicable subfolders
                     if folder.type == "root" and folder.content:
-                        self._validate_subfolders_content(folder_path, folder.content, differences)
+                        self._validate_subfolders_content(
+                            folder_path, folder.content, differences
+                        )
 
                 else:
                     self._print_error(f"{folder.name} exists but is not a directory")
                     if folder.mandatory:
-                        differences.append({
-                            "Name": folder.name,
-                            "Check": "Fail",
-                            "path": str(folder_path)
-                        })
+                        differences.append(
+                            {
+                                "Name": folder.name,
+                                "Check": "Fail",
+                                "path": str(folder_path),
+                            }
+                        )
             else:
-                self._print_error(f"{folder.name} doesn't exist in {directory}{optional_text}")
+                self._print_error(
+                    f"{folder.name} doesn't exist in {directory}{optional_text}"
+                )
                 if folder.mandatory:
-                    differences.append({
-                        "Name": folder.name,
-                        "Check": "Fail",
-                        "path": str(folder_path)
-                    })
+                    differences.append(
+                        {"Name": folder.name, "Check": "Fail", "path": str(folder_path)}
+                    )
 
-    def _validate_subfolders_content(self, root_folder: Path, required_content: List[str],
-                                     differences: List[Dict]) -> None:
+    def _validate_subfolders_content(
+        self, root_folder: Path, required_content: List[str], differences: List[Dict]
+    ) -> None:
         """
         Validate content rules only in subfolders that contain any of the specified files.
         Skip validation for subfolders that don't contain any of the rule files.
@@ -171,11 +200,14 @@ class StructureValidator:
                 existing_content = set(os.listdir(subfolder_path))
 
                 # Check if this subfolder contains any of the files we're interested in
-                has_rule_files = any(file in existing_content for file in required_content)
+                has_rule_files = any(
+                    file in existing_content for file in required_content
+                )
 
                 if has_rule_files:
                     print(
-                        f"{Fore.CYAN}📝 Checking content of subfolder {subfolder_path.relative_to(root_folder)}{Fore.RESET}")
+                        f"{Fore.CYAN}📝 Checking content of subfolder {subfolder_path.relative_to(root_folder)}{Fore.RESET}"
+                    )
                     missing_files = []
 
                     # If we found any rule file, check for all required files
@@ -191,12 +223,14 @@ class StructureValidator:
                             )
 
                     if missing_files:
-                        differences.append({
-                            "Name": str(subfolder_path.relative_to(root_folder)),
-                            "Check": "Fail",
-                            "path": str(subfolder_path),
-                            "missing": missing_files
-                        })
+                        differences.append(
+                            {
+                                "Name": str(subfolder_path.relative_to(root_folder)),
+                                "Check": "Fail",
+                                "path": str(subfolder_path),
+                                "missing": missing_files,
+                            }
+                        )
                 else:
                     # Skip validation for this subfolder as it doesn't contain any rule files
                     self.logger.debug(
@@ -220,29 +254,28 @@ class StructureValidator:
         except Exception as e:
             self.logger.error(f"Error scanning directory {root_folder}: {e}")
         return subfolders
+
     def transform_config(config: dict) -> dict:
         """Transform the configuration to include proper folder structure with content."""
-        transformed = {
-            "folders": [],
-            "root_files": config.get("root_files", [])
-        }
+        transformed = {"folders": [], "root_files": config.get("root_files", [])}
 
         for folder in config.get("folders", []):
             folder_item = {
                 "name": folder["name"],
                 "type": folder.get("type", "root"),
                 "mandatory": folder.get("mandatory", True),
-                "content": folder.get("content", [])
+                "content": folder.get("content", []),
             }
 
             transformed["folders"].append(folder_item)
 
         return transformed
+
     def _validate_files(
-            self,
-            existing_items: Set[str],
-            required_files: List[str],
-            differences: List[Dict]
+        self,
+        existing_items: Set[str],
+        required_files: List[str],
+        differences: List[Dict],
     ) -> None:
         """Validate required files."""
         for file in required_files:
@@ -251,11 +284,7 @@ class StructureValidator:
                 self.logger.debug(f"{file} exists")
             else:
                 self._print_error(f"{file} doesn't exist!")
-                differences.append({
-                    "Name": file,
-                    "Check": "Fail",
-                    "path": file
-                })
+                differences.append({"Name": file, "Check": "Fail", "path": file})
 
     def get_child_folders(self, parent_path: str) -> dict:
         """Get all child folders in the given parent path"""
@@ -269,7 +298,9 @@ class StructureValidator:
             logging.warning(f"Directory not found: {parent_path}")
         return child_structure
 
-    def validate_structure(self, rules: dict, path: str = None, mood: str = "strict") -> bool:
+    def validate_structure(
+        self, rules: dict, path: str = None, mood: str = "strict"
+    ) -> bool:
         """
         Validate the folder structure against defined rules
         Args:
@@ -287,11 +318,15 @@ class StructureValidator:
             if isinstance(item_rules, dict):
                 # This is a parent folder with child rules
                 if os.path.exists(item_path):
-                    print(f"{Fore.CYAN}👷 Checking parent folder {item_name}{Fore.RESET}")
+                    print(
+                        f"{Fore.CYAN}👷 Checking parent folder {item_name}{Fore.RESET}"
+                    )
 
                     # First validate that the parent exists and is a directory
                     if not os.path.isdir(item_path):
-                        print(f"{Fore.RED}❌ {item_name} exists but is not a directory{Fore.RESET}")
+                        print(
+                            f"{Fore.RED}❌ {item_name} exists but is not a directory{Fore.RESET}"
+                        )
                         is_valid = False
                         continue
 
@@ -299,56 +334,70 @@ class StructureValidator:
                     child_folders = self.get_child_folders(item_path)
 
                     # Validate child rules
-                    for child_name, child_rules in item_rules.get('children', {}).items():
-                        print(f"{Fore.CYAN}👷 Checking child folder {child_name}{Fore.RESET}")
+                    for child_name, child_rules in item_rules.get(
+                        "children", {}
+                    ).items():
+                        print(
+                            f"{Fore.CYAN}👷 Checking child folder {child_name}{Fore.RESET}"
+                        )
 
                         if child_name in child_folders:
                             # Recursively validate child structure
                             child_valid = self.validate_structure(
-                                {child_name: child_rules},
-                                path=item_path,
-                                mood=mood
+                                {child_name: child_rules}, path=item_path, mood=mood
                             )
                             is_valid = is_valid and child_valid
                         else:
-                            if mood == "strict" and child_rules.get('required', True):
-                                print(f"{Fore.RED}❌ Required child folder {child_name} missing{Fore.RESET}")
+                            if mood == "strict" and child_rules.get("required", True):
+                                print(
+                                    f"{Fore.RED}❌ Required child folder {child_name} missing{Fore.RESET}"
+                                )
                                 is_valid = False
                             else:
-                                print(f"{Fore.CYAN}Child folder {child_name} skipped (doesn't exist){Fore.RESET}")
+                                print(
+                                    f"{Fore.CYAN}Child folder {child_name} skipped (doesn't exist){Fore.RESET}"
+                                )
 
                 else:
-                    if mood == "strict" and item_rules.get('required', True):
-                        print(f"{Fore.RED}❌ Required parent folder {item_name} missing{Fore.RESET}")
+                    if mood == "strict" and item_rules.get("required", True):
+                        print(
+                            f"{Fore.RED}❌ Required parent folder {item_name} missing{Fore.RESET}"
+                        )
                         is_valid = False
                     else:
-                        print(f"{Fore.CYAN}Parent folder {item_name} skipped (doesn't exist){Fore.RESET}")
+                        print(
+                            f"{Fore.CYAN}Parent folder {item_name} skipped (doesn't exist){Fore.RESET}"
+                        )
 
             else:
                 # This is a simple folder requirement
                 if os.path.exists(item_path):
                     if not os.path.isdir(item_path):
-                        print(f"{Fore.RED}❌ {item_name} exists but is not a directory{Fore.RESET}")
+                        print(
+                            f"{Fore.RED}❌ {item_name} exists but is not a directory{Fore.RESET}"
+                        )
                         is_valid = False
-                elif mood == "strict" and item_rules.get('required', True):
-                    print(f"{Fore.RED}❌ Required folder {item_name} missing{Fore.RESET}")
+                elif mood == "strict" and item_rules.get("required", True):
+                    print(
+                        f"{Fore.RED}❌ Required folder {item_name} missing{Fore.RESET}"
+                    )
                     is_valid = False
 
         return is_valid
 
-
-
     def _validate_child_folders(
-            self,
-            parent_path: Path,
-            children: Dict[str, ProjectItem],
-            differences: List[Dict]
+        self,
+        parent_path: Path,
+        children: Dict[str, ProjectItem],
+        differences: List[Dict],
     ) -> None:
         """Validate child folder structure."""
         try:
             existing_children = set(os.listdir(parent_path))
 
-            print(f"{Fore.CYAN}👷 Checking child folders in {parent_path.name}{Fore.RESET}")
+            print(
+                f"{Fore.CYAN}👷 Checking child folders in {parent_path.name}{Fore.RESET}"
+            )
 
             for child_name, child_item in children.items():
                 optional_text = " but is optional" if not child_item.mandatory else ""
@@ -356,27 +405,39 @@ class StructureValidator:
                 if child_name in existing_children:
                     child_path = parent_path / child_name
                     if child_path.is_dir():
-                        self._print_success(f"Child folder {child_name} exists in {parent_path.name}")
+                        self._print_success(
+                            f"Child folder {child_name} exists in {parent_path.name}"
+                        )
 
                         # Recursively validate nested children
                         if child_item.children:
-                            self._validate_child_folders(child_path, child_item.children, differences)
+                            self._validate_child_folders(
+                                child_path, child_item.children, differences
+                            )
                     else:
-                        self._print_error(f"{child_name} exists but is not a directory in {parent_path.name}")
+                        self._print_error(
+                            f"{child_name} exists but is not a directory in {parent_path.name}"
+                        )
                         if child_item.mandatory:
-                            differences.append({
+                            differences.append(
+                                {
+                                    "Name": child_name,
+                                    "Check": "Fail",
+                                    "path": str(child_path),
+                                }
+                            )
+                else:
+                    self._print_error(
+                        f"Child folder {child_name} doesn't exist in {parent_path.name}{optional_text}"
+                    )
+                    if child_item.mandatory:
+                        differences.append(
+                            {
                                 "Name": child_name,
                                 "Check": "Fail",
-                                "path": str(child_path)
-                            })
-                else:
-                    self._print_error(f"Child folder {child_name} doesn't exist in {parent_path.name}{optional_text}")
-                    if child_item.mandatory:
-                        differences.append({
-                            "Name": child_name,
-                            "Check": "Fail",
-                            "path": str(parent_path / child_name)
-                        })
+                                "path": str(parent_path / child_name),
+                            }
+                        )
 
         except Exception as e:
             self.logger.error(f"Error validating child folders in {parent_path}: {e}")
@@ -433,15 +494,14 @@ class ProjectStructureAnalyzer:
 
     def _build_tree(self, directory: Path, tree: Dict) -> None:
         """Build complete tree structure."""
-        for path in directory.rglob('*'):
+        for path in directory.rglob("*"):
             if self._should_process_path(path):
                 self._process_path(path, tree)
 
     def _should_process_path(self, path: Path) -> bool:
         """Check if path should be processed."""
-        return (
-                path.is_dir() and
-                not any(ignored in str(path) for ignored in IGNORED_DIRECTORIES)
+        return path.is_dir() and not any(
+            ignored in str(path) for ignored in IGNORED_DIRECTORIES
         )
 
     def _process_path(self, path: Path, tree: Dict) -> None:
@@ -450,17 +510,21 @@ class ProjectStructureAnalyzer:
             parts = path.resolve().parts
             for key in tree.keys():
                 if key in parts:
-                    tree[key].append({
-                        "name": path.name,
-                        "path": str(path),
-                        "type": "child_folder",
-                        "content": list(path.iterdir())
-                    })
+                    tree[key].append(
+                        {
+                            "name": path.name,
+                            "path": str(path),
+                            "type": "child_folder",
+                            "content": list(path.iterdir()),
+                        }
+                    )
         except Exception as e:
             self.logger.error(f"Error processing path {path}: {e}")
 
 
-def create_validator(path, logger: Optional[logging.Logger] = None) -> StructureValidator:
+def create_validator(
+    path, logger: Optional[logging.Logger] = None
+) -> StructureValidator:
     """Create configured validator instance."""
     if logger is None:
         logger = logging.getLogger("ProjectValidator")
@@ -468,7 +532,9 @@ def create_validator(path, logger: Optional[logging.Logger] = None) -> Structure
     return StructureValidator(path, logger)
 
 
-def create_analyzer(logger: Optional[logging.Logger] = None) -> ProjectStructureAnalyzer:
+def create_analyzer(
+    logger: Optional[logging.Logger] = None,
+) -> ProjectStructureAnalyzer:
     """Create configured analyzer instance."""
     if logger is None:
         logger = logging.getLogger("ProjectAnalyzer")
@@ -476,7 +542,9 @@ def create_analyzer(logger: Optional[logging.Logger] = None) -> ProjectStructure
     return ProjectStructureAnalyzer(logger)
 
 
-def validate_project_structure(directory: Path, structure_config: Dict, mode: str = "soft") -> ValidationResult:
+def validate_project_structure(
+    directory: Path, structure_config: Dict, mode: str = "soft"
+) -> ValidationResult:
     """Validate project structure against configuration."""
     logger = logging.getLogger(__name__)
     validator = StructureValidator(str(directory), logger)
@@ -488,27 +556,30 @@ def validate_project_structure(directory: Path, structure_config: Dict, mode: st
             name=folder_config["name"],
             type=folder_config.get("type", "root"),
             mandatory=folder_config.get("mandatory", True),
-            content=folder_config.get("content", [])  # Make sure content is properly passed
+            content=folder_config.get(
+                "content", []
+            ),  # Make sure content is properly passed
         )
         folders.append(folder_item)
 
     structure = ProjectStructure(
-        folders=folders,
-        root_files=structure_config.get("root_files", [])
+        folders=folders, root_files=structure_config.get("root_files", [])
     )
 
     return validator.validate(directory, structure, ValidationMode(mode))
 
 
-def get_project_template_path(directory: str, check_type: str, dirname: str) -> tuple[str, str]:
+def get_project_template_path(
+    directory: str, check_type: str, dirname: str
+) -> tuple[str, str]:
     """Get the appropriate template path based on project type."""
     # Load configuration to determine project type
     config = load_iac_conf(directory)
     project_type = None
-    
+
     if config and config.get("thothcf", {}).get("project_type"):
         project_type = config["thothcf"]["project_type"]
-    
+
     if check_type == "module":
         file_name = ".thothcf_module.toml"
         config_path = os.path.join(dirname, "../../../common/")
@@ -521,7 +592,7 @@ def get_project_template_path(directory: str, check_type: str, dirname: str) -> 
         else:
             file_name = ".thothcf_project.toml"
             config_path = os.path.join(dirname, "../../../common/")
-    
+
     return config_path, file_name
 
 
@@ -533,12 +604,14 @@ def validate(directory: str, mode: str, check_type: str = "project"):
         dirname = os.path.dirname(__file__)
         if config == {} or config.get("project_structure", None) is None:
             print(f"{Fore.LIGHTBLUE_EX}Using default options")
-            config_path, file_name = get_project_template_path(directory, check_type, dirname)
+            config_path, file_name = get_project_template_path(
+                directory, check_type, dirname
+            )
             config = load_iac_conf(config_path, file_name=file_name)
         # Transform configuration to include content
         transformed_config = {
             "folders": [],
-            "root_files": config["project_structure"].get("root_files", [])
+            "root_files": config["project_structure"].get("root_files", []),
         }
 
         # Ensure content is properly transferred from config to transformed_config
@@ -547,16 +620,12 @@ def validate(directory: str, mode: str, check_type: str = "project"):
                 "name": folder["name"],
                 "type": folder.get("type", "root"),
                 "mandatory": folder.get("mandatory", True),
-                "content": folder.get("content", [])  # Make sure content is included
+                "content": folder.get("content", []),  # Make sure content is included
             }
             transformed_config["folders"].append(folder_item)
 
         # Validate structure
-        result = validate_project_structure(
-            Path(directory),
-            transformed_config,
-            mode
-        )
+        result = validate_project_structure(Path(directory), transformed_config, mode)
 
         if result.is_valid:
             print(f"{Fore.GREEN}Project structure is valid{Fore.RESET}")

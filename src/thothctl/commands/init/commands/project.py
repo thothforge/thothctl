@@ -1,17 +1,14 @@
 import getpass
-import os
-import shutil
-import tempfile
 from pathlib import Path
-from typing import Optional, List, Any
+from typing import List, Optional
 
 import click
 from click.shell_completion import CompletionItem
 
+from ....common.common import get_active_space, get_space_vcs_provider
+from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
 from ....services.init.project.project import ProjectService
-from ....core.cli_ui import CliUI
-from ....common.common import get_space_vcs_provider, get_active_space
 
 
 class ProjectInitCommand(ClickCommand):
@@ -27,15 +24,16 @@ class ProjectInitCommand(ClickCommand):
         if not project_name or not project_name.strip():
             self.ui.print_error("Project name is required and cannot be empty")
             raise ValueError("Project name is required and cannot be empty")
-        
+
         # Check if project is already registered in ThothCTL
         from ....common.common import check_info_project
+
         project_info = check_info_project(project_name)
-        
+
         # Check if project directory already exists
         project_path = Path(f"./{project_name}")
         project_exists = project_path.exists()
-        
+
         # Determine the appropriate error message based on both conditions
         if project_info and project_exists:
             # Both the directory and ThothCTL registration exist
@@ -43,10 +41,12 @@ class ProjectInitCommand(ClickCommand):
             if project_info.get("thothcf") and project_info["thothcf"].get("space"):
                 space = project_info["thothcf"]["space"]
                 space_info = f" in space '{space}'"
-                
+
             removal_cmd = f"thothctl remove project -pj {project_name}"
-            
-            self.ui.print_error(f"Project '{project_name}'{space_info} already exists and is managed by ThothCTL")
+
+            self.ui.print_error(
+                f"Project '{project_name}'{space_info} already exists and is managed by ThothCTL"
+            )
             raise ValueError(
                 f"Project '{project_name}'{space_info} already exists and is managed by ThothCTL.\n"
                 f"The project directory '{project_path}' also exists.\n"
@@ -58,10 +58,12 @@ class ProjectInitCommand(ClickCommand):
             if project_info.get("thothcf") and project_info["thothcf"].get("space"):
                 space = project_info["thothcf"]["space"]
                 space_info = f" in space '{space}'"
-                
+
             removal_cmd = f"thothctl remove project -pj {project_name}"
-            
-            self.ui.print_error(f"Project '{project_name}'{space_info} is already registered in ThothCTL")
+
+            self.ui.print_error(
+                f"Project '{project_name}'{space_info} is already registered in ThothCTL"
+            )
             raise ValueError(
                 f"Project '{project_name}'{space_info} is already registered in ThothCTL.\n"
                 f"To reuse this project name, run: {removal_cmd}"
@@ -73,7 +75,7 @@ class ProjectInitCommand(ClickCommand):
                 f"Project directory '{project_path}' already exists.\n"
                 f"Please choose a different name or remove the existing directory."
             )
-            
+
         return True
 
     def _execute(
@@ -108,6 +110,7 @@ class ProjectInitCommand(ClickCommand):
                 else:
                     import inquirer
                     from colorama import Fore
+
                     questions = [
                         inquirer.List(
                             "language",
@@ -122,7 +125,7 @@ class ProjectInitCommand(ClickCommand):
             project_type = f"cdkv2-{language}"
 
         self.ui.print_info(f"🚀 Initializing project: {project_name}")
-        
+
         # If space is provided, show info and get VCS provider
         vcs_provider = version_control_systems_service
         vcs_params = {}
@@ -132,13 +135,13 @@ class ProjectInitCommand(ClickCommand):
             if space_vcs:
                 vcs_provider = space_vcs
                 self.ui.print_info(f"🔄 Using VCS provider from space: {vcs_provider}")
-        
+
         # Pass the appropriate parameters based on VCS provider
         if vcs_provider == "azure_repos" and az_org_name:
             vcs_params["az_org_name"] = az_org_name
         elif vcs_provider == "github" and github_username:
             vcs_params["github_username"] = github_username
-        
+
         # If reuse is enabled, first let user select template before creating project
         if reuse:
             if space:
@@ -146,53 +149,63 @@ class ProjectInitCommand(ClickCommand):
                 space_vcs = get_space_vcs_provider(space)
                 if space_vcs:
                     vcs_provider = space_vcs
-                    self.ui.print_info(f"🔄 Using VCS provider from space: {vcs_provider}")
-            
+                    self.ui.print_info(
+                        f"🔄 Using VCS provider from space: {vcs_provider}"
+                    )
+
             # Get template selection before creating project
             selected_template = self._select_template(space, vcs_provider, **vcs_params)
             if not selected_template:
                 self.ui.print_error("No template selected. Project creation cancelled.")
                 return
-        
+
         # Initialize project (creates metadata but not directory when reuse=True)
         with self.ui.status_spinner("🏗️ Creating project structure..."):
-            repo_metadata = self.project_service.initialize_project(project_name, project_type=project_type, reuse=reuse, space=space)
+            repo_metadata = self.project_service.initialize_project(
+                project_name, project_type=project_type, reuse=reuse, space=space
+            )
 
         # Setup version control if reuse is enabled (this clones the template and sets up config)
         if reuse and selected_template:
-            self.ui.print_info("🔄 Setting up version control with selected template...")
+            self.ui.print_info(
+                "🔄 Setting up version control with selected template..."
+            )
             self.project_service.setup_version_control(
                 project_name=project_name,
                 project_path=project_path,
                 vcs_provider=vcs_provider,
                 space=space,
                 selected_template=selected_template,
-                **vcs_params
+                **vcs_params,
             )
         # Setup configuration if requested and not reusing (reuse handles config internally)
         elif setup_conf:
             self.ui.print_info("📝 Setting up project configuration...")
             self.project_service.setup_project_config(
-                project_name, 
-                space=space, 
-                batch_mode=batch, 
+                project_name,
+                space=space,
+                batch_mode=batch,
                 project_type=project_type,
-                repo_metadata=repo_metadata
+                repo_metadata=repo_metadata,
             )
-        
+
         # Initialize git repository as final step
         self.project_service.init_git_repo(project_path)
-        
+
         # Copy architecture/spec context files into .kiro/steering
         if context:
             self.project_service.copy_context_to_steering(project_path, context)
 
         # Configure AI tool support (keep/remove .kiro/.claude based on selection)
-        self.project_service.configure_ai_tools(project_path, ai_tools, batch_mode=batch)
+        self.project_service.configure_ai_tools(
+            project_path, ai_tools, batch_mode=batch
+        )
 
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
-    def _select_template(self, space: str, vcs_provider: str, **vcs_params) -> Optional[dict]:
+    def _select_template(
+        self, space: str, vcs_provider: str, **vcs_params
+    ) -> Optional[dict]:
         """Select template before project creation"""
         try:
             if vcs_provider == "azure_repos":
@@ -200,10 +213,13 @@ class ProjectInitCommand(ClickCommand):
             elif vcs_provider == "github":
                 return self._select_github_template(space, **vcs_params)
             else:
-                self.ui.print_error(f"Template selection not supported for {vcs_provider}")
+                self.ui.print_error(
+                    f"Template selection not supported for {vcs_provider}"
+                )
                 return None
         except Exception as e:
             import traceback
+
             self.logger.error(f"Template selection failed: {traceback.format_exc()}")
             self.ui.print_error(f"Failed to select template: {e}")
             return None
@@ -211,81 +227,98 @@ class ProjectInitCommand(ClickCommand):
     def _select_azure_template(self, space: Optional[str], **kwargs) -> Optional[dict]:
         """Select template from Azure Repos"""
         try:
-            from ....utils.crypto import get_credentials_with_password, save_credentials
-            from ....core.integrations.azure_devops.get_azure_devops import (
-                create_connection,
-                get_repos_patterns,
-                allowed_pattern_prefixes,
-                allowed_pattern_suffixes
-            )
             import inquirer
             from colorama import Fore
-            
+
+            from ....core.integrations.azure_devops.get_azure_devops import (
+                allowed_pattern_prefixes,
+                allowed_pattern_suffixes,
+                create_connection,
+                get_repos_patterns,
+            )
+            from ....utils.crypto import get_credentials_with_password, save_credentials
+
             pat = None
             org_name = kwargs.get("az_org_name")
-            
+
             # Try to get credentials from space if provided
             if space:
                 try:
                     credentials, _ = get_credentials_with_password(space, "vcs")
-                    
+
                     if credentials.get("type") == "azure_repos":
                         pat = credentials.get("pat")
                         if not org_name:
                             org_name = credentials.get("organization")
-                        self.ui.print_info(f"✅ Using Azure DevOps credentials from space '{space}'")
+                        self.ui.print_info(
+                            f"✅ Using Azure DevOps credentials from space '{space}'"
+                        )
                     else:
-                        self.ui.print_warning(f"Space '{space}' has non-Azure Repos VCS credentials")
-                        
+                        self.ui.print_warning(
+                            f"Space '{space}' has non-Azure Repos VCS credentials"
+                        )
+
                 except FileNotFoundError:
-                    self.ui.print_info(f"No Azure DevOps credentials found for space '{space}'")
-            
+                    self.ui.print_info(
+                        f"No Azure DevOps credentials found for space '{space}'"
+                    )
+
             # If no credentials found, prompt user
             if not pat or not org_name:
                 if not org_name:
                     org_name = input("Enter Azure DevOps organization name: ")
-                self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
+                self.ui.print_info(
+                    "You'll need a Personal Access Token with appropriate permissions"
+                )
                 pat = getpass.getpass("Enter your Azure DevOps Personal Access Token: ")
-                
+
                 # Optionally save credentials if space is provided
-                if space and self.ui.confirm(f"Would you like to save these credentials for space '{space}'?"):
+                if space and self.ui.confirm(
+                    f"Would you like to save these credentials for space '{space}'?"
+                ):
                     credentials = {
                         "type": "azure_repos",
                         "organization": org_name,
-                        "pat": pat
+                        "pat": pat,
                     }
-                    
-                    encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
-                    
+
+                    encryption_password = getpass.getpass(
+                        "Enter a password to encrypt your credentials: "
+                    )
+
                     try:
                         save_credentials(
                             space_name=space,
                             credentials=credentials,
                             credential_type="vcs",
-                            password=encryption_password
+                            password=encryption_password,
                         )
-                        self.ui.print_success("🔒 Azure DevOps credentials saved securely for future use")
+                        self.ui.print_success(
+                            "🔒 Azure DevOps credentials saved securely for future use"
+                        )
                     except Exception as e:
                         self.ui.print_error(f"Failed to save credentials: {e}")
-            
+
             if not pat or not org_name:
                 self.ui.print_error("Missing PAT or organization name")
                 return None
 
             org_url = f"https://dev.azure.com/{org_name}/"
-            
+
             # Get connection and list projects
             self.ui.print_info("🔍 Fetching available templates...")
-            conn = create_connection(personal_access_token=pat, organization_url=org_url)
+            conn = create_connection(
+                personal_access_token=pat, organization_url=org_url
+            )
             core_client = conn.clients.get_core_client()
             get_projects_response = core_client.get_projects()
-            
+
             projects = [project.name for project in get_projects_response]
-            
+
             if not projects:
                 self.ui.print_error("No projects found in Azure DevOps organization")
                 return None
-            
+
             # Ask user to select project
             questions = [
                 inquirer.List(
@@ -297,7 +330,7 @@ class ProjectInitCommand(ClickCommand):
             tmp_project = inquirer.prompt(questions)
             project_name = tmp_project["project"]
             self.ui.print_success(f"✅ {project_name} was selected.")
-            
+
             # Get repositories from selected project
             git_client = conn.clients.get_git_client()
             repositories = get_repos_patterns(
@@ -306,17 +339,19 @@ class ProjectInitCommand(ClickCommand):
                 allowed_pattern_names=allowed_pattern_prefixes,
                 allowed_pattern_names_end=allowed_pattern_suffixes,
             )
-            
+
             if not repositories:
                 self.ui.print_error("No template repositories found")
                 return None
-            
+
             # Ask user to select repository with search capability
             repository_names = sorted([r["Name"] for r in repositories])
-            
+
             # If there are many repositories, allow filtering
             if len(repository_names) > 10:
-                self.ui.print_info(f"Found {len(repository_names)} templates. You can type to filter...")
+                self.ui.print_info(
+                    f"Found {len(repository_names)} templates. You can type to filter..."
+                )
                 questions = [
                     inquirer.Text(
                         "search",
@@ -324,15 +359,23 @@ class ProjectInitCommand(ClickCommand):
                     ),
                 ]
                 search_result = inquirer.prompt(questions)
-                search_term = search_result.get("search", "").lower() if search_result else ""
-                
+                search_term = (
+                    search_result.get("search", "").lower() if search_result else ""
+                )
+
                 if search_term:
-                    repository_names = [name for name in repository_names if search_term in name.lower()]
+                    repository_names = [
+                        name for name in repository_names if search_term in name.lower()
+                    ]
                     if not repository_names:
-                        self.ui.print_error(f"No templates found matching '{search_term}'")
+                        self.ui.print_error(
+                            f"No templates found matching '{search_term}'"
+                        )
                         return None
-                    self.ui.print_info(f"Found {len(repository_names)} matching templates")
-            
+                    self.ui.print_info(
+                        f"Found {len(repository_names)} matching templates"
+                    )
+
             questions = [
                 inquirer.List(
                     "repository",
@@ -343,9 +386,9 @@ class ProjectInitCommand(ClickCommand):
             tmp_repo = inquirer.prompt(questions)
             repository_name = tmp_repo["repository"]
             repository = [r for r in repositories if r["Name"] == repository_name][0]
-            
+
             self.ui.print_success(f"✅ Selected template: {repository_name}")
-            
+
             # Return repository metadata for later cloning
             return {
                 "repo_name": repository["Name"],
@@ -354,7 +397,7 @@ class ProjectInitCommand(ClickCommand):
                 "org_url": org_url,
                 "project_name": project_name,
             }
-            
+
         except Exception as e:
             self.ui.print_error(f"Failed to select Azure template: {e}")
             return None
@@ -363,78 +406,92 @@ class ProjectInitCommand(ClickCommand):
         """Select template from GitHub"""
         try:
             from ....utils.crypto import get_credentials_with_password, save_credentials
-            from ....core.integrations.github.get_github import get_pattern_from_github
-            
+
             token = None
             username = None
-            
+
             # Try to get credentials from space first
             try:
                 credentials, _ = get_credentials_with_password(space, "vcs")
-                
+
                 if credentials.get("type") == "github":
                     token = credentials.get("token")
                     username = credentials.get("username")
-                    self.ui.print_info(f"✅ Using GitHub credentials from space '{space}'")
+                    self.ui.print_info(
+                        f"✅ Using GitHub credentials from space '{space}'"
+                    )
                 else:
-                    self.ui.print_warning(f"Space '{space}' has non-GitHub VCS credentials")
-                    
+                    self.ui.print_warning(
+                        f"Space '{space}' has non-GitHub VCS credentials"
+                    )
+
             except FileNotFoundError:
                 self.ui.print_info(f"No GitHub credentials found for space '{space}'")
-                
+
                 # Ask user if they want to set up credentials
-                if self.ui.confirm("Would you like to set up GitHub credentials for this space?"):
+                if self.ui.confirm(
+                    "Would you like to set up GitHub credentials for this space?"
+                ):
                     username = input("Enter GitHub username or organization name: ")
-                    self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
+                    self.ui.print_info(
+                        "You'll need a Personal Access Token with appropriate permissions"
+                    )
                     token = getpass.getpass("Enter your GitHub Personal Access Token: ")
-                    
+
                     # Create and save credentials
                     credentials = {
                         "type": "github",
                         "username": username,
-                        "token": token
+                        "token": token,
                     }
-                    
-                    encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
-                    
+
+                    encryption_password = getpass.getpass(
+                        "Enter a password to encrypt your credentials: "
+                    )
+
                     try:
                         save_credentials(
                             space_name=space,
                             credentials=credentials,
                             credential_type="vcs",
-                            password=encryption_password
+                            password=encryption_password,
                         )
-                        self.ui.print_success("🔒 GitHub credentials saved securely for future use")
+                        self.ui.print_success(
+                            "🔒 GitHub credentials saved securely for future use"
+                        )
                     except Exception as e:
                         self.ui.print_error(f"Failed to save credentials: {e}")
                         # Continue without saving, use credentials for this session only
                 else:
                     # User declined to set up credentials, try with public access
                     self.ui.print_info("Attempting to access public repositories...")
-                    username = input("Enter GitHub username or organization name for public repositories: ")
+                    username = input(
+                        "Enter GitHub username or organization name for public repositories: "
+                    )
                     # token remains None for public access
-            
+
             if not username:
                 self.ui.print_error("GitHub username is required")
                 return None
 
             # Get list of template repositories
             self.ui.print_info("🔍 Fetching available templates...")
-            
-            from ....core.integrations.github.get_github import (
-                get_repos_patterns,
-                allowed_pattern_prefixes,
-                allowed_pattern_suffixes
-            )
+
             import inquirer
-            from colorama import Fore
             import requests
-            
+            from colorama import Fore
+
+            from ....core.integrations.github.get_github import (
+                allowed_pattern_prefixes,
+                allowed_pattern_suffixes,
+                get_repos_patterns,
+            )
+
             # Create session for GitHub API
             session = requests.Session()
             if token:
                 session.headers.update({"Authorization": f"token {token}"})
-            
+
             # Get repositories matching patterns
             repositories = get_repos_patterns(
                 session=session,
@@ -442,17 +499,19 @@ class ProjectInitCommand(ClickCommand):
                 allowed_pattern_prefixes=allowed_pattern_prefixes,
                 allowed_pattern_suffixes=allowed_pattern_suffixes,
             )
-            
+
             if not repositories:
                 self.ui.print_error("No template repositories found")
                 return None
-            
+
             # Ask user to select repository with search capability
             repository_names = sorted([r["Name"] for r in repositories])
-            
+
             # If there are many repositories, allow filtering
             if len(repository_names) > 10:
-                self.ui.print_info(f"Found {len(repository_names)} templates. You can type to filter...")
+                self.ui.print_info(
+                    f"Found {len(repository_names)} templates. You can type to filter..."
+                )
                 questions = [
                     inquirer.Text(
                         "search",
@@ -460,15 +519,23 @@ class ProjectInitCommand(ClickCommand):
                     ),
                 ]
                 search_result = inquirer.prompt(questions)
-                search_term = search_result.get("search", "").lower() if search_result else ""
-                
+                search_term = (
+                    search_result.get("search", "").lower() if search_result else ""
+                )
+
                 if search_term:
-                    repository_names = [name for name in repository_names if search_term in name.lower()]
+                    repository_names = [
+                        name for name in repository_names if search_term in name.lower()
+                    ]
                     if not repository_names:
-                        self.ui.print_error(f"No templates found matching '{search_term}'")
+                        self.ui.print_error(
+                            f"No templates found matching '{search_term}'"
+                        )
                         return None
-                    self.ui.print_info(f"Found {len(repository_names)} matching templates")
-            
+                    self.ui.print_info(
+                        f"Found {len(repository_names)} matching templates"
+                    )
+
             questions = [
                 inquirer.List(
                     "repository",
@@ -479,9 +546,9 @@ class ProjectInitCommand(ClickCommand):
             tmp_repo = inquirer.prompt(questions)
             repository_name = tmp_repo["repository"]
             repository = [r for r in repositories if r["Name"] == repository_name][0]
-            
+
             self.ui.print_success(f"✅ Selected template: {repository_name}")
-            
+
             # Return repository metadata for later cloning
             return {
                 "repo_name": repository["Name"],
@@ -489,26 +556,32 @@ class ProjectInitCommand(ClickCommand):
                 "token": token,
                 "username": username,
             }
-            
+
         except Exception as e:
             self.ui.print_error(f"Failed to select GitHub template: {e}")
             return None
 
-    def get_completions(self, ctx: click.Context, args: List[str], incomplete: str) -> List[click.shell_completion.CompletionItem]:
+    def get_completions(
+        self, ctx: click.Context, args: List[str], incomplete: str
+    ) -> List[click.shell_completion.CompletionItem]:
         """
         Provide context-aware autocompletion
         """
         # Define subcommands and their options
         completions = {
-            'create': {
-                '--project-name': ['basic', 'advanced', 'custom'],
-                '--project-type': ['terraform', 'tofu', 'cdkv2', 'terraform_module', 'terragrunt', 'custom'],
-                '--region': ['us-east-1', 'us-west-2', 'eu-west-1']
+            "create": {
+                "--project-name": ["basic", "advanced", "custom"],
+                "--project-type": [
+                    "terraform",
+                    "tofu",
+                    "cdkv2",
+                    "terraform_module",
+                    "terragrunt",
+                    "custom",
+                ],
+                "--region": ["us-east-1", "us-west-2", "eu-west-1"],
             },
-            'delete': {
-                '--force': ['true', 'false'],
-                '--backup': ['true', 'false']
-            }
+            "delete": {"--force": ["true", "false"], "--backup": ["true", "false"]},
         }
 
         # If no args provided, suggest subcommands
@@ -525,7 +598,7 @@ class ProjectInitCommand(ClickCommand):
             return []
 
         # If incomplete starts with '-', suggest options for current subcommand
-        if incomplete.startswith('-'):
+        if incomplete.startswith("-"):
             return [
                 CompletionItem(opt, help=f"Option for {opt.lstrip('-')}")
                 for opt in completions[subcommand].keys()
@@ -533,8 +606,9 @@ class ProjectInitCommand(ClickCommand):
             ]
 
         # If we have a current option, suggest its values
-        current_option = next((arg for arg in reversed(args)
-                               if arg in completions[subcommand]), None)
+        current_option = next(
+            (arg for arg in reversed(args) if arg in completions[subcommand]), None
+        )
         if current_option:
             values = completions[subcommand][current_option]
             return [
@@ -595,16 +669,16 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         default=False,
     ),
     click.option(
-        "-az-org", 
-        "--az-org-name", 
-        help="Azure organization name (for Azure Repos)", 
-        default=None
+        "-az-org",
+        "--az-org-name",
+        help="Azure organization name (for Azure Repos)",
+        default=None,
     ),
     click.option(
-        "-gh-user", 
-        "--github-username", 
-        help="GitHub username or organization (for GitHub)", 
-        default=None
+        "-gh-user",
+        "--github-username",
+        help="GitHub username or organization (for GitHub)",
+        default=None,
     ),
     click.option(
         "-s",
@@ -637,7 +711,9 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
     ),
     click.option(
         "--ai-tools",
-        type=click.Choice(["kiro", "claude-code", "both", "none"], case_sensitive=False),
+        type=click.Choice(
+            ["kiro", "claude-code", "both", "none"], case_sensitive=False
+        ),
         default=None,
         help="AI coding tool to keep in project: 'kiro', 'claude-code', 'both', or 'none' (interactive if omitted)",
     ),

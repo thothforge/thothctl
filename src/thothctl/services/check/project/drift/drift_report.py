@@ -1,11 +1,12 @@
 """Report generation for drift detection results."""
+
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .models import DriftResult, DriftSeverity, DriftSummary
+from .models import DriftSeverity, DriftSummary
 
 logger = logging.getLogger(__name__)
 
@@ -26,32 +27,40 @@ class DriftReportGenerator:
 
     def display_console(self, summary: DriftSummary, console) -> None:
         """Print drift results using Rich console."""
+        from rich import box
         from rich.panel import Panel
         from rich.table import Table
-        from rich import box
 
         if not summary.results:
             console.print("[yellow]No stacks analysed.[/yellow]")
             return
 
         # Summary panel
-        status = "[red]DRIFT DETECTED[/red]" if summary.has_drift else "[green]NO DRIFT[/green]"
-        console.print(Panel(
-            f"Status: {status}\n"
-            f"Stacks scanned: {len(summary.results)}\n"
-            f"Total resources: {summary.total_resources}\n"
-            f"Drifted resources: {summary.total_drifted}\n"
-            f"IaC coverage: {summary.overall_coverage}%",
-            title="🔍 Drift Detection Summary",
-            border_style="red" if summary.has_drift else "green",
-        ))
+        status = (
+            "[red]DRIFT DETECTED[/red]"
+            if summary.has_drift
+            else "[green]NO DRIFT[/green]"
+        )
+        console.print(
+            Panel(
+                f"Status: {status}\n"
+                f"Stacks scanned: {len(summary.results)}\n"
+                f"Total resources: {summary.total_resources}\n"
+                f"Drifted resources: {summary.total_drifted}\n"
+                f"IaC coverage: {summary.overall_coverage}%",
+                title="🔍 Drift Detection Summary",
+                border_style="red" if summary.has_drift else "green",
+            )
+        )
 
         for result in summary.results:
             if result.error:
                 console.print(f"[red]❌ {result.directory}: {result.error}[/red]")
                 continue
             if not result.has_drift:
-                console.print(f"[green]✅ {result.directory}: no drift ({result.total_resources} resources)[/green]")
+                console.print(
+                    f"[green]✅ {result.directory}: no drift ({result.total_resources} resources)[/green]"
+                )
                 continue
 
             table = Table(
@@ -65,9 +74,17 @@ class DriftReportGenerator:
             table.add_column("Drift", width=12)
             table.add_column("Changed Attributes", min_width=20)
 
-            for dr in sorted(result.drifted_resources, key=lambda x: list(DriftSeverity).index(x.severity)):
+            for dr in sorted(
+                result.drifted_resources,
+                key=lambda x: list(DriftSeverity).index(x.severity),
+            ):
                 sev = dr.severity
-                color = {"critical": "red", "high": "orange3", "medium": "yellow", "low": "green"}[sev.value]
+                color = {
+                    "critical": "red",
+                    "high": "orange3",
+                    "medium": "yellow",
+                    "low": "green",
+                }[sev.value]
                 table.add_row(
                     f"[{color}]{_SEVERITY_ICON[sev]} {sev.value.upper()}[/{color}]",
                     dr.address,
@@ -85,8 +102,8 @@ class DriftReportGenerator:
         status = "🔴 DRIFT DETECTED" if summary.has_drift else "🟢 NO DRIFT"
         lines = [
             "## 🔍 ThothCTL Drift Detection\n",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| Status | {status} |",
             f"| Stacks scanned | {len(summary.results)} |",
             f"| Total resources | {summary.total_resources} |",
@@ -107,7 +124,9 @@ class DriftReportGenerator:
             for dr in result.drifted_resources:
                 icon = _SEVERITY_ICON[dr.severity]
                 attrs = ", ".join(dr.changed_attributes[:3]) or "-"
-                lines.append(f"| {icon} {dr.severity.value} | `{dr.address}` | {dr.drift_type.value} | {attrs} |")
+                lines.append(
+                    f"| {icon} {dr.severity.value} | `{dr.address}` | {dr.drift_type.value} | {attrs} |"
+                )
 
         lines.append("\n---")
         lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
@@ -117,7 +136,9 @@ class DriftReportGenerator:
     # JSON
     # ------------------------------------------------------------------
 
-    def generate_json(self, summary: DriftSummary, output_path: Optional[str] = None) -> str:
+    def generate_json(
+        self, summary: DriftSummary, output_path: Optional[str] = None
+    ) -> str:
         data = summary.to_dict()
         data["generated_at"] = datetime.now().isoformat()
         content = json.dumps(data, indent=2)
@@ -135,7 +156,12 @@ class DriftReportGenerator:
         sev_rows = ""
         for result in summary.results:
             for dr in result.drifted_resources:
-                color = {"critical": "#e74c3c", "high": "#e67e22", "medium": "#f1c40f", "low": "#2ecc71"}[dr.severity.value]
+                color = {
+                    "critical": "#e74c3c",
+                    "high": "#e67e22",
+                    "medium": "#f1c40f",
+                    "low": "#2ecc71",
+                }[dr.severity.value]
                 attrs = ", ".join(dr.changed_attributes[:5]) or "-"
                 sev_rows += (
                     f"<tr>"

@@ -1,7 +1,8 @@
 """Import reports."""
-import os
-from gt_defect_dojo import defectdojo_apiv2
 
+import os
+
+from gt_defect_dojo import defectdojo_apiv2
 
 # setup DefectDojo connection information
 host = "http://localhost:8080/"

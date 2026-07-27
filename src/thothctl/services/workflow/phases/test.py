@@ -1,4 +1,5 @@
 """Test phase: plan validation, change impact analysis."""
+
 import logging
 import os
 import subprocess
@@ -36,26 +37,26 @@ class TestPhaseExecutor(PhaseExecutor):
         plan_files = self._find_plan_files(directory)
 
         if not plan_files:
-            result.steps.append(StepResult(
-                name="tfplan-check",
-                status=StepStatus.SKIPPED,
-                command="(requires tfplan.json)",
-                summary=(
-                    "No tfplan.json found. Generate plans first:\n"
-                    "  Terragrunt: terragrunt run-all plan --out-dir tfplan --json-out-dir tfplan\n"
-                    "  Terraform:  terraform plan -out=tfplan.binary && "
-                    "terraform show -json tfplan.binary > tfplan.json"
-                ),
-            ))
+            result.steps.append(
+                StepResult(
+                    name="tfplan-check",
+                    status=StepStatus.SKIPPED,
+                    command="(requires tfplan.json)",
+                    summary=(
+                        "No tfplan.json found. Generate plans first:\n"
+                        "  Terragrunt: terragrunt run-all plan --out-dir tfplan --json-out-dir tfplan\n"
+                        "  Terraform:  terraform plan -out=tfplan.binary && "
+                        "terraform show -json tfplan.binary > tfplan.json"
+                    ),
+                )
+            )
             return result
 
         # Step 1: Validate tfplan
         result.steps.append(self._validate_tfplan(directory))
 
         # Phase passes if no steps failed
-        result.passed = not any(
-            s.status == StepStatus.FAILED for s in result.steps
-        )
+        result.passed = not any(s.status == StepStatus.FAILED for s in result.steps)
         return result
 
     def _find_plan_files(self, directory: str) -> List[str]:
@@ -89,7 +90,9 @@ class TestPhaseExecutor(PhaseExecutor):
                 status=status,
                 command="thothctl check iac -type tfplan --recursive",
                 duration_seconds=duration,
-                summary="Plan validation passed" if status == StepStatus.PASSED else "Plan has changes to review",
+                summary="Plan validation passed"
+                if status == StepStatus.PASSED
+                else "Plan has changes to review",
             )
         except subprocess.TimeoutExpired:
             return StepResult(

@@ -1,9 +1,8 @@
 """Unit tests for --context flag: copy spec/architecture files into .kiro/steering."""
 
-import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from thothctl.services.init.project.project import ProjectService
 
 

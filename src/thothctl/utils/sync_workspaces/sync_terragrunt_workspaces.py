@@ -1,9 +1,10 @@
 """Sync terragrunt workspaces."""
+
 import json
 import logging
+import os
 from pathlib import Path
 
-import os
 from colorama import Fore
 
 from .sync_terraform_workspaces import (
@@ -11,7 +12,6 @@ from .sync_terraform_workspaces import (
     graph_dependencies_to_json,
     select_workspace,
 )
-
 
 wk_file = ".terraform/environment"
 terragrun_file = "terragrunt.hcl"
@@ -74,7 +74,7 @@ def t_sync_workspaces(json_graph):
                     current_wk = grunt_show_workspace(o["name"])
 
                     print(
-                        f'{Fore.MAGENTA}Workspace for main resource - {o["name"]}: {current_wk} '
+                        f"{Fore.MAGENTA}Workspace for main resource - {o['name']}: {current_wk} "
                     )
                     depend_wk = grunt_show_workspace(stack_name)
                     print(

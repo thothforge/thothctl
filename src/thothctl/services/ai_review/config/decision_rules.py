@@ -1,9 +1,9 @@
 """Configurable decision rules for auto-approve/reject/request-changes."""
-import os
+
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import yaml
 
@@ -40,7 +40,9 @@ class SafetyConfig:
     max_auto_approvals_per_day: int = 50
     max_auto_rejections_per_day: int = 20
     cooldown_between_actions: int = 300
-    emergency_labels: List[str] = field(default_factory=lambda: ["emergency", "hotfix", "security-patch"])
+    emergency_labels: List[str] = field(
+        default_factory=lambda: ["emergency", "hotfix", "security-patch"]
+    )
     trusted_bots: List[str] = field(default_factory=lambda: ["dependabot", "renovate"])
     bypass_approvers: List[str] = field(default_factory=list)
 
@@ -57,12 +59,17 @@ BLOCKING_PATTERNS = [
 @dataclass
 class DecisionRules:
     """Complete decision rules configuration."""
+
     enabled: bool = False
     approve: ApproveThresholds = field(default_factory=ApproveThresholds)
     reject: RejectThresholds = field(default_factory=RejectThresholds)
-    request_changes: RequestChangesThresholds = field(default_factory=RequestChangesThresholds)
+    request_changes: RequestChangesThresholds = field(
+        default_factory=RequestChangesThresholds
+    )
     safety: SafetyConfig = field(default_factory=SafetyConfig)
-    blocking_patterns: List[str] = field(default_factory=lambda: list(BLOCKING_PATTERNS))
+    blocking_patterns: List[str] = field(
+        default_factory=lambda: list(BLOCKING_PATTERNS)
+    )
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> "DecisionRules":
@@ -82,7 +89,9 @@ class DecisionRules:
                 if "auto_reject" in t:
                     rules.reject = RejectThresholds(**t["auto_reject"])
                 if "request_changes" in t:
-                    rules.request_changes = RequestChangesThresholds(**t["request_changes"])
+                    rules.request_changes = RequestChangesThresholds(
+                        **t["request_changes"]
+                    )
 
                 s = d.get("safety", {}).get("rate_limits", {})
                 o = d.get("safety", {}).get("overrides", {})

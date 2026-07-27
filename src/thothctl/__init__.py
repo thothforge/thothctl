@@ -1,4 +1,5 @@
 """Init file."""
+
 # src/thothctl/__init__.py
 import logging
 import os
@@ -17,7 +18,7 @@ else:
 logging.basicConfig(
     level=log_level,
     format="%(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler()],
 )
 
 # Suppress overly verbose third-party loggers

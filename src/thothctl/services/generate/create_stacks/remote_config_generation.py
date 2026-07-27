@@ -1,26 +1,29 @@
+import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
-import os
 import yaml
 from jinja2 import Template
-import importlib.util
 
 # Try to import TerraformModuleDetails using a more robust approach
 try:
     # First try direct import
-    from thothctl.utils.modules_ops.terraform_module_details import TerraformModuleDetails
+    from thothctl.utils.modules_ops.terraform_module_details import (
+        TerraformModuleDetails,
+    )
 except ImportError:
     try:
         # Then try relative import
-        from .....utils.modules_ops.terraform_module_details import TerraformModuleDetails
+        from .....utils.modules_ops.terraform_module_details import (
+            TerraformModuleDetails,
+        )
     except ImportError:
         # If both fail, create a mock class
         class TerraformModuleDetails:
             def get_module_details(self, namespace, name, provider):
                 return self._create_mock_module_details(namespace, name, provider)
-                
+
             def _create_mock_module_details(self, namespace, name, provider):
                 # Basic module info
                 basic_info = {
@@ -31,10 +34,10 @@ except ImportError:
                     "version": "1.0.0",
                     "description": f"Mock {name} module for {provider}",
                 }
-                
+
                 # Root module inputs and outputs based on module name
                 root = {"inputs": [], "outputs": []}
-                
+
                 # Add inputs and outputs based on module name
                 if name == "vpc":
                     root["inputs"] = [
@@ -57,7 +60,7 @@ except ImportError:
                             "value": "module.vpc.vpc_id",
                         },
                     ]
-                
+
                 # Return complete module details
                 return {
                     "basic_info": basic_info,
@@ -378,7 +381,7 @@ class TerragruntConfigGenerator:
             if source_io and target_io and output in source_io.outputs:
                 # Use enhanced mapping
                 mappings = self._infer_module_mappings(ref_module, module_name)
-                mapped_var_name = mappings.get(output, var_name)
+                mappings.get(output, var_name)
                 return f"dependency.{ref_module}.outputs.{output}", ref_module
 
         if isinstance(var_value, str):
@@ -502,7 +505,9 @@ class TerragruntConfigGenerator:
             inputs=processed_inputs,
         )
 
-    def _generate_basic_config(self, module_name: str, module_config: Dict[str, Any]) -> str:
+    def _generate_basic_config(
+        self, module_name: str, module_config: Dict[str, Any]
+    ) -> str:
         """Generate a basic terragrunt configuration when module info is not available"""
         dependencies = []
         processed_inputs = {}
@@ -523,8 +528,10 @@ class TerragruntConfigGenerator:
             for var_name, var_value in module_config["variables"].items():
                 if isinstance(var_value, str) and "." in var_value:
                     ref_module, output_name = var_value.split(".", 1)
-                    processed_inputs[var_name] = f"dependency.{ref_module}.outputs.{output_name}"
-                    
+                    processed_inputs[
+                        var_name
+                    ] = f"dependency.{ref_module}.outputs.{output_name}"
+
                     # Add dependency if not already present
                     if not any(d.name == ref_module for d in dependencies):
                         dependency = Dependency(
@@ -534,7 +541,9 @@ class TerragruntConfigGenerator:
                         )
                         dependencies.append(dependency)
                 else:
-                    processed_inputs[var_name] = f'"{var_value}"' if isinstance(var_value, str) else var_value
+                    processed_inputs[var_name] = (
+                        f'"{var_value}"' if isinstance(var_value, str) else var_value
+                    )
 
         # Generate the configuration
         return self.template.render(
@@ -639,7 +648,7 @@ def parse_variables(module_info: List[Dict[str, Any]]) -> List[VariableDefinitio
 def get_module_io(module_name: str, provider: str = "aws") -> Optional[ModuleIO]:
     """Get module inputs and outputs with their definitions"""
     module_details = TerraformModuleDetails()
-    
+
     # Get module details from registry
     module_info = module_details.get_module_details(
         namespace="terraform-aws-modules",  # or appropriate namespace
@@ -670,15 +679,15 @@ def get_module_io(module_name: str, provider: str = "aws") -> Optional[ModuleIO]
 def process_yaml_config(yaml_content: str, output_dir: str) -> None:
     """Process the YAML configuration and generate terragrunt files."""
     config = yaml.safe_load(yaml_content)
-    
+
     # Get the template path
     template_dir = os.path.join(os.path.dirname(__file__), "templates")
     template_path = os.path.join(template_dir, "terragrunt.hcl.j2")
-    
+
     if not os.path.exists(template_path):
         # Fallback to using the terragrunt.hcl file as a template
         template_path = os.path.join(os.path.dirname(__file__), "terragrunt.hcl")
-    
+
     generator = TerragruntConfigGenerator(template_path)
 
     # Create a mapping of module names to their configurations
@@ -698,7 +707,9 @@ def process_yaml_config(yaml_content: str, output_dir: str) -> None:
             )
 
             # Write configuration to file
-            output_path = os.path.join(output_dir, stack_name, module_name, "terragrunt.hcl")
+            output_path = os.path.join(
+                output_dir, stack_name, module_name, "terragrunt.hcl"
+            )
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, "w") as f:
                 f.write(terragrunt_config)

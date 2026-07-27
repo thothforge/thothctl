@@ -1,4 +1,5 @@
 """Deploy phase: pre-deployment validation and enforcement gates."""
+
 import logging
 import time
 from typing import Dict, Optional
@@ -45,22 +46,26 @@ class DeployPhaseExecutor(PhaseExecutor):
         # Translate secure results into deploy gate
         total_failures = secure_result.total_findings
         if total_failures == 0:
-            result.steps.append(StepResult(
-                name="deploy-gate",
-                status=StepStatus.PASSED,
-                command="thothctl scan iac --enforcement hard",
-                duration_seconds=duration,
-                summary="All security gates passed — safe to deploy",
-            ))
+            result.steps.append(
+                StepResult(
+                    name="deploy-gate",
+                    status=StepStatus.PASSED,
+                    command="thothctl scan iac --enforcement hard",
+                    duration_seconds=duration,
+                    summary="All security gates passed — safe to deploy",
+                )
+            )
         else:
-            result.steps.append(StepResult(
-                name="deploy-gate",
-                status=StepStatus.FAILED,
-                command="thothctl scan iac --enforcement hard",
-                duration_seconds=duration,
-                summary=f"Deployment blocked: {total_failures} violation(s) must be resolved",
-                findings_count=total_failures,
-            ))
+            result.steps.append(
+                StepResult(
+                    name="deploy-gate",
+                    status=StepStatus.FAILED,
+                    command="thothctl scan iac --enforcement hard",
+                    duration_seconds=duration,
+                    summary=f"Deployment blocked: {total_failures} violation(s) must be resolved",
+                    findings_count=total_failures,
+                )
+            )
             result.passed = False
             if enforcement == "hard":
                 result.gate_blocked = True

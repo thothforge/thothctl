@@ -1,8 +1,9 @@
 """Rule Merger — hierarchical merge of org and project rules with enforcement levels."""
+
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import toml
 
@@ -66,7 +67,9 @@ def load_org_rules(rules_dir: str, project_type: str) -> MergedRuleset:
     return ruleset
 
 
-def merge_with_project(org_ruleset: MergedRuleset, project_toml_path: str) -> MergedRuleset:
+def merge_with_project(
+    org_ruleset: MergedRuleset, project_toml_path: str
+) -> MergedRuleset:
     """Merge org rules with project .thothcf.toml. Project cannot weaken mandatory org rules."""
     if not os.path.exists(project_toml_path):
         return org_ruleset
@@ -82,7 +85,9 @@ def merge_with_project(org_ruleset: MergedRuleset, project_toml_path: str) -> Me
 
     # Project can ADD folders but not remove org mandatory ones
     if "folders" in project_struct:
-        existing_names = {f["name"] for f in org_ruleset.project_structure.get("folders", [])}
+        existing_names = {
+            f["name"] for f in org_ruleset.project_structure.get("folders", [])
+        }
         for folder in project_struct["folders"]:
             if folder["name"] not in existing_names:
                 org_ruleset.project_structure.setdefault("folders", []).append(folder)
@@ -98,13 +103,15 @@ def evaluate(ruleset: MergedRuleset, project_dir: str) -> List[RuleViolation]:
     for required_file in ruleset.project_structure.get("root_files", []):
         path = os.path.join(project_dir, required_file)
         if not os.path.exists(path):
-            violations.append(RuleViolation(
-                rule=f"project_structure.root_files.{required_file}",
-                expected=f"{required_file} exists",
-                found="missing",
-                enforcement=ruleset.enforcement,
-                source="org",
-            ))
+            violations.append(
+                RuleViolation(
+                    rule=f"project_structure.root_files.{required_file}",
+                    expected=f"{required_file} exists",
+                    found="missing",
+                    enforcement=ruleset.enforcement,
+                    source="org",
+                )
+            )
 
     # Check folders
     for folder in ruleset.project_structure.get("folders", []):
@@ -114,13 +121,15 @@ def evaluate(ruleset: MergedRuleset, project_dir: str) -> List[RuleViolation]:
         folder_path = os.path.join(project_dir, name)
 
         if mandatory and not os.path.isdir(folder_path):
-            violations.append(RuleViolation(
-                rule=f"project_structure.folders.{name}",
-                expected=f"{name}/ exists",
-                found="missing",
-                enforcement=enforcement,
-                source="org",
-            ))
+            violations.append(
+                RuleViolation(
+                    rule=f"project_structure.folders.{name}",
+                    expected=f"{name}/ exists",
+                    found="missing",
+                    enforcement=enforcement,
+                    source="org",
+                )
+            )
             continue
 
         # Check required content inside folder
@@ -128,13 +137,15 @@ def evaluate(ruleset: MergedRuleset, project_dir: str) -> List[RuleViolation]:
             for required_content in folder.get("content", []):
                 content_path = os.path.join(folder_path, required_content)
                 if not os.path.exists(content_path):
-                    violations.append(RuleViolation(
-                        rule=f"project_structure.folders.{name}.{required_content}",
-                        expected=f"{name}/{required_content} exists",
-                        found="missing",
-                        enforcement=enforcement,
-                        source="org",
-                    ))
+                    violations.append(
+                        RuleViolation(
+                            rule=f"project_structure.folders.{name}.{required_content}",
+                            expected=f"{name}/{required_content} exists",
+                            found="missing",
+                            enforcement=enforcement,
+                            source="org",
+                        )
+                    )
 
     # Check naming rules
     naming_rules = ruleset.rules.get("naming", {})
@@ -149,24 +160,31 @@ def evaluate(ruleset: MergedRuleset, project_dir: str) -> List[RuleViolation]:
     return violations
 
 
-def _check_naming(naming_rules: Dict, project_dir: str, violations: List[RuleViolation]):
+def _check_naming(
+    naming_rules: Dict, project_dir: str, violations: List[RuleViolation]
+):
     """Check project name matches naming pattern."""
     import re
+
     pattern = naming_rules.get("pattern")
     enforcement = naming_rules.get("enforcement", "mandatory")
     if pattern:
         project_name = os.path.basename(os.path.abspath(project_dir))
         if not re.match(pattern, project_name):
-            violations.append(RuleViolation(
-                rule="rules.naming.pattern",
-                expected=f"project name matches {pattern}",
-                found=project_name,
-                enforcement=enforcement,
-                source="org",
-            ))
+            violations.append(
+                RuleViolation(
+                    rule="rules.naming.pattern",
+                    expected=f"project name matches {pattern}",
+                    found=project_name,
+                    enforcement=enforcement,
+                    source="org",
+                )
+            )
 
 
-def _check_tagging(tagging_rules: Dict, project_dir: str, violations: List[RuleViolation]):
+def _check_tagging(
+    tagging_rules: Dict, project_dir: str, violations: List[RuleViolation]
+):
     """Check that required tags are referenced in the project (basic check in .thothcf.toml)."""
     # This is a lightweight check — full tag validation requires HCL parsing
     # For now just verify the project acknowledges required tags in its config

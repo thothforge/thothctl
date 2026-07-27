@@ -1,18 +1,16 @@
 import asyncio
 import logging
+import os
 from enum import Enum
 from typing import Optional
 
 import click
-
-import os
 from colorama import Fore
 from rich.console import Console
 
 from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
 from ....services.inventory.inventory_service import InventoryService
-
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -56,7 +54,8 @@ class IaCInvCommand(ClickCommand):
         check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
         project_name: Optional[str] = None,
-        terragrunt_args: str = "",        **kwargs,
+        terragrunt_args: str = "",
+        **kwargs,
     ) -> None:
         """
         Execute project initialization
@@ -83,9 +82,9 @@ class IaCInvCommand(ClickCommand):
             }
 
             # Store for post_execute
-            self._post_to_pr = kwargs.get('post_to_pr', False)
-            self._space = kwargs.get('space')
-            self._vcs_provider = kwargs.get('vcs_provider', 'auto')
+            self._post_to_pr = kwargs.get("post_to_pr", False)
+            self._space = kwargs.get("space")
+            self._vcs_provider = kwargs.get("vcs_provider", "auto")
             self._inventory = None
 
             action = InventoryAction(inventory_action.lower())
@@ -142,7 +141,8 @@ class IaCInvCommand(ClickCommand):
         reports_dir: Optional[str] = None,
         framework_type: str = "auto",
         complete: bool = False,
-        terragrunt_args: str = "",        check_providers: bool = False,
+        terragrunt_args: str = "",
+        check_providers: bool = False,
         check_provider_versions: bool = False,
         check_schema_compatibility: bool = False,
         provider_tool: str = "tofu",
@@ -167,24 +167,34 @@ class IaCInvCommand(ClickCommand):
         """
         try:
             # Debug logging for CLI parameters
-            logger.info(f"CLI Debug: check_schema_compatibility={check_schema_compatibility}")
+            logger.info(
+                f"CLI Debug: check_schema_compatibility={check_schema_compatibility}"
+            )
             logger.info(f"CLI Debug: check_versions={check_versions}")
             logger.info(f"CLI Debug: check_providers={check_providers}")
             logger.info(f"CLI Debug: check_provider_versions={check_provider_versions}")
-            
+
             # Validate schema compatibility dependencies
             if check_schema_compatibility and not check_versions:
-                self.ui.print_error("❌ Error: --check-schema-compatibility requires --check-versions to be enabled")
-                self.ui.print_info("💡 Use: thothctl inventory iac --check-versions --check-schema-compatibility")
-                raise click.ClickException("Schema compatibility analysis requires version checking to be enabled")
-            
+                self.ui.print_error(
+                    "❌ Error: --check-schema-compatibility requires --check-versions to be enabled"
+                )
+                self.ui.print_info(
+                    "💡 Use: thothctl inventory iac --check-versions --check-schema-compatibility"
+                )
+                raise click.ClickException(
+                    "Schema compatibility analysis requires version checking to be enabled"
+                )
+
             if check_schema_compatibility:
-                self.ui.print_info("🔍 Schema compatibility analysis enabled - this may take additional time")
-            
+                self.ui.print_info(
+                    "🔍 Schema compatibility analysis enabled - this may take additional time"
+                )
+
             with self.ui.status_spinner("Creating infrastructure inventory..."):
                 # Enable provider checking if provider versions are requested
                 effective_check_providers = check_providers or check_provider_versions
-                
+
                 inventory = await self.inventory_service.create_inventory(
                     source_directory=source_dir,
                     check_versions=check_versions,
@@ -197,7 +207,8 @@ class IaCInvCommand(ClickCommand):
                     check_schema_compatibility=check_schema_compatibility,
                     provider_tool=provider_tool,
                     project_name=project_name,
-                    terragrunt_args=terragrunt_args,                    print_console=True,  # Enable console printing
+                    terragrunt_args=terragrunt_args,
+                    print_console=True,  # Enable console printing
                 )
 
             self.ui.print_success("Infrastructure inventory created successfully!")
@@ -288,7 +299,7 @@ class IaCInvCommand(ClickCommand):
 
         except Exception as e:
             self.ui.console.print(
-                "[yellow]Unable to display summary. " f"Error: {str(e)}[/yellow]"
+                f"[yellow]Unable to display summary. Error: {str(e)}[/yellow]"
             )
 
     def _display_summary(self, inventory: dict) -> None:
@@ -300,58 +311,63 @@ class IaCInvCommand(ClickCommand):
 
         # Count local modules based on source, not status
         local_modules = 0
-        
+
         # Use unique providers count if available, otherwise count all providers
         total_providers = inventory.get("unique_providers_count", 0)
         if total_providers == 0:
             # Fall back to counting all providers if unique count not available
             for comp_group in inventory["components"]:
                 total_providers += len(comp_group.get("providers", []))
-            
+
         # Count local modules
         for comp_group in inventory["components"]:
             for component in comp_group.get("components", []):
-                source = component.get("source", [""])[0] if component.get("source") else ""
+                source = (
+                    component.get("source", [""])[0] if component.get("source") else ""
+                )
                 if self._is_local_source(source):
                     local_modules += 1
 
         self.ui.print_info("\nInventory Summary:")
         self.ui.print_info(f"Total Components: {total_components}")
         self.ui.print_info(f"Project Type: {inventory.get('projectType', 'Terraform')}")
-        
+
         # Display framework-specific information
-        project_type = inventory.get('projectType', 'terraform')
-        
-        
+        project_type = inventory.get("projectType", "terraform")
+
         # Show module-specific information
-        if project_type == 'module':
-            resources = inventory.get('resources', [])
+        if project_type == "module":
+            resources = inventory.get("resources", [])
             if resources:
                 self.ui.print_info(f"Resources: {len(resources)}")
                 # Show resource types summary
                 resource_types = {}
                 for resource in resources:
-                    res_type = resource.get('resource_type', 'unknown')
+                    res_type = resource.get("resource_type", "unknown")
                     resource_types[res_type] = resource_types.get(res_type, 0) + 1
-                
+
                 for res_type, count in resource_types.items():
-                    self.ui.print_info(f"  - {res_type}: {count}")        # Show terragrunt stacks count for terraform-terragrunt projects
-        if project_type == 'terraform-terragrunt':
-            terragrunt_stacks_count = inventory.get('terragrunt_stacks_count', 0)
+                    self.ui.print_info(
+                        f"  - {res_type}: {count}"
+                    )  # Show terragrunt stacks count for terraform-terragrunt projects
+        if project_type == "terraform-terragrunt":
+            terragrunt_stacks_count = inventory.get("terragrunt_stacks_count", 0)
             self.ui.print_info(f"Terragrunt Stacks: {terragrunt_stacks_count}")
-        
-        if 'terragrunt' in project_type:
+
+        if "terragrunt" in project_type:
             terragrunt_modules = sum(
-                1 for comp in inventory["components"] 
-                for c in comp.get("components", []) 
+                1
+                for comp in inventory["components"]
+                for c in comp.get("components", [])
                 if c.get("type") == "terragrunt_module"
             )
             self.ui.print_info(f"Terragrunt Modules: {terragrunt_modules}")
-            
-        if 'terraform' in project_type:
+
+        if "terraform" in project_type:
             terraform_modules = sum(
-                1 for comp in inventory["components"] 
-                for c in comp.get("components", []) 
+                1
+                for comp in inventory["components"]
+                for c in comp.get("components", [])
                 if c.get("type") == "module"
             )
             self.ui.print_info(f"Terraform Modules: {terraform_modules}")
@@ -359,7 +375,7 @@ class IaCInvCommand(ClickCommand):
         # Show local modules count
         if local_modules > 0:
             self.ui.print_info(f"Local Modules: {local_modules}")
-            
+
         # Show providers count
         if total_providers > 0:
             self.ui.print_info(f"Providers: {total_providers}")
@@ -371,11 +387,11 @@ class IaCInvCommand(ClickCommand):
         if "technical_debt" in inventory:
             tech_debt = inventory["technical_debt"]
             self.ui.print_info("\n📊 Technical Debt Metrics:")
-            
+
             # Color-code risk level
             risk_level = tech_debt.get("risk_level", "low")
             debt_score = tech_debt.get("debt_score", 0)
-            
+
             if risk_level == "critical":
                 risk_color = Fore.RED
             elif risk_level == "high":
@@ -384,27 +400,36 @@ class IaCInvCommand(ClickCommand):
                 risk_color = Fore.CYAN
             else:
                 risk_color = Fore.GREEN
-            
-            self.ui.print_info(f"Debt Score: {risk_color}{debt_score:.1f}%{Fore.RESET} ({risk_level.upper()} risk)")
-            self.ui.print_info(f"Outdated Modules: {tech_debt.get('outdated_modules', 0)}/{tech_debt.get('total_components', 0)}")
-            
-            if tech_debt.get("outdated_providers", 0) > 0:
-                self.ui.print_info(f"Outdated Providers: {tech_debt.get('outdated_providers', 0)}")
-            
-            if tech_debt.get("modules_with_breaking_changes", 0) > 0:
-                self.ui.print_info(f"⚠️  Modules with Breaking Changes: {tech_debt.get('modules_with_breaking_changes', 0)}")
-            
-            if tech_debt.get("providers_with_breaking_changes", 0) > 0:
-                self.ui.print_info(f"⚠️  Providers with Breaking Changes: {tech_debt.get('providers_with_breaking_changes', 0)}")
 
+            self.ui.print_info(
+                f"Debt Score: {risk_color}{debt_score:.1f}%{Fore.RESET} ({risk_level.upper()} risk)"
+            )
+            self.ui.print_info(
+                f"Outdated Modules: {tech_debt.get('outdated_modules', 0)}/{tech_debt.get('total_components', 0)}"
+            )
+
+            if tech_debt.get("outdated_providers", 0) > 0:
+                self.ui.print_info(
+                    f"Outdated Providers: {tech_debt.get('outdated_providers', 0)}"
+                )
+
+            if tech_debt.get("modules_with_breaking_changes", 0) > 0:
+                self.ui.print_info(
+                    f"⚠️  Modules with Breaking Changes: {tech_debt.get('modules_with_breaking_changes', 0)}"
+                )
+
+            if tech_debt.get("providers_with_breaking_changes", 0) > 0:
+                self.ui.print_info(
+                    f"⚠️  Providers with Breaking Changes: {tech_debt.get('providers_with_breaking_changes', 0)}"
+                )
 
     def post_execute(self, **kwargs) -> None:
         """Post inventory summary to PR if --post-to-pr flag is set."""
-        post_to_pr = getattr(self, '_post_to_pr', False)
+        post_to_pr = getattr(self, "_post_to_pr", False)
         if not post_to_pr:
             return
 
-        inventory = getattr(self, '_inventory', None)
+        inventory = getattr(self, "_inventory", None)
         if not inventory:
             self.ui.print_warning("No inventory data available to post to PR")
             return
@@ -415,12 +440,14 @@ class IaCInvCommand(ClickCommand):
         from ....core.integrations.pr_comments.pr_comment_publisher import publish_to_pr
 
         content = self._build_inventory_markdown(inventory)
-        self.ui.print_info(f"📝 Posting inventory summary to PR ({len(content)} chars)...")
+        self.ui.print_info(
+            f"📝 Posting inventory summary to PR ({len(content)} chars)..."
+        )
 
         if publish_to_pr(
             content=content,
-            vcs_provider=getattr(self, '_vcs_provider', 'auto'),
-            space=getattr(self, '_space', None),
+            vcs_provider=getattr(self, "_vcs_provider", "auto"),
+            space=getattr(self, "_space", None),
         ):
             self.ui.print_success("Inventory summary posted to PR")
         else:
@@ -429,12 +456,12 @@ class IaCInvCommand(ClickCommand):
     def _build_inventory_markdown(self, inventory: dict) -> str:
         """Build a markdown summary from the inventory dict."""
         total_components = len(inventory["components"])
-        project_type = inventory.get('projectType', 'terraform')
+        project_type = inventory.get("projectType", "terraform")
 
         lines = [
             "## 📦 ThothCTL Inventory Summary\n",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| Project Type | {project_type} |",
         ]
 
@@ -454,8 +481,10 @@ class IaCInvCommand(ClickCommand):
             lines.append(f"| Providers | {total_providers} |")
 
         # Terragrunt stacks
-        if project_type == 'terraform-terragrunt':
-            lines.append(f"| Terragrunt Stacks | {inventory.get('terragrunt_stacks_count', 0)} |")
+        if project_type == "terraform-terragrunt":
+            lines.append(
+                f"| Terragrunt Stacks | {inventory.get('terragrunt_stacks_count', 0)} |"
+            )
 
         # Outdated
         outdated = sum(
@@ -470,11 +499,17 @@ class IaCInvCommand(ClickCommand):
             risk_level = tech_debt.get("risk_level", "low").upper()
             debt_score = tech_debt.get("debt_score", 0)
             lines.append(f"| Debt Score | {debt_score:.1f}% ({risk_level}) |")
-            lines.append(f"| Outdated Modules | {tech_debt.get('outdated_modules', 0)}/{tech_debt.get('total_components', 0)} |")
+            lines.append(
+                f"| Outdated Modules | {tech_debt.get('outdated_modules', 0)}/{tech_debt.get('total_components', 0)} |"
+            )
             if tech_debt.get("modules_with_breaking_changes", 0) > 0:
-                lines.append(f"| ⚠️ Breaking Changes (Modules) | {tech_debt['modules_with_breaking_changes']} |")
+                lines.append(
+                    f"| ⚠️ Breaking Changes (Modules) | {tech_debt['modules_with_breaking_changes']} |"
+                )
             if tech_debt.get("providers_with_breaking_changes", 0) > 0:
-                lines.append(f"| ⚠️ Breaking Changes (Providers) | {tech_debt['providers_with_breaking_changes']} |")
+                lines.append(
+                    f"| ⚠️ Breaking Changes (Providers) | {tech_debt['providers_with_breaking_changes']} |"
+                )
 
         lines.append("\n---")
         lines.append("*Posted by [ThothCTL](https://github.com/thothforge/thothctl)*")
@@ -485,14 +520,21 @@ class IaCInvCommand(ClickCommand):
         """Check if a source is a local path."""
         if not source or source == "Null":
             return False
-            
-        return (source.startswith("./") or 
-                source.startswith("../") or 
-                source.startswith("/") or
-                source.startswith("../../") or
-                source.startswith("../../../") or
-                source.startswith("../../../../") or
-                (not source.startswith("http") and not source.startswith("git") and "/" in source and not source.count("/") == 2))
+
+        return (
+            source.startswith("./")
+            or source.startswith("../")
+            or source.startswith("/")
+            or source.startswith("../../")
+            or source.startswith("../../../")
+            or source.startswith("../../../../")
+            or (
+                not source.startswith("http")
+                and not source.startswith("git")
+                and "/" in source
+                and not source.count("/") == 2
+            )
+        )
 
 
 # Create the Click command
@@ -544,7 +586,17 @@ cli = IaCInvCommand.as_click_command(
     click.option(
         "--framework-type",
         "-ft",
-        type=click.Choice(["auto", "terraform", "terragrunt", "terraform-terragrunt", "module", "cdkv2"], case_sensitive=False),
+        type=click.Choice(
+            [
+                "auto",
+                "terraform",
+                "terragrunt",
+                "terraform-terragrunt",
+                "module",
+                "cdkv2",
+            ],
+            case_sensitive=False,
+        ),
         default="auto",
         help="Framework type to analyze (auto for automatic detection)",
     ),

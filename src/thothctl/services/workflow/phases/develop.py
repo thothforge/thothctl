@@ -1,4 +1,5 @@
 """Develop phase: environment validation, structure enforcement, documentation."""
+
 import logging
 import subprocess
 import time
@@ -40,9 +41,7 @@ class DevelopPhaseExecutor(PhaseExecutor):
         result.steps.append(self._document_iac(directory))
 
         # Phase passes if no steps failed
-        result.passed = not any(
-            s.status == StepStatus.FAILED for s in result.steps
-        )
+        result.passed = not any(s.status == StepStatus.FAILED for s in result.steps)
         return result
 
     def _check_environment(self) -> StepResult:
@@ -62,7 +61,9 @@ class DevelopPhaseExecutor(PhaseExecutor):
                 status=status,
                 command="thothctl check environment",
                 duration_seconds=duration,
-                summary="Environment tools verified" if status == StepStatus.PASSED else "Some tools missing",
+                summary="Environment tools verified"
+                if status == StepStatus.PASSED
+                else "Some tools missing",
             )
         except Exception as e:
             return StepResult(
@@ -91,7 +92,9 @@ class DevelopPhaseExecutor(PhaseExecutor):
                 status=status,
                 command="thothctl check project iac",
                 duration_seconds=duration,
-                summary="Project structure valid" if status == StepStatus.PASSED else "Structure issues found",
+                summary="Project structure valid"
+                if status == StepStatus.PASSED
+                else "Structure issues found",
             )
         except Exception as e:
             return StepResult(
@@ -120,7 +123,9 @@ class DevelopPhaseExecutor(PhaseExecutor):
                 status=status,
                 command="thothctl document iac",
                 duration_seconds=duration,
-                summary="Documentation generated" if status == StepStatus.PASSED else "Documentation skipped",
+                summary="Documentation generated"
+                if status == StepStatus.PASSED
+                else "Documentation skipped",
             )
         except Exception as e:
             return StepResult(

@@ -7,7 +7,6 @@ from typing import Optional
 import click
 from click.shell_completion import CompletionItem
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -36,25 +35,31 @@ class InventoryCLI(click.MultiCommand):
 
             # Import the module
             module_name = f"thothctl.commands.inventory.commands.{cmd_name}"
-            
+
             # Try to import using importlib.util first
             try:
-                spec = importlib.util.spec_from_file_location(module_name, str(module_path))
+                spec = importlib.util.spec_from_file_location(
+                    module_name, str(module_path)
+                )
                 if spec is None or spec.loader is None:
                     return None
 
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
             except Exception as import_error:
-                logger.error(f"Error importing module {module_name} using spec_from_file_location: {str(import_error)}")
-                
+                logger.error(
+                    f"Error importing module {module_name} using spec_from_file_location: {str(import_error)}"
+                )
+
                 # Fallback to direct import
                 try:
                     if module_name not in sys.modules:
                         __import__(module_name)
                     module = sys.modules[module_name]
                 except Exception as direct_import_error:
-                    logger.error(f"Error importing module {module_name} directly: {str(direct_import_error)}")
+                    logger.error(
+                        f"Error importing module {module_name} directly: {str(direct_import_error)}"
+                    )
                     return None
 
             # Get the command

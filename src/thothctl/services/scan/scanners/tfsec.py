@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from ....core.cli_ui import ScannerUI
-from ....utils.platform_utils import find_executable, get_executable_name
+from ....utils.platform_utils import find_executable
 from .scanners import ScannerPort
 
 

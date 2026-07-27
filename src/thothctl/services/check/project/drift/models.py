@@ -1,4 +1,5 @@
 """Data models for drift detection."""
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -6,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 class DriftSeverity(Enum):
     """Severity of a drifted resource."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -14,14 +16,16 @@ class DriftSeverity(Enum):
 
 class DriftType(Enum):
     """Type of drift detected."""
-    CHANGED = "changed"       # Resource exists but attributes differ
-    DELETED = "deleted"       # In state but missing from cloud
-    UNMANAGED = "unmanaged"   # In cloud but not in state (create action in reverse)
+
+    CHANGED = "changed"  # Resource exists but attributes differ
+    DELETED = "deleted"  # In state but missing from cloud
+    UNMANAGED = "unmanaged"  # In cloud but not in state (create action in reverse)
 
 
 @dataclass
 class DriftedResource:
     """A single resource that has drifted."""
+
     address: str
     resource_type: str
     drift_type: DriftType
@@ -47,6 +51,7 @@ class DriftedResource:
 @dataclass
 class DriftResult:
     """Result of a drift detection run for a single stack."""
+
     directory: str
     total_resources: int = 0
     drifted_resources: List[DriftedResource] = field(default_factory=list)
@@ -79,6 +84,7 @@ class DriftResult:
 @dataclass
 class DriftSummary:
     """Aggregated drift results across multiple stacks."""
+
     results: List[DriftResult] = field(default_factory=list)
 
     @property

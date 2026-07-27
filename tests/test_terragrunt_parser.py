@@ -1,4 +1,5 @@
 """Tests for the Terragrunt parser."""
+
 import unittest
 from pathlib import Path
 
@@ -30,13 +31,17 @@ class TestTerragruntParser(unittest.TestCase):
     def test_extract_module_info(self):
         """Test extracting module information from source strings."""
         # Test tfr:/// format — name is the last segment
-        name, version, source = self.parser._extract_module_info("tfr:///terraform-aws-modules/alb/aws?version=8.7.0")
+        name, version, source = self.parser._extract_module_info(
+            "tfr:///terraform-aws-modules/alb/aws?version=8.7.0"
+        )
         self.assertEqual(name, "aws")
         self.assertEqual(version, "8.7.0")
         self.assertEqual(source, "terraform-aws-modules/alb/aws")
 
         # Test GitHub format — strips 'terraform-' prefix from repo name
-        name, version, source = self.parser._extract_module_info("git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git?ref=v3.14.0")
+        name, version, source = self.parser._extract_module_info(
+            "git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git?ref=v3.14.0"
+        )
         self.assertEqual(name, "aws-vpc")
         self.assertEqual(version, "v3.14.0")
 

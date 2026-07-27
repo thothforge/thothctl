@@ -1,12 +1,12 @@
 """Create and operate terramate stacks."""
+
 import json
 import logging
+import os
 from pathlib import Path
 
 import git
-import os
 from colorama import Fore
-
 
 true = "true"
 false = "false"
@@ -31,7 +31,9 @@ def graph_dependencies_to_json(directory):
 
     logging.info(f"Getting dependencies graph for {d} ")
 
-    command = f"cd {full_path} && terragrunt dag graph --non-interactive |  dot -Tdot_json "
+    command = (
+        f"cd {full_path} && terragrunt dag graph --non-interactive |  dot -Tdot_json "
+    )
     run = os.popen(command)
     graph_json = run.read()
     logging.debug(graph_json)

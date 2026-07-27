@@ -1,5 +1,7 @@
 """Post comments to Azure DevOps pull requests."""
+
 import logging
+
 from azure.devops.connection import Connection
 from msrest.authentication import BasicAuthentication
 
@@ -48,9 +50,7 @@ def post_comment_to_azure_devops_pr(
         raise ValueError(f"Repository '{repository_name}' not found.")
 
     thread = {
-        "comments": [
-            {"parentCommentId": 0, "content": comment, "commentType": 1}
-        ],
+        "comments": [{"parentCommentId": 0, "content": comment, "commentType": 1}],
         "status": 1,
     }
 

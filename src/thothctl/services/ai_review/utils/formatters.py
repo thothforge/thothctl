@@ -1,7 +1,8 @@
 """Output formatters for AI review results."""
+
 import json
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,9 @@ def format_analysis_as_markdown(analysis: Dict[str, Any]) -> str:
         lines.append("## Findings\n")
         for i, f in enumerate(findings, 1):
             icon = SEVERITY_ICONS.get(f.get("severity", ""), "⚪")
-            lines.append(f"### {icon} {i}. [{f.get('severity', 'UNKNOWN')}] {f.get('title', 'Untitled')}")
+            lines.append(
+                f"### {icon} {i}. [{f.get('severity', 'UNKNOWN')}] {f.get('title', 'Untitled')}"
+            )
             lines.append(f"**Resource**: `{f.get('resource', 'N/A')}`\n")
             lines.append(f"{f.get('description', '')}\n")
             if f.get("remediation"):
@@ -77,7 +80,11 @@ def format_pr_comment(analysis: Dict[str, Any]) -> str:
     ]
 
     # Only show critical and high in PR comments
-    findings = [f for f in analysis.get("findings", []) if f.get("severity") in ("CRITICAL", "HIGH")]
+    findings = [
+        f
+        for f in analysis.get("findings", [])
+        if f.get("severity") in ("CRITICAL", "HIGH")
+    ]
     if findings:
         lines.append("<details><summary>🔍 Critical & High Findings</summary>\n")
         for f in findings:

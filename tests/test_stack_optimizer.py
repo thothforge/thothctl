@@ -1,9 +1,9 @@
 """Tests for the stack optimizer service."""
+
 import tempfile
 from pathlib import Path
 
 import pytest
-
 from thothctl.services.check.stack_optimizer import StackOptimizer
 
 
@@ -16,26 +16,35 @@ def project_dir():
 
         # Network stacks
         _create_unit(resources / "Network/VPC", deps=[])
-        _create_unit(resources / "Network/SecurityGroups/EC2_Bastion", deps=["Network/VPC"])
-        _create_unit(resources / "Network/SecurityGroups/RDS_Main", deps=["Network/VPC"])
+        _create_unit(
+            resources / "Network/SecurityGroups/EC2_Bastion", deps=["Network/VPC"]
+        )
+        _create_unit(
+            resources / "Network/SecurityGroups/RDS_Main", deps=["Network/VPC"]
+        )
         _create_unit(resources / "Network/Transit_Gw_Peer", deps=["Network/VPC"])
         _create_unit(resources / "Network/Route53_Hosted_Zone", deps=[])
 
         # Compute stacks
-        _create_unit(resources / "Compute/EC2/EC2_Bastion_Private", deps=[
-            "Network/VPC", "Network/SecurityGroups/EC2_Bastion"
-        ])
+        _create_unit(
+            resources / "Compute/EC2/EC2_Bastion_Private",
+            deps=["Network/VPC", "Network/SecurityGroups/EC2_Bastion"],
+        )
 
         # Database stacks
-        _create_unit(resources / "Database/RDS", deps=[
-            "Network/VPC", "Network/SecurityGroups/RDS_Main"
-        ])
-        _create_unit(resources / "Database/OpenSearch", deps=[
-            "Network/VPC", "Network/SecurityGroups/Search_sg"
-        ])
+        _create_unit(
+            resources / "Database/RDS",
+            deps=["Network/VPC", "Network/SecurityGroups/RDS_Main"],
+        )
+        _create_unit(
+            resources / "Database/OpenSearch",
+            deps=["Network/VPC", "Network/SecurityGroups/Search_sg"],
+        )
 
         # Security
-        _create_unit(resources / "Network/SecurityGroups/Search_sg", deps=["Network/VPC"])
+        _create_unit(
+            resources / "Network/SecurityGroups/Search_sg", deps=["Network/VPC"]
+        )
 
         yield base
 
@@ -60,7 +69,10 @@ class TestStackOptimizer:
         optimizer = StackOptimizer(base_path=project_dir, stacks_base="resources")
         result = optimizer.optimize(["Network/Route53_Hosted_Zone", "Database/RDS"])
 
-        assert set(result["optimized_filters"]) == {"Network/Route53_Hosted_Zone", "Database/RDS"}
+        assert set(result["optimized_filters"]) == {
+            "Network/Route53_Hosted_Zone",
+            "Database/RDS",
+        }
         assert result["removed_redundant"] == []
 
     def test_subset_is_removed(self, project_dir):
@@ -135,11 +147,13 @@ class TestStackOptimizer:
         not covered by Compute deps (Transit GW, Route53), and Compute stacks
         have their own direct units not in Network."""
         optimizer = StackOptimizer(base_path=project_dir, stacks_base="resources")
-        result = optimizer.optimize([
-            "Network/**",
-            "Compute/EC2/EC2_Bastion_Private",
-            "Database/RDS",
-        ])
+        result = optimizer.optimize(
+            [
+                "Network/**",
+                "Compute/EC2/EC2_Bastion_Private",
+                "Database/RDS",
+            ]
+        )
 
         # All 3 are kept: Network has Transit/Route53 not in others,
         # Compute has its own unit, Database has its own unit
@@ -169,10 +183,12 @@ class TestStackOptimizer:
     def test_mixed_leaf_and_non_leaf(self, project_dir):
         """Mix of leaf and non-leaf correctly normalizes each."""
         optimizer = StackOptimizer(base_path=project_dir, stacks_base="resources")
-        result = optimizer.optimize([
-            "Network/**",
-            "Compute/EC2/EC2_Bastion_Private/**",
-        ])
+        result = optimizer.optimize(
+            [
+                "Network/**",
+                "Compute/EC2/EC2_Bastion_Private/**",
+            ]
+        )
 
         assert "Network/**" in result["optimized_filters"]
         assert "Compute/EC2/EC2_Bastion_Private" in result["optimized_filters"]

@@ -1,11 +1,6 @@
 """Unit tests for parallel checkov scan and memory optimization."""
 
-import gc
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-
-import pytest
+from unittest.mock import Mock, patch
 
 from thothctl.services.scan.scan_service import ScanService
 from thothctl.services.scan.scanners.checkov import CheckovScanner
@@ -62,7 +57,7 @@ class TestRecursiveTerraformScanParallel:
             (d / "main.tf").write_text(f'resource "null_resource" "r{i}" {{}}')
         return tmp_path
 
-    @patch.object(ScanService, '_find_terraform_stacks')
+    @patch.object(ScanService, "_find_terraform_stacks")
     def test_parallel_scans_all_stacks(self, mock_find):
         """All discovered stacks are scanned and results collected."""
         stacks = ["/a/stack-0", "/a/stack-1", "/a/stack-2"]
@@ -75,7 +70,10 @@ class TestRecursiveTerraformScanParallel:
         svc.available_scanners["checkov"].execute_scan = mock_scanner.execute_scan
 
         results = svc._recursive_terraform_scan(
-            directory="/a", reports_dir="/r", options={}, tftool="tofu",
+            directory="/a",
+            reports_dir="/r",
+            options={},
+            tftool="tofu",
             max_workers=2,
         )
 
@@ -85,7 +83,7 @@ class TestRecursiveTerraformScanParallel:
             assert s in results
             assert results[s]["status"] == "COMPLETE"
 
-    @patch.object(ScanService, '_find_terraform_stacks')
+    @patch.object(ScanService, "_find_terraform_stacks")
     def test_single_worker_sequential(self, mock_find):
         """max_workers=1 still scans all stacks (sequential fallback)."""
         mock_find.return_value = ["/a/s1", "/a/s2"]
@@ -97,12 +95,15 @@ class TestRecursiveTerraformScanParallel:
         svc.available_scanners["checkov"].execute_scan = mock_scanner.execute_scan
 
         results = svc._recursive_terraform_scan(
-            directory="/a", reports_dir="/r", options={}, tftool="tofu",
+            directory="/a",
+            reports_dir="/r",
+            options={},
+            tftool="tofu",
             max_workers=1,
         )
         assert len(results) == 2
 
-    @patch.object(ScanService, '_find_terraform_stacks')
+    @patch.object(ScanService, "_find_terraform_stacks")
     def test_failed_stack_does_not_block_others(self, mock_find):
         """A failing stack returns FAIL but other stacks still complete."""
         mock_find.return_value = ["/a/good", "/a/bad"]
@@ -120,22 +121,28 @@ class TestRecursiveTerraformScanParallel:
         svc.available_scanners["checkov"].execute_scan = mock_scanner.execute_scan
 
         results = svc._recursive_terraform_scan(
-            directory="/a", reports_dir="/r", options={}, tftool="tofu",
+            directory="/a",
+            reports_dir="/r",
+            options={},
+            tftool="tofu",
         )
         assert results["/a/good"]["status"] == "COMPLETE"
         assert results["/a/bad"]["status"] == "FAIL"
         assert "boom" in results["/a/bad"]["error"]
 
-    @patch.object(ScanService, '_find_terraform_stacks')
+    @patch.object(ScanService, "_find_terraform_stacks")
     def test_no_stacks_returns_empty(self, mock_find):
         mock_find.return_value = []
         svc = ScanService()
         results = svc._recursive_terraform_scan(
-            directory="/a", reports_dir="/r", options={}, tftool="tofu",
+            directory="/a",
+            reports_dir="/r",
+            options={},
+            tftool="tofu",
         )
         assert results == {}
 
-    @patch.object(ScanService, '_find_terraform_stacks')
+    @patch.object(ScanService, "_find_terraform_stacks")
     def test_compact_flag_passed_to_scanner(self, mock_find):
         """compact=True adds compact key to options passed to scanner."""
         mock_find.return_value = ["/a/s1"]
@@ -147,13 +154,18 @@ class TestRecursiveTerraformScanParallel:
         svc.available_scanners["checkov"].execute_scan = mock_scanner.execute_scan
 
         svc._recursive_terraform_scan(
-            directory="/a", reports_dir="/r", options={}, tftool="tofu",
+            directory="/a",
+            reports_dir="/r",
+            options={},
+            tftool="tofu",
             compact=True,
         )
 
         call_opts = mock_scanner.execute_scan.call_args
-        assert call_opts.kwargs.get("options", {}).get("compact") is True or \
-               call_opts[1].get("options", {}).get("compact") is True
+        assert (
+            call_opts.kwargs.get("options", {}).get("compact") is True
+            or call_opts[1].get("options", {}).get("compact") is True
+        )
 
 
 class TestCheckovBuildCommand:
@@ -176,18 +188,24 @@ class TestCheckovBuildCommand:
 
     def test_additional_args_string(self):
         scanner = CheckovScanner()
-        cmd = scanner._build_command("/dir", {"additional_args": "--skip-check CKV_AWS_1"})
+        cmd = scanner._build_command(
+            "/dir", {"additional_args": "--skip-check CKV_AWS_1"}
+        )
         assert "--skip-check" in cmd
         assert "CKV_AWS_1" in cmd
 
     def test_additional_args_list(self):
         scanner = CheckovScanner()
-        cmd = scanner._build_command("/dir", {"additional_args": ["--framework", "terraform"]})
+        cmd = scanner._build_command(
+            "/dir", {"additional_args": ["--framework", "terraform"]}
+        )
         assert "--framework" in cmd
         assert "terraform" in cmd
 
     def test_compact_with_additional_args(self):
         scanner = CheckovScanner()
-        cmd = scanner._build_command("/dir", {"compact": True, "additional_args": "--quiet"})
+        cmd = scanner._build_command(
+            "/dir", {"compact": True, "additional_args": "--quiet"}
+        )
         assert "--compact" in cmd
         assert "--quiet" in cmd

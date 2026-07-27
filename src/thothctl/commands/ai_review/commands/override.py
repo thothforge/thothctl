@@ -1,4 +1,5 @@
 """Override command — manually override an AI decision."""
+
 import json
 import logging
 import time
@@ -7,8 +8,8 @@ from pathlib import Path
 
 import click
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,16 @@ class OverrideCommand(ClickCommand):
             return False
         return True
 
-    def _execute(self, repository, pr_number, action, reason="", publish=False,
-                 platform="auto", **kwargs):
+    def _execute(
+        self,
+        repository,
+        pr_number,
+        action,
+        reason="",
+        publish=False,
+        platform="auto",
+        **kwargs,
+    ):
         record = {
             "timestamp": time.time(),
             "action": f"override_{action}",
@@ -51,8 +60,8 @@ class OverrideCommand(ClickCommand):
         )
 
         if publish:
-            from ....services.ai_review.pr_decision_publisher import PRDecisionPublisher
             from ....services.ai_review.decision_engine import Decision, DecisionResult
+            from ....services.ai_review.pr_decision_publisher import PRDecisionPublisher
 
             result = DecisionResult(
                 decision=Decision(action),
@@ -76,11 +85,18 @@ class OverrideCommand(ClickCommand):
 cli = OverrideCommand.as_click_command(name="override")(
     click.option("--repository", required=True, help="Repository (owner/repo)"),
     click.option("--pr-number", required=True, type=int, help="PR number"),
-    click.option("--action", required=True,
-                 type=click.Choice(["approve", "reject", "request_changes", "comment"]),
-                 help="Decision to apply"),
+    click.option(
+        "--action",
+        required=True,
+        type=click.Choice(["approve", "reject", "request_changes", "comment"]),
+        help="Decision to apply",
+    ),
     click.option("--reason", default="", help="Reason for override"),
     click.option("--publish", is_flag=True, help="Also publish override to the PR"),
-    click.option("--platform", type=click.Choice(["github", "azure_devops", "auto"]),
-                 default="auto", help="VCS platform"),
+    click.option(
+        "--platform",
+        type=click.Choice(["github", "azure_devops", "auto"]),
+        default="auto",
+        help="VCS platform",
+    ),
 )

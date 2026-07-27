@@ -3,6 +3,7 @@
 Detects CI environment, resolves credentials, formats results,
 and delegates to VCS-specific integrations (azure_devops, github).
 """
+
 import logging
 import os
 from pathlib import Path
@@ -135,7 +136,9 @@ def _resolve_azure_credentials(space: Optional[str]) -> dict:
             space_creds, _ = get_credentials_with_password(space, "vcs")
             if space_creds.get("type") == "azure_repos":
                 creds["pat"] = creds["pat"] or space_creds.get("pat", "")
-                creds["org_name"] = creds["org_name"] or space_creds.get("organization", "")
+                creds["org_name"] = creds["org_name"] or space_creds.get(
+                    "organization", ""
+                )
         except Exception as e:
             logger.warning(f"Could not load space credentials: {e}")
 

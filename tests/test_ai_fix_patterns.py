@@ -1,8 +1,9 @@
 """Unit tests for fix patterns and fix generation."""
 
-import pytest
 from thothctl.services.ai_review.utils.fix_patterns import (
-    get_pattern_fix, list_supported_checks, _PATTERNS,
+    _PATTERNS,
+    get_pattern_fix,
+    list_supported_checks,
 )
 
 
@@ -40,66 +41,103 @@ class TestGetPatternFix:
         assert "encryption" in fix["description"].lower()
 
     def test_unknown_check_returns_none(self):
-        finding = {"check_id": "CKV_AWS_99999", "severity": "LOW", "resource": "", "file": ""}
+        finding = {
+            "check_id": "CKV_AWS_99999",
+            "severity": "LOW",
+            "resource": "",
+            "file": "",
+        }
         fix = get_pattern_fix("CKV_AWS_99999", finding, {})
         assert fix is None
 
     def test_s3_versioning(self):
-        finding = {"check_id": "CKV_AWS_21", "severity": "MEDIUM",
-                    "resource": "aws_s3_bucket.logs", "file": "s3.tf"}
+        finding = {
+            "check_id": "CKV_AWS_21",
+            "severity": "MEDIUM",
+            "resource": "aws_s3_bucket.logs",
+            "file": "s3.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_21", finding, {})
         assert fix is not None
         assert "versioning" in fix["description"].lower()
         assert "logs" in fix["replacement"]
 
     def test_rds_encryption(self):
-        finding = {"check_id": "CKV_AWS_16", "severity": "HIGH",
-                    "resource": "aws_db_instance.main", "file": "rds.tf"}
+        finding = {
+            "check_id": "CKV_AWS_16",
+            "severity": "HIGH",
+            "resource": "aws_db_instance.main",
+            "file": "rds.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_16", finding, {})
         assert fix is not None
         assert fix["fix_type"] == "add_attribute"
         assert "storage_encrypted" in fix["replacement"]
 
     def test_rds_public_access(self):
-        finding = {"check_id": "CKV_AWS_17", "severity": "HIGH",
-                    "resource": "aws_db_instance.main", "file": "rds.tf"}
+        finding = {
+            "check_id": "CKV_AWS_17",
+            "severity": "HIGH",
+            "resource": "aws_db_instance.main",
+            "file": "rds.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_17", finding, {})
         assert fix is not None
         assert "publicly_accessible" in fix["replacement"]
         assert "false" in fix["replacement"]
 
     def test_security_group_description(self):
-        finding = {"check_id": "CKV_AWS_23", "severity": "LOW",
-                    "resource": "aws_security_group.web", "file": "sg.tf"}
+        finding = {
+            "check_id": "CKV_AWS_23",
+            "severity": "LOW",
+            "resource": "aws_security_group.web",
+            "file": "sg.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_23", finding, {})
         assert fix is not None
         assert "description" in fix["replacement"]
 
     def test_ssh_cidr_restriction(self):
-        finding = {"check_id": "CKV_AWS_24", "severity": "HIGH",
-                    "resource": "aws_security_group_rule.ssh", "file": "sg.tf"}
+        finding = {
+            "check_id": "CKV_AWS_24",
+            "severity": "HIGH",
+            "resource": "aws_security_group_rule.ssh",
+            "file": "sg.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_24", finding, {})
         assert fix is not None
         assert "0.0.0.0/0" in fix["original"]
         assert "var.allowed_ssh_cidrs" in fix["replacement"]
 
     def test_ebs_encryption(self):
-        finding = {"check_id": "CKV_AWS_3", "severity": "HIGH",
-                    "resource": "aws_ebs_volume.data", "file": "ebs.tf"}
+        finding = {
+            "check_id": "CKV_AWS_3",
+            "severity": "HIGH",
+            "resource": "aws_ebs_volume.data",
+            "file": "ebs.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_3", finding, {})
         assert fix is not None
         assert "encrypted" in fix["replacement"]
 
     def test_fix_has_validation(self):
-        finding = {"check_id": "CKV_AWS_19", "severity": "HIGH",
-                    "resource": "aws_s3_bucket.x", "file": "s3.tf"}
+        finding = {
+            "check_id": "CKV_AWS_19",
+            "severity": "HIGH",
+            "resource": "aws_s3_bucket.x",
+            "file": "s3.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_19", finding, {})
         assert "checkov" in fix["validation"]
         assert "CKV_AWS_19" in fix["validation"]
 
     def test_resource_name_extraction(self):
-        finding = {"check_id": "CKV_AWS_21", "severity": "MEDIUM",
-                    "resource": "aws_s3_bucket.my_special_bucket", "file": "s3.tf"}
+        finding = {
+            "check_id": "CKV_AWS_21",
+            "severity": "MEDIUM",
+            "resource": "aws_s3_bucket.my_special_bucket",
+            "file": "s3.tf",
+        }
         fix = get_pattern_fix("CKV_AWS_21", finding, {})
         assert "my_special_bucket" in fix["replacement"]
 
@@ -112,12 +150,24 @@ class TestPatternFixes:
 
         scan = {
             "total_findings": 2,
-            "tools": {"checkov": {"findings": [
-                {"check_id": "CKV_AWS_19", "severity": "HIGH",
-                 "resource": "aws_s3_bucket.a", "file": "s3.tf"},
-                {"check_id": "CKV_AWS_16", "severity": "HIGH",
-                 "resource": "aws_db_instance.b", "file": "rds.tf"},
-            ]}},
+            "tools": {
+                "checkov": {
+                    "findings": [
+                        {
+                            "check_id": "CKV_AWS_19",
+                            "severity": "HIGH",
+                            "resource": "aws_s3_bucket.a",
+                            "file": "s3.tf",
+                        },
+                        {
+                            "check_id": "CKV_AWS_16",
+                            "severity": "HIGH",
+                            "resource": "aws_db_instance.b",
+                            "file": "rds.tf",
+                        },
+                    ]
+                }
+            },
         }
         result = AIReviewAgent._pattern_fixes(scan, {}, "medium")
         assert result["summary"]["fixes_generated"] == 2
@@ -129,10 +179,18 @@ class TestPatternFixes:
 
         scan = {
             "total_findings": 1,
-            "tools": {"checkov": {"findings": [
-                {"check_id": "CKV_AWS_99999", "severity": "HIGH",
-                 "resource": "aws_x.y", "file": "main.tf"},
-            ]}},
+            "tools": {
+                "checkov": {
+                    "findings": [
+                        {
+                            "check_id": "CKV_AWS_99999",
+                            "severity": "HIGH",
+                            "resource": "aws_x.y",
+                            "file": "main.tf",
+                        },
+                    ]
+                }
+            },
         }
         result = AIReviewAgent._pattern_fixes(scan, {}, "medium")
         assert result["summary"]["fixes_generated"] == 0
@@ -143,12 +201,24 @@ class TestPatternFixes:
 
         scan = {
             "total_findings": 2,
-            "tools": {"checkov": {"findings": [
-                {"check_id": "CKV_AWS_19", "severity": "HIGH",
-                 "resource": "aws_s3_bucket.a", "file": "s3.tf"},
-                {"check_id": "CKV_AWS_23", "severity": "LOW",
-                 "resource": "aws_security_group.b", "file": "sg.tf"},
-            ]}},
+            "tools": {
+                "checkov": {
+                    "findings": [
+                        {
+                            "check_id": "CKV_AWS_19",
+                            "severity": "HIGH",
+                            "resource": "aws_s3_bucket.a",
+                            "file": "s3.tf",
+                        },
+                        {
+                            "check_id": "CKV_AWS_23",
+                            "severity": "LOW",
+                            "resource": "aws_security_group.b",
+                            "file": "sg.tf",
+                        },
+                    ]
+                }
+            },
         }
         result = AIReviewAgent._pattern_fixes(scan, {}, "high")
         # Only HIGH severity should be included

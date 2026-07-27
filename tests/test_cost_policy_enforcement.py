@@ -1,8 +1,9 @@
 """Unit tests for OPA cost policy enforcement integration."""
+
 import json
 import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -90,14 +91,20 @@ class TestCostPolicyEnforcement:
         """Cost policies parse without errors."""
         result = subprocess.run(
             ["conftest", "verify", "--policy", cost_policy_dir],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "error" not in result.stdout.lower()
 
-    def test_under_budget_passes(self, cost_policy_dir, mock_cost_results_under_budget, tmp_path):
+    def test_under_budget_passes(
+        self, cost_policy_dir, mock_cost_results_under_budget, tmp_path
+    ):
         """Cost under $1000 budget should pass all policies."""
         input_data = {
-            "summary": {"total_monthly_cost": 200.0, "total_running_monthly_cost": 200.0},
+            "summary": {
+                "total_monthly_cost": 200.0,
+                "total_running_monthly_cost": 200.0,
+            },
             "resources": [],
             "cost_by_service": {"EC2": 200.0},
         }
@@ -106,15 +113,24 @@ class TestCostPolicyEnforcement:
 
         # Prepare data files (YAML → JSON)
         import yaml
+
         config = yaml.safe_load((Path(cost_policy_dir) / "config.yaml").read_text())
         (Path(cost_policy_dir) / "config.json").write_text(json.dumps(config))
 
         result = subprocess.run(
-            ["conftest", "test", str(input_file),
-             "--policy", cost_policy_dir,
-             "--data", str(Path(cost_policy_dir) / "config.json"),
-             "--output", "json"],
-            capture_output=True, text=True,
+            [
+                "conftest",
+                "test",
+                str(input_file),
+                "--policy",
+                cost_policy_dir,
+                "--data",
+                str(Path(cost_policy_dir) / "config.json"),
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
         )
         results = json.loads(result.stdout)
         failures = []
@@ -125,7 +141,10 @@ class TestCostPolicyEnforcement:
     def test_over_budget_denies(self, cost_policy_dir, tmp_path):
         """Cost over $1000 budget should trigger deny."""
         input_data = {
-            "summary": {"total_monthly_cost": 1500.0, "total_running_monthly_cost": 1500.0},
+            "summary": {
+                "total_monthly_cost": 1500.0,
+                "total_running_monthly_cost": 1500.0,
+            },
             "resources": [],
             "cost_by_service": {"RDS": 1500.0},
         }
@@ -133,15 +152,24 @@ class TestCostPolicyEnforcement:
         input_file.write_text(json.dumps(input_data))
 
         import yaml
+
         config = yaml.safe_load((Path(cost_policy_dir) / "config.yaml").read_text())
         (Path(cost_policy_dir) / "config.json").write_text(json.dumps(config))
 
         result = subprocess.run(
-            ["conftest", "test", str(input_file),
-             "--policy", cost_policy_dir,
-             "--data", str(Path(cost_policy_dir) / "config.json"),
-             "--output", "json"],
-            capture_output=True, text=True,
+            [
+                "conftest",
+                "test",
+                str(input_file),
+                "--policy",
+                cost_policy_dir,
+                "--data",
+                str(Path(cost_policy_dir) / "config.json"),
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
         )
         results = json.loads(result.stdout)
         failures = []
@@ -153,7 +181,10 @@ class TestCostPolicyEnforcement:
     def test_warn_zone_warns_but_passes(self, cost_policy_dir, tmp_path):
         """Cost in warn zone ($500-$1000) should warn but not deny."""
         input_data = {
-            "summary": {"total_monthly_cost": 700.0, "total_running_monthly_cost": 700.0},
+            "summary": {
+                "total_monthly_cost": 700.0,
+                "total_running_monthly_cost": 700.0,
+            },
             "resources": [],
             "cost_by_service": {"EC2": 700.0},
         }
@@ -161,15 +192,24 @@ class TestCostPolicyEnforcement:
         input_file.write_text(json.dumps(input_data))
 
         import yaml
+
         config = yaml.safe_load((Path(cost_policy_dir) / "config.yaml").read_text())
         (Path(cost_policy_dir) / "config.json").write_text(json.dumps(config))
 
         result = subprocess.run(
-            ["conftest", "test", str(input_file),
-             "--policy", cost_policy_dir,
-             "--data", str(Path(cost_policy_dir) / "config.json"),
-             "--output", "json"],
-            capture_output=True, text=True,
+            [
+                "conftest",
+                "test",
+                str(input_file),
+                "--policy",
+                cost_policy_dir,
+                "--data",
+                str(Path(cost_policy_dir) / "config.json"),
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
         )
         results = json.loads(result.stdout)
         failures = []
@@ -184,7 +224,10 @@ class TestCostPolicyEnforcement:
     def test_exact_budget_passes(self, cost_policy_dir, tmp_path):
         """Cost exactly at limit ($1000) should pass (uses > not >=)."""
         input_data = {
-            "summary": {"total_monthly_cost": 1000.0, "total_running_monthly_cost": 1000.0},
+            "summary": {
+                "total_monthly_cost": 1000.0,
+                "total_running_monthly_cost": 1000.0,
+            },
             "resources": [],
             "cost_by_service": {"EC2": 1000.0},
         }
@@ -192,15 +235,24 @@ class TestCostPolicyEnforcement:
         input_file.write_text(json.dumps(input_data))
 
         import yaml
+
         config = yaml.safe_load((Path(cost_policy_dir) / "config.yaml").read_text())
         (Path(cost_policy_dir) / "config.json").write_text(json.dumps(config))
 
         result = subprocess.run(
-            ["conftest", "test", str(input_file),
-             "--policy", cost_policy_dir,
-             "--data", str(Path(cost_policy_dir) / "config.json"),
-             "--output", "json"],
-            capture_output=True, text=True,
+            [
+                "conftest",
+                "test",
+                str(input_file),
+                "--policy",
+                cost_policy_dir,
+                "--data",
+                str(Path(cost_policy_dir) / "config.json"),
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
         )
         results = json.loads(result.stdout)
         failures = []

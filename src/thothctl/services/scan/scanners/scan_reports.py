@@ -323,4 +323,3 @@ class ReportProcessor:
             "fails": result.fails,
             "tests": result.tests,
         }
-

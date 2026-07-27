@@ -1,8 +1,8 @@
 """Data models for cost analysis."""
 
 from dataclasses import dataclass
-from typing import List, Dict, Any
 from enum import Enum
+from typing import Any, Dict, List
 
 
 class CostAction(Enum):

@@ -1,10 +1,12 @@
 """Unit tests for CDK language selection in project init workflow."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from thothctl.services.generate.create_template.github_template_loader import GitHubTemplateLoader
+import pytest
+from thothctl.services.generate.create_template.github_template_loader import (
+    GitHubTemplateLoader,
+)
 
 
 class TestGitHubTemplateLoaderCdkLanguages:
@@ -14,7 +16,9 @@ class TestGitHubTemplateLoaderCdkLanguages:
         loader = GitHubTemplateLoader()
         assert "cdkv2" in loader.DEFAULT_TEMPLATES
 
-    @pytest.mark.parametrize("language", ["typescript", "python", "java", "csharp", "go"])
+    @pytest.mark.parametrize(
+        "language", ["typescript", "python", "java", "csharp", "go"]
+    )
     def test_cdkv2_language_template_exists(self, language):
         loader = GitHubTemplateLoader()
         key = f"cdkv2-{language}"
@@ -24,7 +28,9 @@ class TestGitHubTemplateLoaderCdkLanguages:
 
     def test_cdkv2_language_urls_are_unique(self):
         loader = GitHubTemplateLoader()
-        cdk_urls = [v for k, v in loader.DEFAULT_TEMPLATES.items() if k.startswith("cdkv2-")]
+        cdk_urls = [
+            v for k, v in loader.DEFAULT_TEMPLATES.items() if k.startswith("cdkv2-")
+        ]
         assert len(cdk_urls) == len(set(cdk_urls))
 
     def test_is_template_available_for_cdk_languages(self):
@@ -36,14 +42,18 @@ class TestGitHubTemplateLoaderCdkLanguages:
         loader = GitHubTemplateLoader()
         assert not loader.is_template_available("cdkv2-rust")
 
-    @pytest.mark.parametrize("language", ["typescript", "python", "java", "csharp", "go"])
+    @pytest.mark.parametrize(
+        "language", ["typescript", "python", "java", "csharp", "go"]
+    )
     def test_load_template_resolves_correct_url(self, language):
         """Verify load_template picks the right URL for each CDK language."""
         loader = GitHubTemplateLoader()
         loader.config = MagicMock()
         loader.config.get_template_url.return_value = None  # No user override
 
-        with patch.object(loader, '_clone_and_copy_template', return_value={"ok": True}) as mock_clone:
+        with patch.object(
+            loader, "_clone_and_copy_template", return_value={"ok": True}
+        ) as mock_clone:
             loader.load_template("my-app", f"cdkv2-{language}")
             mock_clone.assert_called_once_with(
                 loader.DEFAULT_TEMPLATES[f"cdkv2-{language}"],
@@ -57,14 +67,22 @@ class TestProjectInitCdkLanguageSelection:
 
     def test_cli_has_language_option(self):
         from thothctl.commands.init.commands.project import cli
+
         param_names = [p.name for p in cli.params]
         assert "language" in param_names
 
     def test_language_choices(self):
         from thothctl.commands.init.commands.project import cli
+
         lang_param = next(p for p in cli.params if p.name == "language")
         assert hasattr(lang_param.type, "choices")
-        assert set(lang_param.type.choices) == {"typescript", "python", "java", "csharp", "go"}
+        assert set(lang_param.type.choices) == {
+            "typescript",
+            "python",
+            "java",
+            "csharp",
+            "go",
+        }
 
     def test_cdkv2_language_rewrite_logic(self):
         """Test the core logic: cdkv2 + python → cdkv2-python."""
@@ -95,7 +113,9 @@ class TestProjectInitCdkLanguageSelection:
             project_type = f"cdkv2-{language}"
         assert project_type == "terraform"
 
-    @pytest.mark.parametrize("language", ["typescript", "python", "java", "csharp", "go"])
+    @pytest.mark.parametrize(
+        "language", ["typescript", "python", "java", "csharp", "go"]
+    )
     def test_all_languages_produce_valid_project_type(self, language):
         project_type = "cdkv2"
         project_type = f"cdkv2-{language}"
@@ -107,8 +127,10 @@ class TestTemplatePlaceholdersCdk:
     """Test that CDK scaffold files have correct template placeholders."""
 
     def test_environment_yaml_has_placeholders(self):
-        yaml_path = Path(__file__).parent.parent.parent / \
-            "iac-scaffold/cdkv2_scaffold_project/project_configs/environment_options.yaml"
+        yaml_path = (
+            Path(__file__).parent.parent.parent
+            / "iac-scaffold/cdkv2_scaffold_project/project_configs/environment_options.yaml"
+        )
         if not yaml_path.exists():
             pytest.skip("CDK scaffold not found at expected path")
         content = yaml_path.read_text()
@@ -117,8 +139,10 @@ class TestTemplatePlaceholdersCdk:
         assert "#{owner}#" in content
 
     def test_catalog_yaml_has_placeholders(self):
-        catalog_path = Path(__file__).parent.parent.parent / \
-            "iac-scaffold/cdkv2_scaffold_project/docs/catalog/catalog-info.yaml"
+        catalog_path = (
+            Path(__file__).parent.parent.parent
+            / "iac-scaffold/cdkv2_scaffold_project/docs/catalog/catalog-info.yaml"
+        )
         if not catalog_path.exists():
             pytest.skip("CDK scaffold not found at expected path")
         content = catalog_path.read_text()
@@ -127,8 +151,10 @@ class TestTemplatePlaceholdersCdk:
 
     def test_typescript_files_have_no_placeholders(self):
         """TS files should NOT have #{...}# — config is externalized to YAML."""
-        lib_path = Path(__file__).parent.parent.parent / \
-            "iac-scaffold/cdkv2_scaffold_project/lib"
+        lib_path = (
+            Path(__file__).parent.parent.parent
+            / "iac-scaffold/cdkv2_scaffold_project/lib"
+        )
         if not lib_path.exists():
             pytest.skip("CDK scaffold not found at expected path")
         for ts_file in lib_path.rglob("*.ts"):
@@ -138,20 +164,29 @@ class TestTemplatePlaceholdersCdk:
     def test_thothcf_toml_keys_match_placeholders(self):
         """All #{...}# placeholders in scaffold files must have a matching .thothcf.toml key."""
         import re
-        base = Path(__file__).parent.parent.parent / "iac-scaffold/cdkv2_scaffold_project"
+
+        base = (
+            Path(__file__).parent.parent.parent / "iac-scaffold/cdkv2_scaffold_project"
+        )
         if not base.exists():
             pytest.skip("CDK scaffold not found")
 
         toml_content = (base / ".thothcf.toml").read_text()
-        toml_keys = set(re.findall(r'\[template_input_parameters\.(\w+)\]', toml_content))
+        toml_keys = set(
+            re.findall(r"\[template_input_parameters\.(\w+)\]", toml_content)
+        )
 
         # Collect all placeholders from scaffold files
         placeholders = set()
         for f in base.rglob("*"):
-            if f.is_file() and f.suffix in (".yaml", ".yml", ".md") and ".git" not in str(f):
+            if (
+                f.is_file()
+                and f.suffix in (".yaml", ".yml", ".md")
+                and ".git" not in str(f)
+            ):
                 try:
                     content = f.read_text()
-                    placeholders.update(re.findall(r'#\{(\w+)\}#', content))
+                    placeholders.update(re.findall(r"#\{(\w+)\}#", content))
                 except UnicodeDecodeError:
                     pass
 

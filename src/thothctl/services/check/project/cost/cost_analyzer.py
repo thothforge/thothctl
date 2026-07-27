@@ -2,175 +2,173 @@
 
 import json
 import logging
-from typing import Dict, List, Optional, Any
 from pathlib import Path
-from .models.cost_models import CostAnalysis, ResourceCost
+from typing import Any, Dict, List, Optional
+
 from .models.cloudformation_mapper import CloudFormationResourceMapper
+from .models.cost_models import CostAnalysis, ResourceCost
 from .pricing.aws_pricing_client import AWSPricingClient
+from .pricing.providers.apigateway_pricing import APIGatewayPricingProvider
+from .pricing.providers.bedrock_pricing import BedrockPricingProvider
+from .pricing.providers.cloudwatch_pricing import CloudWatchPricingProvider
+from .pricing.providers.dynamodb_pricing import DynamoDBPricingProvider
+from .pricing.providers.ebs_pricing import EBSPricingProvider
 from .pricing.providers.ec2_pricing import EC2PricingProvider
+from .pricing.providers.ecs_pricing import ECSPricingProvider
+from .pricing.providers.eip_pricing import EIPPricingProvider
+from .pricing.providers.eks_pricing import EKSPricingProvider
+from .pricing.providers.elb_pricing import ELBPricingProvider
+from .pricing.providers.free_resources_pricing import FreeResourcesPricingProvider
+from .pricing.providers.kms_pricing import KMSPricingProvider
+from .pricing.providers.lambda_pricing import LambdaPricingProvider
+from .pricing.providers.msk_pricing import MSKPricingProvider
 from .pricing.providers.rds_pricing import RDSPricingProvider
 from .pricing.providers.s3_pricing import S3PricingProvider
-from .pricing.providers.lambda_pricing import LambdaPricingProvider
-from .pricing.providers.elb_pricing import ELBPricingProvider
-from .pricing.providers.vpc_pricing import VPCPricingProvider
-from .pricing.providers.ebs_pricing import EBSPricingProvider
-from .pricing.providers.cloudwatch_pricing import CloudWatchPricingProvider
-from .pricing.providers.eks_pricing import EKSPricingProvider
-from .pricing.providers.ecs_pricing import ECSPricingProvider
 from .pricing.providers.secrets_manager_pricing import SecretsManagerPricingProvider
-from .pricing.providers.bedrock_pricing import BedrockPricingProvider
-from .pricing.providers.dynamodb_pricing import DynamoDBPricingProvider
-from .pricing.providers.apigateway_pricing import APIGatewayPricingProvider
-from .pricing.providers.msk_pricing import MSKPricingProvider
-from .pricing.providers.kms_pricing import KMSPricingProvider
-from .pricing.providers.eip_pricing import EIPPricingProvider
-from .pricing.providers.free_resources_pricing import FreeResourcesPricingProvider
+from .pricing.providers.vpc_pricing import VPCPricingProvider
 
 logger = logging.getLogger(__name__)
 
 
 class CostAnalyzer:
     """Main cost analysis service"""
-    
-    def __init__(self, region: str = 'us-east-1'):
+
+    def __init__(self, region: str = "us-east-1"):
         self.region = region
         self.pricing_client = AWSPricingClient(region)
         self.cf_mapper = CloudFormationResourceMapper()
         self._providers = self._initialize_providers()
-    
+
     def _initialize_providers(self) -> Dict[str, Any]:
         """Initialize pricing providers"""
         providers = {}
-        
+
         # EC2 and compute
         ec2_provider = EC2PricingProvider(self.pricing_client)
         for resource in ec2_provider.get_supported_resources():
             providers[resource] = ec2_provider
-        
+
         # RDS
         rds_provider = RDSPricingProvider(self.pricing_client)
         for resource in rds_provider.get_supported_resources():
             providers[resource] = rds_provider
-        
+
         # S3
         s3_provider = S3PricingProvider(self.pricing_client)
         for resource in s3_provider.get_supported_resources():
             providers[resource] = s3_provider
-        
+
         # Lambda
         lambda_provider = LambdaPricingProvider(self.pricing_client)
         for resource in lambda_provider.get_supported_resources():
             providers[resource] = lambda_provider
-        
+
         # ELB/ALB
         elb_provider = ELBPricingProvider(self.pricing_client)
         for resource in elb_provider.get_supported_resources():
             providers[resource] = elb_provider
-        
+
         # VPC components
         vpc_provider = VPCPricingProvider(self.pricing_client)
         for resource in vpc_provider.get_supported_resources():
             providers[resource] = vpc_provider
-        
+
         # EBS
         ebs_provider = EBSPricingProvider(self.pricing_client)
         for resource in ebs_provider.get_supported_resources():
             providers[resource] = ebs_provider
-        
+
         # CloudWatch
         cw_provider = CloudWatchPricingProvider(self.pricing_client)
         for resource in cw_provider.get_supported_resources():
             providers[resource] = cw_provider
-        
+
         # EKS
         eks_provider = EKSPricingProvider(self.pricing_client)
         for resource in eks_provider.get_supported_resources():
             providers[resource] = eks_provider
-        
+
         # ECS
         ecs_provider = ECSPricingProvider(self.pricing_client)
         for resource in ecs_provider.get_supported_resources():
             providers[resource] = ecs_provider
-        
+
         # Secrets Manager
         sm_provider = SecretsManagerPricingProvider(self.pricing_client)
         for resource in sm_provider.get_supported_resources():
             providers[resource] = sm_provider
-        
+
         # Bedrock
         bedrock_provider = BedrockPricingProvider(self.pricing_client)
         for resource in bedrock_provider.get_supported_resources():
             providers[resource] = bedrock_provider
-        
+
         # DynamoDB
         dynamodb_provider = DynamoDBPricingProvider(self.pricing_client)
         for resource in dynamodb_provider.get_supported_resources():
             providers[resource] = dynamodb_provider
-        
+
         # API Gateway
         apigw_provider = APIGatewayPricingProvider(self.pricing_client)
         for resource in apigw_provider.get_supported_resources():
             providers[resource] = apigw_provider
-        
+
         # MSK
         msk_provider = MSKPricingProvider(self.pricing_client)
         for resource in msk_provider.get_supported_resources():
             providers[resource] = msk_provider
-        
+
         # KMS
         kms_provider = KMSPricingProvider(self.pricing_client)
         for resource in kms_provider.get_supported_resources():
             providers[resource] = kms_provider
-        
+
         # EIP
         eip_provider = EIPPricingProvider(self.pricing_client)
         for resource in eip_provider.get_supported_resources():
             providers[resource] = eip_provider
-        
+
         # Free resources (IAM, VPC components, etc.)
         free_provider = FreeResourcesPricingProvider(self.pricing_client)
         for resource in free_provider.get_supported_resources():
             providers[resource] = free_provider
-        
+
         return providers
-    
+
     def analyze_terraform_plan(self, plan_file: str) -> CostAnalysis:
         """Analyze costs from terraform plan file.
-        
+
         Provides two cost views:
         - Change delta: cost of resources being created/modified (for PR reviews)
         - Total running cost: cost of ALL planned resources regardless of action
           (uses planned_values for complete desired state)
         """
-        with open(plan_file, 'r') as f:
+        with open(plan_file, "r") as f:
             plan_data = json.load(f)
-        
+
         resource_costs = []
         total_costs = []
         warnings = []
-        
+
         # 1. Change delta: only resources being created/modified/deleted
-        for change in plan_data.get('resource_changes', []):
-            actions = change['change']['actions']
-            if actions == ['no-op'] or actions == ['read']:
+        for change in plan_data.get("resource_changes", []):
+            actions = change["change"]["actions"]
+            if actions == ["no-op"] or actions == ["read"]:
                 continue
-            
+
             cost = self._calculate_resource_cost(change)
             if cost:
                 resource_costs.append(cost)
             else:
                 warnings.append(f"No pricing data for {change['address']}")
-        
+
         # 2. Total running cost: ALL resources from planned_values (desired state)
         planned_resources = self._collect_planned_resources(plan_data)
         for resource in planned_resources:
             mock_change = {
-                'address': f"{resource.get('address', resource['type'] + '.' + resource['name'])}",
-                'type': resource['type'],
-                'change': {
-                    'actions': ['create'],
-                    'after': resource.get('values', {})
-                }
+                "address": f"{resource.get('address', resource['type'] + '.' + resource['name'])}",
+                "type": resource["type"],
+                "change": {"actions": ["create"], "after": resource.get("values", {})},
             }
             cost = self._calculate_resource_cost(mock_change)
             if cost:
@@ -178,25 +176,29 @@ class CostAnalyzer:
 
         # 3. Also include no-op resources from resource_changes (they have full after values)
         #    This catches resources not in planned_values child_modules (e.g. root resources)
-        for change in plan_data.get('resource_changes', []):
-            actions = change['change']['actions']
-            if actions == ['no-op'] and change['change'].get('after'):
+        for change in plan_data.get("resource_changes", []):
+            actions = change["change"]["actions"]
+            if actions == ["no-op"] and change["change"].get("after"):
                 # Check if not already counted from planned_values
-                addr = change.get('address', '')
+                addr = change.get("address", "")
                 if not any(c.resource_address == addr for c in total_costs):
                     cost = self._calculate_resource_cost(change)
                     if cost:
                         total_costs.append(cost)
 
         analysis = self._create_analysis(resource_costs, warnings, plan_file)
-        
+
         # Attach total running cost metadata
         total_monthly = sum(c.monthly_cost for c in total_costs)
-        analysis.analysis_metadata['total_running_monthly_cost'] = round(total_monthly, 2)
-        analysis.analysis_metadata['total_running_annual_cost'] = round(total_monthly * 12, 2)
-        analysis.analysis_metadata['total_planned_resources'] = len(planned_resources)
-        analysis.analysis_metadata['change_resources'] = len(resource_costs)
-        
+        analysis.analysis_metadata["total_running_monthly_cost"] = round(
+            total_monthly, 2
+        )
+        analysis.analysis_metadata["total_running_annual_cost"] = round(
+            total_monthly * 12, 2
+        )
+        analysis.analysis_metadata["total_planned_resources"] = len(planned_resources)
+        analysis.analysis_metadata["change_resources"] = len(resource_costs)
+
         # If change delta is $0 but total is not, add context
         if analysis.total_monthly_cost == 0 and total_monthly > 0:
             analysis.total_monthly_cost = total_monthly
@@ -204,124 +206,139 @@ class CostAnalyzer:
             analysis.resource_costs = total_costs
             analysis.cost_breakdown_by_service = self._breakdown_by_service(total_costs)
             analysis.cost_breakdown_by_action = {"existing": total_monthly}
-            analysis.recommendations.insert(0, 
-                f"ℹ️ No infrastructure changes detected. Showing total running cost of {len(total_costs)} existing resources."
+            analysis.recommendations.insert(
+                0,
+                f"ℹ️ No infrastructure changes detected. Showing total running cost of {len(total_costs)} existing resources.",
             )
         elif resource_costs and total_monthly > analysis.total_monthly_cost:
             # There are changes AND existing resources — show both
-            analysis.recommendations.insert(0,
-                f"📊 Change delta: ${analysis.total_monthly_cost:,.2f}/mo | Total running cost: ${total_monthly:,.2f}/mo ({len(total_costs)} resources)"
+            analysis.recommendations.insert(
+                0,
+                f"📊 Change delta: ${analysis.total_monthly_cost:,.2f}/mo | Total running cost: ${total_monthly:,.2f}/mo ({len(total_costs)} resources)",
             )
-        
+
         return analysis
 
     def _collect_planned_resources(self, plan_data: Dict) -> List[Dict]:
         """Recursively collect all resources from planned_values (complete desired state)."""
         resources = []
-        root = plan_data.get('planned_values', {}).get('root_module', {})
+        root = plan_data.get("planned_values", {}).get("root_module", {})
         self._collect_module_resources(root, resources)
         return resources
 
-    def _collect_module_resources(self, module: Dict, resources: List[Dict], prefix: str = ""):
+    def _collect_module_resources(
+        self, module: Dict, resources: List[Dict], prefix: str = ""
+    ):
         """Recursively collect resources from a module and its children."""
-        for r in module.get('resources', []):
-            addr = r.get('address', f"{r['type']}.{r['name']}")
+        for r in module.get("resources", []):
+            addr = r.get("address", f"{r['type']}.{r['name']}")
             if prefix and not addr.startswith(prefix):
                 addr = f"{prefix}.{addr}"
-            resources.append({**r, 'address': addr})
-        for child in module.get('child_modules', []):
-            child_prefix = child.get('address', '')
+            resources.append({**r, "address": addr})
+        for child in module.get("child_modules", []):
+            child_prefix = child.get("address", "")
             self._collect_module_resources(child, resources, child_prefix)
-    
+
     def analyze_cloudformation_template(self, template_file: str) -> CostAnalysis:
         """Analyze costs from CloudFormation template"""
-        with open(template_file, 'r') as f:
-            if template_file.endswith('.yaml') or template_file.endswith('.yml'):
+        with open(template_file, "r") as f:
+            if template_file.endswith(".yaml") or template_file.endswith(".yml"):
                 import yaml
+
                 template_data = yaml.safe_load(f)
             else:
                 template_data = json.load(f)
-        
+
         resource_costs = []
         warnings = []
-        
-        resources = template_data.get('Resources', {})
+
+        resources = template_data.get("Resources", {})
         for resource_name, resource_config in resources.items():
-            resource_type = resource_config.get('Type')
+            resource_type = resource_config.get("Type")
             if not resource_type:
                 continue
-            
+
             # Convert CloudFormation resource to Terraform equivalent
-            terraform_equivalent = self.cf_mapper.get_terraform_equivalent(resource_type)
+            terraform_equivalent = self.cf_mapper.get_terraform_equivalent(
+                resource_type
+            )
             if not terraform_equivalent:
                 warnings.append(f"Unsupported CloudFormation resource: {resource_type}")
                 continue
-            
+
             # Create a mock resource change for cost calculation
             mock_change = {
-                'address': resource_name,
-                'type': terraform_equivalent,
-                'change': {
-                    'actions': ['create'],
-                    'after': resource_config.get('Properties', {})
-                }
+                "address": resource_name,
+                "type": terraform_equivalent,
+                "change": {
+                    "actions": ["create"],
+                    "after": resource_config.get("Properties", {}),
+                },
             }
-            
+
             cost = self._calculate_resource_cost(mock_change)
             if cost:
                 # Update resource address to show CloudFormation resource name
                 cost.resource_address = f"{resource_name} ({resource_type})"
                 resource_costs.append(cost)
             else:
-                warnings.append(f"No pricing data for {resource_name} ({resource_type})")
-        
+                warnings.append(
+                    f"No pricing data for {resource_name} ({resource_type})"
+                )
+
         return self._create_analysis(resource_costs, warnings, template_file)
-    
+
     def _calculate_resource_cost(self, resource_change: Dict) -> Optional[ResourceCost]:
         """Calculate cost for a single resource"""
-        resource_type = resource_change['type']
+        resource_type = resource_change["type"]
         provider = self._providers.get(resource_type)
-        
+
         if not provider:
             logger.debug(f"No provider for resource type: {resource_type}")
             return None
-        
+
         region = self._extract_region(resource_change)
         return provider.calculate_cost(resource_change, region)
-    
+
     def _extract_region(self, resource_change: Dict) -> str:
         """Extract region from resource configuration"""
-        config = resource_change['change'].get('after', {})
+        config = resource_change["change"].get("after", {})
         # Try various ways to get region
-        region = (config.get('availability_zone', '')[:9] or 
-                 config.get('region') or 
-                 self.region)
+        region = (
+            config.get("availability_zone", "")[:9]
+            or config.get("region")
+            or self.region
+        )
         return region
-    
-    def _create_analysis(self, resource_costs: List[ResourceCost], 
-                        warnings: List[str], plan_file: str) -> CostAnalysis:
+
+    def _create_analysis(
+        self, resource_costs: List[ResourceCost], warnings: List[str], plan_file: str
+    ) -> CostAnalysis:
         """Create comprehensive cost analysis"""
         # Sum all resources that represent running cost (exclude deletes)
         total_monthly = sum(
-            cost.monthly_cost for cost in resource_costs 
-            if cost.action.value not in ['delete']
+            cost.monthly_cost
+            for cost in resource_costs
+            if cost.action.value not in ["delete"]
         )
-        
+
         return CostAnalysis(
             total_monthly_cost=total_monthly,
             total_annual_cost=total_monthly * 12,
             resource_costs=resource_costs,
             cost_breakdown_by_service=self._breakdown_by_service(resource_costs),
             cost_breakdown_by_action=self._breakdown_by_action(resource_costs),
-            recommendations=self._generate_recommendations(total_monthly, resource_costs),
+            recommendations=self._generate_recommendations(
+                total_monthly, resource_costs
+            ),
             warnings=warnings,
             analysis_metadata={
-                'plan_file': plan_file,
-                'region': self.region,
-                'api_available': self.pricing_client.is_available()
-            }
+                "plan_file": plan_file,
+                "region": self.region,
+                "api_available": self.pricing_client.is_available(),
+            },
         )
-    
+
     def _breakdown_by_service(self, costs: List[ResourceCost]) -> Dict[str, float]:
         """Group costs by AWS service"""
         breakdown = {}
@@ -331,7 +348,7 @@ class CostAnalyzer:
                 breakdown[service] = 0
             breakdown[service] += cost.monthly_cost
         return breakdown
-    
+
     def _breakdown_by_action(self, costs: List[ResourceCost]) -> Dict[str, float]:
         """Group costs by action type"""
         breakdown = {}
@@ -341,167 +358,246 @@ class CostAnalyzer:
                 breakdown[action] = 0
             breakdown[action] += cost.monthly_cost
         return breakdown
-    
-    def _generate_recommendations(self, total_cost: float, 
-                                costs: List[ResourceCost]) -> List[str]:
+
+    def _generate_recommendations(
+        self, total_cost: float, costs: List[ResourceCost]
+    ) -> List[str]:
         """Generate cost optimization recommendations based on actual resources"""
         recommendations = []
-        
+
         # Always provide baseline recommendations
         if total_cost > 0:
-            recommendations.append("💡 Review this cost estimate against your actual usage patterns")
-            
+            recommendations.append(
+                "💡 Review this cost estimate against your actual usage patterns"
+            )
+
         # General cost recommendations based on total
         if total_cost > 1000:
-            recommendations.append("💰 Consider Reserved Instances or Savings Plans for 1-3 year commitments (up to 72% savings)")
+            recommendations.append(
+                "💰 Consider Reserved Instances or Savings Plans for 1-3 year commitments (up to 72% savings)"
+            )
         if total_cost > 500:
-            recommendations.append("📊 Right-size resources based on actual utilization metrics")
+            recommendations.append(
+                "📊 Right-size resources based on actual utilization metrics"
+            )
         if total_cost > 100:
-            recommendations.append("🔍 Set up AWS Cost Explorer, budgets, and billing alerts")
+            recommendations.append(
+                "🔍 Set up AWS Cost Explorer, budgets, and billing alerts"
+            )
         elif total_cost > 10:
-            recommendations.append("📈 Monitor costs monthly to identify trends and anomalies")
-        
+            recommendations.append(
+                "📈 Monitor costs monthly to identify trends and anomalies"
+            )
+
         # Service-specific recommendations
         service_costs = self._breakdown_by_service(costs)
-        
+
         # EC2 recommendations
-        if service_costs.get('EC2', 0) > 200:
-            recommendations.append("🖥️ Consider Spot Instances for non-critical workloads")
+        if service_costs.get("EC2", 0) > 200:
+            recommendations.append(
+                "🖥️ Consider Spot Instances for non-critical workloads"
+            )
             recommendations.append("⚡ Use Auto Scaling to optimize EC2 usage")
-        
+
         # RDS recommendations
-        if service_costs.get('RDS', 0) > 100:
-            recommendations.append("🗄️ Consider RDS Reserved Instances for production databases")
-            recommendations.append("📈 Monitor RDS performance insights for optimization")
-        
+        if service_costs.get("RDS", 0) > 100:
+            recommendations.append(
+                "🗄️ Consider RDS Reserved Instances for production databases"
+            )
+            recommendations.append(
+                "📈 Monitor RDS performance insights for optimization"
+            )
+
         # S3 recommendations
-        if service_costs.get('S3', 0) > 50:
-            recommendations.append("📦 Use S3 Intelligent Tiering for automatic cost optimization")
+        if service_costs.get("S3", 0) > 50:
+            recommendations.append(
+                "📦 Use S3 Intelligent Tiering for automatic cost optimization"
+            )
             recommendations.append("🗂️ Review S3 lifecycle policies for older data")
-        
+
         # Lambda recommendations
-        lambda_cost = service_costs.get('Lambda', 0)
+        lambda_cost = service_costs.get("Lambda", 0)
         if lambda_cost > 0:
-            recommendations.append("⚠️ Lambda costs are estimated at 1,000 executions/month per function")
-            recommendations.append("💡 Actual Lambda costs depend on invocation rate and execution duration")
+            recommendations.append(
+                "⚠️ Lambda costs are estimated at 1,000 executions/month per function"
+            )
+            recommendations.append(
+                "💡 Actual Lambda costs depend on invocation rate and execution duration"
+            )
         if lambda_cost > 20:
-            recommendations.append("⚡ Optimize Lambda memory allocation and timeout settings")
-            recommendations.append("📊 Review CloudWatch metrics for actual usage patterns")
-        
+            recommendations.append(
+                "⚡ Optimize Lambda memory allocation and timeout settings"
+            )
+            recommendations.append(
+                "📊 Review CloudWatch metrics for actual usage patterns"
+            )
+
         # EBS recommendations
-        if service_costs.get('EBS', 0) > 100:
-            recommendations.append("💾 Consider gp3 volumes instead of gp2 for better price/performance")
-            recommendations.append("📊 Monitor EBS utilization and resize volumes accordingly")
-        
+        if service_costs.get("EBS", 0) > 100:
+            recommendations.append(
+                "💾 Consider gp3 volumes instead of gp2 for better price/performance"
+            )
+            recommendations.append(
+                "📊 Monitor EBS utilization and resize volumes accordingly"
+            )
+
         # VPC recommendations
-        if service_costs.get('VPC', 0) > 50:
-            recommendations.append("🌐 Review NAT Gateway usage - consider NAT instances for lower traffic")
-        
+        if service_costs.get("VPC", 0) > 50:
+            recommendations.append(
+                "🌐 Review NAT Gateway usage - consider NAT instances for lower traffic"
+            )
+
         # EKS recommendations
-        if service_costs.get('EKS', 0) > 100:
-            recommendations.append("☸️ Use Fargate for serverless containers or Spot instances for node groups")
-            recommendations.append("🔧 Optimize EKS cluster autoscaling and right-size node groups")
-        
+        if service_costs.get("EKS", 0) > 100:
+            recommendations.append(
+                "☸️ Use Fargate for serverless containers or Spot instances for node groups"
+            )
+            recommendations.append(
+                "🔧 Optimize EKS cluster autoscaling and right-size node groups"
+            )
+
         # ECS recommendations
-        if service_costs.get('ECS', 0) > 50:
-            recommendations.append("🐳 Consider Fargate Spot for cost-effective container workloads")
-        
+        if service_costs.get("ECS", 0) > 50:
+            recommendations.append(
+                "🐳 Consider Fargate Spot for cost-effective container workloads"
+            )
+
         # Secrets Manager recommendations
-        if service_costs.get('SecretsManager', 0) > 20:
-            recommendations.append("🔐 Review secret rotation frequency and consolidate secrets where possible")
-        
+        if service_costs.get("SecretsManager", 0) > 20:
+            recommendations.append(
+                "🔐 Review secret rotation frequency and consolidate secrets where possible"
+            )
+
         # Bedrock recommendations
-        if service_costs.get('Bedrock', 0) > 100:
-            recommendations.append("🤖 Optimize Bedrock model usage and consider batch processing")
-            recommendations.append("📊 Monitor token usage and choose cost-effective models (Haiku vs Sonnet)")
-            recommendations.append("🎯 Use knowledge bases efficiently and optimize vector storage")
-        
+        if service_costs.get("Bedrock", 0) > 100:
+            recommendations.append(
+                "🤖 Optimize Bedrock model usage and consider batch processing"
+            )
+            recommendations.append(
+                "📊 Monitor token usage and choose cost-effective models (Haiku vs Sonnet)"
+            )
+            recommendations.append(
+                "🎯 Use knowledge bases efficiently and optimize vector storage"
+            )
+
         # DynamoDB recommendations
-        if service_costs.get('DynamoDB', 0) > 50:
-            recommendations.append("🗄️ Consider DynamoDB On-Demand vs Provisioned based on usage patterns")
-            recommendations.append("📈 Use DynamoDB auto-scaling for variable workloads")
-            recommendations.append("🔍 Monitor read/write capacity utilization and adjust accordingly")
-        
+        if service_costs.get("DynamoDB", 0) > 50:
+            recommendations.append(
+                "🗄️ Consider DynamoDB On-Demand vs Provisioned based on usage patterns"
+            )
+            recommendations.append(
+                "📈 Use DynamoDB auto-scaling for variable workloads"
+            )
+            recommendations.append(
+                "🔍 Monitor read/write capacity utilization and adjust accordingly"
+            )
+
         # API Gateway recommendations
-        if service_costs.get('API Gateway', 0) > 20:
-            recommendations.append("🌐 Consider HTTP APIs instead of REST APIs for lower costs")
+        if service_costs.get("API Gateway", 0) > 20:
+            recommendations.append(
+                "🌐 Consider HTTP APIs instead of REST APIs for lower costs"
+            )
             recommendations.append("📊 Implement API caching to reduce backend calls")
-            recommendations.append("🔧 Use request/response compression to reduce data transfer costs")
-        
+            recommendations.append(
+                "🔧 Use request/response compression to reduce data transfer costs"
+            )
+
         # MSK recommendations
-        if service_costs.get('MSK', 0) > 200:
-            recommendations.append("📡 Right-size MSK broker instances based on throughput requirements")
-            recommendations.append("💾 Optimize storage allocation per broker to avoid over-provisioning")
+        if service_costs.get("MSK", 0) > 200:
+            recommendations.append(
+                "📡 Right-size MSK broker instances based on throughput requirements"
+            )
+            recommendations.append(
+                "💾 Optimize storage allocation per broker to avoid over-provisioning"
+            )
             recommendations.append("🔄 Consider MSK Serverless for variable workloads")
-        
+
         # Multi-service recommendations based on resource counts
-        ec2_count = len([c for c in costs if c.service_name == 'EC2'])
-        lambda_count = len([c for c in costs if c.service_name == 'Lambda'])
-        rds_count = len([c for c in costs if c.service_name == 'RDS'])
-        
+        ec2_count = len([c for c in costs if c.service_name == "EC2"])
+        lambda_count = len([c for c in costs if c.service_name == "Lambda"])
+        rds_count = len([c for c in costs if c.service_name == "RDS"])
+
         if ec2_count > 5:
-            recommendations.append("🏗️ Consider containerization with ECS/EKS for better resource utilization")
-        
+            recommendations.append(
+                "🏗️ Consider containerization with ECS/EKS for better resource utilization"
+            )
+
         if lambda_count > 10:
-            recommendations.append("⚡ Consider consolidating Lambda functions to reduce cold starts and costs")
-        
+            recommendations.append(
+                "⚡ Consider consolidating Lambda functions to reduce cold starts and costs"
+            )
+
         if rds_count > 3:
-            recommendations.append("🗄️ Evaluate database consolidation opportunities to reduce RDS instance count")
-        
+            recommendations.append(
+                "🗄️ Evaluate database consolidation opportunities to reduce RDS instance count"
+            )
+
         # Always add general best practices if no specific recommendations
         if len(recommendations) == 0:
-            recommendations.append("✅ Infrastructure costs look reasonable for current configuration")
-            recommendations.append("📊 Continue monitoring usage patterns for optimization opportunities")
-        
+            recommendations.append(
+                "✅ Infrastructure costs look reasonable for current configuration"
+            )
+            recommendations.append(
+                "📊 Continue monitoring usage patterns for optimization opportunities"
+            )
+
         return recommendations
-    
+
     def generate_json_report(self, analysis: CostAnalysis, output_path: Path) -> None:
         """Generate JSON cost analysis report"""
         report_data = {
-            'summary': {
-                'total_monthly_cost': round(analysis.total_monthly_cost, 2),
-                'total_annual_cost': round(analysis.total_annual_cost, 2),
-                'total_running_monthly_cost': analysis.analysis_metadata.get('total_running_monthly_cost', round(analysis.total_monthly_cost, 2)),
-                'total_running_annual_cost': analysis.analysis_metadata.get('total_running_annual_cost', round(analysis.total_annual_cost, 2)),
-                'total_planned_resources': analysis.analysis_metadata.get('total_planned_resources', 0),
-                'change_resources': analysis.analysis_metadata.get('change_resources', 0),
-                'region': analysis.analysis_metadata.get('region', 'us-east-1'),
-                'api_available': analysis.analysis_metadata.get('api_available', False),
-                'plan_file': analysis.analysis_metadata.get('plan_file', 'N/A')
+            "summary": {
+                "total_monthly_cost": round(analysis.total_monthly_cost, 2),
+                "total_annual_cost": round(analysis.total_annual_cost, 2),
+                "total_running_monthly_cost": analysis.analysis_metadata.get(
+                    "total_running_monthly_cost", round(analysis.total_monthly_cost, 2)
+                ),
+                "total_running_annual_cost": analysis.analysis_metadata.get(
+                    "total_running_annual_cost", round(analysis.total_annual_cost, 2)
+                ),
+                "total_planned_resources": analysis.analysis_metadata.get(
+                    "total_planned_resources", 0
+                ),
+                "change_resources": analysis.analysis_metadata.get(
+                    "change_resources", 0
+                ),
+                "region": analysis.analysis_metadata.get("region", "us-east-1"),
+                "api_available": analysis.analysis_metadata.get("api_available", False),
+                "plan_file": analysis.analysis_metadata.get("plan_file", "N/A"),
             },
-            'cost_by_service': {
-                service: round(cost, 2) 
+            "cost_by_service": {
+                service: round(cost, 2)
                 for service, cost in analysis.cost_breakdown_by_service.items()
             },
-            'cost_by_action': {
-                action: round(cost, 2) 
+            "cost_by_action": {
+                action: round(cost, 2)
                 for action, cost in analysis.cost_breakdown_by_action.items()
             },
-            'resources': [
+            "resources": [
                 {
-                    'address': cost.resource_address,
-                    'type': cost.resource_type,
-                    'service': cost.service_name,
-                    'region': cost.region,
-                    'action': cost.action.value,
-                    'hourly_cost': round(cost.hourly_cost, 4),
-                    'monthly_cost': round(cost.monthly_cost, 2),
-                    'annual_cost': round(cost.annual_cost, 2),
-                    'confidence': cost.confidence_level,
-                    'details': cost.pricing_details
+                    "address": cost.resource_address,
+                    "type": cost.resource_type,
+                    "service": cost.service_name,
+                    "region": cost.region,
+                    "action": cost.action.value,
+                    "hourly_cost": round(cost.hourly_cost, 4),
+                    "monthly_cost": round(cost.monthly_cost, 2),
+                    "annual_cost": round(cost.annual_cost, 2),
+                    "confidence": cost.confidence_level,
+                    "details": cost.pricing_details,
                 }
                 for cost in analysis.resource_costs
             ],
-            'recommendations': analysis.recommendations,
-            'warnings': analysis.warnings
+            "recommendations": analysis.recommendations,
+            "warnings": analysis.warnings,
         }
-        
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(report_data, f, indent=2)
-        
+
         logger.info(f"JSON report saved to: {output_path}")
-    
+
     def generate_html_report(self, analysis: CostAnalysis, output_path: Path) -> None:
         """Generate HTML cost analysis report"""
         html_content = f"""<!DOCTYPE html>
@@ -718,21 +814,32 @@ class CostAnalyzer:
                 </div>
                 <div class="summary-card">
                     <h3>🌍 Region</h3>
-                    <div class="value">{analysis.analysis_metadata.get('region', 'N/A')}</div>
+                    <div class="value">{
+            analysis.analysis_metadata.get("region", "N/A")
+        }</div>
                 </div>
             </div>
             
             <div class="section">
                 <h2>🏗️ Cost by Service</h2>
                 <div class="chart-container">
-                    {''.join(f'''
+                    {
+            "".join(
+                f'''
                     <div class="bar">
                         <div class="bar-label">{service}</div>
                         <div class="bar-fill" style="width: {max(min(cost / max(max(analysis.cost_breakdown_by_service.values()), 0.01) * 100, 100), 15)}%">
                             ${cost:,.2f}/mo
                         </div>
                     </div>
-                    ''' for service, cost in sorted(analysis.cost_breakdown_by_service.items(), key=lambda x: x[1], reverse=True))}
+                    '''
+                for service, cost in sorted(
+                    analysis.cost_breakdown_by_service.items(),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+            )
+        }
                 </div>
             </div>
             
@@ -747,13 +854,18 @@ class CostAnalyzer:
                         </tr>
                     </thead>
                     <tbody>
-                        {''.join(f'''
+                        {
+            "".join(
+                f'''
                         <tr>
                             <td><span class="badge badge-{action}">{action.upper()}</span></td>
                             <td>${cost:,.2f}</td>
                             <td>${cost * 12:,.2f}</td>
                         </tr>
-                        ''' for action, cost in analysis.cost_breakdown_by_action.items())}
+                        '''
+                for action, cost in analysis.cost_breakdown_by_action.items()
+            )
+        }
                     </tbody>
                 </table>
                 </div>
@@ -773,7 +885,9 @@ class CostAnalyzer:
                         </tr>
                     </thead>
                     <tbody>
-                        {''.join(f'''
+                        {
+            "".join(
+                f'''
                         <tr>
                             <td data-label="Resource"><code>{cost.resource_address}</code></td>
                             <td data-label="Service">{cost.service_name}</td>
@@ -781,7 +895,10 @@ class CostAnalyzer:
                             <td data-label="Monthly Cost">${cost.monthly_cost:,.2f}</td>
                             <td data-label="Confidence"><span class="badge badge-{cost.confidence_level}">{cost.confidence_level}</span></td>
                         </tr>
-                        ''' for cost in analysis.resource_costs)}
+                        '''
+                for cost in analysis.resource_costs
+            )
+        }
                     </tbody>
                 </table>
                 </div>
@@ -791,24 +908,34 @@ class CostAnalyzer:
                 <h2>💡 Recommendations</h2>
                 <div class="recommendations">
                     <ul>
-                        {''.join(f'<li>{rec}</li>' for rec in analysis.recommendations)}
+                        {"".join(f"<li>{rec}</li>" for rec in analysis.recommendations)}
                     </ul>
                 </div>
             </div>
             
-            {'<div class="section"><h2>⚠️ Warnings</h2><div class="recommendations"><ul>' + ''.join(f'<li>{warning}</li>' for warning in analysis.warnings) + '</ul></div></div>' if analysis.warnings else ''}
+            {
+            '<div class="section"><h2>⚠️ Warnings</h2><div class="recommendations"><ul>'
+            + "".join(f"<li>{warning}</li>" for warning in analysis.warnings)
+            + "</ul></div></div>"
+            if analysis.warnings
+            else ""
+        }
             
             <div class="section" style="text-align: center; color: #666; font-size: 0.9em; margin-top: 40px;">
                 <p>Generated by ThothCTL Cost Analysis</p>
-                <p>API Status: {'✅ Online' if analysis.analysis_metadata.get('api_available') else '⚠️ Offline'}</p>
+                <p>API Status: {
+            "✅ Online"
+            if analysis.analysis_metadata.get("api_available")
+            else "⚠️ Offline"
+        }</p>
             </div>
         </div>
     </div>
 </body>
 </html>"""
-        
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write(html_content)
-        
+
         logger.info(f"HTML report saved to: {output_path}")

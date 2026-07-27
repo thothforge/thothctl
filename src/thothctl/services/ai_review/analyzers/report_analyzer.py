@@ -1,10 +1,10 @@
 """Report analyzer - parses scan results and sends to AI for analysis."""
+
 import json
 import logging
-import os
-import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict
+from xml.etree import ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,19 @@ class ReportAnalyzer:
 
     def format_for_ai(self, scan_results: Dict[str, Any]) -> str:
         """Format parsed scan results into a concise string for AI analysis."""
-        lines = [f"Total findings across all tools: {scan_results.get('total_findings', 0)}\n"]
+        lines = [
+            f"Total findings across all tools: {scan_results.get('total_findings', 0)}\n"
+        ]
 
         for tool, data in scan_results.get("tools", {}).items():
             lines.append(f"## {tool.upper()} Results")
-            lines.append(f"Passed: {data.get('passed', 0)}, Failed: {data.get('failed', 0)}")
+            lines.append(
+                f"Passed: {data.get('passed', 0)}, Failed: {data.get('failed', 0)}"
+            )
 
-            for finding in data.get("findings", [])[:50]:  # Limit to avoid token overflow
+            for finding in data.get("findings", [])[
+                :50
+            ]:  # Limit to avoid token overflow
                 lines.append(
                     f"- [{finding.get('severity', 'UNKNOWN')}] {finding.get('check_id', '')}: "
                     f"{finding.get('check_name', '')} in {finding.get('resource', 'N/A')} "
@@ -96,14 +102,16 @@ class ReportAnalyzer:
                     result["passed"] += 1
                 for check in checks.get("failed_checks", []):
                     result["failed"] += 1
-                    result["findings"].append({
-                        "check_id": check.get("check_id", ""),
-                        "check_name": check.get("check_name", ""),
-                        "severity": check.get("severity", "MEDIUM"),
-                        "resource": check.get("resource", ""),
-                        "file": check.get("file_path", ""),
-                        "guideline": check.get("guideline", ""),
-                    })
+                    result["findings"].append(
+                        {
+                            "check_id": check.get("check_id", ""),
+                            "check_name": check.get("check_name", ""),
+                            "severity": check.get("severity", "MEDIUM"),
+                            "resource": check.get("resource", ""),
+                            "file": check.get("file_path", ""),
+                            "guideline": check.get("guideline", ""),
+                        }
+                    )
 
     def _parse_checkov_xml(self, xml_file: Path, result: Dict) -> None:
         try:
@@ -129,13 +137,15 @@ class ReportAnalyzer:
                     severity = query.get("severity", "MEDIUM").upper()
                     for file_entry in query.get("files", []):
                         result["failed"] += 1
-                        result["findings"].append({
-                            "check_id": query.get("query_id", ""),
-                            "check_name": query.get("query_name", ""),
-                            "severity": severity,
-                            "resource": file_entry.get("resource_type", ""),
-                            "file": file_entry.get("file_name", ""),
-                        })
+                        result["findings"].append(
+                            {
+                                "check_id": query.get("query_id", ""),
+                                "check_name": query.get("query_name", ""),
+                                "severity": severity,
+                                "resource": file_entry.get("resource_type", ""),
+                                "file": file_entry.get("file_name", ""),
+                            }
+                        )
             except Exception as e:
                 logger.debug(f"Error parsing KICS {json_file}: {e}")
 
@@ -157,13 +167,17 @@ class ReportAnalyzer:
                             result["passed"] += 1
                         else:
                             result["failed"] += 1
-                            result["findings"].append({
-                                "check_id": vuln.get("ID", ""),
-                                "check_name": vuln.get("Title", ""),
-                                "severity": vuln.get("Severity", "MEDIUM").upper(),
-                                "resource": vuln.get("CauseMetadata", {}).get("Resource", ""),
-                                "file": res.get("Target", ""),
-                            })
+                            result["findings"].append(
+                                {
+                                    "check_id": vuln.get("ID", ""),
+                                    "check_name": vuln.get("Title", ""),
+                                    "severity": vuln.get("Severity", "MEDIUM").upper(),
+                                    "resource": vuln.get("CauseMetadata", {}).get(
+                                        "Resource", ""
+                                    ),
+                                    "file": res.get("Target", ""),
+                                }
+                            )
             except Exception as e:
                 logger.debug(f"Error parsing Trivy {json_file}: {e}")
 

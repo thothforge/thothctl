@@ -1,11 +1,12 @@
 """Create and generate Code."""
+
 import json
 import logging
+import os.path
 import re
 import sys
 from pathlib import Path
 
-import os.path
 from colorama import Fore
 
 
@@ -87,7 +88,7 @@ def create_code_repo(
             logging.info(c)
             ind = contents.index(c)
     logging.info(ind)
-    line = f'{resource_name} = {json.dumps(mod, indent=2, separators=[",", " = "])} \n'
+    line = f"{resource_name} = {json.dumps(mod, indent=2, separators=[',', ' = '])} \n"
     contents.insert(ind + 1, line)
 
     with open(p_file_hcl, "w") as f:

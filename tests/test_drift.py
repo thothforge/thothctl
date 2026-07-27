@@ -1,26 +1,33 @@
 """Tests for drift detection feature."""
+
 import json
-import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-from thothctl.services.check.project.drift.models import (
-    DriftedResource, DriftResult, DriftSeverity, DriftSummary, DriftType,
-)
-from thothctl.services.check.project.drift.drift_service import (
-    DriftDetectionService, _matches_tags,
-)
-from thothctl.services.check.project.drift.drift_policy import (
-    DriftAction, DriftPolicy, DriftPolicyEngine, PolicyRule,
-)
 from thothctl.services.check.project.drift.drift_history import DriftHistory
+from thothctl.services.check.project.drift.drift_policy import (
+    DriftAction,
+    DriftPolicy,
+    DriftPolicyEngine,
+    PolicyRule,
+)
 from thothctl.services.check.project.drift.drift_report import DriftReportGenerator
-
+from thothctl.services.check.project.drift.drift_service import (
+    DriftDetectionService,
+    _matches_tags,
+)
+from thothctl.services.check.project.drift.models import (
+    DriftedResource,
+    DriftResult,
+    DriftSeverity,
+    DriftSummary,
+    DriftType,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_plan(resource_changes):
     """Build a minimal tfplan.json dict."""
@@ -42,25 +49,46 @@ def service():
 
 @pytest.fixture
 def plan_no_drift():
-    return _make_plan([
-        _rc("aws_s3_bucket.a", "aws_s3_bucket", ["no-op"]),
-        _rc("aws_instance.b", "aws_instance", ["no-op"]),
-    ])
+    return _make_plan(
+        [
+            _rc("aws_s3_bucket.a", "aws_s3_bucket", ["no-op"]),
+            _rc("aws_instance.b", "aws_instance", ["no-op"]),
+        ]
+    )
 
 
 @pytest.fixture
 def plan_with_drift():
-    return _make_plan([
-        _rc("aws_s3_bucket.main", "aws_s3_bucket", ["no-op"]),
-        _rc("aws_instance.web", "aws_instance", ["update"],
-            before={"instance_type": "t3.micro"}, after={"instance_type": "t3.large"}),
-        _rc("aws_db_instance.primary", "aws_db_instance", ["delete", "create"],
-            before={"engine": "mysql"}, after={"engine": "postgres"}),
-        _rc("aws_security_group.allow_ssh", "aws_security_group", ["update"],
-            before={"ingress": []}, after={"ingress": ["0.0.0.0/0"]},
-            tags={"env": "prod", "team": "platform"}),
-        _rc("aws_cloudwatch_log_group.logs", "aws_cloudwatch_log_group", ["create"]),
-    ])
+    return _make_plan(
+        [
+            _rc("aws_s3_bucket.main", "aws_s3_bucket", ["no-op"]),
+            _rc(
+                "aws_instance.web",
+                "aws_instance",
+                ["update"],
+                before={"instance_type": "t3.micro"},
+                after={"instance_type": "t3.large"},
+            ),
+            _rc(
+                "aws_db_instance.primary",
+                "aws_db_instance",
+                ["delete", "create"],
+                before={"engine": "mysql"},
+                after={"engine": "postgres"},
+            ),
+            _rc(
+                "aws_security_group.allow_ssh",
+                "aws_security_group",
+                ["update"],
+                before={"ingress": []},
+                after={"ingress": ["0.0.0.0/0"]},
+                tags={"env": "prod", "team": "platform"},
+            ),
+            _rc(
+                "aws_cloudwatch_log_group.logs", "aws_cloudwatch_log_group", ["create"]
+            ),
+        ]
+    )
 
 
 @pytest.fixture
@@ -72,38 +100,65 @@ def summary_dict_with_drift():
         "total_drifted": 4,
         "overall_coverage": 20.0,
         "has_drift": True,
-        "results": [{
-            "directory": "/tmp/tf",
-            "total_resources": 5,
-            "drifted_resources": [
-                {"address": "aws_instance.web", "resource_type": "aws_instance",
-                 "drift_type": "changed", "severity": "low",
-                 "changed_attributes": ["instance_type"], "actions": ["update"],
-                 "detail": "", "tags": {}},
-                {"address": "aws_db_instance.primary", "resource_type": "aws_db_instance",
-                 "drift_type": "changed", "severity": "critical",
-                 "changed_attributes": ["engine"], "actions": ["delete", "create"],
-                 "detail": "", "tags": {}},
-                {"address": "aws_security_group.allow_ssh", "resource_type": "aws_security_group",
-                 "drift_type": "changed", "severity": "medium",
-                 "changed_attributes": ["ingress"], "actions": ["update"],
-                 "detail": "", "tags": {"env": "prod"}},
-                {"address": "aws_cloudwatch_log_group.logs", "resource_type": "aws_cloudwatch_log_group",
-                 "drift_type": "unmanaged", "severity": "low",
-                 "changed_attributes": [], "actions": ["create"],
-                 "detail": "", "tags": {}},
-            ],
-            "coverage_pct": 20.0,
-            "has_drift": True,
-            "severity_counts": {"critical": 1, "high": 0, "medium": 1, "low": 2},
-            "error": None,
-        }],
+        "results": [
+            {
+                "directory": "/tmp/tf",
+                "total_resources": 5,
+                "drifted_resources": [
+                    {
+                        "address": "aws_instance.web",
+                        "resource_type": "aws_instance",
+                        "drift_type": "changed",
+                        "severity": "low",
+                        "changed_attributes": ["instance_type"],
+                        "actions": ["update"],
+                        "detail": "",
+                        "tags": {},
+                    },
+                    {
+                        "address": "aws_db_instance.primary",
+                        "resource_type": "aws_db_instance",
+                        "drift_type": "changed",
+                        "severity": "critical",
+                        "changed_attributes": ["engine"],
+                        "actions": ["delete", "create"],
+                        "detail": "",
+                        "tags": {},
+                    },
+                    {
+                        "address": "aws_security_group.allow_ssh",
+                        "resource_type": "aws_security_group",
+                        "drift_type": "changed",
+                        "severity": "medium",
+                        "changed_attributes": ["ingress"],
+                        "actions": ["update"],
+                        "detail": "",
+                        "tags": {"env": "prod"},
+                    },
+                    {
+                        "address": "aws_cloudwatch_log_group.logs",
+                        "resource_type": "aws_cloudwatch_log_group",
+                        "drift_type": "unmanaged",
+                        "severity": "low",
+                        "changed_attributes": [],
+                        "actions": ["create"],
+                        "detail": "",
+                        "tags": {},
+                    },
+                ],
+                "coverage_pct": 20.0,
+                "has_drift": True,
+                "severity_counts": {"critical": 1, "high": 0, "medium": 1, "low": 2},
+                "error": None,
+            }
+        ],
     }
 
 
 # ===================================================================
 # Models
 # ===================================================================
+
 
 class TestModels:
     def test_drift_result_no_drift(self):
@@ -114,10 +169,15 @@ class TestModels:
 
     def test_drift_result_with_drift(self):
         r = DriftResult(
-            directory="/tmp", total_resources=3,
+            directory="/tmp",
+            total_resources=3,
             drifted_resources=[
-                DriftedResource("a.b", "aws_instance", DriftType.CHANGED, DriftSeverity.LOW),
-                DriftedResource("c.d", "aws_s3_bucket", DriftType.DELETED, DriftSeverity.CRITICAL),
+                DriftedResource(
+                    "a.b", "aws_instance", DriftType.CHANGED, DriftSeverity.LOW
+                ),
+                DriftedResource(
+                    "c.d", "aws_s3_bucket", DriftType.DELETED, DriftSeverity.CRITICAL
+                ),
             ],
             coverage_pct=33.3,
         )
@@ -132,12 +192,18 @@ class TestModels:
         assert d["has_drift"] is False
 
     def test_drift_summary_aggregation(self):
-        s = DriftSummary(results=[
-            DriftResult(directory="/a", total_resources=10, drifted_resources=[
-                DriftedResource("x", "t", DriftType.CHANGED, DriftSeverity.LOW),
-            ]),
-            DriftResult(directory="/b", total_resources=5),
-        ])
+        s = DriftSummary(
+            results=[
+                DriftResult(
+                    directory="/a",
+                    total_resources=10,
+                    drifted_resources=[
+                        DriftedResource("x", "t", DriftType.CHANGED, DriftSeverity.LOW),
+                    ],
+                ),
+                DriftResult(directory="/b", total_resources=5),
+            ]
+        )
         assert s.total_resources == 15
         assert s.total_drifted == 1
         assert s.has_drift
@@ -154,8 +220,13 @@ class TestModels:
         assert s.total_resources == 0
 
     def test_drifted_resource_to_dict(self):
-        r = DriftedResource("a.b", "aws_instance", DriftType.CHANGED, DriftSeverity.HIGH,
-                            tags={"env": "prod"})
+        r = DriftedResource(
+            "a.b",
+            "aws_instance",
+            DriftType.CHANGED,
+            DriftSeverity.HIGH,
+            tags={"env": "prod"},
+        )
         d = r.to_dict()
         assert d["drift_type"] == "changed"
         assert d["severity"] == "high"
@@ -166,18 +237,29 @@ class TestModels:
 # DriftDetectionService — classify / severity / helpers
 # ===================================================================
 
+
 class TestClassifyDriftType:
     def test_update(self):
-        assert DriftDetectionService._classify_drift_type(["update"]) == DriftType.CHANGED
+        assert (
+            DriftDetectionService._classify_drift_type(["update"]) == DriftType.CHANGED
+        )
 
     def test_delete_create_is_replace(self):
-        assert DriftDetectionService._classify_drift_type(["delete", "create"]) == DriftType.CHANGED
+        assert (
+            DriftDetectionService._classify_drift_type(["delete", "create"])
+            == DriftType.CHANGED
+        )
 
     def test_delete(self):
-        assert DriftDetectionService._classify_drift_type(["delete"]) == DriftType.DELETED
+        assert (
+            DriftDetectionService._classify_drift_type(["delete"]) == DriftType.DELETED
+        )
 
     def test_create(self):
-        assert DriftDetectionService._classify_drift_type(["create"]) == DriftType.UNMANAGED
+        assert (
+            DriftDetectionService._classify_drift_type(["create"])
+            == DriftType.UNMANAGED
+        )
 
     def test_noop_returns_none(self):
         assert DriftDetectionService._classify_drift_type(["no-op"]) is None
@@ -189,46 +271,56 @@ class TestClassifyDriftType:
 class TestAssessSeverity:
     def test_critical_type_delete(self):
         sev = DriftDetectionService._assess_severity(
-            "aws_db_instance", DriftType.DELETED, ["delete"], [])
+            "aws_db_instance", DriftType.DELETED, ["delete"], []
+        )
         assert sev == DriftSeverity.CRITICAL
 
     def test_critical_type_update(self):
         sev = DriftDetectionService._assess_severity(
-            "aws_s3_bucket", DriftType.CHANGED, ["update"], ["versioning"])
+            "aws_s3_bucket", DriftType.CHANGED, ["update"], ["versioning"]
+        )
         assert sev == DriftSeverity.HIGH
 
     def test_high_type_delete(self):
         sev = DriftDetectionService._assess_severity(
-            "aws_security_group", DriftType.DELETED, ["delete"], [])
+            "aws_security_group", DriftType.DELETED, ["delete"], []
+        )
         assert sev == DriftSeverity.HIGH
 
     def test_high_type_update(self):
         sev = DriftDetectionService._assess_severity(
-            "aws_lambda_function", DriftType.CHANGED, ["update"], ["runtime"])
+            "aws_lambda_function", DriftType.CHANGED, ["update"], ["runtime"]
+        )
         assert sev == DriftSeverity.MEDIUM
 
     def test_generic_delete(self):
         sev = DriftDetectionService._assess_severity(
-            "aws_route53_record", DriftType.DELETED, ["delete"], [])
+            "aws_route53_record", DriftType.DELETED, ["delete"], []
+        )
         assert sev == DriftSeverity.MEDIUM
 
     def test_generic_update(self):
         sev = DriftDetectionService._assess_severity(
-            "aws_route53_record", DriftType.CHANGED, ["update"], ["ttl"])
+            "aws_route53_record", DriftType.CHANGED, ["update"], ["ttl"]
+        )
         assert sev == DriftSeverity.LOW
 
 
 class TestExtractChangedAttrs:
     def test_diff(self):
-        attrs = DriftDetectionService._extract_changed_attrs({
-            "before": {"a": 1, "b": 2},
-            "after": {"a": 1, "b": 3, "c": 4},
-        })
+        attrs = DriftDetectionService._extract_changed_attrs(
+            {
+                "before": {"a": 1, "b": 2},
+                "after": {"a": 1, "b": 3, "c": 4},
+            }
+        )
         assert sorted(attrs) == ["b", "c"]
 
     def test_no_before(self):
         # before=None is treated as {}, so all 'after' keys are changed
-        assert DriftDetectionService._extract_changed_attrs({"before": None, "after": {"a": 1}}) == ["a"]
+        assert DriftDetectionService._extract_changed_attrs(
+            {"before": None, "after": {"a": 1}}
+        ) == ["a"]
 
     def test_empty(self):
         assert DriftDetectionService._extract_changed_attrs({}) == []
@@ -236,21 +328,26 @@ class TestExtractChangedAttrs:
 
 class TestExtractTags:
     def test_tags_from_after(self):
-        tags = DriftDetectionService._extract_tags({
-            "change": {"after": {"tags": {"env": "prod"}}, "before": {"tags": {"env": "dev"}}}
-        })
+        tags = DriftDetectionService._extract_tags(
+            {
+                "change": {
+                    "after": {"tags": {"env": "prod"}},
+                    "before": {"tags": {"env": "dev"}},
+                }
+            }
+        )
         assert tags == {"env": "prod"}
 
     def test_tags_from_before_fallback(self):
-        tags = DriftDetectionService._extract_tags({
-            "change": {"after": {}, "before": {"tags": {"env": "dev"}}}
-        })
+        tags = DriftDetectionService._extract_tags(
+            {"change": {"after": {}, "before": {"tags": {"env": "dev"}}}}
+        )
         assert tags == {"env": "dev"}
 
     def test_tags_all(self):
-        tags = DriftDetectionService._extract_tags({
-            "change": {"after": {"tags_all": {"env": "staging"}}}
-        })
+        tags = DriftDetectionService._extract_tags(
+            {"change": {"after": {"tags_all": {"env": "staging"}}}}
+        )
         assert tags == {"env": "staging"}
 
     def test_no_tags(self):
@@ -277,12 +374,16 @@ class TestMatchesTags:
         assert _matches_tags({"env": "prod"}, {"team": "platform"}) is False
 
     def test_multiple_filters(self):
-        assert _matches_tags({"env": "prod", "team": "x"}, {"env": "prod", "team": "*"}) is True
+        assert (
+            _matches_tags({"env": "prod", "team": "x"}, {"env": "prod", "team": "*"})
+            is True
+        )
 
 
 # ===================================================================
 # DriftDetectionService — plan analysis
 # ===================================================================
+
 
 class TestAnalysePlan:
     def test_no_drift(self, service, plan_no_drift):
@@ -306,7 +407,9 @@ class TestAnalysePlan:
         assert sg.tags == {"env": "prod", "team": "platform"}
 
     def test_driftignore(self, service, plan_with_drift, tmp_path):
-        (tmp_path / ".driftignore").write_text("aws_instance.*\n# comment\naws_cloudwatch_*\n")
+        (tmp_path / ".driftignore").write_text(
+            "aws_instance.*\n# comment\naws_cloudwatch_*\n"
+        )
         result = service._analyse_plan(plan_with_drift, str(tmp_path))
         addresses = [r.address for r in result.drifted_resources]
         assert "aws_instance.web" not in addresses
@@ -349,8 +452,9 @@ class TestDetectDrift:
     def test_tag_filter(self, service, plan_with_drift, tmp_path):
         p = tmp_path / "tfplan.json"
         p.write_text(json.dumps(plan_with_drift))
-        summary = service.detect_drift(str(tmp_path), plan_files=[str(p)],
-                                       filter_tags={"env": "prod"})
+        summary = service.detect_drift(
+            str(tmp_path), plan_files=[str(p)], filter_tags={"env": "prod"}
+        )
         # Only the security_group has env=prod tag
         for result in summary.results:
             for r in result.drifted_resources:
@@ -360,6 +464,7 @@ class TestDetectDrift:
 # ===================================================================
 # DriftPolicyEngine
 # ===================================================================
+
 
 class TestDriftPolicy:
     def test_default_policy(self):
@@ -387,10 +492,14 @@ class TestDriftPolicy:
         assert engine.policy.rules[0].action == DriftAction.BLOCK_DEPLOY
 
     def test_load_json_fallback(self, tmp_path):
-        (tmp_path / ".driftpolicy").write_text(json.dumps({
-            "coverage_threshold": 95.0,
-            "rules": [{"resource": "aws_s3_bucket.*", "action": "alert"}],
-        }))
+        (tmp_path / ".driftpolicy").write_text(
+            json.dumps(
+                {
+                    "coverage_threshold": 95.0,
+                    "rules": [{"resource": "aws_s3_bucket.*", "action": "alert"}],
+                }
+            )
+        )
         # Simulate yaml not available
         with patch.dict("sys.modules", {"yaml": None}):
             engine = DriftPolicyEngine.load(str(tmp_path))
@@ -403,40 +512,65 @@ class TestDriftPolicy:
         assert ev.blocked
 
     def test_evaluate_block_deploy_rule(self, summary_dict_with_drift):
-        policy = DriftPolicy(coverage_threshold=0.0, rules=[
-            PolicyRule(resource="aws_db_instance.*", action=DriftAction.BLOCK_DEPLOY),
-        ])
+        policy = DriftPolicy(
+            coverage_threshold=0.0,
+            rules=[
+                PolicyRule(
+                    resource="aws_db_instance.*", action=DriftAction.BLOCK_DEPLOY
+                ),
+            ],
+        )
         ev = DriftPolicyEngine(policy).evaluate(summary_dict_with_drift)
         assert ev.blocked
         assert any("aws_db_instance" in r for r in ev.block_reasons)
 
     def test_evaluate_ignore_rule(self, summary_dict_with_drift):
-        policy = DriftPolicy(coverage_threshold=0.0, rules=[
-            PolicyRule(resource="aws_cloudwatch_log_group.*", action=DriftAction.IGNORE),
-        ])
+        policy = DriftPolicy(
+            coverage_threshold=0.0,
+            rules=[
+                PolicyRule(
+                    resource="aws_cloudwatch_log_group.*", action=DriftAction.IGNORE
+                ),
+            ],
+        )
         ev = DriftPolicyEngine(policy).evaluate(summary_dict_with_drift)
         assert "aws_cloudwatch_log_group.logs" in ev.ignored_addresses
 
     def test_evaluate_auto_accept(self, summary_dict_with_drift):
-        policy = DriftPolicy(coverage_threshold=0.0, rules=[
-            PolicyRule(resource="aws_instance.*", action=DriftAction.AUTO_ACCEPT),
-        ])
+        policy = DriftPolicy(
+            coverage_threshold=0.0,
+            rules=[
+                PolicyRule(resource="aws_instance.*", action=DriftAction.AUTO_ACCEPT),
+            ],
+        )
         ev = DriftPolicyEngine(policy).evaluate(summary_dict_with_drift)
         assert "aws_instance.web" in ev.accepted_addresses
 
     def test_evaluate_attribute_filter(self, summary_dict_with_drift):
-        policy = DriftPolicy(coverage_threshold=0.0, rules=[
-            PolicyRule(resource="aws_instance.*", attribute="instance_type",
-                       action=DriftAction.BLOCK_DEPLOY),
-        ])
+        policy = DriftPolicy(
+            coverage_threshold=0.0,
+            rules=[
+                PolicyRule(
+                    resource="aws_instance.*",
+                    attribute="instance_type",
+                    action=DriftAction.BLOCK_DEPLOY,
+                ),
+            ],
+        )
         ev = DriftPolicyEngine(policy).evaluate(summary_dict_with_drift)
         assert ev.blocked
 
     def test_severity_override(self, summary_dict_with_drift):
-        policy = DriftPolicy(coverage_threshold=0.0, rules=[
-            PolicyRule(resource="aws_instance.*", action=DriftAction.ALERT,
-                       severity_override="critical"),
-        ])
+        policy = DriftPolicy(
+            coverage_threshold=0.0,
+            rules=[
+                PolicyRule(
+                    resource="aws_instance.*",
+                    action=DriftAction.ALERT,
+                    severity_override="critical",
+                ),
+            ],
+        )
         ev = DriftPolicyEngine(policy).evaluate(summary_dict_with_drift)
         verdict = next(v for v in ev.verdicts if v.address == "aws_instance.web")
         assert verdict.severity_override == "critical"
@@ -452,17 +586,21 @@ class TestDriftPolicy:
 # DriftHistory
 # ===================================================================
 
+
 class TestDriftHistory:
     def test_save_and_get_trend(self, tmp_path):
         history = DriftHistory(storage_dir=str(tmp_path))
         for cov in [85.0, 88.0, 92.0]:
-            history.save_snapshot("myproject", {
-                "total_resources": 100,
-                "total_drifted": int(100 - cov),
-                "overall_coverage": cov,
-                "total_stacks": 1,
-                "results": [],
-            })
+            history.save_snapshot(
+                "myproject",
+                {
+                    "total_resources": 100,
+                    "total_drifted": int(100 - cov),
+                    "overall_coverage": cov,
+                    "total_stacks": 1,
+                    "results": [],
+                },
+            )
         trend = history.get_trend("myproject")
         assert trend["snapshots"] == 3
         assert trend["trend"] == "improving"
@@ -478,44 +616,74 @@ class TestDriftHistory:
     def test_stable_trend(self, tmp_path):
         history = DriftHistory(storage_dir=str(tmp_path))
         for _ in range(3):
-            history.save_snapshot("proj", {
-                "total_resources": 10, "total_drifted": 1,
-                "overall_coverage": 90.0, "total_stacks": 1, "results": [],
-            })
+            history.save_snapshot(
+                "proj",
+                {
+                    "total_resources": 10,
+                    "total_drifted": 1,
+                    "overall_coverage": 90.0,
+                    "total_stacks": 1,
+                    "results": [],
+                },
+            )
         assert history.get_trend("proj")["trend"] == "stable"
 
     def test_degrading_trend(self, tmp_path):
         history = DriftHistory(storage_dir=str(tmp_path))
         for cov in [95.0, 90.0, 80.0]:
-            history.save_snapshot("proj", {
-                "total_resources": 100, "total_drifted": int(100 - cov),
-                "overall_coverage": cov, "total_stacks": 1, "results": [],
-            })
+            history.save_snapshot(
+                "proj",
+                {
+                    "total_resources": 100,
+                    "total_drifted": int(100 - cov),
+                    "overall_coverage": cov,
+                    "total_stacks": 1,
+                    "results": [],
+                },
+            )
         assert history.get_trend("proj")["trend"] == "degrading"
 
     def test_threshold_warning(self, tmp_path):
         history = DriftHistory(storage_dir=str(tmp_path))
-        history.save_snapshot("proj", {
-            "total_resources": 10, "total_drifted": 3,
-            "overall_coverage": 70.0, "total_stacks": 1, "results": [],
-        })
+        history.save_snapshot(
+            "proj",
+            {
+                "total_resources": 10,
+                "total_drifted": 3,
+                "overall_coverage": 70.0,
+                "total_stacks": 1,
+                "results": [],
+            },
+        )
         assert history.check_threshold("proj", min_coverage=90.0) is not None
 
     def test_threshold_ok(self, tmp_path):
         history = DriftHistory(storage_dir=str(tmp_path))
-        history.save_snapshot("proj", {
-            "total_resources": 10, "total_drifted": 0,
-            "overall_coverage": 100.0, "total_stacks": 1, "results": [],
-        })
+        history.save_snapshot(
+            "proj",
+            {
+                "total_resources": 10,
+                "total_drifted": 0,
+                "overall_coverage": 100.0,
+                "total_stacks": 1,
+                "results": [],
+            },
+        )
         assert history.check_threshold("proj") is None
 
     def test_max_snapshots_capped(self, tmp_path):
         history = DriftHistory(storage_dir=str(tmp_path))
         for i in range(400):
-            history.save_snapshot("proj", {
-                "total_resources": 10, "total_drifted": 0,
-                "overall_coverage": 100.0, "total_stacks": 1, "results": [],
-            })
+            history.save_snapshot(
+                "proj",
+                {
+                    "total_resources": 10,
+                    "total_drifted": 0,
+                    "overall_coverage": 100.0,
+                    "total_stacks": 1,
+                    "results": [],
+                },
+            )
         raw = json.loads((tmp_path / "proj.json").read_text())
         assert len(raw) == 365
 
@@ -524,28 +692,42 @@ class TestDriftHistory:
 # DriftReportGenerator
 # ===================================================================
 
+
 class TestDriftReportGenerator:
     @pytest.fixture
     def summary_with_drift(self):
-        return DriftSummary(results=[
-            DriftResult(
-                directory="/tmp/tf", total_resources=3,
-                drifted_resources=[
-                    DriftedResource("aws_instance.web", "aws_instance",
-                                    DriftType.CHANGED, DriftSeverity.LOW,
-                                    changed_attributes=["instance_type"]),
-                    DriftedResource("aws_db_instance.db", "aws_db_instance",
-                                    DriftType.DELETED, DriftSeverity.CRITICAL),
-                ],
-                coverage_pct=33.3,
-            ),
-        ])
+        return DriftSummary(
+            results=[
+                DriftResult(
+                    directory="/tmp/tf",
+                    total_resources=3,
+                    drifted_resources=[
+                        DriftedResource(
+                            "aws_instance.web",
+                            "aws_instance",
+                            DriftType.CHANGED,
+                            DriftSeverity.LOW,
+                            changed_attributes=["instance_type"],
+                        ),
+                        DriftedResource(
+                            "aws_db_instance.db",
+                            "aws_db_instance",
+                            DriftType.DELETED,
+                            DriftSeverity.CRITICAL,
+                        ),
+                    ],
+                    coverage_pct=33.3,
+                ),
+            ]
+        )
 
     @pytest.fixture
     def summary_no_drift(self):
-        return DriftSummary(results=[
-            DriftResult(directory="/tmp/tf", total_resources=5, coverage_pct=100.0),
-        ])
+        return DriftSummary(
+            results=[
+                DriftResult(directory="/tmp/tf", total_resources=5, coverage_pct=100.0),
+            ]
+        )
 
     def test_generate_json(self, summary_with_drift, tmp_path):
         reporter = DriftReportGenerator()
@@ -597,9 +779,13 @@ class TestDriftReportGenerator:
 # DriftAI (offline fallback)
 # ===================================================================
 
+
 class TestDriftAI:
     def test_offline_analysis(self, summary_dict_with_drift):
-        from thothctl.services.check.project.drift.drift_ai import _offline_drift_analysis
+        from thothctl.services.check.project.drift.drift_ai import (
+            _offline_drift_analysis,
+        )
+
         result = _offline_drift_analysis(summary_dict_with_drift)
         assert "summary" in result
         assert "findings" in result
@@ -610,20 +796,29 @@ class TestDriftAI:
 
     def test_format_drift_for_ai(self, summary_dict_with_drift):
         from thothctl.services.check.project.drift.drift_ai import format_drift_for_ai
+
         text = format_drift_for_ai(summary_dict_with_drift)
         assert "Drift Analysis Request" in text
         assert "aws_db_instance.primary" in text
 
     def test_format_drift_with_trend(self, summary_dict_with_drift):
         from thothctl.services.check.project.drift.drift_ai import format_drift_for_ai
-        trend = {"snapshots": 5, "trend": "degrading", "coverage_delta": -3.0,
-                 "min_coverage": 80.0, "max_coverage": 95.0, "peak_drifted": 8}
+
+        trend = {
+            "snapshots": 5,
+            "trend": "degrading",
+            "coverage_delta": -3.0,
+            "min_coverage": 80.0,
+            "max_coverage": 95.0,
+            "peak_drifted": 8,
+        }
         text = format_drift_for_ai(summary_dict_with_drift, trend=trend)
         assert "Coverage Trend" in text
         assert "degrading" in text
 
     def test_analyze_drift_with_ai_fallback(self, summary_dict_with_drift):
         from thothctl.services.check.project.drift.drift_ai import analyze_drift_with_ai
+
         # No AI provider configured → should fall back to offline
         result = analyze_drift_with_ai(summary_dict_with_drift, provider=None)
         assert "_note" in result

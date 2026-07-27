@@ -1,13 +1,14 @@
 """Check environment tools."""
+
 import json
-import os
 import subprocess
 from typing import Dict, List, Tuple
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
+
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from ....core.version_tools import version_tools
 
@@ -29,36 +30,35 @@ class EnvironmentChecker:
     def _extract_version(self, version_output: str, tool_name: str) -> str:
         """Extract clean version number from tool output."""
         import re
-        
+
         # Common version patterns
         patterns = [
-            r'v?(\d+\.\d+\.\d+)',  # Standard semver
-            r'version\s+v?(\d+\.\d+\.\d+)',  # "version 1.2.3"
-            r'(\d+\.\d+\.\d+)',  # Just numbers
+            r"v?(\d+\.\d+\.\d+)",  # Standard semver
+            r"version\s+v?(\d+\.\d+\.\d+)",  # "version 1.2.3"
+            r"(\d+\.\d+\.\d+)",  # Just numbers
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, version_output, re.IGNORECASE)
             if match:
                 return match.group(1)
-        
+
         # Fallback: return first 15 chars
-        return version_output[:15] + "..." if len(version_output) > 15 else version_output
+        return (
+            version_output[:15] + "..." if len(version_output) > 15 else version_output
+        )
 
     def _check_tool_installed(self, tool: Dict) -> Tuple[bool, str]:
         """Check if a tool is installed and get its version."""
-        command = tool.get("command", f'{tool["name"]} --version')
-        
+        command = tool.get("command", f"{tool['name']} --version")
+
         try:
             result = subprocess.run(
-                command.split(), 
-                capture_output=True, 
-                text=True, 
-                timeout=10
+                command.split(), capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
                 # Extract version from output (first line, remove extra text)
-                version_line = result.stdout.strip().split('\n')[0]
+                version_line = result.stdout.strip().split("\n")[0]
                 clean_version = self._extract_version(version_line, tool["name"])
                 return True, clean_version
             return False, ""
@@ -67,18 +67,14 @@ class EnvironmentChecker:
 
     def check_environment(self) -> Dict:
         """Check all environment tools and return results."""
-        results = {
-            "installed": [],
-            "missing": [],
-            "total": len(self.tools)
-        }
+        results = {"installed": [], "missing": [], "total": len(self.tools)}
 
         # Create summary table
         table = Table(
             title="🔧 Development Environment Check",
             box=box.ROUNDED,
             show_header=True,
-            header_style="bold magenta"
+            header_style="bold magenta",
         )
         table.add_column("Tool", style="cyan", width=20)
         table.add_column("Status", width=10)
@@ -87,7 +83,7 @@ class EnvironmentChecker:
 
         for tool in self.tools:
             is_installed, version_output = self._check_tool_installed(tool)
-            
+
             if is_installed:
                 results["installed"].append(tool["name"])
                 status = Text("✅ Installed", style="green")
@@ -96,22 +92,17 @@ class EnvironmentChecker:
                 results["missing"].append(tool["name"])
                 status = Text("❌ Missing", style="red")
                 current_version = "Not found"
-            
-            table.add_row(
-                tool["name"],
-                status,
-                current_version,
-                tool["version"]
-            )
+
+            table.add_row(tool["name"], status, current_version, tool["version"])
 
         # Display results
         self.console.print()
         self.console.print(table)
-        
+
         # Summary panel
         installed_count = len(results["installed"])
         missing_count = len(results["missing"])
-        
+
         if missing_count == 0:
             summary_text = f"🎉 All {installed_count} tools are installed!"
             panel_style = "green"
@@ -122,15 +113,12 @@ class EnvironmentChecker:
             panel_style = "yellow"
 
         summary_panel = Panel(
-            summary_text,
-            title="Summary",
-            style=panel_style,
-            box=box.ROUNDED
+            summary_text, title="Summary", style=panel_style, box=box.ROUNDED
         )
-        
+
         self.console.print()
         self.console.print(summary_panel)
-        
+
         if missing_count > 0:
             self.console.print()
             self.console.print(
@@ -154,13 +142,16 @@ def load_tools(mode="generic"):
     checker = EnvironmentChecker()
     return checker.tools
 
+
 def get_tools_name(tools):
     """Get tools names."""
     return [tool["name"] for tool in tools]
 
+
 def get_tool_version(tools):
     """Get tools versions."""
     return {tool["name"]: tool["version"] for tool in tools}
+
 
 def check_environment():
     """Check environment tools."""

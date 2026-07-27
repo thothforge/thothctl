@@ -35,7 +35,7 @@ class ProjectCLI(click.MultiCommand):
         try:
             if cmd_name == "shell_completion":
                 return None
-                
+
             module_path = Path(__file__).parent / "project" / f"{cmd_name}.py"
 
             if not module_path.exists():

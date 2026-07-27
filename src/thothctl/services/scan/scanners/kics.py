@@ -1,4 +1,5 @@
 """KICS scanner implementation using Docker."""
+
 import json
 import logging
 import os
@@ -12,7 +13,7 @@ from .scanners import ScannerPort
 
 class KICSScanner(ScannerPort):
     """KICS scanner using Docker container."""
-    
+
     def __init__(self):
         self.ui = ScannerUI("KICS")
         self.logger = logging.getLogger(__name__)
@@ -22,10 +23,7 @@ class KICSScanner(ScannerPort):
         """Check if Docker is available."""
         try:
             result = subprocess.run(
-                ["docker", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["docker", "--version"], capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -40,7 +38,7 @@ class KICSScanner(ScannerPort):
     ) -> Dict[str, str]:
         """
         Execute KICS scan using Docker.
-        
+
         Note: Requires Docker to be installed and running.
         """
         try:
@@ -59,25 +57,33 @@ class KICSScanner(ScannerPort):
             # Convert to absolute paths
             abs_directory = str(Path(directory).resolve())
             abs_reports_dir = str(Path(reports_dir).resolve())
-            
+
             # Create reports directory
             os.makedirs(abs_reports_dir, exist_ok=True)
 
             # Prepare output files — Docker mounts abs_reports_dir as /output
             json_output = os.path.join(abs_reports_dir, "kics-results.json")
-            sarif_output = os.path.join(abs_reports_dir, "kics-results.sarif")
-            
+            os.path.join(abs_reports_dir, "kics-results.sarif")
+
             # Build Docker command
             docker_cmd = [
-                "docker", "run", "--rm",
-                "-v", f"{abs_directory}:/path",
-                "-v", f"{abs_reports_dir}:/output",
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{abs_directory}:/path",
+                "-v",
+                f"{abs_reports_dir}:/output",
                 self.docker_image,
                 "scan",
-                "-p", "/path",
-                "-o", "/output",
-                "--report-formats", "json,sarif",
-                "--output-name", "kics-results"
+                "-p",
+                "/path",
+                "-o",
+                "/output",
+                "--report-formats",
+                "json,sarif",
+                "--output-name",
+                "kics-results",
             ]
 
             # Add optional parameters
@@ -85,10 +91,10 @@ class KICSScanner(ScannerPort):
                 if options.get("exclude_paths"):
                     for exclude in options["exclude_paths"]:
                         docker_cmd.extend(["--exclude-paths", exclude])
-                
+
                 if options.get("exclude_queries"):
                     docker_cmd.extend(["--exclude-queries", options["exclude_queries"]])
-                
+
                 if options.get("include_queries"):
                     docker_cmd.extend(["--include-queries", options["include_queries"]])
 
@@ -97,26 +103,23 @@ class KICSScanner(ScannerPort):
 
             # Execute scan
             result = subprocess.run(
-                docker_cmd,
-                capture_output=True,
-                text=True,
-                timeout=600
+                docker_cmd, capture_output=True, text=True, timeout=600
             )
 
             # KICS exit codes: 0=no issues, 20=info, 30=low, 40=medium, 50=high, 60=critical
             if result.returncode in [0, 20, 30, 40, 50, 60]:
                 self.ui.show_success("KICS scan completed")
-                
+
                 # Parse results
                 report_data, findings = self._parse_kics_results(json_output)
-                
+
                 self.ui.show_info(f"Found {report_data.get('failed_count', 0)} issues")
 
                 # Generate HTML reports (unified style)
                 kics_report_dir = os.path.join(abs_reports_dir, "kics")
                 os.makedirs(kics_report_dir, exist_ok=True)
                 self._generate_html_report(kics_report_dir, report_data, findings)
-                
+
                 return {
                     "status": "COMPLETE",
                     "report_path": kics_report_dir,
@@ -128,18 +131,14 @@ class KICSScanner(ScannerPort):
                 error_msg = f"KICS scan failed with exit code {result.returncode}"
                 self.logger.error(f"{error_msg}\nStderr: {result.stderr}")
                 self.ui.show_error(error_msg)
-                return {
-                    "status": "error",
-                    "error": error_msg,
-                    "stderr": result.stderr
-                }
+                return {"status": "error", "error": error_msg, "stderr": result.stderr}
 
         except subprocess.TimeoutExpired:
             error_msg = "KICS scan timed out after 10 minutes"
             self.logger.error(error_msg)
             self.ui.show_error(error_msg)
             return {"status": "error", "error": error_msg}
-        
+
         except Exception as e:
             error_msg = f"KICS scan failed: {str(e)}"
             self.logger.error(error_msg, exc_info=True)
@@ -148,7 +147,13 @@ class KICSScanner(ScannerPort):
 
     def _parse_kics_results(self, json_path: str):
         """Parse KICS JSON results into report_data and findings list."""
-        empty_data = {"passed_count": 0, "failed_count": 0, "skipped_count": 0, "error_count": 0, "warning_count": 0}
+        empty_data = {
+            "passed_count": 0,
+            "failed_count": 0,
+            "skipped_count": 0,
+            "error_count": 0,
+            "warning_count": 0,
+        }
         if not os.path.exists(json_path):
             return empty_data, []
 
@@ -170,14 +175,16 @@ class KICSScanner(ScannerPort):
             query_name = query.get("query_name", "")
             query_id = query.get("query_id", "")[:12]
             for file_entry in query.get("files", []):
-                findings.append({
-                    "id": query_id,
-                    "severity": severity,
-                    "title": query_name,
-                    "resource": file_entry.get("resource_type", ""),
-                    "file": file_entry.get("file_name", ""),
-                    "line": file_entry.get("line", 0),
-                })
+                findings.append(
+                    {
+                        "id": query_id,
+                        "severity": severity,
+                        "title": query_name,
+                        "resource": file_entry.get("resource_type", ""),
+                        "file": file_entry.get("file_name", ""),
+                        "line": file_entry.get("line", 0),
+                    }
+                )
 
         report_data = {
             "passed_count": passed,
@@ -189,7 +196,9 @@ class KICSScanner(ScannerPort):
 
         return report_data, findings
 
-    def _generate_html_report(self, report_dir: str, report_data: dict, findings: list) -> None:
+    def _generate_html_report(
+        self, report_dir: str, report_data: dict, findings: list
+    ) -> None:
         """Generate HTML report in unified ThothCTL style."""
         from datetime import datetime
 
@@ -211,11 +220,11 @@ class KICSScanner(ScannerPort):
         for f in findings:
             sev = f.get("severity", "MEDIUM").lower()
             rows += f"""<tr>
-                <td><span class="sev {sev}">{f.get('severity','')}</span></td>
-                <td><code>{f.get('id','')}</code></td>
-                <td>{f.get('title','')}</td>
-                <td>{f.get('file','')}:{f.get('line',0)}</td>
-                <td>{f.get('resource','')}</td>
+                <td><span class="sev {sev}">{f.get("severity", "")}</span></td>
+                <td><code>{f.get("id", "")}</code></td>
+                <td>{f.get("title", "")}</td>
+                <td>{f.get("file", "")}:{f.get("line", 0)}</td>
+                <td>{f.get("resource", "")}</td>
             </tr>"""
 
         html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -243,7 +252,7 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
 </style></head><body>
 <div class="container">
 <div class="header"><h1>🛡️ Security Scan Results<span class="tool-badge">KICS</span></h1>
-<p>Scanned {datetime.now().strftime('%Y-%m-%d %H:%M')} — {failed} issues found</p></div>
+<p>Scanned {datetime.now().strftime("%Y-%m-%d %H:%M")} — {failed} issues found</p></div>
 <div class="content">
 <div class="cards">
 <div class="card"><div class="val">{total}</div><div class="lbl">Total Checks</div></div>
@@ -251,7 +260,7 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
 <div class="card"><div class="val" style="color:#ef4444">{failed}</div><div class="lbl">Failed</div></div>
 <div class="card"><div class="val" style="color:#667eea">{rate}%</div><div class="lbl">Success Rate</div></div>
 </div>
-{'<table><thead><tr><th>Severity</th><th>Rule</th><th>Title</th><th>File</th><th>Resource</th></tr></thead><tbody>' + rows + '</tbody></table>' if findings else '<p style="color:#10b981;font-weight:600">✅ No misconfigurations found</p>'}
+{"<table><thead><tr><th>Severity</th><th>Rule</th><th>Title</th><th>File</th><th>Resource</th></tr></thead><tbody>" + rows + "</tbody></table>" if findings else '<p style="color:#10b981;font-weight:600">✅ No misconfigurations found</p>'}
 </div>
 <div class="footer">Generated by ThothCTL</div>
 </div></body></html>"""

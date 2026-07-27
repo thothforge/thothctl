@@ -1,20 +1,20 @@
 """thothctl workflow devsecops — composite DevSecOps SDLC command."""
+
 import logging
 import time
 
 import click
 import rich.box
 from rich.console import Console
-from rich.live import Live
 from rich.panel import Panel
-from rich.spinner import Spinner
 from rich.table import Table
-from rich.text import Text
 
 from ....core.commands import ClickCommand
-from ....services.workflow.models import Phase, PhaseResult, StepStatus
-from ....services.workflow.workflow_service import WorkflowService, COMPOSITE_PHASES, PHASE_ORDER
-
+from ....services.workflow.models import Phase, StepStatus
+from ....services.workflow.workflow_service import (
+    COMPOSITE_PHASES,
+    WorkflowService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +51,16 @@ class DevSecOpsWorkflowCommand(ClickCommand):
             options["tools"] = list(kwargs["tools"])
 
         # Header
-        console.print(Panel(
-            f"[bold]DevSecOps Workflow[/bold]\n\n"
-            f"Phase: [cyan]{phase}[/cyan]\n"
-            f"Directory: [cyan]{directory}[/cyan]\n"
-            f"Enforcement: [{'red' if enforcement == 'hard' else 'green'}]{enforcement}[/]",
-            title="[bold blue]ThothCTL Workflow[/bold blue]",
-            border_style="blue",
-        ))
+        console.print(
+            Panel(
+                f"[bold]DevSecOps Workflow[/bold]\n\n"
+                f"Phase: [cyan]{phase}[/cyan]\n"
+                f"Directory: [cyan]{directory}[/cyan]\n"
+                f"Enforcement: [{'red' if enforcement == 'hard' else 'green'}]{enforcement}[/]",
+                title="[bold blue]ThothCTL Workflow[/bold blue]",
+                border_style="blue",
+            )
+        )
 
         # Resolve which phases will run
         phases_to_run = self._resolve_phases(selected_phase, service)
@@ -66,7 +68,14 @@ class DevSecOpsWorkflowCommand(ClickCommand):
         # Execute with live progress
         start = time.perf_counter()
         result = self._execute_with_progress(
-            console, service, [selected_phase], directory, reports_dir, options, enforcement, phases_to_run
+            console,
+            service,
+            [selected_phase],
+            directory,
+            reports_dir,
+            options,
+            enforcement,
+            phases_to_run,
         )
         total_time = time.perf_counter() - start
 
@@ -74,13 +83,15 @@ class DevSecOpsWorkflowCommand(ClickCommand):
         self._display_results(console, result, total_time)
 
         if result.stopped_at:
-            console.print(Panel(
-                f"[bold red]Pipeline blocked at phase: {result.stopped_at.value}[/bold red]\n\n"
-                f"Resolve {result.total_findings} finding(s) before deployment.\n"
-                f"Use [bold]--enforcement soft[/bold] to report without blocking.",
-                title="[bold red]\u26d4 Enforcement Failed[/bold red]",
-                border_style="red",
-            ))
+            console.print(
+                Panel(
+                    f"[bold red]Pipeline blocked at phase: {result.stopped_at.value}[/bold red]\n\n"
+                    f"Resolve {result.total_findings} finding(s) before deployment.\n"
+                    f"Use [bold]--enforcement soft[/bold] to report without blocking.",
+                    title="[bold red]\u26d4 Enforcement Failed[/bold red]",
+                    border_style="red",
+                )
+            )
             raise SystemExit(1)
 
     def _resolve_phases(self, phase: Phase, service: WorkflowService) -> list:
@@ -94,7 +105,15 @@ class DevSecOpsWorkflowCommand(ClickCommand):
         return [p for p in resolved if p in service._executors]
 
     def _execute_with_progress(
-        self, console, service, phases, directory, reports_dir, options, enforcement, phases_to_run
+        self,
+        console,
+        service,
+        phases,
+        directory,
+        reports_dir,
+        options,
+        enforcement,
+        phases_to_run,
     ):
         """Execute workflow with live spinner showing current phase."""
         from ....services.workflow.models import WorkflowResult
@@ -135,8 +154,7 @@ class DevSecOpsWorkflowCommand(ClickCommand):
                 )
             else:
                 console.print(
-                    f"  {icon} [bold]{phase_name}[/bold] — "
-                    f"[green]passed[/green]"
+                    f"  {icon} [bold]{phase_name}[/bold] — [green]passed[/green]"
                 )
 
             result.phases.append(phase_result)
@@ -189,14 +207,22 @@ class DevSecOpsWorkflowCommand(ClickCommand):
 
         # Summary
         status_color = "green" if result.passed else "red"
-        status_text = "\u2705 All phases passed" if result.passed else f"\u274c {result.total_findings} finding(s) detected"
-        console.print(Panel(
-            f"[bold {status_color}]{status_text}[/bold {status_color}]\n\n"
-            f"\u23f1\ufe0f  Total time: [cyan]{total_time:.1f}s[/cyan]\n"
-            f"Phases executed: [cyan]{len(result.phases)}[/cyan]",
-            title="[bold green]Workflow Complete[/bold green]" if result.passed else "[bold red]Workflow Complete[/bold red]",
-            border_style=status_color,
-        ))
+        status_text = (
+            "\u2705 All phases passed"
+            if result.passed
+            else f"\u274c {result.total_findings} finding(s) detected"
+        )
+        console.print(
+            Panel(
+                f"[bold {status_color}]{status_text}[/bold {status_color}]\n\n"
+                f"\u23f1\ufe0f  Total time: [cyan]{total_time:.1f}s[/cyan]\n"
+                f"Phases executed: [cyan]{len(result.phases)}[/cyan]",
+                title="[bold green]Workflow Complete[/bold green]"
+                if result.passed
+                else "[bold red]Workflow Complete[/bold red]",
+                border_style=status_color,
+            )
+        )
 
 
 # Click wiring
@@ -204,13 +230,15 @@ cli = DevSecOpsWorkflowCommand.as_click_command(
     help="Execute DevSecOps SDLC workflow phases."
 )(
     click.option(
-        "--phase", "-p",
+        "--phase",
+        "-p",
         type=click.Choice([p.value for p in Phase]),
         default="all",
         help="SDLC phase to execute (default: all)",
     ),
     click.option(
-        "--reports-dir", "-r",
+        "--reports-dir",
+        "-r",
         default="Reports",
         help="Directory to save reports",
     ),
@@ -226,7 +254,8 @@ cli = DevSecOpsWorkflowCommand.as_click_command(
         help="OPA policy directory or Git URL for secure phase",
     ),
     click.option(
-        "--tools", "-t",
+        "--tools",
+        "-t",
         multiple=True,
         default=None,
         help="Override scan tools for secure phase (e.g., -t checkov -t trivy)",

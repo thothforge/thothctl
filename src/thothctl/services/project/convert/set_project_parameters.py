@@ -1,23 +1,18 @@
 """Set project Parameters."""
+
 import logging
+import os.path
 import re
 from pathlib import Path, PurePath
 from typing import Optional
 
 import inquirer
-import os.path
 import toml
 import yaml
 from colorama import Fore
 from git import Repo
 
-from ....common.common import load_iac_conf
-from .get_project_data import (
-    check_project_properties,
-    check_template_properties,
-    get_exist_project_props,
-    get_project_props,
-)
+from .get_project_data import check_template_properties, get_project_props
 from .project_defaults import (
     g_catalog_spec,
     g_catalog_tags,
@@ -61,11 +56,10 @@ def inv_parse_project(
                     file.write(data)
 
                 # Log replacement at debug level
-                logging.debug(
-                    f"Text {search} replaced in {file_name} by {replace}"
-                )
+                logging.debug(f"Text {search} replaced in {file_name} by {replace}")
     else:
         print(f"{Fore.RED}No project properties found. {Fore.RESET} ")
+
 
 def set_project_id():
     """
@@ -112,7 +106,7 @@ def create_project_conf(
     # Ensure directory exists
     if not os.path.exists(directory):
         os.makedirs(directory, exist_ok=True)
-    
+
     file_path = os.path.join(directory, ".thothcf.toml")
     if project_name is None:
         project_name = set_project_id()
@@ -128,11 +122,11 @@ def create_project_conf(
 
     # Create new configuration structure
     new_config = {}
-    
+
     # Add project_properties section first
     if project_properties:
         new_config["project_properties"] = project_properties
-    
+
     # Add or update thothcf section
     thothcf_section = existing_config.get("thothcf", {})
     thothcf_section["project_id"] = project_name  # Always update project_id
@@ -140,14 +134,16 @@ def create_project_conf(
     if space:
         thothcf_section["space"] = space
     new_config["thothcf"] = thothcf_section
-    
+
     # Add template_input_parameters section
     if template_input_parameters:
         new_config["template_input_parameters"] = template_input_parameters
     elif "template_input_parameters" in existing_config:
         # Keep existing template parameters if no new ones provided
-        new_config["template_input_parameters"] = existing_config["template_input_parameters"]
-    
+        new_config["template_input_parameters"] = existing_config[
+            "template_input_parameters"
+        ]
+
     # Add metadata if provided
     if repo_metadata:
         new_config["origin_metadata"] = repo_metadata
@@ -201,20 +197,26 @@ def set_project_conf(
     """
     # Don't change directory - use what's provided
     # The caller should pass the correct directory
-    
+
     if project_properties is None:
-        project_properties = get_project_props(project_name=project_name, batch_mode=batch_mode)
-    
-    if template_input_parameters is None and check_template_properties(directory=directory):
+        project_properties = get_project_props(
+            project_name=project_name, batch_mode=batch_mode
+        )
+
+    if template_input_parameters is None and check_template_properties(
+        directory=directory
+    ):
         # Automatically create template parameters from project properties
         template_input_parameters = {}
-        
+
         # Use all collected project properties to create template parameters
         for key in project_properties:
             template_input_parameters[key] = f"#{{{key}}}#"
-            
-        print(f"{Fore.GREEN}✅ Automatically created template parameters from project properties{Fore.RESET}")
-        
+
+        print(
+            f"{Fore.GREEN}✅ Automatically created template parameters from project properties{Fore.RESET}"
+        )
+
         # Display the template parameters
         print(f"{Fore.CYAN}Template parameters:{Fore.RESET}")
         for key, value in template_input_parameters.items():
@@ -307,16 +309,20 @@ def create_catalog_info(
         },
         "spec": g_catalog_spec,
     }
-    
+
     # Add space to metadata if provided
     if space:
         catalog_info["metadata"]["space"] = space
 
     if project_properties != {}:
-        catalog_info["metadata"]["annotations"]["project_properties"] = project_properties
+        catalog_info["metadata"]["annotations"][
+            "project_properties"
+        ] = project_properties
 
     if git_repo_url is not None:
-        catalog_info["metadata"]["annotations"]["github.com/project-slug"] = git_repo_url
+        catalog_info["metadata"]["annotations"][
+            "github.com/project-slug"
+        ] = git_repo_url
 
     if az_project_name is not None:
         catalog_info["metadata"]["annotations"][
@@ -325,7 +331,9 @@ def create_catalog_info(
 
     with open(file_path, "w") as file:
         yaml.dump(catalog_info, file, default_flow_style=False)
-        print(f"{Fore.CYAN} catalog-info.yaml file created in {file_path}. {Fore.RESET}")
+        print(
+            f"{Fore.CYAN} catalog-info.yaml file created in {file_path}. {Fore.RESET}"
+        )
 
 
 def get_git_repo_url(directory: PurePath = None):
@@ -378,7 +386,13 @@ def _apply_workspace_mode(directory, batch_mode: bool = False):
     # Replace TF_VAR_ENVIRONMENT with TF_WORKSPACE in all text files
     replaced_files = []
     dir_path = Path(directory)
-    skip_dirs = {".git", ".terraform", ".terragrunt-cache", "node_modules", "__pycache__"}
+    skip_dirs = {
+        ".git",
+        ".terraform",
+        ".terragrunt-cache",
+        "node_modules",
+        "__pycache__",
+    }
 
     for f in dir_path.rglob("*"):
         if f.is_dir():
@@ -395,6 +409,8 @@ def _apply_workspace_mode(directory, batch_mode: bool = False):
             continue
 
     if replaced_files:
-        print(f"{Fore.GREEN}✅ Switched to workspace mode (TF_WORKSPACE) in {len(replaced_files)} file(s):{Fore.RESET}")
+        print(
+            f"{Fore.GREEN}✅ Switched to workspace mode (TF_WORKSPACE) in {len(replaced_files)} file(s):{Fore.RESET}"
+        )
         for rf in replaced_files:
             print(f"  • {rf}")

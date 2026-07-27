@@ -1,10 +1,11 @@
 """Compliance review steps and functions to get summaries and process reports."""
+
 import datetime
 import json
 import logging
+import os
 import time
 
-import os
 # pdfkit removed - not needed
 import pymsteams
 import xmltodict
@@ -485,21 +486,12 @@ def create_report(report, reports_dir):
         )
         print(content, file=file)
     # Create pdf file
-    options = {
-        "page-size": "A0",
-        "margin-top": "0.7in",
-        "margin-right": "0.7in",
-        "margin-bottom": "0.7in",
-        "margin-left": "0.7in",
-        "encoding": "UTF-8",
-        "orientation": "Landscape",
-    }
     logging.info("Creating PDF Report...")
-    # pdfkit.from_file  # REMOVED(
-        f"{reports_dir}/{file_name}.html",
-        f"{reports_dir}/{file_name}.pdf",
-        options=options,
-    )
+    # pdfkit.from_file(  # REMOVED
+    #     f"{reports_dir}/{file_name}.html",
+    #     f"{reports_dir}/{file_name}.pdf",
+    #     options=options,
+    # )
     files_paths = [f"{reports_dir}/{file_name}.html", f"{reports_dir}/{file_name}.pdf"]
 
     return files_paths

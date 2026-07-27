@@ -1,12 +1,11 @@
 """Tests for space management commands (activate, update) and get_active_space helper."""
-import os
+
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import toml
-
 from thothctl.common.common import get_active_space
 
 
@@ -20,6 +19,7 @@ class TestGetActiveSpace(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.temp_dir)
 
     @patch("thothctl.common.common.list_spaces")
@@ -27,7 +27,7 @@ class TestGetActiveSpace(unittest.TestCase):
         """No active_space file means no active space."""
         with patch.object(Path, "home", return_value=Path(self.temp_dir)):
             # Patch the file path used in get_active_space
-            fake_file = Path(self.temp_dir) / ".thothcf" / "active_space"
+            Path(self.temp_dir) / ".thothcf" / "active_space"
             with patch("thothctl.common.common.get_active_space") as mock_fn:
                 mock_fn.return_value = None
                 result = mock_fn()
@@ -41,7 +41,9 @@ class TestGetActiveSpace(unittest.TestCase):
         active_file.parent.mkdir(parents=True, exist_ok=True)
         active_file.write_text("production", encoding="utf-8")
 
-        with patch("thothctl.common.common.Path.home", return_value=Path(self.temp_dir)):
+        with patch(
+            "thothctl.common.common.Path.home", return_value=Path(self.temp_dir)
+        ):
             result = get_active_space()
         self.assertEqual(result, "production")
 
@@ -53,7 +55,9 @@ class TestGetActiveSpace(unittest.TestCase):
         active_file.parent.mkdir(parents=True, exist_ok=True)
         active_file.write_text("deleted-space", encoding="utf-8")
 
-        with patch("thothctl.common.common.Path.home", return_value=Path(self.temp_dir)):
+        with patch(
+            "thothctl.common.common.Path.home", return_value=Path(self.temp_dir)
+        ):
             result = get_active_space()
         self.assertIsNone(result)
 
@@ -66,6 +70,7 @@ class TestActivateSpaceCommand(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.temp_dir)
 
     @patch("thothctl.commands.space.commands.activate.list_spaces")
@@ -79,11 +84,15 @@ class TestActivateSpaceCommand(unittest.TestCase):
         mock_file.parent = mock_file_parent
 
         from thothctl.commands.space.commands.activate import ActivateSpaceCommand
+
         cmd = ActivateSpaceCommand()
         cmd.ui = MagicMock()
 
         # Patch ACTIVE_SPACE_FILE at module level for the write
-        with patch("thothctl.commands.space.commands.activate.ACTIVE_SPACE_FILE", mock_file_path):
+        with patch(
+            "thothctl.commands.space.commands.activate.ACTIVE_SPACE_FILE",
+            mock_file_path,
+        ):
             mock_file_path.parent.mkdir(parents=True, exist_ok=True)
             cmd._execute(space_name="production")
 
@@ -96,6 +105,7 @@ class TestActivateSpaceCommand(unittest.TestCase):
         mock_list_spaces.return_value = ["dev"]
 
         from thothctl.commands.space.commands.activate import ActivateSpaceCommand
+
         cmd = ActivateSpaceCommand()
         cmd.ui = MagicMock()
 
@@ -128,6 +138,7 @@ class TestUpdateSpaceCommand(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.temp_dir)
 
     @patch("thothctl.commands.space.commands.update.list_spaces")
@@ -136,10 +147,14 @@ class TestUpdateSpaceCommand(unittest.TestCase):
         mock_list_spaces.return_value = ["dev"]
 
         from thothctl.commands.space.commands.update import UpdateSpaceCommand
+
         cmd = UpdateSpaceCommand()
         cmd.ui = MagicMock()
 
-        with patch("thothctl.commands.space.commands.update.Path.home", return_value=Path(self.temp_dir)):
+        with patch(
+            "thothctl.commands.space.commands.update.Path.home",
+            return_value=Path(self.temp_dir),
+        ):
             cmd._execute(
                 space_name="dev",
                 description="Updated description",
@@ -160,10 +175,14 @@ class TestUpdateSpaceCommand(unittest.TestCase):
         mock_list_spaces.return_value = ["dev"]
 
         from thothctl.commands.space.commands.update import UpdateSpaceCommand
+
         cmd = UpdateSpaceCommand()
         cmd.ui = MagicMock()
 
-        with patch("thothctl.commands.space.commands.update.Path.home", return_value=Path(self.temp_dir)):
+        with patch(
+            "thothctl.commands.space.commands.update.Path.home",
+            return_value=Path(self.temp_dir),
+        ):
             cmd._execute(
                 space_name="dev",
                 description=None,
@@ -175,7 +194,9 @@ class TestUpdateSpaceCommand(unittest.TestCase):
 
         with open(self.spaces_toml) as f:
             result = toml.load(f)
-        self.assertEqual(result["spaces"]["dev"]["version_control"]["provider"], "gitlab")
+        self.assertEqual(
+            result["spaces"]["dev"]["version_control"]["provider"], "gitlab"
+        )
 
     @patch("thothctl.commands.space.commands.update.list_spaces")
     def test_validate_nonexistent_space(self, mock_list_spaces):
@@ -183,6 +204,7 @@ class TestUpdateSpaceCommand(unittest.TestCase):
         mock_list_spaces.return_value = ["dev"]
 
         from thothctl.commands.space.commands.update import UpdateSpaceCommand
+
         cmd = UpdateSpaceCommand()
         cmd.ui = MagicMock()
 
@@ -202,6 +224,7 @@ class TestUpdateSpaceCommand(unittest.TestCase):
         mock_list_spaces.return_value = ["dev"]
 
         from thothctl.commands.space.commands.update import UpdateSpaceCommand
+
         cmd = UpdateSpaceCommand()
         cmd.ui = MagicMock()
 

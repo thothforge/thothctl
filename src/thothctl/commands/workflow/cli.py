@@ -4,7 +4,6 @@ from pathlib import Path
 
 import click
 
-
 logger = logging.getLogger(__name__)
 
 

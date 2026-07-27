@@ -1,10 +1,11 @@
 """Serve command - Start the AI Review REST API server."""
+
 import logging
 
 import click
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,12 @@ class ServeCommand(ClickCommand):
         self.ui.print_info("Endpoints: /health, /analyze, /review, /fix")
         try:
             import uvicorn
+
             uvicorn.run(
                 "thothctl.services.ai_review.bedrock_agent_api:app",
-                host=host, port=port, log_level="info",
+                host=host,
+                port=port,
+                log_level="info",
             )
         except ImportError:
             self.ui.print_error("uvicorn required. Install with: pip install uvicorn")

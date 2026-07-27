@@ -1,7 +1,8 @@
 """Code reviewer - analyzes IaC code changes."""
+
 import logging
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,9 @@ IAC_EXTENSIONS = {".tf", ".hcl", ".tfvars"}
 class CodeReviewer:
     """Analyzes IaC code files for AI-powered review."""
 
-    def collect_code_for_review(self, directory: str, extensions: set = None) -> Dict[str, str]:
+    def collect_code_for_review(
+        self, directory: str, extensions: set = None
+    ) -> Dict[str, str]:
         """Collect IaC files from a directory for review."""
         exts = extensions or IAC_EXTENSIONS
         files: Dict[str, str] = {}
@@ -25,10 +28,20 @@ class CodeReviewer:
         for f in dir_path.rglob("*"):
             if f.suffix in exts and not any(p.startswith(".") for p in f.parts):
                 # Skip non-IaC directories
-                if any(skip in f.parts for skip in (
-                    "Reports", ".terraform", "node_modules", ".terragrunt-cache",
-                    "cdk.out", "__pycache__", ".git", "html_reports", "tfplan",
-                )):
+                if any(
+                    skip in f.parts
+                    for skip in (
+                        "Reports",
+                        ".terraform",
+                        "node_modules",
+                        ".terragrunt-cache",
+                        "cdk.out",
+                        "__pycache__",
+                        ".git",
+                        "html_reports",
+                        "tfplan",
+                    )
+                ):
                     continue
                 try:
                     content = f.read_text(errors="ignore")
@@ -47,7 +60,9 @@ class CodeReviewer:
         for path, content in sorted(code_files.items()):
             header = f"\n--- File: {path} ---\n"
             if total + len(header) + len(content) > max_chars:
-                lines.append(f"\n[Truncated: {len(code_files) - len(lines) + 1} files omitted due to size]")
+                lines.append(
+                    f"\n[Truncated: {len(code_files) - len(lines) + 1} files omitted due to size]"
+                )
                 break
             lines.append(header)
             lines.append(content)

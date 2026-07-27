@@ -28,6 +28,7 @@ Actions:
   auto_accept   — silently accept the drift (e.g. tag-only changes)
   ignore        — remove from report entirely
 """
+
 import fnmatch
 import logging
 from dataclasses import dataclass, field
@@ -62,6 +63,7 @@ class DriftPolicy:
 @dataclass
 class PolicyVerdict:
     """Result of evaluating a single drifted resource against policy."""
+
     address: str
     action: DriftAction
     matched_rule: Optional[str] = None
@@ -71,6 +73,7 @@ class PolicyVerdict:
 @dataclass
 class PolicyEvaluation:
     """Result of evaluating an entire drift summary against policy."""
+
     verdicts: List[PolicyVerdict] = field(default_factory=list)
     blocked: bool = False
     coverage_violation: bool = False
@@ -86,7 +89,9 @@ class PolicyEvaluation:
             )
         for v in self.verdicts:
             if v.action == DriftAction.BLOCK_DEPLOY:
-                reasons.append(f"Policy blocks deployment for: {v.address} (rule: {v.matched_rule})")
+                reasons.append(
+                    f"Policy blocks deployment for: {v.address} (rule: {v.matched_rule})"
+                )
         return reasons
 
     @property
@@ -127,14 +132,18 @@ class DriftPolicyEngine:
             return cls()
         try:
             import yaml
+
             data = yaml.safe_load(policy_path.read_text()) or {}
         except ImportError:
             # Fallback: try JSON
             import json
+
             try:
                 data = json.loads(policy_path.read_text())
             except Exception:
-                logger.warning(f"Cannot parse {policy_path} (install PyYAML for YAML support)")
+                logger.warning(
+                    f"Cannot parse {policy_path} (install PyYAML for YAML support)"
+                )
                 return cls()
         except Exception as e:
             logger.warning(f"Failed to load {policy_path}: {e}")
@@ -145,12 +154,14 @@ class DriftPolicyEngine:
         )
         for rule_data in data.get("rules", []):
             try:
-                policy.rules.append(PolicyRule(
-                    resource=rule_data["resource"],
-                    action=DriftAction(rule_data.get("action", "alert")),
-                    attribute=rule_data.get("attribute"),
-                    severity_override=rule_data.get("severity_override"),
-                ))
+                policy.rules.append(
+                    PolicyRule(
+                        resource=rule_data["resource"],
+                        action=DriftAction(rule_data.get("action", "alert")),
+                        attribute=rule_data.get("attribute"),
+                        severity_override=rule_data.get("severity_override"),
+                    )
+                )
             except (KeyError, ValueError) as e:
                 logger.warning(f"Skipping invalid policy rule: {e}")
         return cls(policy)

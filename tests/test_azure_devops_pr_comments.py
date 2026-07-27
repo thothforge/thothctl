@@ -1,7 +1,8 @@
 """Unit tests for Azure DevOps pull request comments integration."""
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 
 class TestPostCommentToAzureDevopsPR:

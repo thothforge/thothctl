@@ -7,12 +7,13 @@ Uses AWS CloudFormation APIs:
 
 Also supports static detection via template diff for offline/pre-deploy use.
 """
+
 import json
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from .models import (
     DriftedResource,
@@ -26,19 +27,33 @@ logger = logging.getLogger(__name__)
 
 # CFN resource types severity classification
 _CRITICAL_CFN_TYPES = {
-    "AWS::RDS::DBInstance", "AWS::RDS::DBCluster", "AWS::DynamoDB::Table",
-    "AWS::S3::Bucket", "AWS::KMS::Key", "AWS::SecretsManager::Secret",
-    "AWS::ElastiCache::CacheCluster", "AWS::Redshift::Cluster",
-    "AWS::EFS::FileSystem", "AWS::RDS::GlobalCluster",
+    "AWS::RDS::DBInstance",
+    "AWS::RDS::DBCluster",
+    "AWS::DynamoDB::Table",
+    "AWS::S3::Bucket",
+    "AWS::KMS::Key",
+    "AWS::SecretsManager::Secret",
+    "AWS::ElastiCache::CacheCluster",
+    "AWS::Redshift::Cluster",
+    "AWS::EFS::FileSystem",
+    "AWS::RDS::GlobalCluster",
 }
 
 _HIGH_CFN_TYPES = {
-    "AWS::EKS::Cluster", "AWS::ECS::Cluster", "AWS::Lambda::Function",
-    "AWS::IAM::Role", "AWS::IAM::Policy", "AWS::IAM::ManagedPolicy",
-    "AWS::EC2::VPC", "AWS::EC2::Subnet", "AWS::EC2::SecurityGroup",
+    "AWS::EKS::Cluster",
+    "AWS::ECS::Cluster",
+    "AWS::Lambda::Function",
+    "AWS::IAM::Role",
+    "AWS::IAM::Policy",
+    "AWS::IAM::ManagedPolicy",
+    "AWS::EC2::VPC",
+    "AWS::EC2::Subnet",
+    "AWS::EC2::SecurityGroup",
     "AWS::ElasticLoadBalancingV2::LoadBalancer",
-    "AWS::AutoScaling::AutoScalingGroup", "AWS::EC2::Instance",
-    "AWS::CloudFront::Distribution", "AWS::Route53::HostedZone",
+    "AWS::AutoScaling::AutoScalingGroup",
+    "AWS::EC2::Instance",
+    "AWS::CloudFront::Distribution",
+    "AWS::Route53::HostedZone",
 }
 
 
@@ -55,6 +70,7 @@ class CfnDriftDetectionService:
         """Lazy-init boto3 CloudFormation client."""
         if self._client is None:
             import boto3
+
             session_kwargs = {}
             if self.profile:
                 session_kwargs["profile_name"] = self.profile
@@ -88,7 +104,7 @@ class CfnDriftDetectionService:
             if status.get("DetectionStatus") == "DETECTION_FAILED":
                 return DriftResult(
                     directory=stack_name,
-                    error=f"Drift detection failed: {status.get('DetectionStatusReason', 'Unknown')}"
+                    error=f"Drift detection failed: {status.get('DetectionStatusReason', 'Unknown')}",
                 )
 
             # Get detailed drift results
@@ -104,12 +120,17 @@ class CfnDriftDetectionService:
             return self._get_resource_drifts(stack_name, status)
 
         except ImportError:
-            return DriftResult(directory=stack_name, error="boto3 not installed. Run: pip install boto3")
+            return DriftResult(
+                directory=stack_name,
+                error="boto3 not installed. Run: pip install boto3",
+            )
         except Exception as e:
             logger.error(f"CFN drift detection failed for {stack_name}: {e}")
             return DriftResult(directory=stack_name, error=str(e))
 
-    def detect_drift_static(self, template_path: str, stack_name: str = None) -> DriftResult:
+    def detect_drift_static(
+        self, template_path: str, stack_name: str = None
+    ) -> DriftResult:
         """Detect drift by comparing deployed stack with local template (no mutation).
 
         Uses describe_stack_resources to compare deployed state against the local template.
@@ -121,7 +142,10 @@ class CfnDriftDetectionService:
             # Parse local template
             template = self._parse_template(template_path)
             if not template:
-                return DriftResult(directory=template_path, error=f"Cannot parse template: {template_path}")
+                return DriftResult(
+                    directory=template_path,
+                    error=f"Cannot parse template: {template_path}",
+                )
 
             local_resources = template.get("Resources", {})
 
@@ -140,7 +164,10 @@ class CfnDriftDetectionService:
             )
 
         except ImportError:
-            return DriftResult(directory=template_path, error="boto3 not installed. Run: pip install boto3")
+            return DriftResult(
+                directory=template_path,
+                error="boto3 not installed. Run: pip install boto3",
+            )
         except Exception as e:
             logger.error(f"Static CFN drift detection failed: {e}")
             return DriftResult(directory=template_path, error=str(e))
@@ -175,10 +202,12 @@ class CfnDriftDetectionService:
             # Auto-discover stacks from templates and detect live
             stacks = self._discover_stacks(directory, recursive, scan_svc)
             if not stacks:
-                summary.results.append(DriftResult(
-                    directory=directory,
-                    error="No deployed CloudFormation stacks found. Use --stack-name to specify.",
-                ))
+                summary.results.append(
+                    DriftResult(
+                        directory=directory,
+                        error="No deployed CloudFormation stacks found. Use --stack-name to specify.",
+                    )
+                )
             for stack_name in stacks:
                 summary.results.append(self.detect_drift_live(stack_name))
         else:
@@ -208,9 +237,14 @@ class CfnDriftDetectionService:
                 return response
             time.sleep(5)
 
-        return {"DetectionStatus": "DETECTION_FAILED", "DetectionStatusReason": "Timeout"}
+        return {
+            "DetectionStatus": "DETECTION_FAILED",
+            "DetectionStatusReason": "Timeout",
+        }
 
-    def _get_resource_drifts(self, stack_name: str, detection_status: Dict) -> DriftResult:
+    def _get_resource_drifts(
+        self, stack_name: str, detection_status: Dict
+    ) -> DriftResult:
         """Get per-resource drift details after detection completes."""
         drifted: List[DriftedResource] = []
         total = 0
@@ -240,19 +274,21 @@ class CfnDriftDetectionService:
 
                 address = f"{logical_id} ({physical_id})" if physical_id else logical_id
 
-                drifted.append(DriftedResource(
-                    address=address,
-                    resource_type=resource_type,
-                    drift_type=drift_type,
-                    severity=severity,
-                    changed_attributes=changed_attrs,
-                    actions=[status.lower()],
-                    detail=f"CloudFormation drift status: {status}",
-                    tags=self._get_resource_tags(stack_name, logical_id),
-                ))
+                drifted.append(
+                    DriftedResource(
+                        address=address,
+                        resource_type=resource_type,
+                        drift_type=drift_type,
+                        severity=severity,
+                        changed_attributes=changed_attrs,
+                        actions=[status.lower()],
+                        detail=f"CloudFormation drift status: {status}",
+                        tags=self._get_resource_tags(stack_name, logical_id),
+                    )
+                )
 
         # Add in-sync resources to total count
-        in_sync_count = detection_status.get("DriftedStackResourceCount", 0)
+        detection_status.get("DriftedStackResourceCount", 0)
         total_managed = self._get_stack_resource_count(stack_name)
         total = max(total, total_managed)
 
@@ -296,7 +332,7 @@ class CfnDriftDetectionService:
             response = self.client.describe_stack_resource(
                 StackName=stack_name, LogicalResourceId=logical_id
             )
-            detail = response.get("StackResourceDetail", {})
+            response.get("StackResourceDetail", {})
             # Tags aren't directly on this API — return empty
             return {}
         except Exception:
@@ -317,6 +353,7 @@ class CfnDriftDetectionService:
         if sam_config.exists():
             try:
                 import toml
+
                 config = toml.load(sam_config)
                 # Extract stack_name from default deploy parameters
                 for env in config.values():
@@ -368,25 +405,29 @@ class CfnDriftDetectionService:
             if in_local and not in_deployed:
                 # Resource in template but not deployed — it was deleted
                 rtype = local_resources[logical_id].get("Type", "Unknown")
-                drifted.append(DriftedResource(
-                    address=logical_id,
-                    resource_type=rtype,
-                    drift_type=DriftType.DELETED,
-                    severity=self._assess_cfn_severity(rtype, DriftType.DELETED),
-                    actions=["deleted"],
-                    detail="Resource defined in template but not found in deployed stack",
-                ))
+                drifted.append(
+                    DriftedResource(
+                        address=logical_id,
+                        resource_type=rtype,
+                        drift_type=DriftType.DELETED,
+                        severity=self._assess_cfn_severity(rtype, DriftType.DELETED),
+                        actions=["deleted"],
+                        detail="Resource defined in template but not found in deployed stack",
+                    )
+                )
             elif in_deployed and not in_local:
                 # Resource deployed but not in template — unmanaged
                 rtype = deployed[logical_id].get("type", "Unknown")
-                drifted.append(DriftedResource(
-                    address=logical_id,
-                    resource_type=rtype,
-                    drift_type=DriftType.UNMANAGED,
-                    severity=self._assess_cfn_severity(rtype, DriftType.UNMANAGED),
-                    actions=["unmanaged"],
-                    detail="Resource exists in stack but not in local template",
-                ))
+                drifted.append(
+                    DriftedResource(
+                        address=logical_id,
+                        resource_type=rtype,
+                        drift_type=DriftType.UNMANAGED,
+                        severity=self._assess_cfn_severity(rtype, DriftType.UNMANAGED),
+                        actions=["unmanaged"],
+                        detail="Resource exists in stack but not in local template",
+                    )
+                )
             # For in_local AND in_deployed — we can't compare properties without calling describe
             # The live mode handles property-level drift
 
@@ -413,11 +454,21 @@ class CfnDriftDetectionService:
             return DriftType.CHANGED
 
     @staticmethod
-    def _assess_cfn_severity(resource_type: str, drift_type: DriftType) -> DriftSeverity:
+    def _assess_cfn_severity(
+        resource_type: str, drift_type: DriftType
+    ) -> DriftSeverity:
         if resource_type in _CRITICAL_CFN_TYPES:
-            return DriftSeverity.CRITICAL if drift_type == DriftType.DELETED else DriftSeverity.HIGH
+            return (
+                DriftSeverity.CRITICAL
+                if drift_type == DriftType.DELETED
+                else DriftSeverity.HIGH
+            )
         if resource_type in _HIGH_CFN_TYPES:
-            return DriftSeverity.HIGH if drift_type == DriftType.DELETED else DriftSeverity.MEDIUM
+            return (
+                DriftSeverity.HIGH
+                if drift_type == DriftType.DELETED
+                else DriftSeverity.MEDIUM
+            )
         if drift_type == DriftType.DELETED:
             return DriftSeverity.MEDIUM
         return DriftSeverity.LOW
@@ -437,6 +488,7 @@ class CfnDriftDetectionService:
         """Parse a CloudFormation YAML or JSON template."""
         try:
             import yaml
+
             content = Path(path).read_text()
             if path.endswith(".json"):
                 return json.loads(content)
@@ -470,7 +522,8 @@ class CfnDriftDetectionService:
         """Filter drifted resources by tags."""
         for result in summary.results:
             result.drifted_resources = [
-                r for r in result.drifted_resources
+                r
+                for r in result.drifted_resources
                 if _matches_tags(r.tags, filter_tags)
             ]
 

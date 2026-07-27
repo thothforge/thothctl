@@ -1,37 +1,37 @@
-import os
 import logging
-import webbrowser
 import threading
 import time
+import webbrowser
 from pathlib import Path
 
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-import uvicorn
 
 from thothctl.services.dashboard.data_loader import DashboardDataLoader
 from thothctl.version import __version__
 
 logger = logging.getLogger(__name__)
 
+
 class DashboardService:
     """Service for managing the ThothCTL dashboard web application."""
-    
+
     def __init__(self, port: int = 8080, host: str = "127.0.0.1"):
         self.port = port
         self.host = host
         self.app = FastAPI(title="ThothCTL Dashboard", version=__version__)
         self.data_loader = DashboardDataLoader()
         self._setup_routes()
-    
+
     def _setup_routes(self):
         """Setup FastAPI routes for the dashboard."""
-        
+
         @self.app.get("/", response_class=HTMLResponse)
         async def dashboard():
             """Main dashboard page."""
             return self._get_dashboard_template()
-        
+
         @self.app.get("/api/test")
         async def api_test():
             return {"status": "API working", "time": time.time()}
@@ -44,7 +44,7 @@ class DashboardService:
             except Exception as e:
                 logger.error(f"Project info API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.get("/api/inventory")
         async def api_inventory():
             """API endpoint for inventory data."""
@@ -66,7 +66,7 @@ class DashboardService:
             except Exception as e:
                 logger.error(f"SBOM API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.get("/api/scan-results")
         async def api_scan_results():
             """API endpoint for scan results."""
@@ -90,8 +90,11 @@ class DashboardService:
             """API endpoint for individual findings with filtering."""
             try:
                 result = self.data_loader.get_findings(
-                    tool=tool, severity=severity, search=search,
-                    limit=limit, offset=offset,
+                    tool=tool,
+                    severity=severity,
+                    search=search,
+                    limit=limit,
+                    offset=offset,
                 )
                 return result
             except Exception as e:
@@ -101,8 +104,9 @@ class DashboardService:
         @self.app.get("/api/reports/{report_path:path}")
         async def api_serve_report(report_path: str):
             """Serve individual HTML report files for iframe viewing."""
-            from fastapi.responses import FileResponse
             import os
+
+            from fastapi.responses import FileResponse
 
             # Resolve path safely within the project directory
             full_path = Path(os.getcwd()) / report_path
@@ -117,16 +121,33 @@ class DashboardService:
 
             if not full_path.exists() or not full_path.is_file():
                 raise HTTPException(status_code=404, detail="Report not found")
-            if full_path.suffix not in (".html", ".json", ".xml", ".sarif", ".png", ".svg", ".mmd"):
+            if full_path.suffix not in (
+                ".html",
+                ".json",
+                ".xml",
+                ".sarif",
+                ".png",
+                ".svg",
+                ".mmd",
+            ):
                 raise HTTPException(status_code=403, detail="File type not allowed")
 
             media_types = {
-                ".html": "text/html", ".json": "application/json",
-                ".xml": "application/xml", ".sarif": "application/json",
-                ".png": "image/png", ".svg": "image/svg+xml", ".mmd": "text/plain",
+                ".html": "text/html",
+                ".json": "application/json",
+                ".xml": "application/xml",
+                ".sarif": "application/json",
+                ".png": "image/png",
+                ".svg": "image/svg+xml",
+                ".mmd": "text/plain",
             }
-            return FileResponse(str(full_path), media_type=media_types.get(full_path.suffix, "application/octet-stream"))
-        
+            return FileResponse(
+                str(full_path),
+                media_type=media_types.get(
+                    full_path.suffix, "application/octet-stream"
+                ),
+            )
+
         @self.app.get("/api/cost-analysis")
         async def api_cost_analysis():
             """API endpoint for cost analysis."""
@@ -138,7 +159,7 @@ class DashboardService:
             except Exception as e:
                 logger.error(f"Cost analysis API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.get("/api/blast-radius")
         async def api_blast_radius():
             """API endpoint for blast radius analysis."""
@@ -150,7 +171,7 @@ class DashboardService:
             except Exception as e:
                 logger.error(f"Blast radius API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.get("/api/refresh")
         async def api_refresh():
             """API endpoint to refresh all data."""
@@ -188,53 +209,62 @@ class DashboardService:
             except Exception as e:
                 logger.error(f"AI usage API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
-    
+
     def _get_dashboard_template(self) -> str:
         """Get the dashboard HTML template."""
-        template_path = Path(__file__).parent.parent.parent / "utils" / "common" / "templates" / "dashboard.html"
-        
+        template_path = (
+            Path(__file__).parent.parent.parent
+            / "utils"
+            / "common"
+            / "templates"
+            / "dashboard.html"
+        )
+
         try:
             with open(template_path) as f:
                 return f.read()
         except FileNotFoundError:
             logger.error(f"Dashboard template not found: {template_path}")
             return "<html><body><h1>Dashboard template missing</h1></body></html>"
-    
+
     def run(self, debug: bool = False, open_browser: bool = True):
         """Run the dashboard web application."""
         try:
             # Display professional banner
             self._display_banner(debug)
-            
+
             if open_browser:
+
                 def open_browser_delayed():
                     time.sleep(1.5)
-                    webbrowser.open(f'http://{self.host}:{self.port}')
-                
+                    webbrowser.open(f"http://{self.host}:{self.port}")
+
                 threading.Thread(target=open_browser_delayed, daemon=True).start()
-            
+
             # Run FastAPI with uvicorn
             uvicorn.run(
-                self.app, 
-                host=self.host, 
-                port=self.port, 
+                self.app,
+                host=self.host,
+                port=self.port,
                 log_level="info" if debug else "warning",
-                access_log=debug
+                access_log=debug,
             )
         except Exception as e:
             logger.error(f"Error starting dashboard: {e}")
             raise
-    
+
     def _display_banner(self, debug: bool = False):
         """Display professional ThothCTL banner."""
         from ...utils.banner import get_banner
-        
+
         mode = "DEBUG" if debug else "PRODUCTION"
-        mode_color = "\033[93m" if debug else "\033[92m"  # Yellow for debug, Green for prod
+        mode_color = (
+            "\033[93m" if debug else "\033[92m"
+        )  # Yellow for debug, Green for prod
         reset_color = "\033[0m"
         cyan = "\033[96m"
         bold = "\033[1m"
-        
+
         banner = f"""{get_banner()}
    
    🚀 {bold}Dashboard v{__version__}{reset_color} - {mode_color}{mode} Mode{reset_color}
@@ -247,8 +277,10 @@ class DashboardService:
    • ⚠️  Blast radius assessment for change impact analysis
    • 🌙 Dark mode, export options & responsive design
 
-{bold}{mode_color}⚡ {mode} Mode Active{reset_color} - {'Enhanced debugging & hot reload enabled' if debug else 'Optimized for production performance'}
+{bold}{mode_color}⚡ {mode} Mode Active{reset_color} - {"Enhanced debugging & hot reload enabled" if debug else "Optimized for production performance"}
 """
-        
+
         print(banner)
-        logger.info(f"ThothCTL Dashboard starting on http://{self.host}:{self.port} ({mode} mode)")
+        logger.info(
+            f"ThothCTL Dashboard starting on http://{self.host}:{self.port} ({mode} mode)"
+        )

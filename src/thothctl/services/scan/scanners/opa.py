@@ -55,7 +55,9 @@ class OPAScanner(ScannerPort):
         project_type = options.get("_project_type", "terraform")
         if project_type in ("cloudformation", "cdk") and policy_dir == "policy":
             # Try cloudformation subdirectory first
-            cfn_policy = os.path.join(os.path.abspath(directory), "policy", "cloudformation")
+            cfn_policy = os.path.join(
+                os.path.abspath(directory), "policy", "cloudformation"
+            )
             if os.path.isdir(cfn_policy):
                 policy_dir = cfn_policy
                 self.logger.info(f"Auto-selected CloudFormation policies: {cfn_policy}")
@@ -89,10 +91,7 @@ class OPAScanner(ScannerPort):
         # Filter: only convert files that look like data/param files
         # (skip files that are test fixtures, conftest config, etc.)
         skip_prefixes = ("conftest", "opa", ".")
-        data_files = [
-            f for f in yaml_files
-            if not f.name.startswith(skip_prefixes)
-        ]
+        data_files = [f for f in yaml_files if not f.name.startswith(skip_prefixes)]
 
         if not data_files:
             return
@@ -109,7 +108,10 @@ class OPAScanner(ScannerPort):
         for yaml_file in data_files:
             json_file = yaml_file.with_suffix(".json")
             # Only regenerate if YAML is newer than JSON (or JSON doesn't exist)
-            if json_file.exists() and json_file.stat().st_mtime >= yaml_file.stat().st_mtime:
+            if (
+                json_file.exists()
+                and json_file.stat().st_mtime >= yaml_file.stat().st_mtime
+            ):
                 continue
             try:
                 with open(yaml_file, "r", encoding="utf-8") as yf:
@@ -128,8 +130,7 @@ class OPAScanner(ScannerPort):
         conftest = find_executable("conftest")
         if not conftest:
             raise FileNotFoundError(
-                "conftest not found in PATH. "
-                "Install: https://www.conftest.dev/install/"
+                "conftest not found in PATH. Install: https://www.conftest.dev/install/"
             )
 
         abs_dir = os.path.abspath(directory)
@@ -166,18 +167,25 @@ class OPAScanner(ScannerPort):
 
         # Run conftest with JSON output for parsing
         cmd_json = [
-            conftest, "test",
-            "--policy", abs_policy,
-            "--output", "json",
+            conftest,
+            "test",
+            "--policy",
+            abs_policy,
+            "--output",
+            "json",
             "--all-namespaces",
         ]
         # Add namespace if specified
         if options.get("namespace"):
             cmd_json = [
-                conftest, "test",
-                "--policy", abs_policy,
-                "--output", "json",
-                "--namespace", options["namespace"],
+                conftest,
+                "test",
+                "--policy",
+                abs_policy,
+                "--output",
+                "json",
+                "--namespace",
+                options["namespace"],
             ]
         # Add data files if specified
         if options.get("data_dir"):
@@ -227,7 +235,9 @@ class OPAScanner(ScannerPort):
                 'time="0.000" name="conftest"></testsuite></testsuites>\n'
             )
             with open(junit_report, "w") as f:
-                f.write(result_junit.stdout if result_junit.stdout.strip() else empty_junit)
+                f.write(
+                    result_junit.stdout if result_junit.stdout.strip() else empty_junit
+                )
 
             # Parse JSON results
             report_data, findings = self._parse_conftest_json(result_json.stdout)
@@ -237,9 +247,7 @@ class OPAScanner(ScannerPort):
 
             # conftest exit codes: 0=pass, 1=failure/violation, 2=error
             if result_json.returncode == 2:
-                self.ui.show_error(
-                    f"Conftest error: {result_json.stderr}"
-                )
+                self.ui.show_error(f"Conftest error: {result_json.stderr}")
                 return {
                     "status": "FAIL",
                     "error": result_json.stderr,
@@ -283,8 +291,7 @@ class OPAScanner(ScannerPort):
 
         if not abs_policy:
             self.ui.show_warning(
-                f"No policy directory found at '{policy_dir}'. "
-                "Skipping OPA scan."
+                f"No policy directory found at '{policy_dir}'. Skipping OPA scan."
             )
             return {"status": "SKIPPED", "error": "No policy directory found"}
 
@@ -314,9 +321,12 @@ class OPAScanner(ScannerPort):
         # Build opa exec command
         decision = options.get("decision", "terraform/analysis/authz")
         cmd = [
-            opa, "exec",
-            "--decision", decision,
-            "--bundle", abs_policy,
+            opa,
+            "exec",
+            "--decision",
+            decision,
+            "--bundle",
+            abs_policy,
         ]
         cmd.extend(plan_files)
 
@@ -395,25 +405,29 @@ class OPAScanner(ScannerPort):
         for r in results:
             filename = r.get("filename", "unknown")
             for failure in r.get("failures", []):
-                findings.append({
-                    "id": "OPA",
-                    "severity": "HIGH",
-                    "title": failure.get("msg", "Policy violation"),
-                    "resource": failure.get("metadata", {}).get("resource", ""),
-                    "file": filename,
-                    "line": failure.get("metadata", {}).get("line", 0),
-                    "namespace": r.get("namespace", ""),
-                })
+                findings.append(
+                    {
+                        "id": "OPA",
+                        "severity": "HIGH",
+                        "title": failure.get("msg", "Policy violation"),
+                        "resource": failure.get("metadata", {}).get("resource", ""),
+                        "file": filename,
+                        "line": failure.get("metadata", {}).get("line", 0),
+                        "namespace": r.get("namespace", ""),
+                    }
+                )
             for warning in r.get("warnings", []):
-                findings.append({
-                    "id": "OPA",
-                    "severity": "MEDIUM",
-                    "title": warning.get("msg", "Policy warning"),
-                    "resource": warning.get("metadata", {}).get("resource", ""),
-                    "file": filename,
-                    "line": warning.get("metadata", {}).get("line", 0),
-                    "namespace": r.get("namespace", ""),
-                })
+                findings.append(
+                    {
+                        "id": "OPA",
+                        "severity": "MEDIUM",
+                        "title": warning.get("msg", "Policy warning"),
+                        "resource": warning.get("metadata", {}).get("resource", ""),
+                        "file": filename,
+                        "line": warning.get("metadata", {}).get("line", 0),
+                        "namespace": r.get("namespace", ""),
+                    }
+                )
 
         report_data = {
             "passed_count": passed,
@@ -448,15 +462,17 @@ class OPAScanner(ScannerPort):
         findings = []
         for r in results:
             if r.get("result") is False:
-                findings.append({
-                    "id": "OPA",
-                    "severity": "HIGH",
-                    "title": f"Policy denied: {Path(r.get('path', 'unknown')).name}",
-                    "resource": "",
-                    "file": r.get("path", "unknown"),
-                    "line": 0,
-                    "namespace": "",
-                })
+                findings.append(
+                    {
+                        "id": "OPA",
+                        "severity": "HIGH",
+                        "title": f"Policy denied: {Path(r.get('path', 'unknown')).name}",
+                        "resource": "",
+                        "file": r.get("path", "unknown"),
+                        "line": 0,
+                        "namespace": "",
+                    }
+                )
 
         report_data = {
             "passed_count": passed,
@@ -500,11 +516,11 @@ class OPAScanner(ScannerPort):
             ns = f.get("namespace", "")
             ns_badge = f' <span class="ns">{ns}</span>' if ns else ""
             rows += f"""<tr>
-                <td><span class="sev {sev}">{f.get('severity', '')}</span></td>
-                <td><code>{f.get('id', '')}</code></td>
-                <td>{f.get('title', '')}{ns_badge}</td>
-                <td>{f.get('file', '')}{(':' + str(f['line'])) if f.get('line') else ''}</td>
-                <td>{f.get('resource', '') or '—'}</td>
+                <td><span class="sev {sev}">{f.get("severity", "")}</span></td>
+                <td><code>{f.get("id", "")}</code></td>
+                <td>{f.get("title", "")}{ns_badge}</td>
+                <td>{f.get("file", "")}{(":" + str(f["line"])) if f.get("line") else ""}</td>
+                <td>{f.get("resource", "") or "—"}</td>
             </tr>"""
 
         html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -533,7 +549,7 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
 </style></head><body>
 <div class="container">
 <div class="header"><h1>🛡️ Security Scan Results<span class="tool-badge">{tool_name}</span></h1>
-<p>Scanned {datetime.now().strftime('%Y-%m-%d %H:%M')} — {failed} violation{'s' if failed != 1 else ''} found</p></div>
+<p>Scanned {datetime.now().strftime("%Y-%m-%d %H:%M")} — {failed} violation{"s" if failed != 1 else ""} found</p></div>
 <div class="content">
 <div class="cards">
 <div class="card"><div class="val">{total}</div><div class="lbl">Total Checks</div></div>
@@ -542,7 +558,7 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
 <div class="card"><div class="val" style="color:#f59e0b">{warnings}</div><div class="lbl">Warnings</div></div>
 <div class="card"><div class="val" style="color:#667eea">{rate}%</div><div class="lbl">Success Rate</div></div>
 </div>
-{'<table><thead><tr><th>Severity</th><th>Rule</th><th>Policy Violation</th><th>File</th><th>Resource</th></tr></thead><tbody>' + rows + '</tbody></table>' if findings else '<p style="color:#10b981;font-weight:600">✅ All policies passed — no violations found</p>'}
+{"<table><thead><tr><th>Severity</th><th>Rule</th><th>Policy Violation</th><th>File</th><th>Resource</th></tr></thead><tbody>" + rows + "</tbody></table>" if findings else '<p style="color:#10b981;font-weight:600">✅ All policies passed — no violations found</p>'}
 </div>
 <div class="footer">Generated by ThothCTL</div>
 </div></body></html>"""
@@ -591,7 +607,13 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
         # 5. THOTH_ORG_POLICY env → <cached_repo>/policy/
         org_policy_url = os.environ.get("THOTH_ORG_POLICY")
         if org_policy_url:
-            from .....services.check.org_policy_loader import get_org_policy_path, resolve_policy_dir as _resolve_org_policy
+            from .....services.check.org_policy_loader import (
+                get_org_policy_path,
+            )
+            from .....services.check.org_policy_loader import (
+                resolve_policy_dir as _resolve_org_policy,
+            )
+
             org_path = get_org_policy_path(org_policy_url)
             if org_path:
                 org_policy_dir = _resolve_org_policy(org_path)
@@ -639,7 +661,9 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
         try:
             import git
         except ImportError:
-            self.ui.show_error("GitPython required for Git policy repos. Install: pip install gitpython")
+            self.ui.show_error(
+                "GitPython required for Git policy repos. Install: pip install gitpython"
+            )
             return None
 
         # Parse optional ref (url@branch or url@tag)
@@ -688,12 +712,23 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
         """
         extensions = {".tf", ".yaml", ".yml", ".json", ".hcl"}
         exclude_dirs = {
-            ".terraform", ".git", "node_modules", ".terragrunt-cache",
+            ".terraform",
+            ".git",
+            "node_modules",
+            ".terragrunt-cache",
             # AI/IDE agent directories
-            ".amazonq", ".kiro", ".claude", ".cursor", ".copilot",
-            ".vscode", ".idea", ".devcontainer", "__pycache__",
+            ".amazonq",
+            ".kiro",
+            ".claude",
+            ".cursor",
+            ".copilot",
+            ".vscode",
+            ".idea",
+            ".devcontainer",
+            "__pycache__",
             # ThothCTL generated output
-            "Reports", ".thothctl",
+            "Reports",
+            ".thothctl",
             # Other non-IaC directories
             "generated-diagrams",
         }

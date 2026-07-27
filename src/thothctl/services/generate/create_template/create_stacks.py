@@ -1,9 +1,9 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
 import git
-import os
 import yaml
 from jinja2 import Template
 

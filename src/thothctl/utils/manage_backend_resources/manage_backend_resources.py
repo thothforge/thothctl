@@ -1,4 +1,5 @@
 """Module import."""
+
 import sys
 
 import boto3
@@ -13,7 +14,7 @@ def validate_backend(data) -> bool:
     :return: True if there are no backend files, False if there are backend files.
     """
     path = data["path"].rstrip("/")
-    session = boto3.session.Session(profile_name=f'{data["backend_profile"]}')
+    session = boto3.session.Session(profile_name=f"{data['backend_profile']}")
     s3_client = session.client("s3")
     resp = s3_client.list_objects(
         Bucket=data["bucket"], Prefix=path, Delimiter="/", MaxKeys=1

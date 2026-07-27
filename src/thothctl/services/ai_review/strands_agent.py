@@ -10,18 +10,17 @@ This module is ready for Bedrock/OpenAI models.
 
 Usage:
     from thothctl.services.ai_review.strands_agent import run_security_review
-    
+
     # With Bedrock (recommended for production)
     report = run_security_review("us.anthropic.claude-3-5-sonnet-20241022-v2:0", ".")
-    
+
     # With OpenAI
     report = run_security_review("openai/gpt-4-turbo", ".")
 """
-import json
+
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 from strands import Agent
 
@@ -32,21 +31,29 @@ def _get_model(model_id: str):
     """Create a Strands model from a model ID string."""
     if model_id.startswith("ollama/"):
         from strands.models.ollama import OllamaModel
+
         model_name = model_id.replace("ollama/", "")
-        host = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/v1").rstrip("/")
+        host = (
+            os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+            .rstrip("/v1")
+            .rstrip("/")
+        )
         return OllamaModel(model_id=model_name, host=host)
     elif model_id.startswith("openai/"):
         from strands.models.openai import OpenAIModel
+
         return OpenAIModel(model_id=model_id.replace("openai/", ""))
     else:
         # Default to Bedrock
         from strands.models.bedrock import BedrockModel
+
         return BedrockModel(model_id=model_id)
 
 
 def _build_context(directory: str) -> str:
     """Build IaC context from thothctl services."""
     from .analyzers.context_builder import ContextBuilder
+
     builder = ContextBuilder()
     ctx = builder.build_context(directory)
     return builder.format_for_ai(ctx)
@@ -54,7 +61,7 @@ def _build_context(directory: str) -> str:
 
 def run_security_review(model_id: str, directory: str) -> str:
     """Run multi-agent security review as a deterministic workflow.
-    
+
     Pipeline: Context → Security Analysis → Architecture Review → Recommendations
     Each agent receives the previous agent's output as context.
     """
@@ -70,7 +77,7 @@ For each issue, include: severity, title (from scan data), resource name, file p
 Use ONLY the findings provided. Do NOT invent issues. Format as a numbered list.""",
     )
 
-    # Agent 2: Architecture Reviewer  
+    # Agent 2: Architecture Reviewer
     architecture_agent = Agent(
         model=model,
         system_prompt="""You are an architecture reviewer. Given security findings and IaC context, assess:

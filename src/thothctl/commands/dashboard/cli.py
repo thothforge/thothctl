@@ -6,6 +6,7 @@ import click
 
 logger = logging.getLogger(__name__)
 
+
 class DashboardCLI(click.Group):
     """Custom Click Group class for dashboard commands."""
 
@@ -42,7 +43,7 @@ class DashboardCLI(click.Group):
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            
+
             if not hasattr(module, "cli"):
                 logger.error(f"Command {cmd_name} has no 'cli' attribute")
                 return None
@@ -51,6 +52,7 @@ class DashboardCLI(click.Group):
         except Exception as e:
             logger.error(f"Error loading dashboard subcommand {cmd_name}: {str(e)}")
             return None
+
 
 @click.group(cls=DashboardCLI)
 @click.pass_context

@@ -1,19 +1,16 @@
 """Tests for platform utilities."""
 
-import pytest
 import platform
 from pathlib import Path
 from unittest.mock import patch
 
 from thothctl.utils.platform_utils import (
-    is_windows,
+    get_config_dir,
+    get_executable_name,
     is_linux,
     is_macos,
-    get_executable_name,
-    get_config_dir,
-    get_shell_config_file,
+    is_windows,
     normalize_path,
-    run_command
 )
 
 
@@ -23,7 +20,7 @@ class TestPlatformUtils:
     def test_platform_detection(self):
         """Test platform detection functions."""
         current_system = platform.system()
-        
+
         if current_system == "Windows":
             assert is_windows() is True
             assert is_linux() is False
@@ -37,21 +34,21 @@ class TestPlatformUtils:
             assert is_linux() is False
             assert is_macos() is True
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_get_executable_name_windows(self, mock_system):
         """Test executable name on Windows."""
         mock_system.return_value = "Windows"
         assert get_executable_name("terraform") == "terraform.exe"
         assert get_executable_name("checkov") == "checkov.exe"
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_get_executable_name_unix(self, mock_system):
         """Test executable name on Unix systems."""
         mock_system.return_value = "Linux"
         assert get_executable_name("terraform") == "terraform"
         assert get_executable_name("checkov") == "checkov"
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_get_config_dir_windows(self, mock_system):
         """Test config directory on Windows."""
         mock_system.return_value = "Windows"
@@ -59,7 +56,7 @@ class TestPlatformUtils:
         assert "AppData" in str(config_dir)
         assert "thothctl" in str(config_dir)
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_get_config_dir_unix(self, mock_system):
         """Test config directory on Unix systems."""
         mock_system.return_value = "Linux"
@@ -73,7 +70,7 @@ class TestPlatformUtils:
         assert isinstance(normalized, Path)
         assert normalized.is_absolute()
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_run_command_windows(self, mock_system):
         """Test command execution on Windows."""
         mock_system.return_value = "Windows"
@@ -81,7 +78,7 @@ class TestPlatformUtils:
         # We can't easily test subprocess.run without mocking it
         pass
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_run_command_unix(self, mock_system):
         """Test command execution on Unix systems."""
         mock_system.return_value = "Linux"

@@ -4,7 +4,7 @@ import platform
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 
 def is_windows() -> bool:
@@ -56,7 +56,12 @@ def get_shell_config_file() -> Path:
     """Get platform-specific shell configuration file."""
     if is_windows():
         # PowerShell profile
-        return Path.home() / "Documents" / "PowerShell" / "Microsoft.PowerShell_profile.ps1"
+        return (
+            Path.home()
+            / "Documents"
+            / "PowerShell"
+            / "Microsoft.PowerShell_profile.ps1"
+        )
     else:
         # Default to bash on Unix systems
         return Path.home() / ".bashrc"

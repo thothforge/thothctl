@@ -1,17 +1,22 @@
 """Unit tests for PRDecisionPublisher and format_decision_comment."""
 
 import os
-import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
-from thothctl.services.ai_review.pr_decision_publisher import (
-    PRDecisionPublisher, format_decision_comment,
-)
 from thothctl.services.ai_review.decision_engine import Decision, DecisionResult
+from thothctl.services.ai_review.pr_decision_publisher import (
+    PRDecisionPublisher,
+    format_decision_comment,
+)
 
 
-def _make_result(decision=Decision.APPROVE, confidence=0.95, risk_score=10,
-                 reason="low risk", findings=None):
+def _make_result(
+    decision=Decision.APPROVE,
+    confidence=0.95,
+    risk_score=10,
+    reason="low risk",
+    findings=None,
+):
     return DecisionResult(
         decision=decision,
         confidence=confidence,
@@ -31,9 +36,13 @@ class TestFormatDecisionComment:
         assert "95%" in comment
 
     def test_reject_comment(self):
-        result = _make_result(Decision.REJECT, confidence=0.90, risk_score=90,
-                              reason="critical issues",
-                              findings={"critical": 2, "high": 3, "medium": 0, "low": 0})
+        result = _make_result(
+            Decision.REJECT,
+            confidence=0.90,
+            risk_score=90,
+            reason="critical issues",
+            findings={"critical": 2, "high": 3, "medium": 0, "low": 0},
+        )
         comment = format_decision_comment(result, {})
         assert "REJECT" in comment
         assert "🚫" in comment
@@ -67,11 +76,15 @@ class TestFormatDecisionComment:
 
 class TestPRDecisionPublisher:
     def test_auto_detect_github(self):
-        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "GITHUB_TOKEN": "fake"}, clear=False):
+        with patch.dict(
+            os.environ, {"GITHUB_ACTIONS": "true", "GITHUB_TOKEN": "fake"}, clear=False
+        ):
             env = os.environ.copy()
             env.pop("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", None)
             with patch.dict(os.environ, env, clear=True):
-                with patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "GITHUB_TOKEN": "fake"}):
+                with patch.dict(
+                    os.environ, {"GITHUB_ACTIONS": "true", "GITHUB_TOKEN": "fake"}
+                ):
                     pub = PRDecisionPublisher(platform="auto")
                     assert pub.platform == "github"
 

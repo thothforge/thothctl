@@ -6,7 +6,6 @@ Template configurations and default values for different project types.
 from dataclasses import dataclass, field
 from typing import Dict, Final, List
 
-
 # Define constants for the template configurations
 TERRAFORM_CONFIG: Final[Dict[str, List[str]]] = {
     "required_files": ["main.tf", "variables.tf", "outputs.tf"],

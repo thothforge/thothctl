@@ -1,21 +1,18 @@
 """Restored original IaC scan command with unified HTML styling."""
+
 import logging
 import os
 import time
-from pathlib import Path
 from typing import List, Literal, Optional
 
 import click
 import rich.box
-from rich import print as rprint
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
+from rich.table import Table
 
 from ....core.commands import ClickCommand
 from ....services.scan.scan_service import ScanService
-
 
 logger = logging.getLogger(__name__)
 
@@ -48,23 +45,23 @@ class RestoredIaCScanCommand(ClickCommand):
     ) -> None:
         """Execute original IaC security scan with unified HTML styling."""
         # Store for post_execute
-        self._post_to_pr = kwargs.get('post_to_pr', False)
-        self._vcs_provider = kwargs.get('vcs_provider', 'auto')
-        self._space = kwargs.get('space')
-        self._enforcement = kwargs.get('enforcement', 'soft')
+        self._post_to_pr = kwargs.get("post_to_pr", False)
+        self._vcs_provider = kwargs.get("vcs_provider", "auto")
+        self._space = kwargs.get("space")
+        self._enforcement = kwargs.get("enforcement", "soft")
         self._scan_results = None
 
         try:
             ctx = click.get_current_context()
             code_directory = ctx.obj.get("CODE_DIRECTORY")
             debug_mode = ctx.obj.get("DEBUG", False)
-            
+
             # Set debug environment variable for the scan service
             if debug_mode:
                 os.environ["THOTHCTL_DEBUG"] = "true"
-            
+
             self.logger.info(f"Starting original recursive scan in {code_directory}")
-            
+
             # Create a panel with scan information
             scan_info = Panel(
                 f"[bold]Starting security scan[/bold]\n\n"
@@ -74,22 +71,22 @@ class RestoredIaCScanCommand(ClickCommand):
                 f"Reports directory: [green]{reports_dir}[/green]\n"
                 f"Enforcement: [{'red' if self._enforcement == 'hard' else 'green'}]{self._enforcement}[/{'red' if self._enforcement == 'hard' else 'green'}]",
                 title="[bold blue]ThothCTL Security Scan[/bold blue]",
-                border_style="blue"
+                border_style="blue",
             )
             self.console.print(scan_info)
 
             # Use the original scan service
             scan_service = ScanService()
             start_time = time.perf_counter()
-            
+
             # Execute scan with original functionality
             # Build scanner options
             scan_options = self._parse_options(options) if options else {}
 
             # Inject --policy-dir into OPA options if provided
-            policy_dir = kwargs.get('policy_dir')
+            policy_dir = kwargs.get("policy_dir")
             if policy_dir:
-                scan_options['policy_dir'] = policy_dir
+                scan_options["policy_dir"] = policy_dir
 
             results = scan_service.execute_scans(
                 directory=code_directory,
@@ -100,7 +97,7 @@ class RestoredIaCScanCommand(ClickCommand):
                 max_workers=max_workers,
                 compact=compact,
             )
-            
+
             # Display results using enhanced display method
             self._display_original_results(results)
             self._scan_results = results
@@ -109,7 +106,11 @@ class RestoredIaCScanCommand(ClickCommand):
             trend_rows = None
             trend_date = ""
             try:
-                from ....services.scan.scan_history import save_scan, get_previous_run, build_trend
+                from ....services.scan.scan_history import (
+                    build_trend,
+                    get_previous_run,
+                    save_scan,
+                )
 
                 previous = get_previous_run(code_directory)
                 save_scan(code_directory, results)
@@ -147,6 +148,7 @@ class RestoredIaCScanCommand(ClickCommand):
             # JSON output mode
             if output == "json":
                 import json
+
                 json_report = self._build_json_report(results, code_directory)
                 json_path = os.path.join(reports_dir, "scan_report.json")
                 with open(json_path, "w") as f:
@@ -157,13 +159,19 @@ class RestoredIaCScanCommand(ClickCommand):
             # SARIF output mode
             if output == "sarif":
                 from ....services.scan.sarif_output import save_sarif
+
                 sarif_path = save_sarif(results, code_directory, reports_dir)
-                self.console.print(f"📄 SARIF report saved to [blue]{sarif_path}[/blue]")
-                self.console.print("💡 Upload to GitHub: gh api repos/:owner/:repo/code-scanning/sarifs -f sarif=@" + sarif_path)
+                self.console.print(
+                    f"📄 SARIF report saved to [blue]{sarif_path}[/blue]"
+                )
+                self.console.print(
+                    "💡 Upload to GitHub: gh api repos/:owner/:repo/code-scanning/sarifs -f sarif=@"
+                    + sarif_path
+                )
 
             finish_time = time.perf_counter()
             scan_time = finish_time - start_time
-            
+
             # Check if hard enforcement should fail the pipeline
             has_violations = False
             if self._enforcement == "hard":
@@ -185,7 +193,7 @@ class RestoredIaCScanCommand(ClickCommand):
                 f"🎨 HTML reports: [blue]Generated with unified styling[/blue]\n"
                 f"🔍 Tools used: [yellow]{len(tools)}[/yellow]",
                 title="[bold green]Scan Complete[/bold green]",
-                border_style="green"
+                border_style="green",
             )
             self.console.print(completion_panel)
 
@@ -223,7 +231,9 @@ class RestoredIaCScanCommand(ClickCommand):
                 findings_table.add_column("Tool", style="yellow", max_width=12)
                 findings_table.add_column("Severity", justify="center", max_width=10)
                 findings_table.add_column("Policy Violation", style="white", ratio=3)
-                findings_table.add_column("File", style="dim", ratio=2, overflow="ellipsis")
+                findings_table.add_column(
+                    "File", style="dim", ratio=2, overflow="ellipsis"
+                )
 
                 # Show up to 15 findings
                 display_findings = all_findings[:15]
@@ -260,7 +270,7 @@ class RestoredIaCScanCommand(ClickCommand):
                     f"[dim]Fix:[/dim]  Resolve the violations above, or use [bold]--enforcement soft[/bold] to report without blocking.\n"
                     f"[dim]Reports:[/dim] See [blue]{reports_dir}[/blue] for details.",
                     title="[bold red]⛔ Enforcement Failed[/bold red]",
-                    border_style="red"
+                    border_style="red",
                 )
                 self.console.print(enforcement_panel)
                 raise SystemExit(1)
@@ -274,7 +284,7 @@ class RestoredIaCScanCommand(ClickCommand):
                 f"[dim]This is an execution error, not a policy violation.\n"
                 f"Check that the required tools are installed and the target directory is valid.[/dim]",
                 title="[bold red]❌ Scan Error[/bold red]",
-                border_style="red"
+                border_style="red",
             )
             self.console.print(error_panel)
             self.logger.error(f"Scan execution failed: {e}")
@@ -284,17 +294,17 @@ class RestoredIaCScanCommand(ClickCommand):
         """Parse options string into dictionary."""
         if not options_str:
             return {}
-        
+
         # Simple parsing for key=value pairs separated by commas
         options = {}
         try:
-            for pair in options_str.split(','):
-                if '=' in pair:
-                    key, value = pair.strip().split('=', 1)
+            for pair in options_str.split(","):
+                if "=" in pair:
+                    key, value = pair.strip().split("=", 1)
                     options[key.strip()] = value.strip()
         except Exception as e:
             self.logger.warning(f"Error parsing options '{options_str}': {e}")
-        
+
         return options
 
     def _display_original_results(self, results: dict):
@@ -304,9 +314,9 @@ class RestoredIaCScanCommand(ClickCommand):
             title="[bold blue]Scan Results Summary[/bold blue]",
             box=rich.box.ROUNDED,
             show_header=True,
-            header_style="bold magenta"
+            header_style="bold magenta",
         )
-        
+
         summary_table.add_column("Tool", style="cyan", no_wrap=True)
         summary_table.add_column("Status", justify="center", style="bold")
         summary_table.add_column("Total Tests", justify="center", style="blue")
@@ -328,36 +338,54 @@ class RestoredIaCScanCommand(ClickCommand):
         for tool_name, tool_results in results.items():
             if tool_name in ["summary"]:
                 continue
-                
+
             if isinstance(tool_results, dict) and tool_results:
                 # Get status
                 status = tool_results.get("status", "UNKNOWN")
                 status_style = "green" if status == "COMPLETE" else "red"
-                
+
                 # Extract counts from multiple sources
                 passed = failed = warnings = errors = skipped = total = 0
-                
+
                 # First try report_data
                 report_data = tool_results.get("report_data", {})
-                if report_data and any(report_data.get(key, 0) > 0 for key in ["passed_count", "failed_count", "error_count", "skipped_count", "warning_count"]):
+                if report_data and any(
+                    report_data.get(key, 0) > 0
+                    for key in [
+                        "passed_count",
+                        "failed_count",
+                        "error_count",
+                        "skipped_count",
+                        "warning_count",
+                    ]
+                ):
                     passed = report_data.get("passed_count", 0)
                     failed = report_data.get("failed_count", 0)
                     warnings = report_data.get("warning_count", 0)
                     errors = report_data.get("error_count", 0)
                     skipped = report_data.get("skipped_count", 0)
                     total = passed + failed + warnings + errors + skipped
-                    self.logger.debug(f"Using report_data for {tool_name}: passed={passed}, failed={failed}, warnings={warnings}, errors={errors}, skipped={skipped}")
-                
+                    self.logger.debug(
+                        f"Using report_data for {tool_name}: passed={passed}, failed={failed}, warnings={warnings}, errors={errors}, skipped={skipped}"
+                    )
+
                 # If report_data is empty, try detailed_reports
-                elif "detailed_reports" in tool_results and tool_results["detailed_reports"]:
+                elif (
+                    "detailed_reports" in tool_results
+                    and tool_results["detailed_reports"]
+                ):
                     detailed_reports = tool_results["detailed_reports"]
                     passed = sum(r.get("passed", 0) for r in detailed_reports.values())
                     failed = sum(r.get("failed", 0) for r in detailed_reports.values())
                     errors = sum(r.get("error", 0) for r in detailed_reports.values())
-                    skipped = sum(r.get("skipped", 0) for r in detailed_reports.values())
+                    skipped = sum(
+                        r.get("skipped", 0) for r in detailed_reports.values()
+                    )
                     total = passed + failed + errors + skipped
-                    self.logger.debug(f"Using detailed_reports for {tool_name}: passed={passed}, failed={failed}, errors={errors}, skipped={skipped}")
-                    
+                    self.logger.debug(
+                        f"Using detailed_reports for {tool_name}: passed={passed}, failed={failed}, errors={errors}, skipped={skipped}"
+                    )
+
                     # Update report_data for consistency
                     tool_results["report_data"] = {
                         "passed_count": passed,
@@ -365,12 +393,12 @@ class RestoredIaCScanCommand(ClickCommand):
                         "error_count": errors,
                         "skipped_count": skipped,
                     }
-                
+
                 # If we have valid data, display it
                 if total > 0:
                     # Calculate success rate
                     success_rate = (passed / total * 100) if total > 0 else 0
-                    
+
                     # Get tool icon
                     tool_icons = {
                         "checkov": "🔒",
@@ -378,10 +406,10 @@ class RestoredIaCScanCommand(ClickCommand):
                         "tfsec": "🔐",
                         "kics": "🔍",
                         "terraform-compliance": "📋",
-                        "opa": "📜"
+                        "opa": "📜",
                     }
                     icon = tool_icons.get(tool_name, "🔍")
-                    
+
                     # Add to table
                     summary_table.add_row(
                         f"{icon} {tool_name.title()}",
@@ -392,9 +420,9 @@ class RestoredIaCScanCommand(ClickCommand):
                         str(warnings),
                         str(errors),
                         str(skipped),
-                        f"{success_rate:.1f}%"
+                        f"{success_rate:.1f}%",
                     )
-                    
+
                     # Update totals
                     total_tests += total
                     total_passed += passed
@@ -416,7 +444,7 @@ class RestoredIaCScanCommand(ClickCommand):
                             "0",
                             "0",
                             "0",
-                            "0.0%"
+                            "0.0%",
                         )
                         total_tests += issues_count
                         total_failed += issues_count
@@ -431,12 +459,12 @@ class RestoredIaCScanCommand(ClickCommand):
                             "0",
                             "0",
                             "0",
-                            "N/A"
+                            "N/A",
                         )
 
         # Add totals row
         if total_tests > 0:
-            overall_success_rate = (total_passed / total_tests * 100)
+            overall_success_rate = total_passed / total_tests * 100
             summary_table.add_section()
             summary_table.add_row(
                 "[bold]TOTAL[/bold]",
@@ -447,7 +475,7 @@ class RestoredIaCScanCommand(ClickCommand):
                 f"[bold dark_orange]{total_warnings}[/bold dark_orange]",
                 f"[bold yellow]{total_errors}[/bold yellow]",
                 f"[bold dim]{total_skipped}[/bold dim]",
-                f"[bold]{overall_success_rate:.1f}%[/bold]"
+                f"[bold]{overall_success_rate:.1f}%[/bold]",
             )
 
         self.console.print(summary_table)
@@ -472,38 +500,48 @@ class RestoredIaCScanCommand(ClickCommand):
             sev_table.add_column("Count", justify="center")
 
             sev_order = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
-            sev_styles = {"CRITICAL": "bold red", "HIGH": "red", "MEDIUM": "dark_orange", "LOW": "yellow", "INFO": "dim"}
+            sev_styles = {
+                "CRITICAL": "bold red",
+                "HIGH": "red",
+                "MEDIUM": "dark_orange",
+                "LOW": "yellow",
+                "INFO": "dim",
+            }
             for sev in sev_order:
                 count = severity_counts.get(sev, 0)
                 if count > 0:
-                    sev_table.add_row(f"[{sev_styles.get(sev, '')}]{sev}[/]", str(count))
+                    sev_table.add_row(
+                        f"[{sev_styles.get(sev, '')}]{sev}[/]", str(count)
+                    )
 
             self.console.print(sev_table)
-        
+
         # Display detailed results for each tool (original behavior)
         for tool_name, tool_results in results.items():
             if tool_name in ["summary"] or not isinstance(tool_results, dict):
                 continue
-                
+
             if tool_results.get("status") == "COMPLETE":
                 # Show detailed reports if available
                 detailed_reports = tool_results.get("detailed_reports", {})
                 if detailed_reports:
                     detail_panel = Panel(
-                        f"[bold]{tool_name.title()} Detailed Results[/bold]\n\n" +
-                        "\n".join([
-                            f"📁 {report_name}: "
-                            f"✅ {data.get('passed', 0)} passed, "
-                            f"❌ {data.get('failed', 0)} failed, "
-                            f"⚠️ {data.get('error', 0)} errors, "
-                            f"⏭️ {data.get('skipped', 0)} skipped"
-                            for report_name, data in detailed_reports.items()
-                        ]),
+                        f"[bold]{tool_name.title()} Detailed Results[/bold]\n\n"
+                        + "\n".join(
+                            [
+                                f"📁 {report_name}: "
+                                f"✅ {data.get('passed', 0)} passed, "
+                                f"❌ {data.get('failed', 0)} failed, "
+                                f"⚠️ {data.get('error', 0)} errors, "
+                                f"⏭️ {data.get('skipped', 0)} skipped"
+                                for report_name, data in detailed_reports.items()
+                            ]
+                        ),
                         title=f"[bold blue]{tool_name.title()} Details[/bold blue]",
-                        border_style="blue"
+                        border_style="blue",
                     )
                     self.console.print(detail_panel)
-                
+
                 # Show report path
                 report_path = tool_results.get("report_path", "N/A")
                 if report_path != "N/A":
@@ -512,7 +550,7 @@ class RestoredIaCScanCommand(ClickCommand):
                         f"📄 Path: [blue]{report_path}[/blue]\n"
                         f"🎨 Styling: [green]Unified HTML format applied[/green]",
                         title=f"[bold green]{tool_name.title()} Report[/bold green]",
-                        border_style="green"
+                        border_style="green",
                     )
                     self.console.print(path_panel)
             else:
@@ -522,14 +560,14 @@ class RestoredIaCScanCommand(ClickCommand):
                     f"[bold red]Tool execution failed[/bold red]\n\n"
                     f"Error: [red]{error_info}[/red]",
                     title=f"[bold red]{tool_name.title()} Error[/bold red]",
-                    border_style="red"
+                    border_style="red",
                 )
                 self.console.print(error_panel)
-        
+
         # Display summary information (original behavior)
         summary = results.get("summary", {})
         total_issues = summary.get("total_issues", 0)
-        
+
         if total_issues > 0:
             summary_panel = Panel(
                 f"[bold yellow]Security Issues Found[/bold yellow]\n\n"
@@ -537,17 +575,19 @@ class RestoredIaCScanCommand(ClickCommand):
                 f"📊 Review the generated reports for detailed information\n"
                 f"🎨 Reports generated with unified styling for better readability",
                 title="[bold yellow]Summary[/bold yellow]",
-                border_style="yellow"
+                border_style="yellow",
             )
             self.console.print(summary_panel)
         else:
-            self.console.print(Panel(
-                "[bold green]✅ No security issues detected![/bold green]\n\n"
-                "All security checks passed successfully.\n"
-                "Reports generated with unified styling.",
-                title="[bold green]Security Status[/bold green]",
-                border_style="green"
-            ))
+            self.console.print(
+                Panel(
+                    "[bold green]✅ No security issues detected![/bold green]\n\n"
+                    "All security checks passed successfully.\n"
+                    "Reports generated with unified styling.",
+                    title="[bold green]Security Status[/bold green]",
+                    border_style="green",
+                )
+            )
 
     def _display_trend(self, trend_rows: list, previous_timestamp: str):
         """Display scan trend comparison table."""
@@ -588,7 +628,9 @@ class RestoredIaCScanCommand(ClickCommand):
             "|------|--------|-------|--------|--------|----------|--------|---------|-------------|",
         ]
 
-        total_tests = total_passed = total_failed = total_warnings = total_errors = total_skipped = 0
+        total_tests = (
+            total_passed
+        ) = total_failed = total_warnings = total_errors = total_skipped = 0
 
         for tool_name, tool_results in results.items():
             if tool_name == "summary" or not isinstance(tool_results, dict):
@@ -602,7 +644,9 @@ class RestoredIaCScanCommand(ClickCommand):
             skipped = rd.get("skipped_count", 0)
             total = passed + failed + warnings + errors + skipped
             rate = f"{(passed / total * 100):.1f}%" if total > 0 else "N/A"
-            lines.append(f"| {tool_name} | {status} | {total} | {passed} | {failed} | {warnings} | {errors} | {skipped} | {rate} |")
+            lines.append(
+                f"| {tool_name} | {status} | {total} | {passed} | {failed} | {warnings} | {errors} | {skipped} | {rate} |"
+            )
             total_tests += total
             total_passed += passed
             total_failed += failed
@@ -612,7 +656,9 @@ class RestoredIaCScanCommand(ClickCommand):
 
         if total_tests > 0:
             overall_rate = f"{(total_passed / total_tests * 100):.1f}%"
-            lines.append(f"| **TOTAL** | | **{total_tests}** | **{total_passed}** | **{total_failed}** | **{total_warnings}** | **{total_errors}** | **{total_skipped}** | **{overall_rate}** |")
+            lines.append(
+                f"| **TOTAL** | | **{total_tests}** | **{total_passed}** | **{total_failed}** | **{total_warnings}** | **{total_errors}** | **{total_skipped}** | **{overall_rate}** |"
+            )
 
         total_issues = results.get("summary", {}).get("total_issues", 0)
         if total_issues > 0:
@@ -637,7 +683,9 @@ class RestoredIaCScanCommand(ClickCommand):
                     lines.append(f"| {sev} | {count} |")
 
         lines.append("\n---")
-        lines.append("*Generated by [ThothCTL](https://github.com/thothforge/thothctl)*")
+        lines.append(
+            "*Generated by [ThothCTL](https://github.com/thothforge/thothctl)*"
+        )
         return "\n".join(lines)
 
     def _build_json_report(self, results: dict, directory: str) -> dict:
@@ -649,16 +697,18 @@ class RestoredIaCScanCommand(ClickCommand):
             if tool_name == "summary" or not isinstance(tool_results, dict):
                 continue
             rd = tool_results.get("report_data", {})
-            tools.append({
-                "tool": tool_name,
-                "status": tool_results.get("status", "UNKNOWN"),
-                "passed": rd.get("passed_count", 0),
-                "failed": rd.get("failed_count", 0),
-                "skipped": rd.get("skipped_count", 0),
-                "warnings": rd.get("warning_count", 0),
-                "errors": rd.get("error_count", 0),
-                "findings": tool_results.get("findings", []),
-            })
+            tools.append(
+                {
+                    "tool": tool_name,
+                    "status": tool_results.get("status", "UNKNOWN"),
+                    "passed": rd.get("passed_count", 0),
+                    "failed": rd.get("failed_count", 0),
+                    "skipped": rd.get("skipped_count", 0),
+                    "warnings": rd.get("warning_count", 0),
+                    "errors": rd.get("error_count", 0),
+                    "findings": tool_results.get("findings", []),
+                }
+            )
 
         severity_counts = {}
         for t in tools:
@@ -676,9 +726,9 @@ class RestoredIaCScanCommand(ClickCommand):
 
     def post_execute(self, **kwargs) -> None:
         """Post scan summary to PR if --post-to-pr flag is set."""
-        if not getattr(self, '_post_to_pr', False):
+        if not getattr(self, "_post_to_pr", False):
             return
-        results = getattr(self, '_scan_results', None)
+        results = getattr(self, "_scan_results", None)
         if not results:
             return
 
@@ -687,8 +737,8 @@ class RestoredIaCScanCommand(ClickCommand):
         content = self._build_scan_markdown(results)
         if publish_to_pr(
             content=content,
-            vcs_provider=getattr(self, '_vcs_provider', 'auto'),
-            space=getattr(self, '_space', None),
+            vcs_provider=getattr(self, "_vcs_provider", "auto"),
+            space=getattr(self, "_space", None),
         ):
             self.console.print("[green]✅ Scan summary posted to PR[/green]")
         else:
@@ -730,8 +780,8 @@ cli = RestoredIaCScanCommand.as_click_command(
     click.option(
         "--policy-dir",
         help="Policy directory or Git URL for OPA/Conftest (default: 'policy'). "
-             "Supports: local path, absolute path, Git URL (https://...), "
-             "or THOTH_ORG_POLICY env var.",
+        "Supports: local path, absolute path, Git URL (https://...), "
+        "or THOTH_ORG_POLICY env var.",
         type=str,
         default=None,
     ),

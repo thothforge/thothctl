@@ -1,9 +1,8 @@
+import os
 from contextlib import contextmanager
 from pathlib import Path
 
 import click
-
-import os
 
 from ....core.commands import ClickCommand
 from ....services.init.environment.install_tools import bootstrap_env

@@ -1,16 +1,13 @@
 """Create Component based on attributes and types."""
+
 import logging
+import os
 from pathlib import Path
 
-import os
 from colorama import Fore
 
 from ....common.common import load_iac_conf
-from .files_content import (
-    main_tf_content,
-    terragrunt_hcl_resource_content,
-)
-
+from .files_content import main_tf_content, terragrunt_hcl_resource_content
 
 dirname = os.path.dirname(__file__)
 

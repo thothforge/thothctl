@@ -1,4 +1,5 @@
 """Data models for the DevSecOps workflow engine."""
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
@@ -6,6 +7,7 @@ from typing import Dict, List, Optional
 
 class Phase(Enum):
     """DevSecOps SDLC phases."""
+
     PLAN = "plan"
     DEVELOP = "develop"
     BUILD = "build"
@@ -27,6 +29,7 @@ class StepStatus(Enum):
 @dataclass
 class StepResult:
     """Result of a single step within a phase."""
+
     name: str
     status: StepStatus
     command: str
@@ -40,6 +43,7 @@ class StepResult:
 @dataclass
 class PhaseResult:
     """Result of executing an entire phase."""
+
     phase: Phase
     steps: List[StepResult] = field(default_factory=list)
     passed: bool = True
@@ -57,6 +61,7 @@ class PhaseResult:
 @dataclass
 class WorkflowResult:
     """Complete workflow execution result."""
+
     phases: List[PhaseResult] = field(default_factory=list)
     enforcement: str = "soft"
     stopped_at: Optional[Phase] = None

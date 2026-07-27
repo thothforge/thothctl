@@ -1,23 +1,22 @@
-import logging
 import getpass
+import logging
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Final, Optional
 
-import os
 import git
 
 from ....common.common import create_info_project
+from ....core.cli_ui import CliUI
 from ....core.integrations.azure_devops.get_azure_devops import get_pattern_from_azure
 from ....core.integrations.github.get_github import get_pattern_from_github
 from ....services.generate.create_template.create_template import create_project
 from ...project.convert.get_project_data import (
-    replace_template_placeholders,
     get_project_props,
+    replace_template_placeholders,
 )
 from ...project.convert.set_project_parameters import set_project_conf
-from ....utils.crypto import load_credentials, validate_credentials
-from ....core.cli_ui import CliUI
 
 
 class ProjectService:
@@ -30,7 +29,11 @@ class ProjectService:
         self.ui = CliUI()
 
     def initialize_project(
-        self, project_name: str, project_type: str = "terraform", reuse=False, space: Optional[str] = None
+        self,
+        project_name: str,
+        project_type: str = "terraform",
+        reuse=False,
+        space: Optional[str] = None,
     ) -> Optional[dict]:
         """Initialize the basic project structure"""
         self.logger.debug(f"Initializing project: {project_name}")
@@ -39,17 +42,19 @@ class ProjectService:
 
         repo_metadata = None
         if not reuse:
-            repo_metadata = create_project(project_name=project_name, project_type=project_type)
-        
+            repo_metadata = create_project(
+                project_name=project_name, project_type=project_type
+            )
+
         return repo_metadata
 
     def setup_project_config(
-        self, 
-        project_name: str, 
-        space: Optional[str] = None, 
-        batch_mode: bool = False, 
+        self,
+        project_name: str,
+        space: Optional[str] = None,
+        batch_mode: bool = False,
         project_type: str = "terraform",
-        repo_metadata: Optional[dict] = None
+        repo_metadata: Optional[dict] = None,
     ) -> None:
         """Setup project configuration"""
         project_path = Path(f"./{project_name}")
@@ -58,7 +63,7 @@ class ProjectService:
             cloud_provider=self.DEFAULT_CLOUD_PROVIDER,
             remote_bkd_cloud_provider=self.DEFAULT_CLOUD_PROVIDER,
             directory=project_path,
-            batch_mode=batch_mode
+            batch_mode=batch_mode,
         )
 
         # Replace template placeholders in all project files
@@ -86,8 +91,9 @@ class ProjectService:
         git.Repo.init(path=str(project_path), mkdir=False)
         self.ui.print_success("🗃️ Git repository initialized")
 
-
-    def configure_ai_tools(self, project_path: Path, ai_tools: str, batch_mode: bool = False) -> None:
+    def configure_ai_tools(
+        self, project_path: Path, ai_tools: str, batch_mode: bool = False
+    ) -> None:
         """Configure AI tool support based on user selection.
 
         Detects .kiro/ and .claude/ directories in the project and keeps/removes
@@ -101,7 +107,9 @@ class ProjectService:
         import shutil
 
         has_kiro = (project_path / ".kiro").exists()
-        has_claude = (project_path / ".claude").exists() or (project_path / "CLAUDE.md").exists()
+        has_claude = (project_path / ".claude").exists() or (
+            project_path / "CLAUDE.md"
+        ).exists()
 
         # No AI tool directories found — nothing to do
         if not has_kiro and not has_claude:
@@ -125,6 +133,7 @@ class ProjectService:
                 try:
                     import inquirer
                     from colorama import Fore
+
                     questions = [
                         inquirer.List(
                             "ai_tools",
@@ -137,7 +146,11 @@ class ProjectService:
                     selection = answer["ai_tools"] if answer else available[0]
                 except (ImportError, Exception):
                     # Fallback if inquirer not available
-                    selection = "both" if (has_kiro and has_claude) else ("kiro" if has_kiro else "claude-code")
+                    selection = (
+                        "both"
+                        if (has_kiro and has_claude)
+                        else ("kiro" if has_kiro else "claude-code")
+                    )
 
         # Apply selection
         if selection == "kiro":
@@ -208,7 +221,9 @@ class ProjectService:
                 if f.is_file() and f.suffix in (".md", ".yaml", ".yml", ".txt"):
                     shutil.copy2(f, steering_dir / f.name)
                     copied += 1
-            self.ui.print_success(f"📁 Copied {copied} file(s) from {src.name}/ → .kiro/steering/")
+            self.ui.print_success(
+                f"📁 Copied {copied} file(s) from {src.name}/ → .kiro/steering/"
+            )
 
     def setup_version_control(
         self,
@@ -217,11 +232,11 @@ class ProjectService:
         vcs_provider: str,
         space: Optional[str] = None,
         selected_template: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Setup version control integration based on provider type
-        
+
         :param project_name: Name of the project
         :param project_path: Path to the project
         :param vcs_provider: Version control system provider (azure_repos, github, gitlab)
@@ -229,15 +244,17 @@ class ProjectService:
         :param selected_template: Pre-selected template information
         :param kwargs: Additional provider-specific parameters
         """
-        self.ui.print_info(f"🔄 Setting up {vcs_provider.replace('_', ' ').title()} integration...")
-        
+        self.ui.print_info(
+            f"🔄 Setting up {vcs_provider.replace('_', ' ').title()} integration..."
+        )
+
         if vcs_provider == "azure_repos":
             self.setup_azure_repos(
                 project_name=project_name,
                 project_path=project_path,
                 space=space,
                 selected_template=selected_template,
-                **kwargs
+                **kwargs,
             )
         elif vcs_provider == "github":
             self.setup_github(
@@ -245,7 +262,7 @@ class ProjectService:
                 project_path=project_path,
                 space=space,
                 selected_template=selected_template,
-                **kwargs
+                **kwargs,
             )
         elif vcs_provider == "gitlab":
             self.setup_gitlab(
@@ -253,7 +270,7 @@ class ProjectService:
                 project_path=project_path,
                 space=space,
                 selected_template=selected_template,
-                **kwargs
+                **kwargs,
             )
         else:
             self.ui.print_error(f"Unsupported VCS provider: {vcs_provider}")
@@ -271,104 +288,113 @@ class ProjectService:
         """Setup Azure Repos configuration"""
         # Extract credentials from selected_template if provided
         if selected_template:
-            if not pat and 'pat' in selected_template:
-                pat = selected_template['pat']
-            if not az_org_name and 'org_url' in selected_template:
+            if not pat and "pat" in selected_template:
+                pat = selected_template["pat"]
+            if not az_org_name and "org_url" in selected_template:
                 # Extract org name from org_url
-                org_url = selected_template['org_url']
-                az_org_name = org_url.rstrip('/').split('/')[-1]
-        
+                org_url = selected_template["org_url"]
+                az_org_name = org_url.rstrip("/").split("/")[-1]
+
         # Try to load credentials from space if provided
         if space:
             try:
                 # Use the get_credentials_with_password function to avoid multiple password prompts
                 from ....utils.crypto import get_credentials_with_password
-                
+
                 try:
                     # Get credentials and password in one call
                     credentials, password = get_credentials_with_password(space, "vcs")
-                    
+
                     # Verify it's Azure Repos credentials
                     if credentials.get("type") == "azure_repos":
                         # Use organization from credentials if not provided
                         if not az_org_name:
                             az_org_name = credentials.get("organization")
-                        
+
                         # Use PAT from credentials if not provided
                         if not pat:
                             pat = credentials.get("pat")
-                            self.logger.debug(f"Using Azure DevOps PAT from space '{space}'")
+                            self.logger.debug(
+                                f"Using Azure DevOps PAT from space '{space}'"
+                            )
                     else:
-                        self.logger.warning(f"Space '{space}' has non-Azure VCS credentials")
+                        self.logger.warning(
+                            f"Space '{space}' has non-Azure VCS credentials"
+                        )
                 except (FileNotFoundError, ValueError) as e:
-                    self.logger.warning(f"Failed to load credentials from space '{space}': {e}")
+                    self.logger.warning(
+                        f"Failed to load credentials from space '{space}': {e}"
+                    )
             except Exception as e:
                 self.logger.warning(f"Error accessing credentials: {e}")
-        
+
         # If we still don't have a PAT, ask for it
         if not pat:
             self.ui.print_info("Azure DevOps Personal Access Token required")
             pat = getpass.getpass("Enter your Azure DevOps Personal Access Token: ")
-        
+
         # If we still don't have an organization name, ask for it
         if not az_org_name:
             az_org_name = input("Enter Azure DevOps organization name: ")
-        
+
         # Use selected template if provided, otherwise get template
         if selected_template:
             # Clone the pre-selected template to project directory
             import git
-            from ....core.integrations.azure_devops.get_azure_devops import get_latest_tag_info
-            
+
+            from ....core.integrations.azure_devops.get_azure_devops import (
+                get_latest_tag_info,
+            )
+
             self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
-            
+
             # Embed PAT in URL for authentication
             # Azure DevOps URLs from API may already have org@dev.azure.com format
             # We need to replace that with pat:PAT@dev.azure.com
             repo_url = selected_template["repo_url"]
             self.logger.debug(f"Original repo URL: {repo_url}")
-            
-            if pat and 'dev.azure.com' in repo_url:
-                parts = repo_url.split('://', 1)
+
+            if pat and "dev.azure.com" in repo_url:
+                parts = repo_url.split("://", 1)
                 if len(parts) == 2:
                     protocol = parts[0]
                     rest = parts[1]
                     # Remove any existing username@ part
-                    if '@' in rest:
-                        rest = rest.split('@', 1)[1]
+                    if "@" in rest:
+                        rest = rest.split("@", 1)[1]
                     # Add PAT authentication - use empty username with PAT as password
-                    repo_url = f'{protocol}://:{pat}@{rest}'
-                    self.logger.debug(f"Modified repo URL format: {protocol}://:***@{rest}")
-            
-            repo = git.Repo.clone_from(
-                url=repo_url,
-                to_path=str(project_path)
-            )
-            
+                    repo_url = f"{protocol}://:{pat}@{rest}"
+                    self.logger.debug(
+                        f"Modified repo URL format: {protocol}://:***@{rest}"
+                    )
+
+            repo = git.Repo.clone_from(url=repo_url, to_path=str(project_path))
+
             # Get tag and commit info
             tag, sha = get_latest_tag_info(repo)
-            
+
             if tag:
                 self.ui.print_success(f"✨ Latest tag: {tag}")
             else:
                 self.ui.print_info("No tags found. Using main branch.")
-            
+
             # Clean up git metadata
             self.ui.print_info("🧹 Cleaning up metadata...")
             g_path = project_path / ".git"
             if g_path.exists():
                 import shutil
+
                 shutil.rmtree(g_path)
             git.Repo.init(path=str(project_path), mkdir=False)
-            
+
             # Create repo metadata - clean URL by removing any embedded credentials
             clean_url = selected_template["repo_url"]
-            if '@dev.azure.com' in clean_url:
+            if "@dev.azure.com" in clean_url:
                 # Remove username@ from Azure DevOps URLs
-                parts = clean_url.split('://', 1)
-                if len(parts) == 2 and '@' in parts[1]:
+                parts = clean_url.split("://", 1)
+                if len(parts) == 2 and "@" in parts[1]:
                     clean_url = f"{parts[0]}://{parts[1].split('@', 1)[1]}"
-            
+
             repo_meta = {
                 "repo_name": selected_template["repo_name"],
                 "repo_url": clean_url,
@@ -425,126 +451,148 @@ class ProjectService:
         """Setup GitHub configuration"""
         # Extract credentials from selected_template if provided
         if selected_template:
-            if not token and 'token' in selected_template:
-                token = selected_template['token']
-            if not github_username and 'username' in selected_template:
-                github_username = selected_template['username']
-        
+            if not token and "token" in selected_template:
+                token = selected_template["token"]
+            if not github_username and "username" in selected_template:
+                github_username = selected_template["username"]
+
         # Try to load credentials from space if provided
         if space:
             try:
                 # Use the get_credentials_with_password function to avoid multiple password prompts
-                from ....utils.crypto import get_credentials_with_password, save_credentials
-                
+                from ....utils.crypto import (
+                    get_credentials_with_password,
+                    save_credentials,
+                )
+
                 try:
                     # Get credentials and password in one call
                     credentials, password = get_credentials_with_password(space, "vcs")
-                    
+
                     # Verify it's GitHub credentials
                     if credentials.get("type") == "github":
                         # Use username from credentials if not provided
                         if not github_username:
                             github_username = credentials.get("username")
-                        
+
                         # Use token from credentials if not provided
                         if not token:
                             token = credentials.get("token")
-                            self.logger.debug(f"Using GitHub token from space '{space}'")
+                            self.logger.debug(
+                                f"Using GitHub token from space '{space}'"
+                            )
                     else:
-                        self.logger.warning(f"Space '{space}' has non-GitHub VCS credentials")
+                        self.logger.warning(
+                            f"Space '{space}' has non-GitHub VCS credentials"
+                        )
                 except (FileNotFoundError, ValueError) as e:
-                    self.logger.warning(f"Failed to load credentials from space '{space}': {e}")
-                    
+                    self.logger.warning(
+                        f"Failed to load credentials from space '{space}': {e}"
+                    )
+
                     # If credentials don't exist, offer to create them
                     if isinstance(e, FileNotFoundError) and "not found" in str(e):
-                        self.ui.print_info(f"No GitHub credentials found for space '{space}'")
-                        if self.ui.confirm("Would you like to set up GitHub credentials for this space?"):
+                        self.ui.print_info(
+                            f"No GitHub credentials found for space '{space}'"
+                        )
+                        if self.ui.confirm(
+                            "Would you like to set up GitHub credentials for this space?"
+                        ):
                             # Ask for GitHub username
                             if not github_username:
-                                github_username = input("Enter GitHub username or organization name: ")
-                            
+                                github_username = input(
+                                    "Enter GitHub username or organization name: "
+                                )
+
                             # Ask for token securely
-                            self.ui.print_info("You'll need a Personal Access Token with appropriate permissions")
-                            token = getpass.getpass("Enter your GitHub Personal Access Token: ")
-                            
+                            self.ui.print_info(
+                                "You'll need a Personal Access Token with appropriate permissions"
+                            )
+                            token = getpass.getpass(
+                                "Enter your GitHub Personal Access Token: "
+                            )
+
                             # Create credentials dictionary
                             credentials = {
                                 "type": "github",
                                 "username": github_username,
-                                "token": token
+                                "token": token,
                             }
-                            
+
                             # Ask for encryption password
-                            encryption_password = getpass.getpass("Enter a password to encrypt your credentials: ")
-                            
+                            encryption_password = getpass.getpass(
+                                "Enter a password to encrypt your credentials: "
+                            )
+
                             # Save encrypted credentials
                             try:
                                 save_credentials(
                                     space_name=space,
                                     credentials=credentials,
                                     credential_type="vcs",
-                                    password=encryption_password
+                                    password=encryption_password,
                                 )
-                                self.ui.print_success("🔒 GitHub credentials saved securely for future use")
+                                self.ui.print_success(
+                                    "🔒 GitHub credentials saved securely for future use"
+                                )
                             except Exception as e:
                                 self.logger.error(f"Failed to save credentials: {e}")
                                 self.ui.print_error(f"Failed to save credentials: {e}")
-                    
+
             except Exception as e:
                 self.logger.warning(f"Error accessing credentials: {e}")
-        
+
         # If we still don't have a token, ask for it
         if not token:
             self.ui.print_info("GitHub Personal Access Token required")
             token = getpass.getpass("Enter your GitHub Personal Access Token: ")
-        
+
         # If we still don't have a username, ask for it
         if not github_username:
             github_username = input("Enter GitHub username or organization name: ")
-        
+
         # Use selected template if provided, otherwise get template
         if selected_template:
             # Clone the pre-selected template to project directory
             import git
+
             from ....core.integrations.github.get_github import get_latest_tag_info
-            
+
             self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
-            
+
             # Embed token in URL for authentication if available
             repo_url = selected_template["repo_url"]
-            if token and 'github.com' in repo_url:
+            if token and "github.com" in repo_url:
                 # Insert token into GitHub URL
-                repo_url = repo_url.replace('https://', f'https://{token}@')
-            
-            repo = git.Repo.clone_from(
-                url=repo_url,
-                to_path=str(project_path)
-            )
-            
+                repo_url = repo_url.replace("https://", f"https://{token}@")
+
+            repo = git.Repo.clone_from(url=repo_url, to_path=str(project_path))
+
             # Get tag and commit info
             tag, sha = get_latest_tag_info(repo)
-            
+
             if tag:
                 self.ui.print_success(f"✨ Latest tag: {tag}")
             else:
                 self.ui.print_info("No tags found. Using main branch.")
-            
+
             # Clean up git metadata
             self.ui.print_info("🧹 Cleaning up metadata...")
             g_path = project_path / ".git"
             if g_path.exists():
                 import shutil
+
                 shutil.rmtree(g_path)
             git.Repo.init(path=str(project_path), mkdir=False)
-            
+
             # Create repo metadata - clean URL by removing any embedded credentials
             clean_url = selected_template["repo_url"]
-            if '@github.com' in clean_url:
+            if "@github.com" in clean_url:
                 # Remove token@ from GitHub URLs
-                parts = clean_url.split('://', 1)
-                if len(parts) == 2 and '@' in parts[1]:
+                parts = clean_url.split("://", 1)
+                if len(parts) == 2 and "@" in parts[1]:
                     clean_url = f"{parts[0]}://{parts[1].split('@', 1)[1]}"
-            
+
             repo_meta = {
                 "repo_name": selected_template["repo_name"],
                 "repo_url": clean_url,

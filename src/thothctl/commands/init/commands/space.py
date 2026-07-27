@@ -1,12 +1,10 @@
-from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 import click
-from click.shell_completion import CompletionItem
 
+from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
 from ....services.init.space.space import SpaceService
-from ....core.cli_ui import CliUI
 
 
 class SpaceInitCommand(ClickCommand):
@@ -39,9 +37,9 @@ class SpaceInitCommand(ClickCommand):
         space_name = space_name.strip()
         description = description if description else None
         policy_repo = policy_repo if policy_repo else None
-        
+
         self.ui.print_info(f"🌌 Creating new space: {space_name}")
-        
+
         # Initialize space
         self.space_service.initialize_space(
             space_name=space_name,
@@ -52,36 +50,44 @@ class SpaceInitCommand(ClickCommand):
             orchestration_tool=orchestration_tool,
             policy_repo=policy_repo,
         )
-        
+
         self.ui.print_success(f"✨ Space '{space_name}' is ready to use!")
-        self.ui.print_info(f"💡 You can now create projects in this space with:")
-        self.ui.print_info(f"   thothctl init project --project-name <name> --space {space_name}")
+        self.ui.print_info("💡 You can now create projects in this space with:")
+        self.ui.print_info(
+            f"   thothctl init project --project-name <name> --space {space_name}"
+        )
 
     def get_completions(
-            self, ctx: click.Context, args: List[str], incomplete: str
+        self, ctx: click.Context, args: List[str], incomplete: str
     ) -> List[click.shell_completion.CompletionItem]:
         """
         Provide context-aware autocompletion
         """
         # Import CompletionItem here to avoid circular imports
         from click.shell_completion import CompletionItem
-        
+
         # Define subcommands and their options
         completions = {
-            'create': {
-                '--space-name': ['development', 'staging', 'production'],
-                '--description': ['Development environment', 'Staging environment', 'Production environment'],
-                '--vcs-provider': ['azure_repos', 'github', 'gitlab'],
-                '--terraform-auth': ['none', 'token', 'env_var'],
-                '--orchestration-tool': ['terragrunt', 'terramate', 'none']
+            "create": {
+                "--space-name": ["development", "staging", "production"],
+                "--description": [
+                    "Development environment",
+                    "Staging environment",
+                    "Production environment",
+                ],
+                "--vcs-provider": ["azure_repos", "github", "gitlab"],
+                "--terraform-auth": ["none", "token", "env_var"],
+                "--orchestration-tool": ["terragrunt", "terramate", "none"],
             }
         }
 
         # If no args provided, suggest subcommands
         if not args:
-            return [CompletionItem(cmd, help=f"Command to {cmd} space")
-                    for cmd in completions.keys()
-                    if cmd.startswith(incomplete)]
+            return [
+                CompletionItem(cmd, help=f"Command to {cmd} space")
+                for cmd in completions.keys()
+                if cmd.startswith(incomplete)
+            ]
 
         # Get current subcommand
         subcommand = next((arg for arg in args if arg in completions), None)
@@ -89,7 +95,7 @@ class SpaceInitCommand(ClickCommand):
             return []
 
         # If incomplete starts with '-', suggest options for current subcommand
-        if incomplete.startswith('-'):
+        if incomplete.startswith("-"):
             return [
                 CompletionItem(opt, help=f"Option for {opt.lstrip('-')}")
                 for opt in completions[subcommand].keys()
@@ -97,8 +103,9 @@ class SpaceInitCommand(ClickCommand):
             ]
 
         # If we have a current option, suggest its values
-        current_option = next((arg for arg in reversed(args)
-                               if arg in completions[subcommand]), None)
+        current_option = next(
+            (arg for arg in reversed(args) if arg in completions[subcommand]), None
+        )
         if current_option:
             values = completions[subcommand][current_option]
             return [

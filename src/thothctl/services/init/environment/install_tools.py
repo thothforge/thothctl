@@ -1,9 +1,10 @@
 """Install tool required for development using custom framework and opensource tools."""
+
 import logging
+import os
 import sys
 
 import inquirer
-import os
 from colorama import Fore
 
 from ...check.environment.check_environment import (
@@ -64,25 +65,27 @@ def install_terraform_linux(version):
     print(f"{Fore.MAGENTA}✅   Terraform already was installed {Fore.RESET}")
     print(f"{Fore.MAGENTA}✅   Changing to recommended version {Fore.RESET}")
     install_tfswich()
-    
+
     # Create local bin directory and add to PATH
     os.system("mkdir -p $HOME/.local/bin")
-    
+
     # Use tfswitch with custom bin directory
     command = f"tfswitch -b $HOME/.local/bin/terraform {version}"
     _exit = os.system(command)
     check_result(result=_exit, tool="Terraform", version=version)
 
     # Add ~/.local/bin to PATH if not already there
-    os.system('grep -q "$HOME/.local/bin" ~/.bashrc || echo "export PATH=\"$HOME/.local/bin:$PATH\"" >> ~/.bashrc')
-    
+    os.system(
+        'grep -q "$HOME/.local/bin" ~/.bashrc || echo "export PATH="$HOME/.local/bin:$PATH"" >> ~/.bashrc'
+    )
+
     # Update PATH in current process
     local_bin = os.path.expanduser("~/.local/bin")
     if local_bin not in os.environ.get("PATH", ""):
         os.environ["PATH"] = f"{local_bin}:{os.environ.get('PATH', '')}"
-    
+
     print(f"{Fore.MAGENTA}✅ Terraform is now available in your PATH{Fore.RESET}")
-    
+
     os.system(
         "mkdir -p $HOME/.terraform.d/plugin-cache && echo 'plugin_cache_dir   = \"$HOME/.terraform.d/plugin-cache\"' > ~/.terraformrc"
     )
@@ -298,10 +301,8 @@ def install_pipx():
 def install_uv(version):
     """Install uv package manager."""
     print(f"{Fore.MAGENTA}Installing uv {version}{Fore.RESET}")
-    
-    _exit = os.system(
-        f"curl -LsSf https://astral.sh/uv/{version}/install.sh | sh"
-    )
+
+    _exit = os.system(f"curl -LsSf https://astral.sh/uv/{version}/install.sh | sh")
 
     check_result(result=_exit, tool="uv", version=version)
 
@@ -309,20 +310,18 @@ def install_uv(version):
 def install_thothctl():
     """Install thothctl using pipx with --force flag."""
     print(f"{Fore.MAGENTA}Installing thothctl {Fore.RESET}")
-    
+
     _exit = os.system("pipx install thothctl --force")
-    
+
     check_result(result=_exit, tool="thothctl")
 
 
 def install_kiro_cli():
     """Install Kiro CLI using the official installer."""
     print(f"{Fore.MAGENTA}Installing Kiro CLI {Fore.RESET}")
-    
-    _exit = os.system(
-        "curl -fsSL https://cli.kiro.dev/install | bash"
-    )
-    
+
+    _exit = os.system("curl -fsSL https://cli.kiro.dev/install | bash")
+
     check_result(result=_exit, tool="Kiro CLI")
 
 

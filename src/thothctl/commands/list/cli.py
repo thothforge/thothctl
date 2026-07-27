@@ -6,7 +6,6 @@ from typing import Optional
 import click
 from click.shell_completion import CompletionItem
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +31,6 @@ class ListCLI(click.MultiCommand):
         """
         commands = self.list_commands(ctx)
         return [CompletionItem(cmd) for cmd in commands if cmd.startswith(incomplete)]
-
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:
@@ -69,4 +67,5 @@ def cli(ctx):
     # If no subcommand is specified, default to showing projects
     if ctx.invoked_subcommand is None:
         from ...common.common import print_list_projects
+
         print_list_projects()

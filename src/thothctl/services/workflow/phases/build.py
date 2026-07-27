@@ -1,4 +1,5 @@
 """Build phase: inventory creation, dependency tracking, version management."""
+
 import logging
 import subprocess
 import time
@@ -34,9 +35,7 @@ class BuildPhaseExecutor(PhaseExecutor):
         result.steps.append(self._run_inventory(directory, options))
 
         # Phase passes if no steps failed
-        result.passed = not any(
-            s.status == StepStatus.FAILED for s in result.steps
-        )
+        result.passed = not any(s.status == StepStatus.FAILED for s in result.steps)
         return result
 
     def _run_inventory(self, directory: str, options: Dict) -> StepResult:
@@ -44,7 +43,9 @@ class BuildPhaseExecutor(PhaseExecutor):
         start = time.perf_counter()
         try:
             cmd = [
-                "thothctl", "inventory", "iac",
+                "thothctl",
+                "inventory",
+                "iac",
                 "--check-versions",
                 "--check-provider-versions",
             ]
@@ -63,7 +64,9 @@ class BuildPhaseExecutor(PhaseExecutor):
                 status=status,
                 command="thothctl inventory iac --check-versions --check-provider-versions",
                 duration_seconds=duration,
-                summary="Inventory created with version analysis" if status == StepStatus.PASSED else "Inventory completed with warnings",
+                summary="Inventory created with version analysis"
+                if status == StepStatus.PASSED
+                else "Inventory completed with warnings",
             )
         except subprocess.TimeoutExpired:
             return StepResult(

@@ -1,4 +1,5 @@
 """Set version tools."""
+
 version_tools = """[
   {
     "name": "terraform",

@@ -1,9 +1,8 @@
 """Unit tests for CloudFormation/CDK project type detection and scan routing."""
+
 import json
-from pathlib import Path
 
 import pytest
-
 from thothctl.services.scan.scan_service import ScanService
 from thothctl.services.scan.scanners.checkov import CheckovScanner
 
@@ -30,7 +29,10 @@ class TestDetectProjectType:
         assert scan_service.detect_project_type(str(tmp_path)) == "cloudformation"
 
     def test_cloudformation_json(self, tmp_path, scan_service):
-        template = {"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"Vpc": {"Type": "AWS::EC2::VPC"}}}
+        template = {
+            "AWSTemplateFormatVersion": "2010-09-09",
+            "Resources": {"Vpc": {"Type": "AWS::EC2::VPC"}},
+        }
         (tmp_path / "stack.json").write_text(json.dumps(template))
         assert scan_service.detect_project_type(str(tmp_path)) == "cloudformation"
 
@@ -88,14 +90,18 @@ class TestFindCloudFormationTemplates:
         assert len(result) == 0
 
     def test_ignores_dot_files(self, tmp_path, scan_service):
-        (tmp_path / ".hidden.yaml").write_text("AWSTemplateFormatVersion: '2010-09-09'\n")
+        (tmp_path / ".hidden.yaml").write_text(
+            "AWSTemplateFormatVersion: '2010-09-09'\n"
+        )
         result = scan_service._find_cloudformation_templates(str(tmp_path))
         assert len(result) == 0
 
     def test_ignores_excluded_directories(self, tmp_path, scan_service):
         node_dir = tmp_path / "node_modules" / "pkg"
         node_dir.mkdir(parents=True)
-        (node_dir / "template.yaml").write_text("AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  X:\n    Type: AWS::S3::Bucket\n")
+        (node_dir / "template.yaml").write_text(
+            "AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  X:\n    Type: AWS::S3::Bucket\n"
+        )
         result = scan_service._find_cloudformation_templates(str(tmp_path))
         assert len(result) == 0
 
@@ -109,8 +115,12 @@ class TestFindCloudFormationTemplates:
         assert len(result) == 1
 
     def test_finds_multiple_templates(self, tmp_path, scan_service):
-        (tmp_path / "network.yaml").write_text("Resources:\n  VPC:\n    Type: AWS::EC2::VPC\n")
-        (tmp_path / "database.yml").write_text("Resources:\n  DB:\n    Type: AWS::RDS::DBInstance\n")
+        (tmp_path / "network.yaml").write_text(
+            "Resources:\n  VPC:\n    Type: AWS::EC2::VPC\n"
+        )
+        (tmp_path / "database.yml").write_text(
+            "Resources:\n  DB:\n    Type: AWS::RDS::DBInstance\n"
+        )
         result = scan_service._find_cloudformation_templates(str(tmp_path))
         assert len(result) == 2
 
@@ -161,6 +171,8 @@ class TestCheckovFrameworkOption:
 
     def test_framework_with_compact(self):
         scanner = CheckovScanner()
-        cmd = scanner._build_command("/dir", {"framework": "cloudformation", "compact": True})
+        cmd = scanner._build_command(
+            "/dir", {"framework": "cloudformation", "compact": True}
+        )
         assert "--framework" in cmd
         assert "--compact" in cmd

@@ -1,27 +1,28 @@
 """Get project Data."""
-import hashlib
+
 import logging
+import os
 import re
 import shutil
 import sys
-from pathlib import Path, PurePath
+from pathlib import PurePath
 
 import inquirer
-import os
 from colorama import Fore
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from ....common.common import load_iac_conf, update_info_project
-from .project_defaults import g_project_properties_parse
+from ....common.common import load_iac_conf
 
 logger = logging.getLogger(__name__)
 
 
-def replace_template_placeholders(directory, project_properties, project_name, action="make_project"):
+def replace_template_placeholders(
+    directory, project_properties, project_name, action="make_project"
+):
     """
     Replace template placeholders in project files with values from project properties,
     or convert values to template placeholders when creating templates.
-    
+
     :param directory: Project directory
     :param project_properties: Dictionary of project properties
     :param project_name: Name of the project
@@ -29,93 +30,164 @@ def replace_template_placeholders(directory, project_properties, project_name, a
     :return: None
     """
     excluded_extensions = {
-        "png", "svg", "xml", "toml", ".thothcf.toml", "drawio",
-        "gitignore", ".terraform.lock.hcl", "catalog-info.yaml",
-        "mkdocs.yaml", "pdf", "dot", "gif", "jpg", "jpeg", "exe", "bin",
-        "dll", "so", "dylib", "zip", "tar", "gz", "bz2", "xz", "7z", "rar",
-        ".gitignore", ".pre-commit-config.yaml", ".tflint.hcl", "LICENSE"
+        "png",
+        "svg",
+        "xml",
+        "toml",
+        ".thothcf.toml",
+        "drawio",
+        "gitignore",
+        ".terraform.lock.hcl",
+        "catalog-info.yaml",
+        "mkdocs.yaml",
+        "pdf",
+        "dot",
+        "gif",
+        "jpg",
+        "jpeg",
+        "exe",
+        "bin",
+        "dll",
+        "so",
+        "dylib",
+        "zip",
+        "tar",
+        "gz",
+        "bz2",
+        "xz",
+        "7z",
+        "rar",
+        ".gitignore",
+        ".pre-commit-config.yaml",
+        ".tflint.hcl",
+        "LICENSE",
     }
     not_allowed_folders = {
-        ".git", ".terraform", ".terragrunt-cache", "cdk.out",
-        "catalog", "__pycache__", "node_modules", "node-compile-cache",
-        ".X11-unix", "tmp", ".amazonq"
+        ".git",
+        ".terraform",
+        ".terragrunt-cache",
+        "cdk.out",
+        "catalog",
+        "__pycache__",
+        "node_modules",
+        "node-compile-cache",
+        ".X11-unix",
+        "tmp",
+        ".amazonq",
     }
-    
+
     # Create a mapping for common parameter name variations
     parameter_mapping = {
         "deployment_region": project_properties.get("region", "us-east-2"),
         "project_name": project_properties.get("project", project_name),
-        "project": project_properties.get("project_name", project_properties.get("project", project_name)),
-        "client": project_properties.get("client_name", project_properties.get("client", "")),
-        "backend_dynamodb": project_properties.get("dynamodb_backend", "db-terraform-lock"),
-        "dynamodb_backend": project_properties.get("backend_dynamodb", project_properties.get("dynamodb_backend", "db-terraform-lock")),
+        "project": project_properties.get(
+            "project_name", project_properties.get("project", project_name)
+        ),
+        "client": project_properties.get(
+            "client_name", project_properties.get("client", "")
+        ),
+        "backend_dynamodb": project_properties.get(
+            "dynamodb_backend", "db-terraform-lock"
+        ),
+        "dynamodb_backend": project_properties.get(
+            "backend_dynamodb",
+            project_properties.get("dynamodb_backend", "db-terraform-lock"),
+        ),
         "cloud_provider": "aws",  # Default value
         "project_code": project_name,  # Use project name as default
         "deployment_profile": "default",  # Default value
         "backend_profile": "default",  # Default value
     }
-    
+
     print(f"{Fore.LIGHTBLUE_EX}👷 Replacing template placeholders... {Fore.RESET}")
-    
+
     # Count total files to process
     total_files = 0
     for dirpath, dirnames, filenames in os.walk(directory):
         if any(x in dirpath for x in not_allowed_folders):
             continue
         for f in filenames:
-            if f.split(".")[-1] not in excluded_extensions and f not in excluded_extensions:
+            if (
+                f.split(".")[-1] not in excluded_extensions
+                and f not in excluded_extensions
+            ):
                 total_files += 1
-    
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
     ) as progress:
-        task = progress.add_task(f"Processing {total_files} files...", total=total_files)
-        
+        task = progress.add_task(
+            f"Processing {total_files} files...", total=total_files
+        )
+
         for dirpath, dirnames, filenames in os.walk(directory):
             # Skip not allowed folders
             if any(x in dirpath for x in not_allowed_folders):
                 continue
-                
+
             for f in filenames:
                 # Skip files with binary extensions
                 if f.split(".")[-1] in excluded_extensions or f in excluded_extensions:
                     continue
-                    
+
                 file_path = os.path.join(dirpath, f)
                 try:
                     # Try to detect if file is binary
                     is_binary = False
                     try:
-                        with open(file_path, 'r', encoding='utf-8') as test_file:
+                        with open(file_path, "r", encoding="utf-8") as test_file:
                             test_file.read(1024)  # Try to read a small chunk
                     except UnicodeDecodeError:
                         is_binary = True
-                    
+
                     if is_binary:
                         progress.advance(task)
                         continue
-                    
+
                     # Read file content
-                    with open(file_path, 'r', encoding='utf-8') as file:
+                    with open(file_path, "r", encoding="utf-8") as file:
                         data = file.read()
-                    
+
                     # Track if any replacements were made
                     replaced = False
-                    
+
                     if action == "make_template":
                         # Convert values to placeholders
-                        logger.debug(f"Converting values to template parameters in {os.path.relpath(file_path, directory)}")
-                        
+                        logger.debug(
+                            f"Converting values to template parameters in {os.path.relpath(file_path, directory)}"
+                        )
+
                         # Values that are language keywords or too generic to safely replace globally
                         reserved_words = {
-                            "default", "true", "false", "null", "none", "string", "number",
-                            "bool", "list", "map", "object", "any", "type", "variable",
-                            "resource", "module", "output", "locals", "data", "provider",
-                            "terraform", "required_providers", "backend", "source", "version",
+                            "default",
+                            "true",
+                            "false",
+                            "null",
+                            "none",
+                            "string",
+                            "number",
+                            "bool",
+                            "list",
+                            "map",
+                            "object",
+                            "any",
+                            "type",
+                            "variable",
+                            "resource",
+                            "module",
+                            "output",
+                            "locals",
+                            "data",
+                            "provider",
+                            "terraform",
+                            "required_providers",
+                            "backend",
+                            "source",
+                            "version",
                         }
-                        
+
                         # Sort parameters by value length (longest first) to avoid
                         # partial replacements (e.g., replacing "us-east-1" before
                         # "us-east-1-tfstate" would corrupt the longer value)
@@ -123,18 +195,22 @@ def replace_template_placeholders(directory, project_properties, project_name, a
                         for param, value in parameter_mapping.items():
                             if param not in project_properties:
                                 all_params.append((param, value))
-                        all_params.sort(key=lambda x: len(str(x[1])) if x[1] else 0, reverse=True)
-                        
+                        all_params.sort(
+                            key=lambda x: len(str(x[1])) if x[1] else 0, reverse=True
+                        )
+
                         for param, value in all_params:
                             if not value:
                                 continue
                             str_value = str(value)
-                            
+
                             # Skip values that are language keywords
                             if str_value.lower() in reserved_words:
-                                logger.debug(f"  • Skipping reserved word: {param}={str_value}")
+                                logger.debug(
+                                    f"  • Skipping reserved word: {param}={str_value}"
+                                )
                                 continue
-                            
+
                             # Skip very short values (<=3 chars like "dev", "aws", "qa")
                             # unless they appear in a clear assignment context
                             if len(str_value) <= 3:
@@ -143,62 +219,74 @@ def replace_template_placeholders(directory, project_properties, project_name, a
                                 # Match: ="value" | = "value" | :"value" | : "value"
                                 pattern = re.compile(
                                     r'([=:]\s*)"' + re.escape(str_value) + r'"'
-                                    r'|([=:]\s*)' + re.escape(str_value) + r'(?=\s*$|\s*[,}\]])',
+                                    r"|([=:]\s*)"
+                                    + re.escape(str_value)
+                                    + r"(?=\s*$|\s*[,}\]])",
                                     re.MULTILINE,
                                 )
                                 placeholder = f"#{{{param}}}#"
                                 new_data = pattern.sub(
-                                    lambda m: m.group(0).replace(str_value, placeholder),
+                                    lambda m: m.group(0).replace(
+                                        str_value, placeholder
+                                    ),
                                     data,
                                 )
                             else:
                                 # For longer values, use word-boundary matching to avoid
                                 # replacing substrings (e.g., "dev" inside "developer")
                                 pattern = re.compile(
-                                    r'(?<![a-zA-Z0-9_\-/])' + re.escape(str_value) + r'(?![a-zA-Z0-9_\-/])'
+                                    r"(?<![a-zA-Z0-9_\-/])"
+                                    + re.escape(str_value)
+                                    + r"(?![a-zA-Z0-9_\-/])"
                                 )
                                 placeholder = f"#{{{param}}}#"
                                 new_data = pattern.sub(placeholder, data)
-                            
+
                             if new_data != data:
                                 data = new_data
                                 replaced = True
                                 logger.debug(f"  • {param}: {value} → {placeholder}")
-                                
+
                     else:
                         # Original logic: Replace placeholders with values
                         # Find all placeholders in the format #{parameter}#
-                        placeholders = re.findall(r'#\{([^}]+)\}#', data)
-                        
+                        placeholders = re.findall(r"#\{([^}]+)\}#", data)
+
                         # Replace each found placeholder
                         for param in placeholders:
                             placeholder = f"#{{{param}}}#"
-                            
+
                             # First check if the parameter exists in project_properties
                             if param in project_properties:
                                 value = project_properties[param]
                                 data = data.replace(placeholder, str(value))
                                 replaced = True
-                                logger.debug(f"Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
+                                logger.debug(
+                                    f"Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}"
+                                )
                             # Then check if it's in our mapping
                             elif param in parameter_mapping:
                                 value = parameter_mapping[param]
                                 data = data.replace(placeholder, str(value))
                                 replaced = True
-                                logger.debug(f"Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}")
-                    
+                                logger.debug(
+                                    f"Replaced {placeholder} with {value} in {os.path.relpath(file_path, directory)}"
+                                )
+
                     # Write updated content back to file if replacements were made
                     if replaced:
-                        with open(file_path, 'w', encoding='utf-8') as file:
+                        with open(file_path, "w", encoding="utf-8") as file:
                             file.write(data)
-                    
+
                     progress.advance(task)
-                    
+
                 except Exception as e:
                     # Log errors but continue processing
-                    logger.debug(f"Error processing {os.path.relpath(file_path, directory)}: {str(e)}")
+                    logger.debug(
+                        f"Error processing {os.path.relpath(file_path, directory)}: {str(e)}"
+                    )
                     progress.advance(task)
-    
+
     print(f"{Fore.GREEN}✅ Template placeholders replaced successfully!{Fore.RESET}")
 
 
@@ -271,7 +359,7 @@ def get_project_props(
         "template_input_parameters", {}
     )
     logging.debug(f"Loaded input_parameters: {input_parameters}")
-    
+
     if input_parameters == {}:
         if batch_mode:
             # Use default values in batch mode
@@ -280,18 +368,20 @@ def get_project_props(
             project_properties["owner"] = "thothctl"
             project_properties["client"] = "thothctl"
             project_properties["cloud_provider"] = cloud_provider
-            
+
             if remote_bkd_cloud_provider == "aws":
                 project_properties["backend_region"] = "us-east-2"
                 project_properties["dynamodb_backend"] = "db-terraform-lock"
                 project_properties["backend_bucket"] = f"{project_name}-tfstate"
-            
+
             if cloud_provider == "aws":
                 project_properties["region"] = "us-east-2"
-                
-            print(f"{Fore.MAGENTA}✅ Using default project properties in batch mode: {project_properties} {Fore.RESET}")
+
+            print(
+                f"{Fore.MAGENTA}✅ Using default project properties in batch mode: {project_properties} {Fore.RESET}"
+            )
             return project_properties
-            
+
         try:
             questions = [
                 inquirer.Text(
@@ -391,7 +481,10 @@ def get_project_props(
 
 
 def get_simple_project_props(
-    input_parameters: dict, project_properties: dict, project_name: str, batch_mode: bool = False
+    input_parameters: dict,
+    project_properties: dict,
+    project_name: str,
+    batch_mode: bool = False,
 ) -> dict:
     """
     Get project properties.
@@ -403,39 +496,46 @@ def get_simple_project_props(
     :return:
     """
     print(f"{Fore.GREEN} Write project parameters for {project_name}")
-    logging.debug(f"input_parameters type: {type(input_parameters)}, content: {input_parameters}")
-    
+    logging.debug(
+        f"input_parameters type: {type(input_parameters)}, content: {input_parameters}"
+    )
+
     # Check if input_parameters is empty or not properly formatted
     if not input_parameters:
-        print(f"{Fore.YELLOW}⚠️ No input parameters defined. Using default project properties.{Fore.RESET}")
+        print(
+            f"{Fore.YELLOW}⚠️ No input parameters defined. Using default project properties.{Fore.RESET}"
+        )
         return project_properties
-    
+
     # Check if input_parameters is a simple dictionary of placeholders
     is_simple_dict = all(isinstance(v, str) for v in input_parameters.values())
-    
+
     if batch_mode:
         # In batch mode, use sensible default values
         default_values = {
-            'project': project_name,
-            'environment': 'dev',
-            'owner': 'thothctl',
-            'client': 'thothctl',
-            'backend_region': 'us-east-2',
-            'dynamodb_backend': 'db-terraform-lock',
-            'backend_bucket': f"{project_name}-tfstate",
-            'region': 'us-east-2'
+            "project": project_name,
+            "environment": "dev",
+            "owner": "thothctl",
+            "client": "thothctl",
+            "backend_region": "us-east-2",
+            "dynamodb_backend": "db-terraform-lock",
+            "backend_bucket": f"{project_name}-tfstate",
+            "region": "us-east-2",
         }
-        
+
         for k in input_parameters.keys():
             try:
                 # Use sensible defaults instead of placeholder values
                 if k in default_values:
                     default_value = default_values[k]
-                elif k in ['project', 'project_name']:
+                elif k in ["project", "project_name"]:
                     default_value = project_name
-                elif isinstance(input_parameters[k], dict) and 'template_value' in input_parameters[k]:
+                elif (
+                    isinstance(input_parameters[k], dict)
+                    and "template_value" in input_parameters[k]
+                ):
                     # Use the template's own default value (from .thothcf.toml)
-                    tv = input_parameters[k]['template_value']
+                    tv = input_parameters[k]["template_value"]
                     # Skip if it's a placeholder pattern #{...}#
                     if tv and not tv.startswith("#{"):
                         default_value = tv
@@ -443,19 +543,21 @@ def get_simple_project_props(
                         default_value = f"{project_name}-{k}"
                 else:
                     # For unknown keys, use a sensible default
-                    if 'region' in k:
-                        default_value = 'us-east-2'
-                    elif 'bucket' in k:
+                    if "region" in k:
+                        default_value = "us-east-2"
+                    elif "bucket" in k:
                         default_value = f"{project_name}-{k}"
                     else:
                         default_value = f"{project_name}-{k}"
-                
+
                 project_properties[k] = default_value
                 print(f"  • Using default value for {k}: {default_value}")
             except Exception as e:
-                print(f"{Fore.RED}❌ Error setting default value for {k}: {str(e)}{Fore.RESET}")
+                print(
+                    f"{Fore.RED}❌ Error setting default value for {k}: {str(e)}{Fore.RESET}"
+                )
         return project_properties
-    
+
     # Interactive mode
     for k in input_parameters.keys():
         try:
@@ -473,38 +575,45 @@ def get_simple_project_props(
                     project_properties[k] = answer[k]
             else:
                 # For complex dictionaries with metadata
-                if isinstance(input_parameters[k], dict) and 'description' in input_parameters[k]:
-                    message = f'Input {input_parameters[k]["description"]} '
-                    
+                if (
+                    isinstance(input_parameters[k], dict)
+                    and "description" in input_parameters[k]
+                ):
+                    message = f"Input {input_parameters[k]['description']} "
+
                     # Set up validation if condition exists
                     validate = None
-                    if 'condition' in input_parameters[k]:
+                    if "condition" in input_parameters[k]:
                         pattern = input_parameters[k]["condition"]
-                        validate = lambda _, x, p=pattern: re.match(pattern=p, string=x) is not None
-                    
+
+                        def validate(_, x, p=pattern):
+                            return re.match(pattern=p, string=x) is not None
+
                     # Provide smart defaults based on parameter name
                     # Use template_value from .thothcf.toml if it's a real value (not a placeholder)
                     default = None
-                    tv = input_parameters[k].get('template_value', '')
+                    tv = input_parameters[k].get("template_value", "")
                     if tv and not tv.startswith("#{"):
                         default = tv  # Use the template's own default
-                    
+
                     k_lower = k.lower()
-                    if 'project' in k_lower and 'name' in k_lower:
+                    if "project" in k_lower and "name" in k_lower:
                         default = project_name
-                    elif k_lower in ['project', 'project_name']:
+                    elif k_lower in ["project", "project_name"]:
                         default = project_name
-                    elif k_lower in ['environment', 'env'] and not default:
-                        default = 'dev'
-                    elif 'region' in k_lower and 'backend' not in k_lower and not default:
-                        default = 'us-east-1'
-                    elif 'backend' in k_lower and 'region' in k_lower and not default:
-                        default = 'us-east-2'
-                    elif 'bucket' in k_lower and 'backend' in k_lower and not default:
+                    elif k_lower in ["environment", "env"] and not default:
+                        default = "dev"
+                    elif (
+                        "region" in k_lower and "backend" not in k_lower and not default
+                    ):
+                        default = "us-east-1"
+                    elif "backend" in k_lower and "region" in k_lower and not default:
+                        default = "us-east-2"
+                    elif "bucket" in k_lower and "backend" in k_lower and not default:
                         default = f"{project_name}-tfstate"
-                    elif ('dynamodb' in k_lower or 'lock' in k_lower) and not default:
-                        default = 'db-terraform-lock'
-                    
+                    elif ("dynamodb" in k_lower or "lock" in k_lower) and not default:
+                        default = "db-terraform-lock"
+
                     questions = [
                         inquirer.Text(
                             name=k,
@@ -529,7 +638,7 @@ def get_simple_project_props(
                         project_properties[k] = answer[k]
         except Exception as e:
             print(f"{Fore.RED}❌ Error processing parameter {k}: {str(e)}{Fore.RESET}")
-    
+
     return project_properties
 
 

@@ -1,10 +1,10 @@
 """Context builder - gathers rich IaC context from thothctl internal services."""
+
 import asyncio
 import logging
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class IaCContext:
     """Aggregated IaC context from all thothctl services."""
+
     directory: str = ""
     project_type: str = "unknown"
     # Inventory
@@ -61,7 +62,9 @@ class ContextBuilder:
                     ver_info = f"v{version}"
                     if latest and latest != version:
                         ver_info += f" → v{latest} available"
-                    sections.append(f"  - {m.get('name', 'unknown')} ({ver_info}){status}")
+                    sections.append(
+                        f"  - {m.get('name', 'unknown')} ({ver_info}){status}"
+                    )
             if ctx.providers:
                 sections.append(f"\nProviders ({len(ctx.providers)}):")
                 for p in ctx.providers[:20]:
@@ -76,7 +79,9 @@ class ContextBuilder:
             sections.append("## Security Scan Findings")
             for tool, data in ctx.scan_results.get("tools", {}).items():
                 sections.append(f"### {tool.upper()}")
-                sections.append(f"Passed: {data.get('passed', 0)}, Failed: {data.get('failed', 0)}")
+                sections.append(
+                    f"Passed: {data.get('passed', 0)}, Failed: {data.get('failed', 0)}"
+                )
                 for f in data.get("findings", [])[:30]:
                     sections.append(
                         f"  - [{f.get('severity', '?')}] {f.get('check_id', '')}: "
@@ -88,7 +93,9 @@ class ContextBuilder:
         # Blast radius section
         if ctx.blast_radius:
             sections.append("## Blast Radius / Dependency Analysis")
-            sections.append(f"Total components: {ctx.blast_radius.get('total_components', 0)}")
+            sections.append(
+                f"Total components: {ctx.blast_radius.get('total_components', 0)}"
+            )
             sections.append(f"Risk level: {ctx.blast_radius.get('risk_level', 'N/A')}")
             for comp in ctx.blast_radius.get("affected_components", [])[:15]:
                 sections.append(
@@ -124,15 +131,17 @@ class ContextBuilder:
             for path, content in sorted(ctx.code_files.items(), key=priority):
                 header = f"\n--- {path} ---\n"
                 if used + len(header) + len(content) > char_budget:
-                    remaining = len(ctx.code_files) - len([s for s in sections if s.startswith("--- ")])
-                    sections.append(f"\n[Truncated: additional files omitted]")
+                    len(ctx.code_files) - len(
+                        [s for s in sections if s.startswith("--- ")]
+                    )
+                    sections.append("\n[Truncated: additional files omitted]")
                     break
                 sections.append(header)
                 sections.append(content)
                 used += len(header) + len(content)
 
         if ctx.errors:
-            sections.append(f"\n## Context Collection Notes")
+            sections.append("\n## Context Collection Notes")
             for e in ctx.errors:
                 sections.append(f"  - {e}")
 
@@ -161,24 +170,30 @@ class ContextBuilder:
             # Extract modules
             for group in inventory.get("component_groups", []):
                 for comp in group.get("components", []):
-                    ctx.modules.append({
-                        "name": comp.get("name", ""),
-                        "source": comp.get("source", ""),
-                        "version": comp.get("version", ""),
-                        "latest_version": comp.get("latest_version", ""),
-                        "status": comp.get("status", ""),
-                        "registry": comp.get("registry", ""),
-                    })
+                    ctx.modules.append(
+                        {
+                            "name": comp.get("name", ""),
+                            "source": comp.get("source", ""),
+                            "version": comp.get("version", ""),
+                            "latest_version": comp.get("latest_version", ""),
+                            "status": comp.get("status", ""),
+                            "registry": comp.get("registry", ""),
+                        }
+                    )
                 for prov in group.get("providers", []):
-                    ctx.providers.append({
-                        "name": prov.get("name", ""),
-                        "version": prov.get("version", ""),
-                        "source": prov.get("source", ""),
-                        "latest_version": prov.get("latest_version", ""),
-                        "status": prov.get("status", ""),
-                    })
+                    ctx.providers.append(
+                        {
+                            "name": prov.get("name", ""),
+                            "version": prov.get("version", ""),
+                            "source": prov.get("source", ""),
+                            "latest_version": prov.get("latest_version", ""),
+                            "status": prov.get("status", ""),
+                        }
+                    )
 
-            logger.info(f"Inventory: {len(ctx.modules)} modules, {len(ctx.providers)} providers")
+            logger.info(
+                f"Inventory: {len(ctx.modules)} modules, {len(ctx.providers)} providers"
+            )
         except Exception as e:
             logger.debug(f"Inventory collection failed: {e}")
             ctx.errors.append(f"Inventory unavailable: {e}")
@@ -204,10 +219,14 @@ class ContextBuilder:
             if reports_dir and reports_dir.exists():
                 ctx.scan_results = analyzer.parse_scan_results(str(reports_dir))
                 if ctx.scan_results.get("total_findings", 0) > 0:
-                    logger.info(f"Found existing scan results: {ctx.scan_results['total_findings']} findings")
+                    logger.info(
+                        f"Found existing scan results: {ctx.scan_results['total_findings']} findings"
+                    )
                     return
 
-            ctx.errors.append("No scan reports found. Run 'thothctl scan iac' first for richer AI analysis.")
+            ctx.errors.append(
+                "No scan reports found. Run 'thothctl scan iac' first for richer AI analysis."
+            )
 
         except Exception as e:
             logger.debug(f"Scan results collection failed: {e}")
@@ -217,6 +236,7 @@ class ContextBuilder:
         """Collect tfplan.json summaries for change analysis."""
         try:
             import json as _json
+
             target = Path(ctx.directory)
 
             # Find tfplan.json in target and project-level stacks/tfplan/
@@ -233,9 +253,21 @@ class ContextBuilder:
                     with open(pf) as f:
                         plan = _json.load(f)
                     changes = plan.get("resource_changes", [])
-                    creates = sum(1 for c in changes if "create" in c.get("change", {}).get("actions", []))
-                    updates = sum(1 for c in changes if "update" in c.get("change", {}).get("actions", []))
-                    deletes = sum(1 for c in changes if "delete" in c.get("change", {}).get("actions", []))
+                    creates = sum(
+                        1
+                        for c in changes
+                        if "create" in c.get("change", {}).get("actions", [])
+                    )
+                    updates = sum(
+                        1
+                        for c in changes
+                        if "update" in c.get("change", {}).get("actions", [])
+                    )
+                    deletes = sum(
+                        1
+                        for c in changes
+                        if "delete" in c.get("change", {}).get("actions", [])
+                    )
                     ctx.code_files[f"[PLAN] {pf.name} ({pf.parent.name})"] = (
                         f"# Terraform Plan: {pf.parent.name}\n"
                         f"# Creates: {creates}, Updates: {updates}, Deletes: {deletes}\n"
@@ -258,11 +290,15 @@ class ContextBuilder:
             from ...check.project.blast_radius_service import BlastRadiusService
 
             svc = BlastRadiusService()
-            assessment = svc.assess_blast_radius(directory=ctx.directory, recursive=True)
+            assessment = svc.assess_blast_radius(
+                directory=ctx.directory, recursive=True
+            )
 
             ctx.blast_radius = {
                 "total_components": assessment.total_components,
-                "risk_level": assessment.risk_level.value if hasattr(assessment.risk_level, 'value') else str(assessment.risk_level),
+                "risk_level": assessment.risk_level.value
+                if hasattr(assessment.risk_level, "value")
+                else str(assessment.risk_level),
                 "affected_components": [
                     {
                         "name": c.name,

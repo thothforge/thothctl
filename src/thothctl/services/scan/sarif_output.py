@@ -6,11 +6,11 @@ SARIF (Static Analysis Results Interchange Format) is supported by:
 - VS Code SARIF Viewer extension
 - Many other IDE and CI/CD tools
 """
+
 import json
 import os
 from datetime import datetime, timezone
 from typing import Dict, List
-
 
 SARIF_VERSION = "2.1.0"
 SARIF_SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json"
@@ -47,7 +47,9 @@ def build_sarif(results: dict, directory: str) -> dict:
                     "id": rule_id,
                     "shortDescription": {"text": f.get("title", rule_id)},
                     "defaultConfiguration": {
-                        "level": SEVERITY_TO_LEVEL.get(f.get("severity", "MEDIUM"), "warning")
+                        "level": SEVERITY_TO_LEVEL.get(
+                            f.get("severity", "MEDIUM"), "warning"
+                        )
                     },
                     "properties": {"severity": f.get("severity", "MEDIUM")},
                 }
@@ -63,7 +65,10 @@ def build_sarif(results: dict, directory: str) -> dict:
                 "locations": [
                     {
                         "physicalLocation": {
-                            "artifactLocation": {"uri": file_path, "uriBaseId": "%SRCROOT%"},
+                            "artifactLocation": {
+                                "uri": file_path,
+                                "uriBaseId": "%SRCROOT%",
+                            },
                             "region": {"startLine": line},
                         }
                     }

@@ -20,12 +20,13 @@ THOTHCTL_BANNER_COLORED = """
    🔱 \033[1mAI-Powered Infrastructure Lifecycle CLI\033[0m
 """
 
+
 def get_banner(colored: bool = True) -> str:
     """Get ThothCTL banner.
-    
+
     Args:
         colored: Return colored version if True
-        
+
     Returns:
         ASCII art banner string
     """

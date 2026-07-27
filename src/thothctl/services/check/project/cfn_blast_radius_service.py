@@ -6,13 +6,13 @@ Supports two modes:
 - Live: creates AWS change set (read-only), parses exact changes,
   then deletes the change set (no infrastructure changes)
 """
+
 import json
 import logging
-import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
@@ -22,17 +22,21 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CfnResource:
     """A CloudFormation resource in the topology."""
+
     logical_id: str
     resource_type: str
     action: str = "no-change"  # add, modify, remove, no-change
     dependencies: List[str] = field(default_factory=list)
     dependents: List[str] = field(default_factory=list)
-    scope: List[str] = field(default_factory=list)  # what changed (Properties, Tags, etc.)
+    scope: List[str] = field(
+        default_factory=list
+    )  # what changed (Properties, Tags, etc.)
 
 
 @dataclass
 class CfnBlastRadiusResult:
     """Result of a CloudFormation blast radius assessment."""
+
     mode: str  # "static" or "live"
     stack_name: str
     template_path: str
@@ -53,7 +57,9 @@ class CfnBlastRadiusService:
 
     # ── Static Mode ─────────────────────────────────────────────────────
 
-    def assess_static(self, template_path: str, directory: str = None) -> CfnBlastRadiusResult:
+    def assess_static(
+        self, template_path: str, directory: str = None
+    ) -> CfnBlastRadiusResult:
         """Assess blast radius statically by parsing template and using git diff.
 
         Args:
@@ -91,9 +97,9 @@ class CfnBlastRadiusService:
             resource = CfnResource(
                 logical_id=logical_id,
                 resource_type=config.get("Type", "Unknown"),
-                action="modify" if logical_id in changed_ids else (
-                    "affected" if logical_id in affected_ids else "no-change"
-                ),
+                action="modify"
+                if logical_id in changed_ids
+                else ("affected" if logical_id in affected_ids else "no-change"),
                 dependencies=deps,
                 dependents=dependents,
                 scope=["Properties"] if logical_id in changed_ids else [],
@@ -106,7 +112,9 @@ class CfnBlastRadiusService:
         # Assess risk
         blast_pct = (len(changed_resources) / total * 100) if total > 0 else 0
         risk_level = self._calculate_risk(blast_pct, changed_resources)
-        recommendations = self._generate_recommendations(risk_level, changed_resources, total)
+        recommendations = self._generate_recommendations(
+            risk_level, changed_resources, total
+        )
 
         return CfnBlastRadiusResult(
             mode="static",
@@ -152,18 +160,26 @@ class CfnBlastRadiusService:
         Returns:
             CfnBlastRadiusResult with live change set data
         """
-        self.logger.info(f"Live blast radius assessment: stack={stack_name}, template={template_path}, profile={profile}")
+        self.logger.info(
+            f"Live blast radius assessment: stack={stack_name}, template={template_path}, profile={profile}"
+        )
 
         try:
             import boto3
         except ImportError:
-            self.logger.error("boto3 required for live mode. Install: pip install boto3")
-            return self._empty_result("live", template_path, error="boto3 not installed")
+            self.logger.error(
+                "boto3 required for live mode. Install: pip install boto3"
+            )
+            return self._empty_result(
+                "live", template_path, error="boto3 not installed"
+            )
 
         # Parse template for total resource count and dependency graph
         template = self._parse_template(template_path)
         if not template:
-            return self._empty_result("live", template_path, error="Failed to parse template")
+            return self._empty_result(
+                "live", template_path, error="Failed to parse template"
+            )
 
         resources = template.get("Resources", {})
         total = len(resources)
@@ -197,7 +213,11 @@ class CfnBlastRadiusService:
             if capabilities:
                 create_params["Capabilities"] = capabilities
             else:
-                create_params["Capabilities"] = ["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM", "CAPABILITY_AUTO_EXPAND"]
+                create_params["Capabilities"] = [
+                    "CAPABILITY_IAM",
+                    "CAPABILITY_NAMED_IAM",
+                    "CAPABILITY_AUTO_EXPAND",
+                ]
 
             self.logger.info(f"Creating change set: {change_set_name}")
             client.create_change_set(**create_params)
@@ -210,7 +230,7 @@ class CfnBlastRadiusService:
                     ChangeSetName=change_set_name,
                     WaiterConfig={"Delay": 5, "MaxAttempts": 30},
                 )
-            except Exception as wait_err:
+            except Exception:
                 # Change set may have status FAILED if no changes
                 pass
 
@@ -256,31 +276,45 @@ class CfnBlastRadiusService:
                     changed_ids.add(logical_id)
                     action_map = {"Add": "add", "Modify": "modify", "Remove": "remove"}
                     action = action_map.get(rc.get("Action", ""), "modify")
-                    scope = [d.get("Target", {}).get("Attribute", "") for d in rc.get("Details", [])]
+                    scope = [
+                        d.get("Target", {}).get("Attribute", "")
+                        for d in rc.get("Details", [])
+                    ]
 
                     deps = dep_graph.get(logical_id, [])
                     dependents = [k for k, v in dep_graph.items() if logical_id in v]
 
-                    changed_resources.append(CfnResource(
-                        logical_id=logical_id,
-                        resource_type=rc.get("ResourceType", ""),
-                        action=action,
-                        dependencies=deps,
-                        dependents=dependents,
-                        scope=scope or [rc.get("Scope", ["Properties"])[0] if rc.get("Scope") else "Properties"],
-                    ))
+                    changed_resources.append(
+                        CfnResource(
+                            logical_id=logical_id,
+                            resource_type=rc.get("ResourceType", ""),
+                            action=action,
+                            dependencies=deps,
+                            dependents=dependents,
+                            scope=scope
+                            or [
+                                rc.get("Scope", ["Properties"])[0]
+                                if rc.get("Scope")
+                                else "Properties"
+                            ],
+                        )
+                    )
 
                 # Propagate through deps
                 affected_ids = self._propagate_changes(changed_ids, dep_graph)
                 for lid in affected_ids - changed_ids:
                     if lid in resources:
-                        changed_resources.append(CfnResource(
-                            logical_id=lid,
-                            resource_type=resources[lid].get("Type", ""),
-                            action="affected",
-                            dependencies=dep_graph.get(lid, []),
-                            dependents=[k for k, v in dep_graph.items() if lid in v],
-                        ))
+                        changed_resources.append(
+                            CfnResource(
+                                logical_id=lid,
+                                resource_type=resources[lid].get("Type", ""),
+                                action="affected",
+                                dependencies=dep_graph.get(lid, []),
+                                dependents=[
+                                    k for k, v in dep_graph.items() if lid in v
+                                ],
+                            )
+                        )
 
                 unchanged_resources = [
                     CfnResource(logical_id=lid, resource_type=cfg.get("Type", ""))
@@ -290,7 +324,9 @@ class CfnBlastRadiusService:
 
                 blast_pct = (len(changed_resources) / total * 100) if total > 0 else 0
                 risk_level = self._calculate_risk(blast_pct, changed_resources)
-                recommendations = self._generate_recommendations(risk_level, changed_resources, total)
+                recommendations = self._generate_recommendations(
+                    risk_level, changed_resources, total
+                )
 
                 result = CfnBlastRadiusResult(
                     mode="live",
@@ -309,7 +345,9 @@ class CfnBlastRadiusService:
             error_code = e.response["Error"]["Code"]
             error_msg = e.response["Error"]["Message"]
             self.logger.error(f"AWS error: {error_code} - {error_msg}")
-            return self._empty_result("live", template_path, error=f"{error_code}: {error_msg}")
+            return self._empty_result(
+                "live", template_path, error=f"{error_code}: {error_msg}"
+            )
 
         except Exception as e:
             self.logger.error(f"Live blast radius failed: {e}")
@@ -330,7 +368,9 @@ class CfnBlastRadiusService:
 
     # ── Dependency Graph Builder ────────────────────────────────────────
 
-    def _build_dependency_graph(self, resources: Dict[str, Any]) -> Dict[str, List[str]]:
+    def _build_dependency_graph(
+        self, resources: Dict[str, Any]
+    ) -> Dict[str, List[str]]:
         """Build dependency graph from CloudFormation template Resources.
 
         Extracts dependencies from:
@@ -381,9 +421,14 @@ class CfnBlastRadiusService:
             for sub_key in ("Fn::Sub", "Sub"):
                 if sub_key in obj:
                     sub_val = obj[sub_key]
-                    sub_str = sub_val if isinstance(sub_val, str) else (sub_val[0] if isinstance(sub_val, list) else "")
+                    sub_str = (
+                        sub_val
+                        if isinstance(sub_val, str)
+                        else (sub_val[0] if isinstance(sub_val, list) else "")
+                    )
                     import re
-                    for match in re.findall(r'\$\{([A-Za-z0-9]+)', sub_str):
+
+                    for match in re.findall(r"\$\{([A-Za-z0-9]+)", sub_str):
                         if match in valid_ids:
                             deps.add(match)
             # Recurse into other dict values
@@ -398,7 +443,9 @@ class CfnBlastRadiusService:
 
     # ── Git Diff Change Detection ───────────────────────────────────────
 
-    def _detect_changes_git(self, template_path: str, directory: str = None) -> Set[str]:
+    def _detect_changes_git(
+        self, template_path: str, directory: str = None
+    ) -> Set[str]:
         """Detect which resources changed by comparing with git HEAD."""
         changed_ids: Set[str] = set()
         work_dir = directory or str(Path(template_path).parent)
@@ -407,13 +454,19 @@ class CfnBlastRadiusService:
             # Get git diff for the template file
             result = subprocess.run(
                 ["git", "diff", "HEAD", "--", template_path],
-                capture_output=True, text=True, timeout=10, cwd=work_dir,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=work_dir,
             )
             if result.returncode != 0 or not result.stdout.strip():
                 # No git or no changes — try diff against last commit
                 result = subprocess.run(
                     ["git", "diff", "HEAD~1", "HEAD", "--", template_path],
-                    capture_output=True, text=True, timeout=10, cwd=work_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    cwd=work_dir,
                 )
 
             if result.stdout:
@@ -435,6 +488,7 @@ class CfnBlastRadiusService:
     def _parse_diff_for_resources(self, diff_output: str) -> Set[str]:
         """Parse git diff to identify which logical resource IDs were modified."""
         import re
+
         changed_ids: Set[str] = set()
 
         # Look for resource logical IDs in added/modified lines
@@ -447,16 +501,18 @@ class CfnBlastRadiusService:
                 continue
             if in_resources and line.startswith("+") and not line.startswith("+++"):
                 # Match top-level resource IDs (2-space indent under Resources)
-                match = re.match(r'\+\s{2}([A-Za-z][A-Za-z0-9]*):', line)
+                match = re.match(r"\+\s{2}([A-Za-z][A-Za-z0-9]*):", line)
                 if match:
                     changed_ids.add(match.group(1))
                 # Also match property changes under a resource
-                match = re.match(r'\+\s{4,}(\w+):', line)
+                match = re.match(r"\+\s{4,}(\w+):", line)
                 if match and not line.strip().startswith("#"):
                     pass  # property changed, need context
 
         # Also look for JSON-style changes
-        for match in re.finditer(r'"([A-Za-z][A-Za-z0-9]+)":\s*\{[^}]*"Type":\s*"AWS::', diff_output):
+        for match in re.finditer(
+            r'"([A-Za-z][A-Za-z0-9]+)":\s*\{[^}]*"Type":\s*"AWS::', diff_output
+        ):
             changed_ids.add(match.group(1))
 
         return changed_ids
@@ -467,9 +523,14 @@ class CfnBlastRadiusService:
         """Calculate risk level from blast radius percentage and resource types."""
         # Critical resource types that increase risk
         critical_types = {
-            "AWS::EC2::VPC", "AWS::RDS::DBInstance", "AWS::RDS::DBCluster",
-            "AWS::EKS::Cluster", "AWS::IAM::Role", "AWS::KMS::Key",
-            "AWS::Route53::HostedZone", "AWS::CloudTrail::Trail",
+            "AWS::EC2::VPC",
+            "AWS::RDS::DBInstance",
+            "AWS::RDS::DBCluster",
+            "AWS::EKS::Cluster",
+            "AWS::IAM::Role",
+            "AWS::KMS::Key",
+            "AWS::Route53::HostedZone",
+            "AWS::CloudTrail::Trail",
         }
         has_critical = any(r.resource_type in critical_types for r in changed)
         has_removes = any(r.action == "remove" for r in changed)
@@ -482,37 +543,49 @@ class CfnBlastRadiusService:
             return "MEDIUM"
         return "LOW"
 
-    def _generate_recommendations(self, risk: str, changed: List[CfnResource], total: int) -> List[str]:
+    def _generate_recommendations(
+        self, risk: str, changed: List[CfnResource], total: int
+    ) -> List[str]:
         """Generate ITIL-aligned recommendations."""
         recs = []
         change_count = len(changed)
         if total > 0:
-            recs.append(f"📊 Change scope: {change_count}/{total} resources ({change_count/total*100:.1f}% blast radius)")
+            recs.append(
+                f"📊 Change scope: {change_count}/{total} resources ({change_count / total * 100:.1f}% blast radius)"
+            )
 
         if risk == "CRITICAL":
-            recs.extend([
-                "🚨 CRITICAL: Require Change Advisory Board (CAB) approval",
-                "🚨 Schedule during maintenance window",
-                "🚨 Prepare rollback plan (previous template version in S3/Git)",
-            ])
+            recs.extend(
+                [
+                    "🚨 CRITICAL: Require Change Advisory Board (CAB) approval",
+                    "🚨 Schedule during maintenance window",
+                    "🚨 Prepare rollback plan (previous template version in S3/Git)",
+                ]
+            )
         elif risk == "HIGH":
-            recs.extend([
-                "⚠️ HIGH: Require senior approval before deployment",
-                "⚠️ Deploy to staging first",
-                "⚠️ Monitor CloudWatch alarms closely after deploy",
-            ])
+            recs.extend(
+                [
+                    "⚠️ HIGH: Require senior approval before deployment",
+                    "⚠️ Deploy to staging first",
+                    "⚠️ Monitor CloudWatch alarms closely after deploy",
+                ]
+            )
         elif risk == "MEDIUM":
-            recs.extend([
-                "📋 MEDIUM: Standard change process applies",
-                "📋 Verify in staging environment first",
-            ])
+            recs.extend(
+                [
+                    "📋 MEDIUM: Standard change process applies",
+                    "📋 Verify in staging environment first",
+                ]
+            )
         else:
             recs.append("✅ LOW: Standard deployment approved")
 
         # Specific recommendations based on resource types
         removes = [r for r in changed if r.action == "remove"]
         if removes:
-            recs.append(f"🗑️ {len(removes)} resource(s) will be DELETED — verify data retention")
+            recs.append(
+                f"🗑️ {len(removes)} resource(s) will be DELETED — verify data retention"
+            )
 
         return recs
 
@@ -520,7 +593,7 @@ class CfnBlastRadiusService:
 
     def _parse_template(self, template_path: str) -> Optional[Dict]:
         """Parse a CloudFormation template (YAML or JSON).
-        
+
         Handles CloudFormation intrinsic functions (!Ref, !GetAtt, !Sub, etc.)
         by using a custom YAML loader.
         """
@@ -533,20 +606,38 @@ class CfnBlastRadiusService:
                 loader = yaml.SafeLoader
                 # Add constructors for all CFN intrinsic functions
                 cfn_tags = [
-                    "!Ref", "!GetAtt", "!Sub", "!Join", "!Select", "!Split",
-                    "!If", "!Equals", "!Not", "!And", "!Or", "!Condition",
-                    "!Base64", "!Cidr", "!FindInMap", "!GetAZs",
-                    "!ImportValue", "!Transform",
+                    "!Ref",
+                    "!GetAtt",
+                    "!Sub",
+                    "!Join",
+                    "!Select",
+                    "!Split",
+                    "!If",
+                    "!Equals",
+                    "!Not",
+                    "!And",
+                    "!Or",
+                    "!Condition",
+                    "!Base64",
+                    "!Cidr",
+                    "!FindInMap",
+                    "!GetAZs",
+                    "!ImportValue",
+                    "!Transform",
                 ]
                 for tag in cfn_tags:
                     loader.add_constructor(
                         tag,
-                        lambda loader, node: self._cfn_tag_constructor(loader, node, tag),
+                        lambda loader, node: self._cfn_tag_constructor(
+                            loader, node, tag
+                        ),
                     )
                 # Multi-constructor for any remaining !Tag
                 loader.add_multi_constructor(
                     "!",
-                    lambda loader, suffix, node: self._cfn_tag_constructor(loader, node, f"!{suffix}"),
+                    lambda loader, suffix, node: self._cfn_tag_constructor(
+                        loader, node, f"!{suffix}"
+                    ),
                 )
                 return yaml.load(content, Loader=loader)
         except Exception as e:
@@ -568,7 +659,9 @@ class CfnBlastRadiusService:
             return {tag_name: value}
         return {tag_name: None}
 
-    def _propagate_changes(self, changed_ids: Set[str], dep_graph: Dict[str, List[str]]) -> Set[str]:
+    def _propagate_changes(
+        self, changed_ids: Set[str], dep_graph: Dict[str, List[str]]
+    ) -> Set[str]:
         """Propagate changes through the dependency graph (BFS)."""
         affected = set(changed_ids)
         queue = list(changed_ids)
@@ -583,7 +676,9 @@ class CfnBlastRadiusService:
 
         return affected
 
-    def _empty_result(self, mode: str, template_path: str, error: str = None) -> CfnBlastRadiusResult:
+    def _empty_result(
+        self, mode: str, template_path: str, error: str = None
+    ) -> CfnBlastRadiusResult:
         """Return an empty result for error cases."""
         return CfnBlastRadiusResult(
             mode=mode,

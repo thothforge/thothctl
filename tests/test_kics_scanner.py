@@ -1,10 +1,11 @@
 """Unit tests for KICS scanner."""
 
-import pytest
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
+
+import pytest
 from thothctl.services.scan.scanners.kics import KICSScanner
 from thothctl.services.scan.scanners.scan_reports import ReportScanner
 
@@ -19,58 +20,60 @@ class TestKICSScanner:
         assert scanner.ui is not None
         assert scanner.logger is not None
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_check_docker_available(self, mock_run):
         """Test Docker availability check when Docker is installed."""
         mock_run.return_value = Mock(returncode=0)
         scanner = KICSScanner()
         assert scanner._check_docker() is True
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_check_docker_unavailable(self, mock_run):
         """Test Docker availability check when Docker is not installed."""
         mock_run.side_effect = FileNotFoundError()
         scanner = KICSScanner()
         assert scanner._check_docker() is False
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_scan_without_docker(self, mock_run):
         """Test scan fails gracefully when Docker is not available."""
         mock_run.side_effect = FileNotFoundError()
         scanner = KICSScanner()
-        
-        result = scanner.scan(
-            directory="/tmp/test",
-            reports_dir="/tmp/reports"
-        )
-        
+
+        result = scanner.scan(directory="/tmp/test", reports_dir="/tmp/reports")
+
         assert result["status"] == "FAIL"
         assert "Docker is required" in result["error"]
 
-    @patch('os.path.exists')
-    @patch('os.makedirs')
-    @patch('subprocess.run')
+    @patch("os.path.exists")
+    @patch("os.makedirs")
+    @patch("subprocess.run")
     def test_scan_success(self, mock_run, mock_makedirs, mock_exists):
         """Test successful KICS scan."""
         # Mock Docker check + KICS scan
         mock_run.side_effect = [
             Mock(returncode=0),  # Docker check
-            Mock(returncode=0, stdout="", stderr="")  # KICS scan (exit code 0 = no issues)
+            Mock(
+                returncode=0, stdout="", stderr=""
+            ),  # KICS scan (exit code 0 = no issues)
         ]
         mock_exists.return_value = True
 
         scanner = KICSScanner()
 
-        with patch.object(scanner, '_parse_kics_results') as mock_parse:
+        with patch.object(scanner, "_parse_kics_results") as mock_parse:
             mock_parse.return_value = (
-                {"passed_count": 10, "failed_count": 5, "skipped_count": 0, "error_count": 0, "warning_count": 0},
-                [{"severity": "HIGH", "title": "test", "file": "main.tf", "line": 1}]
+                {
+                    "passed_count": 10,
+                    "failed_count": 5,
+                    "skipped_count": 0,
+                    "error_count": 0,
+                    "warning_count": 0,
+                },
+                [{"severity": "HIGH", "title": "test", "file": "main.tf", "line": 1}],
             )
-            with patch.object(scanner, '_generate_html_report'):
-                result = scanner.scan(
-                    directory="/tmp/test",
-                    reports_dir="/tmp/reports"
-                )
+            with patch.object(scanner, "_generate_html_report"):
+                result = scanner.scan(directory="/tmp/test", reports_dir="/tmp/reports")
 
         assert result["status"] == "COMPLETE"
         assert result["issues_count"] == 5
@@ -84,25 +87,20 @@ class TestKICSReportParser:
         # Create sample KICS report
         kics_report = {
             "total_counter": 10,
-            "severity_counters": {
-                "HIGH": 3,
-                "MEDIUM": 4,
-                "LOW": 2,
-                "INFO": 1
-            },
-            "queries": []
+            "severity_counters": {"HIGH": 3, "MEDIUM": 4, "LOW": 2, "INFO": 1},
+            "queries": [],
         }
-        
+
         # Write to temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(kics_report, f)
             temp_path = f.name
-        
+
         try:
             # Parse report
             scanner = ReportScanner()
             result = scanner.scan_report(temp_path, "kics")
-            
+
             assert result is not None
             assert result.total_tests == 10
             assert result.failures == 9  # HIGH + MEDIUM + LOW (excluding INFO)
@@ -112,20 +110,16 @@ class TestKICSReportParser:
 
     def test_parse_kics_report_no_issues(self):
         """Test parsing KICS report with no issues."""
-        kics_report = {
-            "total_counter": 0,
-            "severity_counters": {},
-            "queries": []
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        kics_report = {"total_counter": 0, "severity_counters": {}, "queries": []}
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(kics_report, f)
             temp_path = f.name
-        
+
         try:
             scanner = ReportScanner()
             result = scanner.scan_report(temp_path, "kics")
-            
+
             assert result is not None
             assert result.total_tests == 0
             assert result.failures == 0

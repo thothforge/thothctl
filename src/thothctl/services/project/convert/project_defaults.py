@@ -3,6 +3,7 @@
 Define default values for project properties.
 These properties are using as default metadata values for templates and projects
 """
+
 g_project_properties_parse = {
     "deployment_region": "us-east-2",
     "dynamodb_table": "db-terraform-lock",

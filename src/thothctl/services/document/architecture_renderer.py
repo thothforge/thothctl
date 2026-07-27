@@ -3,9 +3,9 @@
 Converts InfraTopology into professional AWS architecture diagrams
 with official AWS icons. Generates PNG/SVG via Graphviz.
 """
+
 import logging
 import os
-import tempfile
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -88,19 +88,21 @@ def get_diagrams_class(resource_type: str) -> Optional[tuple]:
     return None
 
 
-def render_architecture_diagram(topology, output_path: str, fmt: str = "png") -> Optional[str]:
+def render_architecture_diagram(
+    topology, output_path: str, fmt: str = "png"
+) -> Optional[str]:
     """Render an InfraTopology as a professional architecture diagram.
-    
+
     Args:
         topology: InfraTopology instance
         output_path: Directory to save the diagram
         fmt: Output format ('png' or 'svg')
-        
+
     Returns:
         Path to the generated diagram file, or None on failure
     """
     try:
-        from diagrams import Diagram, Cluster, Edge
+        from diagrams import Cluster, Diagram, Edge
 
         output_dir = Path(output_path)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -183,11 +185,17 @@ def render_architecture_diagram(topology, output_path: str, fmt: str = "png") ->
                             short_name = node.name.split("[")[0]
                             # Use label (e.g. "Aurora", "VPC") unless name is more descriptive
                             display_name = node.label
-                            if short_name and short_name not in ("this", "default") and short_name != node.label.lower().replace(" ", "_"):
+                            if (
+                                short_name
+                                and short_name not in ("this", "default")
+                                and short_name != node.label.lower().replace(" ", "_")
+                            ):
                                 display_name = f"{node.label}\n({short_name})"
                             action_badge = {
-                                "create": " 🆕", "update": " ✏️",
-                                "delete": " 🗑️", "replace": " ♻️"
+                                "create": " 🆕",
+                                "update": " ✏️",
+                                "delete": " 🗑️",
+                                "replace": " ♻️",
                             }.get(node.action.value, "")
                             label = f"{display_name}{action_badge}"
 
@@ -200,7 +208,11 @@ def render_architecture_diagram(topology, output_path: str, fmt: str = "png") ->
                 for edge in stack.edges:
                     src_obj = node_objects.get(edge.source)
                     tgt_obj = node_objects.get(edge.target)
-                    if src_obj and tgt_obj and (edge.source, edge.target) not in seen_edges:
+                    if (
+                        src_obj
+                        and tgt_obj
+                        and (edge.source, edge.target) not in seen_edges
+                    ):
                         seen_edges.add((edge.source, edge.target))
                         src_obj >> Edge(color="#42a5f5", style="dashed") >> tgt_obj
 
@@ -213,7 +225,9 @@ def render_architecture_diagram(topology, output_path: str, fmt: str = "png") ->
             return None
 
     except ImportError as e:
-        logger.error(f"diagrams package not available: {e}. Install: pip install diagrams")
+        logger.error(
+            f"diagrams package not available: {e}. Install: pip install diagrams"
+        )
         return None
     except Exception as e:
         logger.error(f"Failed to render architecture diagram: {e}")

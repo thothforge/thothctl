@@ -1,9 +1,9 @@
 import datetime
 import logging
+import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-import os
 from json2html import json2html
 
 

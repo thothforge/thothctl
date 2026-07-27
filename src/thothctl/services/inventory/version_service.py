@@ -1,4 +1,5 @@
 """Module for checking and comparing versions of Terraform modules and providers."""
+
 import asyncio
 import logging
 import re
@@ -11,7 +12,6 @@ import aiohttp
 from aiohttp import ClientTimeout
 from colorama import Fore
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 _STALENESS_THRESHOLDS = [
     (365 * 2, "critical", "🔴"),  # > 2 years
-    (365,     "high",     "🟠"),  # > 1 year
-    (180,     "medium",   "🟡"),  # > 6 months
-    (0,       "low",      "🟢"),  # ≤ 6 months
+    (365, "high", "🟠"),  # > 1 year
+    (180, "medium", "🟡"),  # > 6 months
+    (0, "low", "🟢"),  # ≤ 6 months
 ]
 
 
@@ -40,9 +40,19 @@ def classify_staleness(published_at: Optional[str]) -> Dict[str, Any]:
         age = (datetime.now(timezone.utc) - dt).days
         for threshold, risk, icon in _STALENESS_THRESHOLDS:
             if age > threshold:
-                return {"age_days": age, "risk": risk, "icon": icon, "date_short": dt.strftime("%Y-%m-%d")}
+                return {
+                    "age_days": age,
+                    "risk": risk,
+                    "icon": icon,
+                    "date_short": dt.strftime("%Y-%m-%d"),
+                }
         # fallback (should not reach here)
-        return {"age_days": age, "risk": "low", "icon": "🟢", "date_short": dt.strftime("%Y-%m-%d")}
+        return {
+            "age_days": age,
+            "risk": "low",
+            "icon": "🟢",
+            "date_short": dt.strftime("%Y-%m-%d"),
+        }
     except (ValueError, TypeError):
         return {"age_days": None, "risk": "unknown", "icon": "⚪", "date_short": "—"}
 
@@ -120,7 +130,6 @@ class VersionChecker:
         # Handle tfr:/// format (Terraform Registry)
         if resource.startswith("tfr:///"):
             resource = resource.replace("tfr:///", "")
-            
 
         # Handle submodule paths (everything after //)
         return resource.split("//")[0] if "//" in resource else resource
@@ -138,11 +147,11 @@ class VersionChecker:
     async def _build_source_url(self, resource: str) -> str:
         """Build appropriate registry URL for the resource."""
         registry_type = self._determine_registry_type(resource)
-        
+
         # Handle tfr:/// format
         if resource.startswith("tfr:///"):
             resource = resource.replace("tfr:///", "")
-            
+
         base_url = self.REGISTRY_URLS.get(
             registry_type, self.REGISTRY_URLS[RegistryType.TERRAFORM]
         )
@@ -217,11 +226,11 @@ class InventoryVersionManager:
         """Extract version information from component."""
         try:
             version = component.get("version", "None")
-            
+
             # If version is null but we have a source, try to extract version from source
             if version == "Null" and "source" in component:
                 resource = component["source"][0]
-                
+
                 # Check for terragrunt tfr:/// format with ?version=
                 if resource.startswith("tfr:///") and "?version=" in resource:
                     version_match = re.search(r"\?version=([0-9\.]+)", resource)
@@ -230,13 +239,13 @@ class InventoryVersionManager:
                         component["version"] = version
                         logger.info(f"Extracted version {version} from tfr:/// source")
                         return {"version": version}
-                
+
                 # Check for ref= in source
                 if "ref=" in resource:
                     version = [resource.split("ref=")[1]]
                     component["version"] = version
                     logger.info(f"Extracted version {version} from ref")
-                    
+
             return {"version": version}
         except Exception as e:
             logger.error(f"Failed to get component version: {str(e)}")
@@ -269,59 +278,64 @@ class InventoryVersionManager:
     def _is_local_module(self, source: str) -> bool:
         """
         Check if a module source is a local path.
-        
+
         Args:
             source: The source string from the module
-            
+
         Returns:
             True if the source is a local path, False otherwise
         """
         if not source or source == "Null":
             return False
-            
+
         # Check for explicit local path indicators
-        if (source.startswith("./") or 
-            source.startswith("../") or 
-            source.startswith("/")):
+        if (
+            source.startswith("./")
+            or source.startswith("../")
+            or source.startswith("/")
+        ):
             return True
-        
+
         # Check for tfr:/// sources (Terraform registry)
         if source.startswith("tfr:///"):
             return False
-        
+
         # Check for Git sources
-        if (source.startswith("git::") or 
-            source.startswith("git@") or
-            source.endswith(".git") or
-            "github.com" in source or
-            "gitlab.com" in source or
-            "bitbucket.org" in source):
+        if (
+            source.startswith("git::")
+            or source.startswith("git@")
+            or source.endswith(".git")
+            or "github.com" in source
+            or "gitlab.com" in source
+            or "bitbucket.org" in source
+        ):
             return False
-            
+
         # Check for HTTP sources
         if source.startswith("http://") or source.startswith("https://"):
             return False
-        
+
         # Check for registry.terraform.io sources
         if source.startswith("registry.terraform.io/"):
             return False
-        
+
         # Split on // to separate main module from submodule path
         main_source = source.split("//")[0]
-        
+
         # Check if it matches Terraform registry format: namespace/name/provider
         # This pattern allows for 2 or 3 parts separated by slashes
         # Examples: hashicorp/aws, terraform-aws-modules/vpc/aws
-        registry_pattern = r'^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)?$'
+        registry_pattern = r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)?$"
         if re.match(registry_pattern, main_source):
             return False
-        
+
         # If it contains slashes but doesn't match any of the above patterns,
         # it's likely a local path
         if "/" in source:
             return True
-            
+
         return False
+
     async def _process_component(
         self, checker: VersionChecker, component: Dict[str, Any]
     ) -> None:
@@ -338,19 +352,21 @@ class InventoryVersionManager:
             if not resource:
                 self._set_null_values(component)
                 return
-            
+
             # Skip version checking for local modules
             if self._is_local_module(resource):
                 logger.debug(f"Skipping version check for local module: {resource}")
                 self._set_null_values(component)
                 return
-                
+
             # Handle terragrunt tfr:/// format
             if resource.startswith("tfr:///"):
                 # Extract the module path without version
                 resource = re.sub(r"\?version=[0-9\.]+", "", resource)
-            
-            version, source_url, published_at = await checker.get_public_version(resource)
+
+            version, source_url, published_at = await checker.get_public_version(
+                resource
+            )
 
             component.update(
                 {
@@ -374,7 +390,12 @@ class InventoryVersionManager:
     def _set_null_values(component: Dict[str, Any]) -> None:
         """Set null values for component fields."""
         component.update(
-            {"latest_version": "Null", "source_url": "Null", "status": "Null", "published_at": None}
+            {
+                "latest_version": "Null",
+                "source_url": "Null",
+                "status": "Null",
+                "published_at": None,
+            }
         )
 
 
@@ -789,10 +810,10 @@ async def main():
 
 class ProviderVersionChecker:
     """Handles provider version checking against registries."""
-    
+
     TERRAFORM_REGISTRY_BASE = "https://registry.terraform.io/v1/providers"
     OPENTOFU_REGISTRY_BASE = "https://registry.opentofu.org/v1/providers"
-    
+
     def __init__(self, timeout: int = 30):
         """Initialize with configurable timeout."""
         self.timeout = ClientTimeout(total=timeout)
@@ -811,16 +832,16 @@ class ProviderVersionChecker:
     def _parse_provider_source(self, source: str) -> Tuple[str, str, str]:
         """
         Parse provider source to extract registry, namespace, and name.
-        
+
         Args:
             source: Provider source like 'registry.terraform.io/hashicorp/aws'
-            
+
         Returns:
             Tuple of (registry_url, namespace, provider_name)
         """
         # Always prioritize Terraform registry due to better API compatibility
         # OpenTofu registry has issues with content-type headers
-        
+
         if source.startswith("registry.terraform.io/"):
             registry_base = self.TERRAFORM_REGISTRY_BASE
             parts = source.replace("registry.terraform.io/", "").split("/")
@@ -837,75 +858,89 @@ class ProviderVersionChecker:
             # Single name, assume hashicorp namespace
             registry_base = self.TERRAFORM_REGISTRY_BASE
             parts = ["hashicorp", source]
-            
+
         if len(parts) >= 2:
             namespace = parts[0]
             provider_name = parts[1]
         else:
             namespace = "hashicorp"
             provider_name = parts[0] if parts else source
-            
+
         return registry_base, namespace, provider_name
 
-    async def get_latest_provider_version(self, provider_source: str, provider_name: str) -> Tuple[Optional[str], str, Optional[str]]:
+    async def get_latest_provider_version(
+        self, provider_source: str, provider_name: str
+    ) -> Tuple[Optional[str], str, Optional[str]]:
         """
         Get the latest version, source URL, and published_at for a provider.
-        
+
         Returns:
             Tuple of (latest_version, source_url, published_at)
         """
         if not self._session:
             logger.error("Session not initialized. Use async context manager.")
             return None, "Error: Session not initialized", None
-            
+
         try:
-            registry_base, namespace, name = self._parse_provider_source(provider_source)
-            
+            registry_base, namespace, name = self._parse_provider_source(
+                provider_source
+            )
+
             # Use the provider info endpoint to get the latest version directly
             # This is more reliable than the versions endpoint which doesn't sort chronologically
             url = f"{registry_base}/{namespace}/{name}"
-            
+
             logger.debug(f"Checking latest version for {provider_name} at {url}")
-            
+
             # Set proper headers to request JSON
-            headers = {
-                'Accept': 'application/json',
-                'User-Agent': 'ThothCTL/1.0'
-            }
-            
+            headers = {"Accept": "application/json", "User-Agent": "ThothCTL/1.0"}
+
             async with self._session.get(url, headers=headers) as response:
                 if response.status == 200:
                     try:
                         # Try to parse as JSON regardless of content-type header
                         text_content = await response.text()
-                        
+
                         # Check if the content looks like JSON
-                        if text_content.strip().startswith('{') or text_content.strip().startswith('['):
+                        if text_content.strip().startswith(
+                            "{"
+                        ) or text_content.strip().startswith("["):
                             import json
+
                             data = json.loads(text_content)
                         else:
-                            logger.warning(f"Response for {provider_name} doesn't appear to be JSON: {text_content[:100]}...")
+                            logger.warning(
+                                f"Response for {provider_name} doesn't appear to be JSON: {text_content[:100]}..."
+                            )
                             return None, url, None
-                        
+
                         # Get the latest version from the provider info
                         latest_version = data.get("version")
                         published_at = data.get("published_at")
-                        
+
                         if latest_version:
-                            logger.info(f"Latest version for {provider_name}: {latest_version}")
+                            logger.info(
+                                f"Latest version for {provider_name}: {latest_version}"
+                            )
                             return latest_version, url, published_at
                         else:
-                            logger.warning(f"No version found for provider {provider_name}")
+                            logger.warning(
+                                f"No version found for provider {provider_name}"
+                            )
                             return None, url, None
-                            
+
                     except json.JSONDecodeError as e:
-                        logger.error(f"Failed to parse JSON response for {provider_name}: {str(e)}")
+                        logger.error(
+                            f"Failed to parse JSON response for {provider_name}: {str(e)}"
+                        )
                         return None, url, None
-                        
+
                 else:
-                    logger.warning(f"Failed to fetch version for {provider_name}: HTTP {response.status}")
+                    logger.warning(
+                        f"Failed to fetch version for {provider_name}: HTTP {response.status}"
+                    )
                     return None, url, None
-                    
+
         except Exception as e:
             logger.error(f"Error fetching latest version for {provider_name}: {str(e)}")
             return None, f"Error: {str(e)}", None
@@ -913,158 +948,174 @@ class ProviderVersionChecker:
     def _compare_provider_versions(self, current: str, latest: str) -> str:
         """
         Compare current and latest provider versions to determine status.
-        
+
         Args:
             current: Current version string
             latest: Latest version string
-            
+
         Returns:
             Status string: 'current', 'outdated', or 'unknown'
         """
         if not current or not latest:
             return "unknown"
-            
+
         try:
             # Handle 'latest' keyword - if current version is 'latest', it's current
             if current.lower() == "latest":
                 return "current"
-            
+
             # Clean version strings (remove 'v' prefix, constraints, etc.)
-            current_clean = re.sub(r'^[v~>=<!\s]+', '', current).strip()
-            latest_clean = re.sub(r'^[v~>=<!\s]+', '', latest).strip()
-            
+            current_clean = re.sub(r"^[v~>=<!\s]+", "", current).strip()
+            latest_clean = re.sub(r"^[v~>=<!\s]+", "", latest).strip()
+
             # If current version is still 'latest' after cleaning, it's current
             if current_clean.lower() == "latest":
                 return "current"
-            
+
             # Handle version constraints like "~> 5.0", ">= 3.1", etc.
             # Extract the base version number for comparison
-            current_version_match = re.search(r'(\d+(?:\.\d+)*)', current_clean)
-            latest_version_match = re.search(r'(\d+(?:\.\d+)*)', latest_clean)
-            
+            current_version_match = re.search(r"(\d+(?:\.\d+)*)", current_clean)
+            latest_version_match = re.search(r"(\d+(?:\.\d+)*)", latest_clean)
+
             if not current_version_match or not latest_version_match:
                 # If we can't extract version numbers, fall back to string comparison
                 if current_clean == latest_clean:
                     return "current"
                 else:
                     return "unknown"
-            
+
             current_version = current_version_match.group(1)
             latest_version = latest_version_match.group(1)
-            
+
             # Extract version numbers for comparison
-            current_parts = [int(x) for x in current_version.split('.')]
-            latest_parts = [int(x) for x in latest_version.split('.')]
-            
+            current_parts = [int(x) for x in current_version.split(".")]
+            latest_parts = [int(x) for x in latest_version.split(".")]
+
             # Pad shorter version with zeros for comparison
             max_len = max(len(current_parts), len(latest_parts))
             current_padded = current_parts + [0] * (max_len - len(current_parts))
             latest_padded = latest_parts + [0] * (max_len - len(latest_parts))
-            
+
             # Compare versions
             if current_padded == latest_padded:
                 return "current"
             elif current_padded < latest_padded:
                 # For constraint versions like "~> 5.0", check if latest satisfies constraint
-                if current.startswith('~>'):
+                if current.startswith("~>"):
                     # Pessimistic constraint: ~> 5.0 allows 5.x but not 6.x
                     if len(current_parts) >= 2 and len(latest_parts) >= 2:
-                        if (current_parts[0] == latest_parts[0] and 
-                            current_parts[1] <= latest_parts[1]):
+                        if (
+                            current_parts[0] == latest_parts[0]
+                            and current_parts[1] <= latest_parts[1]
+                        ):
                             return "current"
-                elif current.startswith('>='):
+                elif current.startswith(">="):
                     # Greater than or equal: >= 3.1 allows any version >= 3.1
                     return "current"
-                elif current.startswith('>'):
+                elif current.startswith(">"):
                     # Greater than: > 3.0 allows any version > 3.0
                     return "current"
-                
+
                 return "outdated"
             else:
                 return "newer"  # Local version is newer than registry
-                
+
         except Exception as e:
-            logger.warning(f"Error comparing provider versions {current} vs {latest}: {str(e)}")
+            logger.warning(
+                f"Error comparing provider versions {current} vs {latest}: {str(e)}"
+            )
             return "unknown"
 
 
 class ProviderVersionManager:
     """Manager for provider version operations."""
-    
+
     def __init__(self):
         """Initialize provider version manager."""
         self.version_checker = ProviderVersionChecker()
 
-    async def check_provider_versions(self, providers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def check_provider_versions(
+        self, providers: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Check latest versions for providers and update their information.
-        
+
         Args:
             providers: List of provider dictionaries
-            
+
         Returns:
             Updated list of provider dictionaries with version information
         """
         if not providers:
             return providers
-            
+
         logger.info(f"Checking latest versions for {len(providers)} providers...")
-        
+
         async with self.version_checker as checker:
             updated_providers = []
-            
+
             # Process providers concurrently
             tasks = []
             for provider in providers:
                 task = self._check_single_provider_version(checker, provider)
                 tasks.append(task)
-                
+
             # Execute all tasks concurrently
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             # Collect results
             for i, result in enumerate(results):
                 if isinstance(result, dict):
                     updated_providers.append(result)
                 else:
                     # If there was an exception, use original provider
-                    logger.warning(f"Error checking provider {providers[i].get('name', 'unknown')}: {result}")
+                    logger.warning(
+                        f"Error checking provider {providers[i].get('name', 'unknown')}: {result}"
+                    )
                     updated_providers.append(providers[i])
-                    
+
         return updated_providers
 
-    async def _check_single_provider_version(self, checker: ProviderVersionChecker, provider: Dict[str, Any]) -> Dict[str, Any]:
+    async def _check_single_provider_version(
+        self, checker: ProviderVersionChecker, provider: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Check version for a single provider.
-        
+
         Args:
             checker: ProviderVersionChecker instance
             provider: Provider dictionary
-            
+
         Returns:
             Updated provider dictionary
         """
         provider_name = provider.get("name", "")
         provider_source = provider.get("source", "")
         current_version = provider.get("version", "")
-        
+
         # Get latest version and source URL
-        latest_version, source_url, published_at = await checker.get_latest_provider_version(provider_source, provider_name)
-        
+        (
+            latest_version,
+            source_url,
+            published_at,
+        ) = await checker.get_latest_provider_version(provider_source, provider_name)
+
         # Update provider information
         updated_provider = provider.copy()
-        
+
         if latest_version:
             updated_provider["latest_version"] = latest_version
             updated_provider["source_url"] = source_url
             updated_provider["published_at"] = published_at
-            updated_provider["status"] = checker._compare_provider_versions(current_version, latest_version)
+            updated_provider["status"] = checker._compare_provider_versions(
+                current_version, latest_version
+            )
         else:
             updated_provider["latest_version"] = "Unknown"
             updated_provider["source_url"] = source_url if source_url else "Null"
             updated_provider["published_at"] = None
             updated_provider["status"] = "Unknown"
-            
+
         return updated_provider
 
 

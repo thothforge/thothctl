@@ -1,6 +1,7 @@
 """Risk assessor - scores and prioritizes security findings."""
+
 import logging
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,10 @@ class RiskAssessor:
 
         # Top findings sorted by severity
         severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-        sorted_findings = sorted(all_findings, key=lambda x: severity_order.get(x.get("severity", "MEDIUM").upper(), 2))
+        sorted_findings = sorted(
+            all_findings,
+            key=lambda x: severity_order.get(x.get("severity", "MEDIUM").upper(), 2),
+        )
 
         return {
             "risk_score": risk_score,

@@ -1,9 +1,8 @@
 """Unit tests for the VCS-agnostic PR comment publisher."""
 
 import os
-import pytest
 import tempfile
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 
 class TestDetectCIEnvironment:
@@ -14,7 +13,10 @@ class TestDetectCIEnvironment:
             detect_ci_environment,
         )
 
-        with patch.dict(os.environ, {"SYSTEM_TEAMFOUNDATIONCOLLECTIONURI": "https://dev.azure.com/org/"}):
+        with patch.dict(
+            os.environ,
+            {"SYSTEM_TEAMFOUNDATIONCOLLECTIONURI": "https://dev.azure.com/org/"},
+        ):
             assert detect_ci_environment() == "azure_repos"
 
     def test_detects_github_actions(self):
@@ -165,7 +167,9 @@ class TestPublishToPR:
             publish_to_pr,
         )
 
-        result = publish_to_pr(content="md content", vcs_provider="azure_repos", space="my-space")
+        result = publish_to_pr(
+            content="md content", vcs_provider="azure_repos", space="my-space"
+        )
 
         assert result is True
         mock_publish.assert_called_once_with("md content", "my-space")
@@ -233,7 +237,11 @@ class TestResolveAzureCredentials:
             _resolve_azure_credentials,
         )
 
-        space_creds = {"type": "azure_repos", "pat": "space-pat", "organization": "space-org"}
+        space_creds = {
+            "type": "azure_repos",
+            "pat": "space-pat",
+            "organization": "space-org",
+        }
 
         with patch.dict(os.environ, {}, clear=True):
             with patch(
@@ -250,7 +258,11 @@ class TestResolveAzureCredentials:
             _resolve_azure_credentials,
         )
 
-        space_creds = {"type": "azure_repos", "pat": "space-pat", "organization": "space-org"}
+        space_creds = {
+            "type": "azure_repos",
+            "pat": "space-pat",
+            "organization": "space-org",
+        }
         env = {
             "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI": "https://dev.azure.com/env-org/",
             "AZDO_PERSONAL_ACCESS_TOKEN": "env-pat",
@@ -326,7 +338,9 @@ class TestResolveGithubPRNumber:
             _resolve_github_pr_number,
         )
 
-        with patch.dict(os.environ, {"GITHUB_REF": "refs/heads/main", "GITHUB_PR_NUMBER": "55"}):
+        with patch.dict(
+            os.environ, {"GITHUB_REF": "refs/heads/main", "GITHUB_PR_NUMBER": "55"}
+        ):
             assert _resolve_github_pr_number() == "55"
 
     def test_returns_none_when_not_a_pr(self):

@@ -1,4 +1,5 @@
 """Module for managing version updates in terraform modules."""
+
 import json
 import logging
 import re
@@ -11,7 +12,6 @@ import inquirer
 from colorama import Fore, init
 from rich.console import Console
 from rich.table import Table
-
 
 # Initialize colorama for cross-platform color support
 init(autoreset=True)
@@ -71,8 +71,8 @@ class VersionManager:
         for update in updates:
             table.add_row(
                 update["name"],
-                f'[red]{update["version"][0]}[/red]',
-                f'[green]{update["latest_version"]}[/green]',
+                f"[red]{update['version'][0]}[/red]",
+                f"[green]{update['latest_version']}[/green]",
                 update["source"][0],
                 update["file"],
             )
@@ -149,16 +149,16 @@ class VersionManager:
         """Apply version update to file."""
         try:
             content = file_path.read_text()
-            
+
             # Handle terragrunt.hcl files differently
             if self.project_type == "terragrunt" and file_path.name == "terragrunt.hcl":
                 # For terragrunt, we need to update the version in the source attribute
                 if "tfr:///" in content:
                     # Handle tfr:/// format
                     updated_content = re.sub(
-                        rf'source = "tfr:///[^"]+"',
+                        r'source = "tfr:///[^"]+"',
                         lambda m: m.group(0).replace(search, replace),
-                        content
+                        content,
                     )
                 else:
                     # Handle other formats
@@ -166,15 +166,15 @@ class VersionManager:
             else:
                 # Standard terraform file update
                 updated_content = content.replace(search, replace)
-                
+
             file_path.write_text(updated_content)
 
             logging.debug(f"Version {search} changed to {replace} in {file_path}")
-            
+
             # Format the file if it's a terraform file
             if file_path.suffix == ".tf":
                 self._format_terraform_file(file_path)
-                
+
             print(
                 f"{Fore.GREEN}✔️ Version changed successfully. "
                 f"Run plan and apply for checking changes.{Fore.RESET}\n"
@@ -248,27 +248,27 @@ class VersionManager:
     def _format_terraform_file(file_path: Path) -> None:
         """
         Format terraform file using available tools.
-        
+
         Tries to use tofu or terraform fmt, whichever is available.
         If neither is available, logs a warning but doesn't fail.
         """
-        import subprocess
         import shutil
-        
+        import subprocess
+
         # List of tools to try, in order of preference
         format_tools = ["tofu", "terraform"]
-        
+
         for tool in format_tools:
             # Check if the tool is available
             if shutil.which(tool):
                 try:
                     logging.debug(f"Formatting {file_path} using {tool} fmt")
-                    result = subprocess.run(
-                        [tool, "fmt", str(file_path)], 
+                    subprocess.run(
+                        [tool, "fmt", str(file_path)],
                         check=True,
                         capture_output=True,
                         text=True,
-                        timeout=30  # Add timeout to prevent hanging
+                        timeout=30,  # Add timeout to prevent hanging
                     )
                     logging.debug(f"Successfully formatted {file_path} with {tool}")
                     return
@@ -281,10 +281,12 @@ class VersionManager:
                     # Try the next tool
                     continue
                 except Exception as e:
-                    logging.warning(f"Unexpected error formatting {file_path} with {tool}: {e}")
+                    logging.warning(
+                        f"Unexpected error formatting {file_path} with {tool}: {e}"
+                    )
                     # Try the next tool
                     continue
-        
+
         # If we get here, no tool worked
         logging.warning(
             f"Could not format {file_path}: neither 'tofu' nor 'terraform' is available or working. "
@@ -295,12 +297,12 @@ class VersionManager:
         """Get version strings for update or restore."""
         current_version = file_details["version"][0]
         new_version = file_details["latest_version"]
-        
+
         # For terragrunt files, we need to handle the version differently
         if self.project_type == "terragrunt" and "tfr:///" in file_details["source"][0]:
             current_pattern = f"?version={current_version}"
             new_pattern = f"?version={new_version}"
-            
+
             return (
                 (new_pattern, current_pattern)
                 if action == UpdateAction.RESTORE.value
@@ -367,7 +369,9 @@ def summary_inventory(
     inv_summary["Outdated"] = outdated
     print(inv_summary)
 
-    inv_summary["UpdateStatus"] = f"{str((updated / total) * 100) if total > 0 else '0'} %"
+    inv_summary[
+        "UpdateStatus"
+    ] = f"{str((updated / total) * 100) if total > 0 else '0'} %"
 
     return inv_summary, list_outdated
 

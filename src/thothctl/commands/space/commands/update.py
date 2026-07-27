@@ -1,4 +1,5 @@
 """Update an existing space configuration."""
+
 from datetime import datetime
 from pathlib import Path
 
@@ -6,8 +7,8 @@ import click
 import toml
 
 from ....common.common import list_spaces
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 
 
 class UpdateSpaceCommand(ClickCommand):
@@ -17,15 +18,43 @@ class UpdateSpaceCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
 
-    def validate(self, space_name: str, description, vcs_provider, orchestration_tool, terraform_registry, policy_repo, **kwargs) -> bool:
+    def validate(
+        self,
+        space_name: str,
+        description,
+        vcs_provider,
+        orchestration_tool,
+        terraform_registry,
+        policy_repo,
+        **kwargs,
+    ) -> bool:
         spaces = list_spaces()
         if space_name not in spaces:
             raise ValueError(f"Space '{space_name}' does not exist")
-        if not any([description, vcs_provider, orchestration_tool, terraform_registry, policy_repo]):
-            raise ValueError("Provide at least one option to update (--description, --vcs-provider, --orchestration-tool, --terraform-registry, --policy-repo)")
+        if not any(
+            [
+                description,
+                vcs_provider,
+                orchestration_tool,
+                terraform_registry,
+                policy_repo,
+            ]
+        ):
+            raise ValueError(
+                "Provide at least one option to update (--description, --vcs-provider, --orchestration-tool, --terraform-registry, --policy-repo)"
+            )
         return True
 
-    def _execute(self, space_name: str, description, vcs_provider, orchestration_tool, terraform_registry, policy_repo, **kwargs) -> None:
+    def _execute(
+        self,
+        space_name: str,
+        description,
+        vcs_provider,
+        orchestration_tool,
+        terraform_registry,
+        policy_repo,
+        **kwargs,
+    ) -> None:
         config_path = Path.home() / ".thothcf" / "spaces.toml"
         with open(config_path, mode="rt", encoding="utf-8") as fp:
             config = toml.load(fp)
@@ -51,28 +80,36 @@ class UpdateSpaceCommand(ClickCommand):
         self.ui.print_success(f"🔧 Space '{space_name}' updated successfully")
 
 
-cli = UpdateSpaceCommand.as_click_command(help="Update an existing space's configuration")(
+cli = UpdateSpaceCommand.as_click_command(
+    help="Update an existing space's configuration"
+)(
     click.argument("space_name"),
-    click.option("-d", "--description", help="New description for the space", default=None),
     click.option(
-        "-vcs", "--vcs-provider",
+        "-d", "--description", help="New description for the space", default=None
+    ),
+    click.option(
+        "-vcs",
+        "--vcs-provider",
         type=click.Choice(["azure_repos", "github", "gitlab"], case_sensitive=True),
         help="Version Control System provider",
         default=None,
     ),
     click.option(
-        "-ot", "--orchestration-tool",
+        "-ot",
+        "--orchestration-tool",
         type=click.Choice(["terragrunt", "terramate", "none"], case_sensitive=True),
         help="Default orchestration tool",
         default=None,
     ),
     click.option(
-        "-tr", "--terraform-registry",
+        "-tr",
+        "--terraform-registry",
         help="Terraform registry URL",
         default=None,
     ),
     click.option(
-        "-pr", "--policy-repo",
+        "-pr",
+        "--policy-repo",
         help="Git repository URL or local path for organization-level IaC policies",
         default=None,
     ),

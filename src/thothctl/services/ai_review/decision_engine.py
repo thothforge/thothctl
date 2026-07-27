@@ -1,10 +1,11 @@
 """Core decision engine — determines approve/reject/request-changes/comment."""
+
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-from .config.decision_rules import DecisionRules, BLOCKING_PATTERNS
+from .config.decision_rules import DecisionRules
 from .safety.safety_guard import SafetyGuard
 from .tracing import span
 
@@ -37,11 +38,17 @@ class DecisionEngine:
         self.rules = rules or DecisionRules.load()
         self.safety = SafetyGuard(self.rules.safety)
 
-    def evaluate(self, analysis: Dict[str, Any],
-                 repository: str = "", pr_id: str = "",
-                 pr_context: Optional[Dict] = None) -> DecisionResult:
+    def evaluate(
+        self,
+        analysis: Dict[str, Any],
+        repository: str = "",
+        pr_id: str = "",
+        pr_context: Optional[Dict] = None,
+    ) -> DecisionResult:
         """Evaluate analysis results and return a decision."""
-        with span("decision_engine.evaluate", {"repository": repository, "pr_id": pr_id}) as s:
+        with span(
+            "decision_engine.evaluate", {"repository": repository, "pr_id": pr_id}
+        ) as s:
             summary = analysis.get("summary", {})
             risk_score = float(analysis.get("risk_score", 50))
             findings = analysis.get("findings", [])
@@ -52,17 +59,30 @@ class DecisionEngine:
             medium = summary.get("medium", 0)
             low = summary.get("low", 0)
 
-            findings_summary = {"critical": critical, "high": high, "medium": medium, "low": low}
+            findings_summary = {
+                "critical": critical,
+                "high": high,
+                "medium": medium,
+                "low": low,
+            }
 
             has_blocking = self._has_blocking_patterns(findings)
 
             decision, confidence, reason = self._compute_decision(
-                risk_score, critical, high, medium, has_blocking, findings,
+                risk_score,
+                critical,
+                high,
+                medium,
+                has_blocking,
+                findings,
             )
 
             if decision != Decision.COMMENT and repository:
                 allowed, safety_reason = self.safety.can_take_action(
-                    decision.value, confidence, repository, pr_context,
+                    decision.value,
+                    confidence,
+                    repository,
+                    pr_context,
                 )
                 if not allowed:
                     s.set_attribute("decision", "comment")
@@ -82,8 +102,11 @@ class DecisionEngine:
 
             if decision != Decision.COMMENT and repository:
                 self.safety.record_action(
-                    action=decision.value, repository=repository,
-                    pr_id=pr_id, confidence=confidence, reason=reason,
+                    action=decision.value,
+                    repository=repository,
+                    pr_id=pr_id,
+                    confidence=confidence,
+                    reason=reason,
                 )
 
             s.set_attribute("decision", decision.value)
@@ -100,20 +123,30 @@ class DecisionEngine:
                 recommendations=recommendations,
             )
 
-    def _compute_decision(self, risk_score: float, critical: int, high: int,
-                          medium: int, has_blocking: bool,
-                          findings: List[Dict]) -> tuple:
+    def _compute_decision(
+        self,
+        risk_score: float,
+        critical: int,
+        high: int,
+        medium: int,
+        has_blocking: bool,
+        findings: List[Dict],
+    ) -> tuple:
         """Pure decision logic without safety checks."""
         r = self.rules
 
         # Auto-reject
-        if (risk_score >= r.reject.risk_score_min
-                or critical >= r.reject.critical_issues_min
-                or has_blocking):
+        if (
+            risk_score >= r.reject.risk_score_min
+            or critical >= r.reject.critical_issues_min
+            or has_blocking
+        ):
             confidence = min(0.99, 0.80 + (risk_score / 500) + (critical * 0.05))
             reasons = []
             if risk_score >= r.reject.risk_score_min:
-                reasons.append(f"risk score {risk_score:.0f} ≥ {r.reject.risk_score_min}")
+                reasons.append(
+                    f"risk score {risk_score:.0f} ≥ {r.reject.risk_score_min}"
+                )
             if critical >= r.reject.critical_issues_min:
                 reasons.append(f"{critical} critical issue(s)")
             if has_blocking:
@@ -121,12 +154,20 @@ class DecisionEngine:
             return Decision.REJECT, confidence, "; ".join(reasons)
 
         # Auto-approve
-        if (risk_score <= r.approve.risk_score_max
-                and critical <= r.approve.critical_issues_max
-                and high <= r.approve.high_issues_max
-                and medium <= r.approve.medium_issues_max):
-            confidence = min(0.99, 0.85 + ((r.approve.risk_score_max - risk_score) / 200))
-            return Decision.APPROVE, confidence, f"risk score {risk_score:.0f} ≤ {r.approve.risk_score_max}, no critical/high issues"
+        if (
+            risk_score <= r.approve.risk_score_max
+            and critical <= r.approve.critical_issues_max
+            and high <= r.approve.high_issues_max
+            and medium <= r.approve.medium_issues_max
+        ):
+            confidence = min(
+                0.99, 0.85 + ((r.approve.risk_score_max - risk_score) / 200)
+            )
+            return (
+                Decision.APPROVE,
+                confidence,
+                f"risk score {risk_score:.0f} ≤ {r.approve.risk_score_max}, no critical/high issues",
+            )
 
         # Request changes (middle ground)
         total_fixable = sum(1 for f in findings if f.get("remediation"))
@@ -134,8 +175,10 @@ class DecisionEngine:
         fixable_ratio = total_fixable / total
 
         confidence = min(0.95, 0.75 + (fixable_ratio * 0.15))
-        reason = (f"risk score {risk_score:.0f} (range {r.approve.risk_score_max+1}-{r.reject.risk_score_min-1}), "
-                  f"{high} high, {medium} medium, {fixable_ratio:.0%} fixable")
+        reason = (
+            f"risk score {risk_score:.0f} (range {r.approve.risk_score_max + 1}-{r.reject.risk_score_min - 1}), "
+            f"{high} high, {medium} medium, {fixable_ratio:.0%} fixable"
+        )
         return Decision.REQUEST_CHANGES, confidence, reason
 
     def _has_blocking_patterns(self, findings: List[Dict]) -> bool:
@@ -143,6 +186,9 @@ class DecisionEngine:
         for f in findings:
             title = (f.get("title", "") + " " + f.get("id", "")).lower()
             for pattern in self.rules.blocking_patterns:
-                if pattern.replace("_", " ") in title or pattern.replace("_", "") in title:
+                if (
+                    pattern.replace("_", " ") in title
+                    or pattern.replace("_", "") in title
+                ):
                     return True
         return False

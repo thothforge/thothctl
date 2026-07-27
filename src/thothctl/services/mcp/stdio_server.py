@@ -20,83 +20,114 @@ async def serve_amazon_q():
             Tool(
                 name="thothctl_version",
                 description="Get ThothCTL version information",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
-            
             # Check commands
             Tool(
                 name="thothctl_check_environment",
                 description="Check if development environment tools are installed",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_check_iac",
                 description="Check Infrastructure as Code artifacts like tfplan",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_check_project",
                 description="Check project structure and configuration",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
-            
             # Document commands
             Tool(
                 name="thothctl_document_iac",
                 description="Generate documentation for Infrastructure as Code",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
-            
             # Generate commands
             Tool(
                 name="thothctl_generate_stacks",
                 description="Generate infrastructure stacks based on configuration",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_generate_iac",
                 description="Generate governed Infrastructure as Code from natural language intent. "
-                            "Uses organizational rules from .thothcf.toml and validates output with Checkov/OPA. "
-                            "Supports self-correction: if validation fails, the AI fixes violations automatically.",
+                "Uses organizational rules from .thothcf.toml and validates output with Checkov/OPA. "
+                "Supports self-correction: if validation fails, the AI fixes violations automatically.",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "intent": {
                             "type": "string",
-                            "description": "Natural language description of the infrastructure to generate"
+                            "description": "Natural language description of the infrastructure to generate",
                         },
                         "project_type": {
                             "type": "string",
                             "description": "Target IaC project type",
                             "default": "auto",
-                            "enum": ["auto", "terraform", "terraform-terragrunt", "terragrunt", "cloudformation", "cdkv2"]
+                            "enum": [
+                                "auto",
+                                "terraform",
+                                "terraform-terragrunt",
+                                "terragrunt",
+                                "cloudformation",
+                                "cdkv2",
+                            ],
                         },
                         "self_correct": {
                             "type": "boolean",
                             "default": True,
-                            "description": "Re-prompt AI to fix validation violations (max 3 iterations)"
+                            "description": "Re-prompt AI to fix validation violations (max 3 iterations)",
                         },
                         "apply": {
                             "type": "boolean",
                             "default": False,
-                            "description": "Write files to disk (False = dry-run, returns file contents only)"
+                            "description": "Write files to disk (False = dry-run, returns file contents only)",
                         },
                         "skip_validation": {
                             "type": "boolean",
                             "default": False,
-                            "description": "Skip Checkov/OPA validation"
-                        }
+                            "description": "Skip Checkov/OPA validation",
+                        },
                     },
                     "required": ["intent"],
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-            
             # Init commands
             Tool(
                 name="thothctl_init_env",
                 description="Initialize a development environment with required tools",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_init_project",
@@ -104,14 +135,37 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "project_name": {"type": "string", "description": "Name of the project"},
-                        "project_type": {"type": "string", "description": "Type of project", "default": "terraform-terragrunt", "enum": ["terraform", "terraform-terragrunt", "tofu", "cdkv2", "terraform_module", "terragrunt", "custom"]},
-                        "space": {"type": "string", "description": "Space name (optional)"},
-                        "language": {"type": "string", "description": "CDK language (only for cdkv2)", "enum": ["typescript", "python", "java", "csharp", "go"]}
+                        "project_name": {
+                            "type": "string",
+                            "description": "Name of the project",
+                        },
+                        "project_type": {
+                            "type": "string",
+                            "description": "Type of project",
+                            "default": "terraform-terragrunt",
+                            "enum": [
+                                "terraform",
+                                "terraform-terragrunt",
+                                "tofu",
+                                "cdkv2",
+                                "terraform_module",
+                                "terragrunt",
+                                "custom",
+                            ],
+                        },
+                        "space": {
+                            "type": "string",
+                            "description": "Space name (optional)",
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "CDK language (only for cdkv2)",
+                            "enum": ["typescript", "python", "java", "csharp", "go"],
+                        },
                     },
                     "required": ["project_name"],
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_init_space",
@@ -119,13 +173,15 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "space_name": {"type": "string", "description": "Name of the space"}
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of the space",
+                        }
                     },
                     "required": ["space_name"],
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-            
             # Inventory commands
             Tool(
                 name="thothctl_inventory_iac",
@@ -133,35 +189,56 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "check_versions": {"type": "boolean", "description": "Check for latest versions", "default": False},
-                        "project_name": {"type": "string", "description": "Project name for report"}
+                        "check_versions": {
+                            "type": "boolean",
+                            "description": "Check for latest versions",
+                            "default": False,
+                        },
+                        "project_name": {
+                            "type": "string",
+                            "description": "Project name for report",
+                        },
                     },
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-            
             # List commands
             Tool(
                 name="thothctl_list_projects",
                 description="List all projects managed by thothctl",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_list_spaces",
                 description="List all spaces managed by thothctl",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_list_templates",
                 description="List available templates from VCS providers",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
-            
             # Project commands
             Tool(
                 name="thothctl_project_cleanup",
                 description="Clean up residual files and directories from project",
-                inputSchema={"type": "object", "properties": {}, "additionalProperties": False}
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_project_convert",
@@ -169,12 +246,14 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "target_type": {"type": "string", "description": "Target conversion type"}
+                        "target_type": {
+                            "type": "string",
+                            "description": "Target conversion type",
+                        }
                     },
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-            
             # Remove commands
             Tool(
                 name="thothctl_remove_project",
@@ -182,11 +261,14 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "project_name": {"type": "string", "description": "Name of project to remove"}
+                        "project_name": {
+                            "type": "string",
+                            "description": "Name of project to remove",
+                        }
                     },
                     "required": ["project_name"],
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
             Tool(
                 name="thothctl_remove_space",
@@ -194,13 +276,15 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "space_name": {"type": "string", "description": "Name of space to remove"}
+                        "space_name": {
+                            "type": "string",
+                            "description": "Name of space to remove",
+                        }
                     },
                     "required": ["space_name"],
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-            
             # Scan commands
             Tool(
                 name="thothctl_scan_iac",
@@ -208,13 +292,22 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "tools": {"type": "array", "items": {"type": "string"}, "description": "Security tools to use", "default": ["checkov"]},
-                        "enforcement": {"type": "string", "enum": ["soft", "hard"], "description": "soft=report only, hard=exit 1 on violations", "default": "soft"}
+                        "tools": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Security tools to use",
+                            "default": ["checkov"],
+                        },
+                        "enforcement": {
+                            "type": "string",
+                            "enum": ["soft", "hard"],
+                            "description": "soft=report only, hard=exit 1 on violations",
+                            "default": "soft",
+                        },
                     },
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-
             # Cost analysis
             Tool(
                 name="thothctl_cost_analysis",
@@ -222,12 +315,15 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "recursive": {"type": "boolean", "description": "Search recursively for plan files", "default": False}
+                        "recursive": {
+                            "type": "boolean",
+                            "description": "Search recursively for plan files",
+                            "default": False,
+                        }
                     },
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-
             # Drift detection
             Tool(
                 name="thothctl_drift_detection",
@@ -235,16 +331,29 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "recursive": {"type": "boolean", "description": "Search recursively", "default": False},
-                        "tftool": {"type": "string", "enum": ["terraform", "tofu"], "default": "tofu"},
-                        "filter_tags": {"type": "string", "description": "Tag filter (e.g. 'env=prod,team=platform')"},
-                        "ai_provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
-                        "ai_model": {"type": "string"}
+                        "recursive": {
+                            "type": "boolean",
+                            "description": "Search recursively",
+                            "default": False,
+                        },
+                        "tftool": {
+                            "type": "string",
+                            "enum": ["terraform", "tofu"],
+                            "default": "tofu",
+                        },
+                        "filter_tags": {
+                            "type": "string",
+                            "description": "Tag filter (e.g. 'env=prod,team=platform')",
+                        },
+                        "ai_provider": {
+                            "type": "string",
+                            "enum": ["openai", "bedrock", "azure", "ollama"],
+                        },
+                        "ai_model": {"type": "string"},
                     },
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-
             # AI review
             Tool(
                 name="thothctl_ai_review",
@@ -252,15 +361,30 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "provider": {"type": "string", "enum": ["openai", "bedrock", "azure", "ollama"]},
-                        "mode": {"type": "string", "enum": ["analyze", "decide", "improve", "orchestrate"], "default": "analyze"},
-                        "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
-                        "agents": {"type": "array", "items": {"type": "string", "enum": ["security", "architecture", "fix", "decision"]}}
+                        "provider": {
+                            "type": "string",
+                            "enum": ["openai", "bedrock", "azure", "ollama"],
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["analyze", "decide", "improve", "orchestrate"],
+                            "default": "analyze",
+                        },
+                        "severity": {
+                            "type": "string",
+                            "enum": ["critical", "high", "medium", "low"],
+                        },
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["security", "architecture", "fix", "decision"],
+                            },
+                        },
                     },
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-
             # Upgrade
             Tool(
                 name="thothctl_upgrade",
@@ -268,12 +392,15 @@ async def serve_amazon_q():
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "check_only": {"type": "boolean", "description": "Only check for updates without installing", "default": False}
+                        "check_only": {
+                            "type": "boolean",
+                            "description": "Only check for updates without installing",
+                            "default": False,
+                        }
                     },
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ),
-
             # Workflow
             Tool(
                 name="thothctl_workflow_devsecops",
@@ -283,29 +410,39 @@ async def serve_amazon_q():
                     "properties": {
                         "phase": {
                             "type": "string",
-                            "enum": ["plan", "develop", "build", "test", "secure", "deploy", "monitor", "pre-deploy", "all"],
+                            "enum": [
+                                "plan",
+                                "develop",
+                                "build",
+                                "test",
+                                "secure",
+                                "deploy",
+                                "monitor",
+                                "pre-deploy",
+                                "all",
+                            ],
                             "default": "all",
-                            "description": "SDLC phase to execute"
+                            "description": "SDLC phase to execute",
                         },
                         "enforcement": {
                             "type": "string",
                             "enum": ["soft", "hard"],
                             "default": "soft",
-                            "description": "soft=report only, hard=exit 1 on violations"
+                            "description": "soft=report only, hard=exit 1 on violations",
                         },
                         "policy_dir": {
                             "type": "string",
-                            "description": "OPA policy directory or Git URL for secure phase"
+                            "description": "OPA policy directory or Git URL for secure phase",
                         },
                         "tools": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Override scan tools for secure phase (e.g. ['checkov', 'trivy', 'opa'])"
-                        }
+                            "description": "Override scan tools for secure phase (e.g. ['checkov', 'trivy', 'opa'])",
+                        },
                     },
-                    "additionalProperties": False
-                }
-            )
+                    "additionalProperties": False,
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -314,7 +451,7 @@ async def serve_amazon_q():
             # Build command based on tool name
             if name == "thothctl_version":
                 cmd = ["thothctl", "--version"]
-            
+
             # Check commands
             elif name == "thothctl_check_environment":
                 cmd = ["thothctl", "check", "environment"]
@@ -322,11 +459,11 @@ async def serve_amazon_q():
                 cmd = ["thothctl", "check", "iac"]
             elif name == "thothctl_check_project":
                 cmd = ["thothctl", "check", "project"]
-            
+
             # Document commands
             elif name == "thothctl_document_iac":
                 cmd = ["thothctl", "document", "iac"]
-            
+
             # Generate commands
             elif name == "thothctl_generate_stacks":
                 cmd = ["thothctl", "generate", "stacks"]
@@ -342,19 +479,31 @@ async def serve_amazon_q():
                     cmd.append("--skip-validation")
                 if not arguments.get("self_correct", True):
                     cmd.append("--no-self-correct")
-            
+
             # Init commands
             elif name == "thothctl_init_env":
                 cmd = ["thothctl", "init", "env"]
             elif name == "thothctl_init_project":
-                cmd = ["thothctl", "init", "project", "--project-name", arguments["project_name"]]
+                cmd = [
+                    "thothctl",
+                    "init",
+                    "project",
+                    "--project-name",
+                    arguments["project_name"],
+                ]
                 project_type = arguments.get("project_type", "terraform-terragrunt")
                 cmd.extend(["--project-type", project_type])
                 if arguments.get("space"):
                     cmd.extend(["--space", arguments["space"]])
             elif name == "thothctl_init_space":
-                cmd = ["thothctl", "init", "space", "--space-name", arguments["space_name"]]
-            
+                cmd = [
+                    "thothctl",
+                    "init",
+                    "space",
+                    "--space-name",
+                    arguments["space_name"],
+                ]
+
             # Inventory commands
             elif name == "thothctl_inventory_iac":
                 cmd = ["thothctl", "inventory", "iac"]
@@ -362,7 +511,7 @@ async def serve_amazon_q():
                     cmd.append("--check-versions")
                 if arguments.get("project_name"):
                     cmd.extend(["--project-name", arguments["project_name"]])
-            
+
             # List commands
             elif name == "thothctl_list_projects":
                 cmd = ["thothctl", "list", "projects"]
@@ -370,7 +519,7 @@ async def serve_amazon_q():
                 cmd = ["thothctl", "list", "spaces"]
             elif name == "thothctl_list_templates":
                 cmd = ["thothctl", "list", "templates"]
-            
+
             # Project commands
             elif name == "thothctl_project_cleanup":
                 cmd = ["thothctl", "project", "cleanup"]
@@ -378,13 +527,25 @@ async def serve_amazon_q():
                 cmd = ["thothctl", "project", "convert"]
                 if arguments.get("target_type"):
                     cmd.extend(["--target-type", arguments["target_type"]])
-            
+
             # Remove commands
             elif name == "thothctl_remove_project":
-                cmd = ["thothctl", "remove", "project", "--project-name", arguments["project_name"]]
+                cmd = [
+                    "thothctl",
+                    "remove",
+                    "project",
+                    "--project-name",
+                    arguments["project_name"],
+                ]
             elif name == "thothctl_remove_space":
-                cmd = ["thothctl", "remove", "space", "--space-name", arguments["space_name"]]
-            
+                cmd = [
+                    "thothctl",
+                    "remove",
+                    "space",
+                    "--space-name",
+                    arguments["space_name"],
+                ]
+
             # Scan commands
             elif name == "thothctl_scan_iac":
                 cmd = ["thothctl", "scan", "iac"]
@@ -444,16 +605,20 @@ async def serve_amazon_q():
                 if arguments.get("tools"):
                     for tool in arguments["tools"]:
                         cmd.extend(["-t", tool])
-            
+
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
-            
+
             # Execute command
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-            output = result.stdout.strip() if result.returncode == 0 else f"Error: {result.stderr.strip()}"
-            
+            output = (
+                result.stdout.strip()
+                if result.returncode == 0
+                else f"Error: {result.stderr.strip()}"
+            )
+
             return [TextContent(type="text", text=output)]
-        
+
         except Exception as e:
             return [TextContent(type="text", text=f"Error: {str(e)}")]
 

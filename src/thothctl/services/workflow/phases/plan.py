@@ -1,4 +1,5 @@
 """Plan phase: cost estimation, blast radius, risk assessment."""
+
 import logging
 import os
 import subprocess
@@ -36,17 +37,19 @@ class PlanPhaseExecutor(PhaseExecutor):
         plan_files = self._find_plan_files(directory)
 
         if not plan_files:
-            result.steps.append(StepResult(
-                name="plan-check",
-                status=StepStatus.SKIPPED,
-                command="(requires tfplan.json)",
-                summary=(
-                    "No tfplan.json found. Generate plans first:\n"
-                    "  Terragrunt: terragrunt run-all plan --out-dir tfplan --json-out-dir tfplan\n"
-                    "  Terraform:  terraform plan -out=tfplan.binary && "
-                    "terraform show -json tfplan.binary > tfplan.json"
-                ),
-            ))
+            result.steps.append(
+                StepResult(
+                    name="plan-check",
+                    status=StepStatus.SKIPPED,
+                    command="(requires tfplan.json)",
+                    summary=(
+                        "No tfplan.json found. Generate plans first:\n"
+                        "  Terragrunt: terragrunt run-all plan --out-dir tfplan --json-out-dir tfplan\n"
+                        "  Terraform:  terraform plan -out=tfplan.binary && "
+                        "terraform show -json tfplan.binary > tfplan.json"
+                    ),
+                )
+            )
             return result
 
         # Step 1: Cost analysis
@@ -56,9 +59,7 @@ class PlanPhaseExecutor(PhaseExecutor):
         result.steps.append(self._run_blast_radius(directory))
 
         # Phase passes if no steps failed
-        result.passed = not any(
-            s.status == StepStatus.FAILED for s in result.steps
-        )
+        result.passed = not any(s.status == StepStatus.FAILED for s in result.steps)
         return result
 
     def _find_plan_files(self, directory: str) -> List[str]:
@@ -93,7 +94,9 @@ class PlanPhaseExecutor(PhaseExecutor):
                 status=status,
                 command="thothctl check iac -type cost-analysis --recursive",
                 duration_seconds=duration,
-                summary="Cost estimation completed" if status == StepStatus.PASSED else "Cost analysis had warnings",
+                summary="Cost estimation completed"
+                if status == StepStatus.PASSED
+                else "Cost analysis had warnings",
             )
         except subprocess.TimeoutExpired:
             return StepResult(
@@ -130,7 +133,9 @@ class PlanPhaseExecutor(PhaseExecutor):
                 status=status,
                 command="thothctl check iac -type blast-radius --recursive",
                 duration_seconds=duration,
-                summary="Blast radius assessed" if status == StepStatus.PASSED else "Blast radius warnings",
+                summary="Blast radius assessed"
+                if status == StepStatus.PASSED
+                else "Blast radius warnings",
             )
         except subprocess.TimeoutExpired:
             return StepResult(

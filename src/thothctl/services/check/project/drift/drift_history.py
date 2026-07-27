@@ -1,4 +1,5 @@
 """Drift history tracking and coverage trending over time."""
+
 import json
 import logging
 from datetime import datetime, timezone
@@ -21,14 +22,16 @@ class DriftHistory:
         path = self._project_path(project)
         path.parent.mkdir(parents=True, exist_ok=True)
         history = self._load_raw(path)
-        history.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "total_resources": summary_dict.get("total_resources", 0),
-            "total_drifted": summary_dict.get("total_drifted", 0),
-            "coverage_pct": summary_dict.get("overall_coverage", 100.0),
-            "stacks": summary_dict.get("total_stacks", 0),
-            "severity_counts": self._aggregate_severities(summary_dict),
-        })
+        history.append(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "total_resources": summary_dict.get("total_resources", 0),
+                "total_drifted": summary_dict.get("total_drifted", 0),
+                "coverage_pct": summary_dict.get("overall_coverage", 100.0),
+                "stacks": summary_dict.get("total_stacks", 0),
+                "severity_counts": self._aggregate_severities(summary_dict),
+            }
+        )
         # Keep last 365 snapshots
         history = history[-365:]
         path.write_text(json.dumps(history, indent=2, default=str))
@@ -67,12 +70,18 @@ class DriftHistory:
             "first_snapshot": recent[0]["timestamp"],
             "last_snapshot": recent[-1]["timestamp"],
             "history": [
-                {"date": s["timestamp"][:10], "coverage": s["coverage_pct"], "drifted": s["total_drifted"]}
+                {
+                    "date": s["timestamp"][:10],
+                    "coverage": s["coverage_pct"],
+                    "drifted": s["total_drifted"],
+                }
                 for s in recent
             ],
         }
 
-    def check_threshold(self, project: str, min_coverage: float = 90.0) -> Optional[str]:
+    def check_threshold(
+        self, project: str, min_coverage: float = 90.0
+    ) -> Optional[str]:
         """Return a warning message if coverage is below threshold, else None."""
         history = self._load_raw(self._project_path(project))
         if not history:

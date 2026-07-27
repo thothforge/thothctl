@@ -7,8 +7,9 @@ Enable via:
     export THOTHCTL_OTEL_ENABLED=true
     export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317  # optional
 """
-import os
+
 import logging
+import os
 from contextlib import contextmanager
 from typing import Any, Dict, Optional
 
@@ -16,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 try:
     from opentelemetry import trace
-    from opentelemetry.trace import StatusCode, Span
+    from opentelemetry.trace import Span, StatusCode  # noqa: F401
+
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
@@ -35,23 +37,29 @@ def _ensure_init():
 
     if not OTEL_AVAILABLE:
         return
-    if not os.getenv("THOTHCTL_OTEL_ENABLED", "").lower() in ("true", "1", "yes"):
+    if os.getenv("THOTHCTL_OTEL_ENABLED", "").lower() not in ("true", "1", "yes"):
         return
 
     try:
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
+        from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-        resource = Resource.create({
-            "service.name": _SERVICE_NAME,
-            "service.version": _get_version(),
-        })
+        resource = Resource.create(
+            {
+                "service.name": _SERVICE_NAME,
+                "service.version": _get_version(),
+            }
+        )
 
         provider = TracerProvider(resource=resource)
         endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+        provider.add_span_processor(
+            BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+        )
         trace.set_tracer_provider(provider)
         _tracer = trace.get_tracer(_SERVICE_NAME)
         logger.info(f"OTel tracing enabled for {_SERVICE_NAME} → {endpoint}")
@@ -62,6 +70,7 @@ def _ensure_init():
 def _get_version() -> str:
     try:
         from importlib.metadata import version
+
         return version("thothctl")
     except Exception:
         return "unknown"
@@ -110,6 +119,7 @@ def _safe_attr(v: Any) -> Any:
 
 class _NoOpSpan:
     """No-op span when tracing is disabled."""
+
     def set_attribute(self, key: str, value: Any):
         pass
 

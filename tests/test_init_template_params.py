@@ -1,5 +1,4 @@
 """Unit tests for template parameter loading from .thothcf.toml."""
-import pytest
 
 from thothctl.services.project.convert.get_project_data import get_simple_project_props
 
@@ -96,14 +95,46 @@ class TestGetSimpleProjectPropsBatchMode:
     def test_full_template_parameters(self):
         """Simulate the full .thothcf.toml from a terragrunt scaffold template."""
         input_parameters = {
-            "project_name": {"template_value": "test-wrapper", "condition": ".*", "description": "Project Name"},
-            "deployment_region": {"template_value": "us-east-2", "condition": ".*", "description": "Region"},
-            "backend_bucket": {"template_value": "test-wrapper-tfstate", "condition": ".*", "description": "Bucket"},
-            "cloud_provider": {"template_value": "aws", "condition": "(aws|azure)", "description": "Cloud"},
-            "deployment_profile": {"template_value": "default", "condition": ".*", "description": "Profile"},
-            "environment": {"template_value": "dev", "condition": ".*", "description": "Env"},
-            "owner": {"template_value": "thothctl", "condition": ".*", "description": "Owner"},
-            "client": {"template_value": "thothctl", "condition": ".*", "description": "Client"},
+            "project_name": {
+                "template_value": "test-wrapper",
+                "condition": ".*",
+                "description": "Project Name",
+            },
+            "deployment_region": {
+                "template_value": "us-east-2",
+                "condition": ".*",
+                "description": "Region",
+            },
+            "backend_bucket": {
+                "template_value": "test-wrapper-tfstate",
+                "condition": ".*",
+                "description": "Bucket",
+            },
+            "cloud_provider": {
+                "template_value": "aws",
+                "condition": "(aws|azure)",
+                "description": "Cloud",
+            },
+            "deployment_profile": {
+                "template_value": "default",
+                "condition": ".*",
+                "description": "Profile",
+            },
+            "environment": {
+                "template_value": "dev",
+                "condition": ".*",
+                "description": "Env",
+            },
+            "owner": {
+                "template_value": "thothctl",
+                "condition": ".*",
+                "description": "Owner",
+            },
+            "client": {
+                "template_value": "thothctl",
+                "condition": ".*",
+                "description": "Client",
+            },
         }
         result = get_simple_project_props(
             input_parameters=input_parameters,

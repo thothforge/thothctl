@@ -3,10 +3,9 @@
 Application settings that can be overridden by environment variables.
 """
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
-
-import os
 
 
 @dataclass

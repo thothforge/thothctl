@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader
+
 from thothctl.utils.modules_ops.terraform_module_details import TerraformModuleDetails
 
 
@@ -123,7 +124,7 @@ class ModuleVariableParser:
             return default_str
 
 
-def parse_variables(module_info: List[Dict[str, Any]]) -> List[TerraformVariable]:
+def _parse_variables_list(module_info: List[Dict[str, Any]]) -> List[TerraformVariable]:
     """
     Parse variables from module info.
 

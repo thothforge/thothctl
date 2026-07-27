@@ -1,4 +1,5 @@
 """Monitor phase: drift detection, continuous monitoring."""
+
 import logging
 import subprocess
 import time
@@ -34,9 +35,7 @@ class MonitorPhaseExecutor(PhaseExecutor):
         result.steps.append(self._run_drift_detection(directory, options))
 
         # Phase passes if no steps failed
-        result.passed = not any(
-            s.status == StepStatus.FAILED for s in result.steps
-        )
+        result.passed = not any(s.status == StepStatus.FAILED for s in result.steps)
         return result
 
     def _run_drift_detection(self, directory: str, options: Dict) -> StepResult:
@@ -45,9 +44,13 @@ class MonitorPhaseExecutor(PhaseExecutor):
         tftool = options.get("tftool", "tofu")
         try:
             cmd = [
-                "thothctl", "check", "iac",
-                "-type", "drift",
-                "--tftool", tftool,
+                "thothctl",
+                "check",
+                "iac",
+                "-type",
+                "drift",
+                "--tftool",
+                tftool,
                 "--recursive",
             ]
 
@@ -65,7 +68,9 @@ class MonitorPhaseExecutor(PhaseExecutor):
                 status=status,
                 command=f"thothctl check iac -type drift --tftool {tftool} --recursive",
                 duration_seconds=duration,
-                summary="No drift detected" if status == StepStatus.PASSED else "Drift detected — review changes",
+                summary="No drift detected"
+                if status == StepStatus.PASSED
+                else "Drift detected — review changes",
             )
         except subprocess.TimeoutExpired:
             return StepResult(

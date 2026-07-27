@@ -1,9 +1,8 @@
 """Terraform-compliance scanner — BDD-style compliance testing against tfplan.json."""
-import json
+
 import logging
 import os
 import subprocess
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from ....core.cli_ui import ScannerUI
@@ -38,15 +37,21 @@ class TerraformComplianceScanner(ScannerPort):
         os.makedirs(report_dir, exist_ok=True)
 
         # Resolve features directory
-        features_dir = self._resolve_features_dir(abs_dir, options.get("features_dir", "features"))
+        features_dir = self._resolve_features_dir(
+            abs_dir, options.get("features_dir", "features")
+        )
         if not features_dir:
-            self.ui.show_warning("No features directory found. Skipping terraform-compliance.")
+            self.ui.show_warning(
+                "No features directory found. Skipping terraform-compliance."
+            )
             return {"status": "SKIPPED", "error": "No features directory found"}
 
         # Find tfplan.json files
         plan_files = self._find_plan_files(abs_dir)
         if not plan_files:
-            self.ui.show_warning("No tfplan.json files found. terraform-compliance requires plan files.")
+            self.ui.show_warning(
+                "No tfplan.json files found. terraform-compliance requires plan files."
+            )
             return {"status": "SKIPPED", "error": "No tfplan.json files found"}
 
         self.ui.start_scan_message(f"{directory} ({len(plan_files)} plans)")
@@ -61,20 +66,26 @@ class TerraformComplianceScanner(ScannerPort):
             stack_report_dir = os.path.join(report_dir, f"report_{stack_name}")
             os.makedirs(stack_report_dir, exist_ok=True)
 
-            junit_path = os.path.join(stack_report_dir, "results_junitxml.xml")
+            os.path.join(stack_report_dir, "results_junitxml.xml")
 
             cmd = [
                 tc,
-                "-f", features_dir,
-                "-p", plan_file,
+                "-f",
+                features_dir,
+                "-p",
+                plan_file,
                 "--no-failure",
                 "--no-ansi",
             ]
 
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=120
+                )
             except (subprocess.TimeoutExpired, Exception) as e:
-                self.logger.warning(f"terraform-compliance failed for {stack_name}: {e}")
+                self.logger.warning(
+                    f"terraform-compliance failed for {stack_name}: {e}"
+                )
                 continue
 
             # Parse results from stdout (terraform-compliance doesn't produce JUnit XML)
@@ -116,7 +127,7 @@ class TerraformComplianceScanner(ScannerPort):
 
     def _resolve_features_dir(self, base_dir: str, features_dir: str) -> Optional[str]:
         """Resolve features directory.
-        
+
         Note: terraform-compliance's native git: support defaults to 'master' branch
         and fails for repos using 'main'. We clone via thothctl's cache instead.
 
@@ -132,15 +143,18 @@ class TerraformComplianceScanner(ScannerPort):
             # Support //subpath syntax (e.g., https://repo.git//compliance/features)
             subpath = ""
             if "//" in url.split(".git", 1)[-1]:
-                parts = url.split("//", 2)  # https://... splits into ['https:', 'github.com/...//subpath']
+                url.split(
+                    "//", 2
+                )  # https://... splits into ['https:', 'github.com/...//subpath']
                 # Rejoin the URL properly — find // after the .git
                 git_part = url.split(".git")[0] + ".git"
-                remainder = url[len(git_part):]
+                remainder = url[len(git_part) :]
                 if remainder.startswith("//"):
                     subpath = remainder[2:]
                     url = git_part
-            
+
             from .opa import OPAScanner
+
             cloned_path = OPAScanner()._clone_policy_repo(url)
             if cloned_path:
                 # If subpath specified, use it directly
@@ -151,7 +165,9 @@ class TerraformComplianceScanner(ScannerPort):
                 # Otherwise search for features
                 for subdir in ["compliance/features", "features", "compliance", "."]:
                     candidate = os.path.join(cloned_path, subdir)
-                    if os.path.isdir(candidate) and any(f.endswith(".feature") for f in os.listdir(candidate)):
+                    if os.path.isdir(candidate) and any(
+                        f.endswith(".feature") for f in os.listdir(candidate)
+                    ):
                         return candidate
                 if any(f.endswith(".feature") for f in os.listdir(cloned_path)):
                     return cloned_path
@@ -170,6 +186,7 @@ class TerraformComplianceScanner(ScannerPort):
         org_policy_url = os.environ.get("THOTH_ORG_POLICY")
         if org_policy_url:
             from ....services.check.org_policy_loader import get_org_policy_path
+
             org_path = get_org_policy_path(org_policy_url)
             if org_path:
                 for subdir in ["compliance/features", "features", "compliance"]:
@@ -191,13 +208,14 @@ class TerraformComplianceScanner(ScannerPort):
 
     def _parse_stdout(self, stdout: str, stack_name: str):
         """Parse terraform-compliance stdout for pass/fail counts and findings.
-        
+
         Output format:
         - Lines with ✓ or 'passed' = passed
-        - Lines with ✗ or 'failed' or 'Failure:' = failed  
+        - Lines with ✗ or 'failed' or 'Failure:' = failed
         - Scenario lines followed by failure = finding
         """
         import re
+
         passed = 0
         failed = 0
         findings = []
@@ -207,21 +225,31 @@ class TerraformComplianceScanner(ScannerPort):
             stripped = line.strip()
             # Track current scenario
             if stripped.startswith("Scenario"):
-                current_scenario = stripped.replace("Scenario:", "").replace("Scenario Outline:", "").strip()
+                current_scenario = (
+                    stripped.replace("Scenario:", "")
+                    .replace("Scenario Outline:", "")
+                    .strip()
+                )
             # Count passes
             if "✓" in line or " passed" in line.lower():
                 passed += 1
             # Count failures
-            if "✗" in line or "Failure:" in stripped or ("failed" in line.lower() and "scenario" not in line.lower()):
+            if (
+                "✗" in line
+                or "Failure:" in stripped
+                or ("failed" in line.lower() and "scenario" not in line.lower())
+            ):
                 failed += 1
-                findings.append({
-                    "id": "TC",
-                    "severity": "HIGH",
-                    "title": current_scenario or stripped[:80],
-                    "resource": stack_name,
-                    "file": "tfplan.json",
-                    "line": 0,
-                })
+                findings.append(
+                    {
+                        "id": "TC",
+                        "severity": "HIGH",
+                        "title": current_scenario or stripped[:80],
+                        "resource": stack_name,
+                        "file": "tfplan.json",
+                        "line": 0,
+                    }
+                )
 
         # Fallback: if no markers found, use exit code logic
         # terraform-compliance: exit 0 = pass, exit 1 = fail
@@ -274,7 +302,7 @@ td{{padding:8px 12px;border-top:1px solid #e5e7eb}} tr:hover{{background:#f9fafb
 .footer{{padding:16px 24px;background:#f9fafb;font-size:0.75rem;color:#9ca3af;text-align:center}}
 </style></head><body>
 <div class="container">
-<div class="header"><h1>🛡️ Security Scan<span class="tool-badge">Terraform-compliance</span></h1><p>{stack_name.replace('_','/')}</p></div>
+<div class="header"><h1>🛡️ Security Scan<span class="tool-badge">Terraform-compliance</span></h1><p>{stack_name.replace("_", "/")}</p></div>
 <div class="content">
 <div class="cards">
 <div class="card"><div class="val">{total}</div><div class="lbl">Total</div></div>
@@ -282,7 +310,7 @@ td{{padding:8px 12px;border-top:1px solid #e5e7eb}} tr:hover{{background:#f9fafb
 <div class="card"><div class="val" style="color:#ef4444">{failed}</div><div class="lbl">Failed</div></div>
 <div class="card"><div class="val" style="color:#667eea">{rate}%</div><div class="lbl">Success Rate</div></div>
 </div>
-{'<table><thead><tr><th>Severity</th><th>Scenario</th><th>Stack</th></tr></thead><tbody>' + rows + '</tbody></table>' if findings else '<p style="color:#10b981;font-weight:600">✅ All compliance scenarios passed</p>'}
+{"<table><thead><tr><th>Severity</th><th>Scenario</th><th>Stack</th></tr></thead><tbody>" + rows + "</tbody></table>" if findings else '<p style="color:#10b981;font-weight:600">✅ All compliance scenarios passed</p>'}
 </div>
 <div class="footer"><a href="index.html">← Back to index</a> | Generated by ThothCTL</div>
 </div></body></html>"""
@@ -290,7 +318,16 @@ td{{padding:8px 12px;border-top:1px solid #e5e7eb}} tr:hover{{background:#f9fafb
             report_file = f"report_{stack_name}.html"
             with open(os.path.join(html_dir, report_file), "w", encoding="utf-8") as f:
                 f.write(html)
-            stack_reports.append({"name": stack_name, "file": report_file, "passed": passed, "failed": failed, "total": total, "rate": rate})
+            stack_reports.append(
+                {
+                    "name": stack_name,
+                    "file": report_file,
+                    "passed": passed,
+                    "failed": failed,
+                    "total": total,
+                    "rate": rate,
+                }
+            )
 
         # Index page
         total_stacks = len(stack_reports)
@@ -299,7 +336,7 @@ td{{padding:8px 12px;border-top:1px solid #e5e7eb}} tr:hover{{background:#f9fafb
         ta = tp + tf
         overall_rate = round(tp / ta * 100, 1) if ta > 0 else 100.0
         rows = "".join(
-            f'<tr><td><a href="{s["file"]}">{s["name"].replace("_","/")}</a></td><td>{s["total"]}</td><td>{s["passed"]}</td><td>{s["failed"]}</td><td>{s["rate"]}%</td><td>{"✅" if s["failed"]==0 else "❌"}</td></tr>'
+            f'<tr><td><a href="{s["file"]}">{s["name"].replace("_", "/")}</a></td><td>{s["total"]}</td><td>{s["passed"]}</td><td>{s["failed"]}</td><td>{s["rate"]}%</td><td>{"✅" if s["failed"] == 0 else "❌"}</td></tr>'
             for s in sorted(stack_reports, key=lambda x: x["failed"], reverse=True)
         )
         index_html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -321,7 +358,7 @@ td{{padding:8px 12px;border-top:1px solid #e5e7eb}} a{{color:#667eea}} tr:hover{
 .footer{{padding:16px 24px;background:#f9fafb;font-size:0.75rem;color:#9ca3af;text-align:center}}
 </style></head><body>
 <div class="container">
-<div class="header"><h1>🛡️ Security Scan Results<span class="tool-badge">Terraform-compliance</span></h1><p>{total_stacks} plans evaluated — {datetime.now().strftime('%Y-%m-%d %H:%M')}</p></div>
+<div class="header"><h1>🛡️ Security Scan Results<span class="tool-badge">Terraform-compliance</span></h1><p>{total_stacks} plans evaluated — {datetime.now().strftime("%Y-%m-%d %H:%M")}</p></div>
 <div class="content">
 <div class="summary">
 <div class="card"><div class="val">{total_stacks}</div><div class="lbl">Plans</div></div>

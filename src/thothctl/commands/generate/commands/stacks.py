@@ -1,10 +1,9 @@
-import logging
 from pathlib import Path
 
 import click
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 from ....services.generate.create_stacks.stack_service import StackService
 
 
@@ -18,8 +17,14 @@ class GenStacksCommand(ClickCommand):
 
     def validate(self, **kwargs) -> bool:
         """Validate the command inputs"""
-        if not kwargs.get('config_file') and not kwargs.get('stack_name') and not kwargs.get('create_example'):
-            self.ui.print_error("Either config file, stack name, or create-example flag is required")
+        if (
+            not kwargs.get("config_file")
+            and not kwargs.get("stack_name")
+            and not kwargs.get("create_example")
+        ):
+            self.ui.print_error(
+                "Either config file, stack name, or create-example flag is required"
+            )
             return False
         return True
 
@@ -28,23 +33,27 @@ class GenStacksCommand(ClickCommand):
         ctx = click.get_current_context()
         directory = Path(ctx.obj.get("CODE_DIRECTORY", "."))
 
-        config_file = kwargs.get('config_file')
-        stack_name = kwargs.get('stack_name')
-        output_dir = Path(kwargs.get('output_dir') or directory / "stacks")
-        create_example = kwargs.get('create_example')
+        config_file = kwargs.get("config_file")
+        stack_name = kwargs.get("stack_name")
+        output_dir = Path(kwargs.get("output_dir") or directory / "stacks")
+        create_example = kwargs.get("create_example")
 
         try:
             if create_example:
                 example_path = directory / "stack-config-example.yaml"
                 self.stack_service.create_example_config(example_path)
-                self.ui.print_success(f"Created example configuration file: {example_path}")
+                self.ui.print_success(
+                    f"Created example configuration file: {example_path}"
+                )
                 return
 
             if config_file:
                 self.stack_service.generate_stacks_from_config(config_file, output_dir)
             else:
-                modules = kwargs.get('modules', [])
-                self.stack_service.generate_single_stack(stack_name, modules, output_dir)
+                modules = kwargs.get("modules", [])
+                self.stack_service.generate_single_stack(
+                    stack_name, modules, output_dir
+                )
 
             self.ui.print_success(f"Successfully generated stack(s) in {output_dir}")
         except Exception as e:

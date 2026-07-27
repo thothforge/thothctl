@@ -1,67 +1,82 @@
 """Unified cost analysis report generator matching ThothCTL report standards."""
-import json
+
 import logging
-from pathlib import Path
-from typing import List, Dict, Any
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 
 class UnifiedCostReportGenerator:
     """Generate unified cost analysis reports with stack-based navigation."""
-    
+
     def __init__(self):
         self.reports = []
-        
+
     def add_stack_report(self, stack_name: str, analysis: Any, report_path: Path):
         """Add a stack cost analysis to the unified report."""
-        self.reports.append({
-            'stack_name': stack_name,
-            'analysis': analysis,
-            'report_path': report_path,
-            'monthly_cost': analysis.total_monthly_cost,
-            'annual_cost': analysis.total_annual_cost
-        })
-    
-    def generate_unified_index(self, output_dir: Path, project_name: str = "Infrastructure"):
+        self.reports.append(
+            {
+                "stack_name": stack_name,
+                "analysis": analysis,
+                "report_path": report_path,
+                "monthly_cost": analysis.total_monthly_cost,
+                "annual_cost": analysis.total_annual_cost,
+            }
+        )
+
+    def generate_unified_index(
+        self, output_dir: Path, project_name: str = "Infrastructure"
+    ):
         """Generate unified index page with all stack reports."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        total_monthly = sum(r['monthly_cost'] for r in self.reports)
-        total_annual = sum(r['annual_cost'] for r in self.reports)
-        
+        total_monthly = sum(r["monthly_cost"] for r in self.reports)
+        total_annual = sum(r["annual_cost"] for r in self.reports)
+
         # Sort by cost descending
-        sorted_reports = sorted(self.reports, key=lambda x: x['monthly_cost'], reverse=True)
-        
+        sorted_reports = sorted(
+            self.reports, key=lambda x: x["monthly_cost"], reverse=True
+        )
+
         html = self._generate_index_html(
             project_name, timestamp, total_monthly, total_annual, sorted_reports
         )
-        
+
         index_path = output_dir / "index.html"
-        with open(index_path, 'w') as f:
+        with open(index_path, "w") as f:
             f.write(html)
-        
+
         logger.info(f"Generated unified cost analysis index: {index_path}")
         return index_path
-    
-    def _generate_index_html(self, project_name: str, timestamp: str, 
-                            total_monthly: float, total_annual: float,
-                            reports: List[Dict]) -> str:
+
+    def _generate_index_html(
+        self,
+        project_name: str,
+        timestamp: str,
+        total_monthly: float,
+        total_annual: float,
+        reports: List[Dict],
+    ) -> str:
         """Generate the unified index HTML."""
-        
+
         # Generate stack cards
         stack_cards_html = ""
         for report in reports:
-            percentage = (report['monthly_cost'] / total_monthly * 100) if total_monthly > 0 else 0
+            percentage = (
+                (report["monthly_cost"] / total_monthly * 100)
+                if total_monthly > 0
+                else 0
+            )
             stack_cards_html += f"""
-            <div class="stack-card" onclick="window.location.href='{report['report_path'].name}'">
+            <div class="stack-card" onclick="window.location.href='{report["report_path"].name}'">
                 <div class="stack-header">
-                    <h3 class="stack-name">🏗️ {report['stack_name']}</h3>
+                    <h3 class="stack-name">🏗️ {report["stack_name"]}</h3>
                     <span class="stack-percentage">{percentage:.1f}%</span>
                 </div>
                 <div class="stack-cost">
-                    <div class="cost-monthly">${report['monthly_cost']:,.2f}/month</div>
-                    <div class="cost-annual">${report['annual_cost']:,.2f}/year</div>
+                    <div class="cost-monthly">${report["monthly_cost"]:,.2f}/month</div>
+                    <div class="cost-annual">${report["annual_cost"]:,.2f}/year</div>
                 </div>
                 <div class="stack-bar">
                     <div class="stack-bar-fill" style="width: {percentage}%"></div>
@@ -71,7 +86,7 @@ class UnifiedCostReportGenerator:
                 </div>
             </div>
             """
-        
+
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -162,17 +177,17 @@ class UnifiedCostReportGenerator:
     </div>
 </body>
 </html>"""
-    
+
     def _generate_breakdown_rows(self, reports: List[Dict], total: float) -> str:
         """Generate table rows for cost breakdown."""
         rows = ""
         for report in reports:
-            percentage = (report['monthly_cost'] / total * 100) if total > 0 else 0
+            percentage = (report["monthly_cost"] / total * 100) if total > 0 else 0
             rows += f"""
                 <tr>
-                    <td><strong>{report['stack_name']}</strong></td>
-                    <td>${report['monthly_cost']:,.2f}</td>
-                    <td>${report['annual_cost']:,.2f}</td>
+                    <td><strong>{report["stack_name"]}</strong></td>
+                    <td>${report["monthly_cost"]:,.2f}</td>
+                    <td>${report["annual_cost"]:,.2f}</td>
                     <td>
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: {percentage}%"></div>
@@ -180,12 +195,12 @@ class UnifiedCostReportGenerator:
                         </div>
                     </td>
                     <td>
-                        <a href="{report['report_path'].name}" class="btn-view">View Details</a>
+                        <a href="{report["report_path"].name}" class="btn-view">View Details</a>
                     </td>
                 </tr>
             """
         return rows
-    
+
     def _get_unified_css(self) -> str:
         """Get unified CSS matching ThothCTL report standards."""
         return """

@@ -1,13 +1,14 @@
 """Create and operate terramate stacks."""
+
 import json
 import logging
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
 import git
-import os
 from colorama import Fore
 
 

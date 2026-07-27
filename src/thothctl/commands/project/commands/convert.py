@@ -15,7 +15,11 @@ class ConvertProjectCommand(ClickCommand):
 
     def validate(self, **kwargs) -> bool:
         """Validate conversion parameters."""
-        flags = [kwargs.get("make_template"), kwargs.get("make_project"), kwargs.get("make_terramate_stacks")]
+        flags = [
+            kwargs.get("make_template"),
+            kwargs.get("make_project"),
+            kwargs.get("make_terramate_stacks"),
+        ]
         if sum(bool(f) for f in flags) > 1:
             raise click.UsageError(
                 "Options --make-template, --make-project, and --make-terramate-stacks are mutually exclusive."
@@ -88,7 +92,18 @@ cli = ConvertProjectCommand.as_click_command(
         "-tpt",
         "--template-project-type",
         help="Project type according to Internal Developer Portal",
-        type=click.Choice(["terraform", "terraform-terragrunt", "terragrunt", "tofu", "cdkv2", "terraform_module", "custom"], case_sensitive=True),
+        type=click.Choice(
+            [
+                "terraform",
+                "terraform-terragrunt",
+                "terragrunt",
+                "tofu",
+                "cdkv2",
+                "terraform_module",
+                "custom",
+            ],
+            case_sensitive=True,
+        ),
         default="terraform",
     ),
     click.option(

@@ -1,11 +1,14 @@
 """Get GitHub projects and templates."""
+
 import os
 import shutil
+
 import git
 import inquirer
 import requests
 from colorama import Fore
-from ..pattern_names  import allowed_pattern_prefixes, allowed_pattern_suffixes
+
+from ..pattern_names import allowed_pattern_prefixes, allowed_pattern_suffixes
 
 
 def create_connection(token):
@@ -17,14 +20,15 @@ def create_connection(token):
     """
     print(f"{Fore.MAGENTA}Establishing GitHub connection...")
     session = requests.Session()
-    session.headers.update({
-        'Authorization': f'token {token}',
-        'Accept': 'application/vnd.github.v3+json'
-    })
+    session.headers.update(
+        {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    )
     return session
 
 
-def get_repos_patterns(session, username, allowed_pattern_prefixes, allowed_pattern_suffixes):
+def get_repos_patterns(
+    session, username, allowed_pattern_prefixes, allowed_pattern_suffixes
+):
     """
     Get repositories based on patterns.
 
@@ -37,33 +41,40 @@ def get_repos_patterns(session, username, allowed_pattern_prefixes, allowed_patt
     # First try to get repos from an organization
     url = f"https://api.github.com/orgs/{username}/repos"
     response = session.get(url)
-    
+
     # If not found, try as a user
     if response.status_code != 200:
         url = f"https://api.github.com/users/{username}/repos"
         response = session.get(url)
-        
+
     if response.status_code != 200:
-        print(f"{Fore.RED}Error accessing GitHub repositories: {response.status_code} - {response.text}{Fore.RESET}")
+        print(
+            f"{Fore.RED}Error accessing GitHub repositories: {response.status_code} - {response.text}{Fore.RESET}"
+        )
         return []
-        
+
     repos_data = response.json()
     print(Fore.GREEN + "\nPatterns available: " + Fore.RESET)
 
     repos = []
     for repo in repos_data:
-        if any(repo['name'].startswith(prefix) for prefix in allowed_pattern_prefixes) and \
-           any(repo['name'].endswith(suffix) for suffix in allowed_pattern_suffixes):
-            repos.append({
-                "Name": repo['name'],
-                "RemoteUrl": repo['clone_url'],
-                "Description": repo.get('description', '')
-            })
+        if any(
+            repo["name"].startswith(prefix) for prefix in allowed_pattern_prefixes
+        ) and any(repo["name"].endswith(suffix) for suffix in allowed_pattern_suffixes):
+            repos.append(
+                {
+                    "Name": repo["name"],
+                    "RemoteUrl": repo["clone_url"],
+                    "Description": repo.get("description", ""),
+                }
+            )
 
     if len(repos) > 0:
         return repos
     else:
-        print(f"{Fore.RED} No repositories available for reuse in this project. 😥 {Fore.RESET}")
+        print(
+            f"{Fore.RED} No repositories available for reuse in this project. 😥 {Fore.RESET}"
+        )
         return []
 
 
@@ -115,20 +126,20 @@ def clone_repo(
     """
     if allowed_pattern_prefixes is None:
         allowed_pattern_prefixes = ["template-", "pattern-", "poc-"]
-    
+
     if allowed_pattern_suffixes is None:
         allowed_pattern_suffixes = ["-template", "-pattern", "-poc", ""]
-        
+
     repositories = get_repos_patterns(
         session=session,
         username=username,
         allowed_pattern_prefixes=allowed_pattern_prefixes,
         allowed_pattern_suffixes=allowed_pattern_suffixes,
     )
-    
+
     if not repositories:
         return None
-        
+
     repository_names = [r["Name"] for r in repositories]
     questions = [
         inquirer.List(
@@ -189,8 +200,6 @@ def get_pattern_from_github(token, username, action="list", directory="lab"):
     """
     # Create a session with the token
     session = create_connection(token)
-    
-
 
     try:
         if action == "list":

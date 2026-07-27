@@ -1,4 +1,5 @@
 """Drift detection service using terraform/tofu plan."""
+
 import json
 import logging
 import os
@@ -18,19 +19,36 @@ logger = logging.getLogger(__name__)
 
 # Resource types considered stateful / high-value
 _CRITICAL_TYPES = {
-    "aws_db_instance", "aws_rds_cluster", "aws_dynamodb_table",
-    "aws_s3_bucket", "aws_efs_file_system", "aws_elasticache_cluster",
-    "aws_redshift_cluster", "aws_kms_key", "aws_secretsmanager_secret",
-    "google_sql_database_instance", "google_storage_bucket",
-    "azurerm_mssql_database", "azurerm_storage_account",
+    "aws_db_instance",
+    "aws_rds_cluster",
+    "aws_dynamodb_table",
+    "aws_s3_bucket",
+    "aws_efs_file_system",
+    "aws_elasticache_cluster",
+    "aws_redshift_cluster",
+    "aws_kms_key",
+    "aws_secretsmanager_secret",
+    "google_sql_database_instance",
+    "google_storage_bucket",
+    "azurerm_mssql_database",
+    "azurerm_storage_account",
 }
 
 _HIGH_TYPES = {
-    "aws_eks_cluster", "aws_ecs_cluster", "aws_lambda_function",
-    "aws_iam_role", "aws_iam_policy", "aws_vpc", "aws_subnet",
-    "aws_security_group", "aws_lb", "aws_autoscaling_group",
-    "google_container_cluster", "google_compute_instance",
-    "azurerm_kubernetes_cluster", "azurerm_virtual_machine",
+    "aws_eks_cluster",
+    "aws_ecs_cluster",
+    "aws_lambda_function",
+    "aws_iam_role",
+    "aws_iam_policy",
+    "aws_vpc",
+    "aws_subnet",
+    "aws_security_group",
+    "aws_lb",
+    "aws_autoscaling_group",
+    "google_container_cluster",
+    "google_compute_instance",
+    "azurerm_kubernetes_cluster",
+    "azurerm_virtual_machine",
 }
 
 
@@ -111,13 +129,12 @@ class DriftDetectionService:
             return []
         with open(ignore_path, "r") as f:
             return [
-                line.strip()
-                for line in f
-                if line.strip() and not line.startswith("#")
+                line.strip() for line in f if line.strip() and not line.startswith("#")
             ]
 
     def _is_ignored(self, address: str, patterns: List[str]) -> bool:
         import fnmatch
+
         return any(fnmatch.fnmatch(address, p) for p in patterns)
 
     # ------------------------------------------------------------------
@@ -130,11 +147,16 @@ class DriftDetectionService:
             # Init first
             subprocess.run(
                 [self.tftool, "init", "-input=false"],
-                cwd=directory, capture_output=True, timeout=300,
+                cwd=directory,
+                capture_output=True,
+                timeout=300,
             )
             result = subprocess.run(
                 [self.tftool, "plan", "-detailed-exitcode", "-json", "-out=tfplan.tmp"],
-                cwd=directory, capture_output=True, text=True, timeout=600,
+                cwd=directory,
+                capture_output=True,
+                text=True,
+                timeout=600,
             )
             # exit 0 = no changes, 1 = error, 2 = changes (drift)
             if result.returncode == 1:
@@ -142,7 +164,10 @@ class DriftDetectionService:
 
             show = subprocess.run(
                 [self.tftool, "show", "-json", "tfplan.tmp"],
-                cwd=directory, capture_output=True, text=True, timeout=120,
+                cwd=directory,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
             # Cleanup temp plan
             tmp = os.path.join(directory, "tfplan.tmp")
@@ -189,16 +214,18 @@ class DriftDetectionService:
             changed_attrs = self._extract_changed_attrs(rc.get("change", {}))
             severity = self._assess_severity(rtype, drift_type, actions, changed_attrs)
 
-            drifted.append(DriftedResource(
-                address=address,
-                resource_type=rtype,
-                drift_type=drift_type,
-                severity=severity,
-                changed_attributes=changed_attrs,
-                actions=actions,
-                detail=self._build_detail(actions, changed_attrs),
-                tags=self._extract_tags(rc),
-            ))
+            drifted.append(
+                DriftedResource(
+                    address=address,
+                    resource_type=rtype,
+                    drift_type=drift_type,
+                    severity=severity,
+                    changed_attributes=changed_attrs,
+                    actions=actions,
+                    detail=self._build_detail(actions, changed_attrs),
+                    tags=self._extract_tags(rc),
+                )
+            )
 
         coverage = round(((total - len(drifted)) / total) * 100, 1) if total else 100.0
 
@@ -231,8 +258,11 @@ class DriftDetectionService:
         after = change.get("after") or {}
         if not isinstance(before, dict) or not isinstance(after, dict):
             return []
-        return [k for k in set(list(before.keys()) + list(after.keys()))
-                if before.get(k) != after.get(k)]
+        return [
+            k
+            for k in set(list(before.keys()) + list(after.keys()))
+            if before.get(k) != after.get(k)
+        ]
 
     @staticmethod
     def _assess_severity(
@@ -242,7 +272,10 @@ class DriftDetectionService:
         changed_attrs: List[str],
     ) -> DriftSeverity:
         # Destructive on stateful = critical
-        if rtype in _CRITICAL_TYPES and drift_type in (DriftType.DELETED, DriftType.CHANGED):
+        if rtype in _CRITICAL_TYPES and drift_type in (
+            DriftType.DELETED,
+            DriftType.CHANGED,
+        ):
             if "delete" in actions:
                 return DriftSeverity.CRITICAL
             return DriftSeverity.HIGH
@@ -269,6 +302,7 @@ class DriftDetectionService:
         """Check if directory looks like a terraform root module."""
         for ext in ("*.tf", "*.tf.json"):
             import glob
+
             if glob.glob(os.path.join(path, ext)):
                 return True
         return False
@@ -308,11 +342,15 @@ class DriftDetectionService:
             excluded = len(result.drifted_resources) - len(filtered)
             result.drifted_resources = filtered
             if excluded and result.total_resources > 0:
-                result.total_resources = max(result.total_resources - excluded, len(filtered))
+                result.total_resources = max(
+                    result.total_resources - excluded, len(filtered)
+                )
             # Recalculate coverage
             total = result.total_resources
             drifted = len(result.drifted_resources)
-            result.coverage_pct = round(((total - drifted) / total) * 100, 1) if total else 100.0
+            result.coverage_pct = (
+                round(((total - drifted) / total) * 100, 1) if total else 100.0
+            )
 
 
 def _matches_tags(resource_tags: dict, filter_tags: dict) -> bool:

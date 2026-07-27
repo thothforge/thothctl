@@ -1,5 +1,5 @@
 """Tests for inventory iac PR comment integration."""
-import os
+
 from unittest.mock import patch
 
 from thothctl.commands.inventory.commands.iac import IaCInvCommand

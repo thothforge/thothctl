@@ -1,15 +1,14 @@
 import errno
 import logging
+import os
 import shutil
 import time
 from pathlib import Path
 from typing import List
 
-import os
 import psutil
 from rich import print as rprint
 from rich.console import Console
-
 
 logger = logging.getLogger(__name__)
 console = Console()

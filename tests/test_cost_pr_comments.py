@@ -1,5 +1,7 @@
 """Tests for check iac cost analysis PR comment integration."""
+
 from types import SimpleNamespace
+
 from thothctl.commands.check.commands.iac import CheckIaCCommand
 
 
@@ -18,8 +20,14 @@ class TestBuildCostMarkdown:
     def test_basic_summary(self):
         cmd = CheckIaCCommand()
         results = [
-            {"stack": "vpc", "analysis": _make_analysis(150.0, 1800.0, {"EC2": 100.0, "VPC": 50.0})},
-            {"stack": "eks", "analysis": _make_analysis(300.0, 3600.0, {"EKS": 200.0, "EC2": 100.0})},
+            {
+                "stack": "vpc",
+                "analysis": _make_analysis(150.0, 1800.0, {"EC2": 100.0, "VPC": 50.0}),
+            },
+            {
+                "stack": "eks",
+                "analysis": _make_analysis(300.0, 3600.0, {"EKS": 200.0, "EC2": 100.0}),
+            },
         ]
         md = cmd._build_cost_markdown(results)
         assert "## 💰 ThothCTL Cost Analysis Summary" in md
@@ -43,6 +51,7 @@ class TestBuildCostMarkdown:
 
     def test_post_execute_uses_cost_results_when_no_outmd(self):
         from unittest.mock import patch
+
         cmd = CheckIaCCommand()
         cmd._post_to_pr = True
         cmd._outmd = "nonexistent.md"

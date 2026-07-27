@@ -1,13 +1,14 @@
 import json
 import time
-import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+from xml.etree import ElementTree as ET
+
 
 class DashboardDataLoader:
     """Optimized data loader for dashboard."""
-    
+
     def __init__(self, base_dir: str = "."):
         self.base_dir = Path(base_dir)
         self.reports_dir = self.base_dir / "Reports"
@@ -21,6 +22,7 @@ class DashboardDataLoader:
         if self._project_type is None:
             try:
                 from thothctl.services.scan.scan_service import ScanService
+
                 svc = ScanService()
                 self._project_type = svc.detect_project_type(str(self.base_dir))
             except Exception:
@@ -62,51 +64,52 @@ class DashboardDataLoader:
             "project_type": ptype,
             "commands": commands.get(ptype, commands["terraform"]),
         }
-    
+
     def get_inventory_data(self) -> Dict[str, Any]:
         """Load from existing inventory JSON files."""
         cache_key = "inventory"
         if self._is_cache_valid(cache_key):
             return self.cache[cache_key]["data"]
-        
+
         try:
             inventory_files = [
-                f for f in self.reports_dir.glob("**/InventoryIaC_*.json")
+                f
+                for f in self.reports_dir.glob("**/InventoryIaC_*.json")
                 if "cyclonedx" not in f.name
             ]
             if not inventory_files:
                 return {
-                    "error": "No inventory data found", 
+                    "error": "No inventory data found",
                     "action": "Run 'thothctl inventory iac --check-versions' to generate inventory",
-                    "command": "thothctl inventory iac --check-versions"
+                    "command": "thothctl inventory iac --check-versions",
                 }
-            
+
             latest_file = max(inventory_files, key=lambda f: f.stat().st_mtime)
-            with open(latest_file, 'r', encoding='utf-8') as f:
+            with open(latest_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             self._cache_data(cache_key, data)
             return data
-            
+
         except json.JSONDecodeError as e:
             return {
-                "error": f"Invalid inventory file format: {str(e)}", 
+                "error": f"Invalid inventory file format: {str(e)}",
                 "action": "Regenerate inventory data",
-                "command": "thothctl inventory iac --check-versions"
+                "command": "thothctl inventory iac --check-versions",
             }
         except FileNotFoundError as e:
             return {
-                "error": f"Inventory file not found: {str(e)}", 
+                "error": f"Inventory file not found: {str(e)}",
                 "action": "Generate inventory data",
-                "command": "thothctl inventory iac --check-versions"
+                "command": "thothctl inventory iac --check-versions",
             }
         except Exception as e:
             return {
-                "error": f"Error loading inventory: {str(e)}", 
+                "error": f"Error loading inventory: {str(e)}",
                 "action": "Check file permissions and try again",
-                "command": "ls -la Reports/"
+                "command": "ls -la Reports/",
             }
-    
+
     def get_sbom_data(self) -> Dict[str, Any]:
         """Load CycloneDX SBOM JSON for detailed component browsing."""
         cache_key = "sbom"
@@ -119,7 +122,7 @@ class DashboardDataLoader:
                 return {
                     "error": "No SBOM data found",
                     "action": "Run inventory to generate CycloneDX SBOM",
-                    "command": "thothctl inventory iac --check-versions"
+                    "command": "thothctl inventory iac --check-versions",
                 }
 
             latest_file = max(sbom_files, key=lambda f: f.stat().st_mtime)
@@ -137,34 +140,40 @@ class DashboardDataLoader:
         cache_key = "scan_results"
         if self._is_cache_valid(cache_key):
             return self.cache[cache_key]["data"]
-        
+
         try:
             results = {"reports": [], "summary": {"total_issues": 0}, "tools": []}
-            
+
             # Exclude non-scan top-level directories within Reports/
             # Note: html_reports is NOT excluded because scan tools (checkov, kics, trivy)
             # store their HTML output under Reports/<tool>/html_reports/
-            excluded_top_dirs = {"cost-analysis", "inventory", "drift-detection", "blast-radius", "topology"}
-            
+            excluded_top_dirs = {
+                "cost-analysis",
+                "inventory",
+                "drift-detection",
+                "blast-radius",
+                "topology",
+            }
+
             def _is_scan_report(filepath: Path) -> bool:
                 """Check if a file is under a scan-related directory."""
                 try:
                     rel_to_reports = filepath.relative_to(self.reports_dir)
                     # Top-level directory within Reports/
-                    top_dir = rel_to_reports.parts[0] if len(rel_to_reports.parts) > 1 else ""
+                    top_dir = (
+                        rel_to_reports.parts[0] if len(rel_to_reports.parts) > 1 else ""
+                    )
                     return top_dir not in excluded_top_dirs
                 except ValueError:
                     return False
 
             html_reports = [
-                f for f in self.reports_dir.rglob("*.html")
-                if _is_scan_report(f)
+                f for f in self.reports_dir.rglob("*.html") if _is_scan_report(f)
             ]
             xml_reports = [
-                f for f in self.reports_dir.rglob("*.xml")
-                if _is_scan_report(f)
+                f for f in self.reports_dir.rglob("*.xml") if _is_scan_report(f)
             ]
-            
+
             # Track which tools have reports
             tools_found = set()
 
@@ -178,44 +187,55 @@ class DashboardDataLoader:
                         tools_found.add(t)
                         break
 
-                results["reports"].append({
-                    "file": rel_path,
-                    "type": "html",
-                    "tool": tool,
-                    "timestamp": datetime.fromtimestamp(html_file.stat().st_mtime).isoformat(),
-                    "size": html_file.stat().st_size
-                })
-            
+                results["reports"].append(
+                    {
+                        "file": rel_path,
+                        "type": "html",
+                        "tool": tool,
+                        "timestamp": datetime.fromtimestamp(
+                            html_file.stat().st_mtime
+                        ).isoformat(),
+                        "size": html_file.stat().st_size,
+                    }
+                )
+
             for xml_file in xml_reports:
                 try:
                     tree = ET.parse(xml_file)
                     root = tree.getroot()
-                    failures = int(root.get('failures', 0))
-                    errors = int(root.get('errors', 0))
+                    failures = int(root.get("failures", 0))
+                    errors = int(root.get("errors", 0))
                     results["summary"]["total_issues"] += failures + errors
-                except:
+                except Exception:
                     pass
-            
+
             results["tools"] = sorted(tools_found)
 
             if not results["reports"]:
                 return {
                     "error": "No scan results found",
                     "action": "Run security scan to generate reports",
-                    "command": "thothctl scan iac --recursive"
+                    "command": "thothctl scan iac --recursive",
                 }
-            
+
             self._cache_data(cache_key, results)
             return results
-            
+
         except Exception as e:
             return {
                 "error": f"Error loading scan results: {str(e)}",
-                "action": "Check file permissions and try again", 
-                "command": "ls -la Reports/"
+                "action": "Check file permissions and try again",
+                "command": "ls -la Reports/",
             }
 
-    def get_findings(self, tool: str = None, severity: str = None, search: str = None, limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+    def get_findings(
+        self,
+        tool: str = None,
+        severity: str = None,
+        search: str = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
         """Load individual findings from JSON reports with filtering."""
         cache_key = "findings_all"
         if not self._is_cache_valid(cache_key):
@@ -234,19 +254,26 @@ class DashboardDataLoader:
                         if not failed_checks:
                             for check_type_data in results.values():
                                 if isinstance(check_type_data, dict):
-                                    failed_checks.extend(check_type_data.get("failed_checks", []))
+                                    failed_checks.extend(
+                                        check_type_data.get("failed_checks", [])
+                                    )
                         for check in failed_checks:
-                            all_findings.append({
-                                "tool": "checkov",
-                                "id": check.get("check_id", ""),
-                                "severity": check.get("severity", "MEDIUM") or "MEDIUM",
-                                "title": check.get("check_result", {}).get("name", check.get("name", "")),
-                                "name": check.get("name", ""),
-                                "file": check.get("file_path", ""),
-                                "line": check.get("file_line_range", [0, 0])[0],
-                                "resource": check.get("resource", ""),
-                                "guideline": check.get("guideline", ""),
-                            })
+                            all_findings.append(
+                                {
+                                    "tool": "checkov",
+                                    "id": check.get("check_id", ""),
+                                    "severity": check.get("severity", "MEDIUM")
+                                    or "MEDIUM",
+                                    "title": check.get("check_result", {}).get(
+                                        "name", check.get("name", "")
+                                    ),
+                                    "name": check.get("name", ""),
+                                    "file": check.get("file_path", ""),
+                                    "line": check.get("file_line_range", [0, 0])[0],
+                                    "resource": check.get("resource", ""),
+                                    "guideline": check.get("guideline", ""),
+                                }
+                            )
                     except (json.JSONDecodeError, KeyError):
                         continue
 
@@ -260,29 +287,33 @@ class DashboardDataLoader:
                         for result in data:
                             filename = result.get("filename", "")
                             for failure in result.get("failures", []):
-                                all_findings.append({
-                                    "tool": "opa",
-                                    "id": "OPA",
-                                    "severity": "HIGH",
-                                    "title": failure.get("msg", ""),
-                                    "name": failure.get("msg", ""),
-                                    "file": filename,
-                                    "line": 0,
-                                    "resource": "",
-                                    "guideline": "",
-                                })
+                                all_findings.append(
+                                    {
+                                        "tool": "opa",
+                                        "id": "OPA",
+                                        "severity": "HIGH",
+                                        "title": failure.get("msg", ""),
+                                        "name": failure.get("msg", ""),
+                                        "file": filename,
+                                        "line": 0,
+                                        "resource": "",
+                                        "guideline": "",
+                                    }
+                                )
                             for warning in result.get("warnings", []):
-                                all_findings.append({
-                                    "tool": "opa",
-                                    "id": "OPA",
-                                    "severity": "MEDIUM",
-                                    "title": warning.get("msg", ""),
-                                    "name": warning.get("msg", ""),
-                                    "file": filename,
-                                    "line": 0,
-                                    "resource": "",
-                                    "guideline": "",
-                                })
+                                all_findings.append(
+                                    {
+                                        "tool": "opa",
+                                        "id": "OPA",
+                                        "severity": "MEDIUM",
+                                        "title": warning.get("msg", ""),
+                                        "name": warning.get("msg", ""),
+                                        "file": filename,
+                                        "line": 0,
+                                        "resource": "",
+                                        "guideline": "",
+                                    }
+                                )
                 except (json.JSONDecodeError, KeyError):
                     pass
 
@@ -295,17 +326,23 @@ class DashboardDataLoader:
                             data = json.load(f)
                         for result in data.get("Results", []):
                             for misconf in result.get("Misconfigurations", []):
-                                all_findings.append({
-                                    "tool": "trivy",
-                                    "id": misconf.get("ID", ""),
-                                    "severity": misconf.get("Severity", "MEDIUM"),
-                                    "title": misconf.get("Title", ""),
-                                    "name": misconf.get("Message", misconf.get("Title", "")),
-                                    "file": result.get("Target", ""),
-                                    "line": 0,
-                                    "resource": misconf.get("CauseMetadata", {}).get("Resource", ""),
-                                    "guideline": misconf.get("PrimaryURL", ""),
-                                })
+                                all_findings.append(
+                                    {
+                                        "tool": "trivy",
+                                        "id": misconf.get("ID", ""),
+                                        "severity": misconf.get("Severity", "MEDIUM"),
+                                        "title": misconf.get("Title", ""),
+                                        "name": misconf.get(
+                                            "Message", misconf.get("Title", "")
+                                        ),
+                                        "file": result.get("Target", ""),
+                                        "line": 0,
+                                        "resource": misconf.get(
+                                            "CauseMetadata", {}
+                                        ).get("Resource", ""),
+                                        "guideline": misconf.get("PrimaryURL", ""),
+                                    }
+                                )
                     except (json.JSONDecodeError, KeyError):
                         continue
 
@@ -318,17 +355,19 @@ class DashboardDataLoader:
                     for query in data.get("queries", []):
                         sev = (query.get("severity") or "MEDIUM").upper()
                         for file_entry in query.get("files", []):
-                            all_findings.append({
-                                "tool": "kics",
-                                "id": query.get("query_id", "")[:12],
-                                "severity": sev,
-                                "title": query.get("query_name", ""),
-                                "name": query.get("query_name", ""),
-                                "file": file_entry.get("file_name", ""),
-                                "line": file_entry.get("line", 0),
-                                "resource": file_entry.get("resource_type", ""),
-                                "guideline": query.get("query_url", ""),
-                            })
+                            all_findings.append(
+                                {
+                                    "tool": "kics",
+                                    "id": query.get("query_id", "")[:12],
+                                    "severity": sev,
+                                    "title": query.get("query_name", ""),
+                                    "name": query.get("query_name", ""),
+                                    "file": file_entry.get("file_name", ""),
+                                    "line": file_entry.get("line", 0),
+                                    "resource": file_entry.get("resource_type", ""),
+                                    "guideline": query.get("query_url", ""),
+                                }
+                            )
                 except (json.JSONDecodeError, KeyError):
                     pass
 
@@ -341,15 +380,21 @@ class DashboardDataLoader:
         if tool:
             filtered = [f for f in filtered if f["tool"] == tool]
         if severity:
-            filtered = [f for f in filtered if f["severity"].upper() == severity.upper()]
+            filtered = [
+                f for f in filtered if f["severity"].upper() == severity.upper()
+            ]
         if search:
             search_lower = search.lower()
-            filtered = [f for f in filtered if (
-                search_lower in f.get("title", "").lower() or
-                search_lower in f.get("file", "").lower() or
-                search_lower in f.get("resource", "").lower() or
-                search_lower in f.get("id", "").lower()
-            )]
+            filtered = [
+                f
+                for f in filtered
+                if (
+                    search_lower in f.get("title", "").lower()
+                    or search_lower in f.get("file", "").lower()
+                    or search_lower in f.get("resource", "").lower()
+                    or search_lower in f.get("id", "").lower()
+                )
+            ]
 
         # Severity counts for the filtered set
         sev_counts = {}
@@ -364,7 +409,7 @@ class DashboardDataLoader:
             tool_counts[t] = tool_counts.get(t, 0) + 1
 
         total = len(filtered)
-        page = filtered[offset:offset + limit]
+        page = filtered[offset : offset + limit]
 
         return {
             "findings": page,
@@ -374,7 +419,7 @@ class DashboardDataLoader:
             "severity_counts": sev_counts,
             "tool_counts": tool_counts,
         }
-    
+
     def get_topology_data(self) -> Dict[str, Any]:
         """Load infrastructure topology from saved report or generate from plans."""
         cache_key = "topology"
@@ -392,7 +437,9 @@ class DashboardDataLoader:
 
             # Otherwise generate live from tfplan.json files
             from thothctl.services.document.topology_generator import (
-                generate_topology, render_topology_mermaid, topology_to_dict,
+                generate_topology,
+                render_topology_mermaid,
+                topology_to_dict,
             )
 
             plan_dirs = [
@@ -429,7 +476,7 @@ class DashboardDataLoader:
         cache_key = "cost_analysis"
         if self._is_cache_valid(cache_key):
             return self.cache[cache_key]["data"]
-        
+
         try:
             cost_files = list(self.reports_dir.glob("**/cost_analysis_*.json"))
             if cost_files:
@@ -443,7 +490,9 @@ class DashboardDataLoader:
                 all_recommendations = set()
                 all_warnings = []
 
-                for cost_file in sorted(cost_files, key=lambda f: f.stat().st_mtime, reverse=True):
+                for cost_file in sorted(
+                    cost_files, key=lambda f: f.stat().st_mtime, reverse=True
+                ):
                     try:
                         with open(cost_file) as f:
                             data = json.load(f)
@@ -455,17 +504,21 @@ class DashboardDataLoader:
                         plan_file = summary.get("plan_file", "")
 
                         # Extract stack name from filename or plan path
-                        stack_name = cost_file.stem.replace("cost_analysis_", "").rsplit("_", 1)[0]
+                        stack_name = cost_file.stem.replace(
+                            "cost_analysis_", ""
+                        ).rsplit("_", 1)[0]
 
-                        stacks.append({
-                            "name": stack_name,
-                            "monthly_cost": monthly,
-                            "annual_cost": annual,
-                            "resources_count": len(resources),
-                            "plan_file": plan_file,
-                            "region": summary.get("region", ""),
-                            "services": services,
-                        })
+                        stacks.append(
+                            {
+                                "name": stack_name,
+                                "monthly_cost": monthly,
+                                "annual_cost": annual,
+                                "resources_count": len(resources),
+                                "plan_file": plan_file,
+                                "region": summary.get("region", ""),
+                                "services": services,
+                            }
+                        )
 
                         total_monthly += monthly
                         total_annual += annual
@@ -505,41 +558,41 @@ class DashboardDataLoader:
                 }
                 self._cache_data(cache_key, result)
                 return result
-            
+
             plan_files = list(self.base_dir.rglob("tfplan.json"))
             if plan_files:
                 return {
-                    "message": "Terraform plan found. Generate cost analysis to see estimates.", 
+                    "message": "Terraform plan found. Generate cost analysis to see estimates.",
                     "action": "Run cost analysis command",
                     "command": "thothctl check iac -type cost-analysis --recursive",
-                    "plan_files": len(plan_files)
+                    "plan_files": len(plan_files),
                 }
-            
+
             return {
                 "message": "No cost data available. Create terraform plan first.",
                 "action": "Generate terraform plan then run cost analysis",
-                "command": "terraform plan -out=tfplan && thothctl check iac -type cost-analysis"
+                "command": "terraform plan -out=tfplan && thothctl check iac -type cost-analysis",
             }
-            
+
         except json.JSONDecodeError:
             return {
-                "error": "Invalid cost analysis file format", 
+                "error": "Invalid cost analysis file format",
                 "action": "Regenerate cost analysis",
-                "command": "thothctl check iac -type cost-analysis --recursive"
+                "command": "thothctl check iac -type cost-analysis --recursive",
             }
         except Exception as e:
             return {
-                "error": f"Error loading cost data: {str(e)}", 
+                "error": f"Error loading cost data: {str(e)}",
                 "action": "Check file permissions and try again",
-                "command": "ls -la Reports/"
+                "command": "ls -la Reports/",
             }
-    
+
     def get_blast_radius(self) -> Dict[str, Any]:
         """Load from cached blast radius analysis."""
         cache_key = "blast_radius"
         if self._is_cache_valid(cache_key):
             return self.cache[cache_key]["data"]
-        
+
         try:
             blast_files = list(self.reports_dir.glob("**/blast_radius_*.json"))
             if blast_files:
@@ -548,15 +601,19 @@ class DashboardDataLoader:
                     data = json.load(f)
                 self._cache_data(cache_key, data)
                 return data
-            
+
             return {
-                "message": "No risk analysis available.", 
+                "message": "No risk analysis available.",
                 "action": "Run project check to generate blast radius analysis",
-                "command": "thothctl check iac -type blast-radius --recursive"
+                "command": "thothctl check iac -type blast-radius --recursive",
             }
-            
+
         except json.JSONDecodeError:
-            return {"error": "Invalid blast radius file format", "action": "Regenerate", "command": "thothctl check iac -type blast-radius --recursive"}
+            return {
+                "error": "Invalid blast radius file format",
+                "action": "Regenerate",
+                "command": "thothctl check iac -type blast-radius --recursive",
+            }
         except Exception as e:
             return {"error": f"Error loading risk data: {str(e)}"}
 
@@ -578,7 +635,7 @@ class DashboardDataLoader:
             return {
                 "message": "No drift data available.",
                 "action": "Run drift detection",
-                "command": "thothctl check iac -type drift --recursive"
+                "command": "thothctl check iac -type drift --recursive",
             }
         except Exception as e:
             return {"error": f"Error loading drift data: {str(e)}"}
@@ -591,12 +648,13 @@ class DashboardDataLoader:
 
         try:
             from datetime import date as date_mod
+
             cost_dir = Path(".thothctl/ai_costs")
             if not cost_dir.exists():
                 return {
                     "message": "No AI usage data.",
                     "action": "Run AI review to generate usage logs",
-                    "command": "thothctl ai-review analyze -d ."
+                    "command": "thothctl ai-review analyze -d .",
                 }
 
             records = []
@@ -625,16 +683,13 @@ class DashboardDataLoader:
             return data
         except Exception as e:
             return {"error": f"Error loading AI usage: {str(e)}"}
-    
+
     def _is_cache_valid(self, key: str) -> bool:
         """Check if cached data is still valid."""
         if key not in self.cache:
             return False
         return time.time() - self.cache[key]["timestamp"] < self.cache_ttl
-    
+
     def _cache_data(self, key: str, data: Dict[str, Any]):
         """Cache data with timestamp."""
-        self.cache[key] = {
-            "data": data,
-            "timestamp": time.time()
-        }
+        self.cache[key] = {"data": data, "timestamp": time.time()}

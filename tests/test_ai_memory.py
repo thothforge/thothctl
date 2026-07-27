@@ -1,12 +1,14 @@
 """Unit tests for AgentMemory — local and S3 backends."""
 
-import json
 import os
-import pytest
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from thothctl.services.ai_review.memory import (
-    AgentMemory, MemoryConfig, FileMemoryBackend, S3MemoryBackend,
+    AgentMemory,
+    FileMemoryBackend,
+    MemoryConfig,
+    S3MemoryBackend,
     detect_runtime,
 )
 
@@ -21,7 +23,9 @@ class TestDetectRuntime:
             assert detect_runtime() == "agentcore"
 
     def test_agentcore_from_s3_bucket(self):
-        with patch.dict(os.environ, {"THOTH_MEMORY_S3_BUCKET": "my-bucket"}, clear=True):
+        with patch.dict(
+            os.environ, {"THOTH_MEMORY_S3_BUCKET": "my-bucket"}, clear=True
+        ):
             assert detect_runtime() == "agentcore"
 
 
@@ -31,7 +35,9 @@ class TestMemoryConfig:
         assert config.mode == "auto"
 
     def test_from_env(self):
-        with patch.dict(os.environ, {"THOTH_MEMORY_MODE": "local", "THOTH_MEMORY_DIR": "/tmp/test"}):
+        with patch.dict(
+            os.environ, {"THOTH_MEMORY_MODE": "local", "THOTH_MEMORY_DIR": "/tmp/test"}
+        ):
             config = MemoryConfig.from_env()
             assert config.mode == "local"
             assert config.storage_dir == "/tmp/test"
@@ -101,7 +107,9 @@ class TestAgentMemoryLocal:
 class TestS3MemoryBackend:
     def test_write_calls_put_object(self):
         mock_client = MagicMock()
-        backend = S3MemoryBackend(bucket="test-bucket", prefix="prefix/", region="us-east-1")
+        backend = S3MemoryBackend(
+            bucket="test-bucket", prefix="prefix/", region="us-east-1"
+        )
         backend._client = mock_client
 
         backend.write("test.json", {"key": "value"})

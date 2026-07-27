@@ -2,8 +2,8 @@
 
 import click
 
-from .commands.server import cli as server_cli
 from .commands.register import cli as register_cli
+from .commands.server import cli as server_cli
 from .commands.status import cli as status_cli
 from .commands.stop import cli as stop_cli
 

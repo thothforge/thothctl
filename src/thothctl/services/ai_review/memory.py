@@ -10,10 +10,11 @@ Memory stores:
     - Analysis cache: previous findings for a repo
     - Agent state: orchestrator metadata
 """
+
 import json
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,7 @@ LOCAL_SESSIONS_DIR = ".thothctl/ai_sessions"
 @dataclass
 class MemoryConfig:
     """Memory backend configuration."""
+
     mode: str = "auto"  # "local", "agentcore", "auto"
     # Local
     storage_dir: str = LOCAL_SESSIONS_DIR
@@ -50,7 +52,9 @@ class MemoryConfig:
 def detect_runtime() -> str:
     """Detect if running in AgentCore or locally."""
     # AgentCore sets these env vars
-    if os.environ.get("AGENTCORE_RUNTIME") or os.environ.get("AWS_EXECUTION_ENV", "").startswith("AgentCore"):
+    if os.environ.get("AGENTCORE_RUNTIME") or os.environ.get(
+        "AWS_EXECUTION_ENV", ""
+    ).startswith("AgentCore"):
         return "agentcore"
     # S3 bucket configured explicitly
     if os.environ.get("THOTH_MEMORY_S3_BUCKET"):
@@ -101,9 +105,14 @@ class AgentMemory:
 
     # -- Analysis cache (per repo + optional run scope) --
 
-    def save_analysis(self, repo: str, analysis: Dict[str, Any], run_id: str = "") -> None:
+    def save_analysis(
+        self, repo: str, analysis: Dict[str, Any], run_id: str = ""
+    ) -> None:
         key = self._scoped_key(repo, "analysis", run_id)
-        with span("memory.save_analysis", {"repo": repo, "run_id": run_id, "backend": self.mode}):
+        with span(
+            "memory.save_analysis",
+            {"repo": repo, "run_id": run_id, "backend": self.mode},
+        ):
             data = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "repo": repo,
@@ -114,7 +123,10 @@ class AgentMemory:
 
     def load_analysis(self, repo: str, run_id: str = "") -> Optional[Dict[str, Any]]:
         key = self._scoped_key(repo, "analysis", run_id)
-        with span("memory.load_analysis", {"repo": repo, "run_id": run_id, "backend": self.mode}) as s:
+        with span(
+            "memory.load_analysis",
+            {"repo": repo, "run_id": run_id, "backend": self.mode},
+        ) as s:
             data = self._backend.read(key)
             s.set_attribute("cache_hit", data is not None)
             return data.get("analysis") if data else None
@@ -123,11 +135,14 @@ class AgentMemory:
 
     def save_session(self, session_id: str, messages: List[Dict]) -> None:
         key = f"sessions/{session_id}.json"
-        self._backend.write(key, {
-            "session_id": session_id,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "messages": messages,
-        })
+        self._backend.write(
+            key,
+            {
+                "session_id": session_id,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "messages": messages,
+            },
+        )
 
     def load_session(self, session_id: str) -> List[Dict]:
         key = f"sessions/{session_id}.json"
@@ -149,10 +164,12 @@ class AgentMemory:
     def append_decision(self, repo: str, decision: Dict[str, Any]) -> None:
         key = self._repo_key(repo, "decisions")
         existing = self._backend.read(key) or {"decisions": []}
-        existing["decisions"].append({
-            **decision,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        existing["decisions"].append(
+            {
+                **decision,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         # Keep last 50 decisions per repo
         existing["decisions"] = existing["decisions"][-50:]
         self._backend.write(key, existing)
@@ -181,8 +198,10 @@ class AgentMemory:
 
 # -- Backends --
 
+
 class MemoryBackend:
     """Abstract backend interface."""
+
     mode: str = "unknown"
 
     def write(self, key: str, data: Dict) -> None:
@@ -194,6 +213,7 @@ class MemoryBackend:
 
 class FileMemoryBackend(MemoryBackend):
     """Local filesystem backend."""
+
     mode = "local"
 
     def __init__(self, storage_dir: str = LOCAL_SESSIONS_DIR):
@@ -220,6 +240,7 @@ class FileMemoryBackend(MemoryBackend):
 
 class S3MemoryBackend(MemoryBackend):
     """S3 backend for AgentCore / cloud deployments."""
+
     mode = "agentcore"
 
     def __init__(self, bucket: str, prefix: str = "", region: str = "us-east-1"):
@@ -232,6 +253,7 @@ class S3MemoryBackend(MemoryBackend):
     def client(self):
         if self._client is None:
             import boto3
+
             self._client = boto3.client("s3", region_name=self.region)
         return self._client
 

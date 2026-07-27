@@ -1,9 +1,8 @@
+import os
 from contextlib import contextmanager
 from pathlib import Path
 
 import click
-
-import os
 
 from ....core.commands import ClickCommand
 from ....services.project.cleanup.clean_project import cleanup_project
@@ -22,7 +21,7 @@ class CleanUpProjectCommand(ClickCommand):
     ) -> None:
         """Execute Environment initialization"""
         ctx = click.get_current_context()
-        debug = ctx.obj.get("DEBUG")
+        ctx.obj.get("DEBUG")
         code_directory = ctx.obj.get("CODE_DIRECTORY")
         self._clean_up_project(
             code_directory, clean_additional_files, clean_additional_folders

@@ -1,4 +1,5 @@
 """Scan report models — canonical data structures for all scan tools."""
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional

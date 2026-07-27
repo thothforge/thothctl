@@ -1,4 +1,5 @@
 """Define Files contents for template."""
+
 # TODO UPGRADE to latest version to manage workspaces
 terragrunt_hcl_content = """
 include "root" {
@@ -332,7 +333,6 @@ crash.log
 crash.*.log
 
 
-
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
@@ -510,7 +510,16 @@ terraform_template = {
 
 terraform_module_template = {
     "folders": [
-        {"name": "examples", "files": ["main.tf", "outputs.tf", "terraform.tfvars", "README.md", "variables.tf"]},
+        {
+            "name": "examples",
+            "files": [
+                "main.tf",
+                "outputs.tf",
+                "terraform.tfvars",
+                "README.md",
+                "variables.tf",
+            ],
+        },
         {"name": "test"},
     ],
     "files": [
@@ -544,6 +553,6 @@ project_structure = {
             "name": "test",
             "mandatory": False,
             "type": "root",
-        }
-    ]
+        },
+    ],
 }

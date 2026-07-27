@@ -1,14 +1,14 @@
 """Sync workspaces."""
+
 import json
 import logging
+import os
 import subprocess
 from pathlib import Path, PurePath
 
-import os
 from colorama import Fore
 
 from ..process_hcl.graph_manager import graph_dependencies_to_json
-
 
 terragrun_file = "terragrunt.hcl"
 terraform_path = ".terraform"
@@ -190,7 +190,7 @@ def sync_workspaces(json_graph):
 
                     current_wk = show_workspace(o["name"])
                     print(
-                        f'{Fore.MAGENTA}Workspace for main resource - {o["name"]}: {current_wk} '
+                        f"{Fore.MAGENTA}Workspace for main resource - {o['name']}: {current_wk} "
                     )
                     depend_wk = show_workspace(stack_name)
                     print(

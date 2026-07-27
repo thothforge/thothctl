@@ -1,7 +1,8 @@
 """Data models for inventory management."""
+
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 class RegistryType(Enum):
@@ -14,7 +15,7 @@ class RegistryType(Enum):
 
 class ProjectType(Enum):
     """Supported project types."""
-    
+
     TERRAFORM = "terraform"
     TERRAGRUNT = "terragrunt"
 
@@ -22,7 +23,7 @@ class ProjectType(Enum):
 @dataclass
 class Provider:
     """Provider information."""
-    
+
     name: str
     version: str
     source: str = "Null"
@@ -31,7 +32,7 @@ class Provider:
     latest_version: str = "Null"  # Latest available version
     source_url: str = "Null"  # Source URL for the provider
     status: str = "Unknown"  # Version status (Current, Outdated, Unknown)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -58,7 +59,7 @@ class Component:
     latest_version: str = "Null"
     source_url: str = "Null"
     status: str = "Null"
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -80,17 +81,19 @@ class ComponentGroup:
     stack: str
     components: List[Component]
     providers: List[Provider] = None
-    
+
     def __post_init__(self):
         if self.providers is None:
             self.providers = []
-            
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
             "stack": self.stack,
             "components": [component.to_dict() for component in self.components],
-            "providers": [provider.to_dict() for provider in self.providers] if self.providers else [],
+            "providers": [provider.to_dict() for provider in self.providers]
+            if self.providers
+            else [],
         }
 
 
@@ -102,7 +105,7 @@ class Inventory:
     components: List[ComponentGroup]
     project_type: str = "terraform"
     version: int = 2
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert inventory to dictionary format."""
         return {
@@ -134,9 +137,12 @@ class Inventory:
                             "component": provider.component,
                             "latest_version": provider.latest_version,
                             "source_url": provider.source_url,
-                            "status": provider.status,                        }
+                            "status": provider.status,
+                        }
                         for provider in group.providers
-                    ] if group.providers else []
+                    ]
+                    if group.providers
+                    else [],
                 }
                 for group in self.components
             ],

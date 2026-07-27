@@ -1,10 +1,10 @@
 """Render the unified scan HTML report from pre-parsed results (no XML re-parsing)."""
+
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader
-
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
@@ -61,15 +61,17 @@ def render_unified_report(
         total_skipped += skipped
         total_errors += errors
 
-        tools.append({
-            "tool": tool_name,
-            "passed": passed,
-            "failed": failed,
-            "skipped": skipped,
-            "warnings": warnings,
-            "errors": errors,
-            "total": passed + failed + skipped + warnings + errors,
-        })
+        tools.append(
+            {
+                "tool": tool_name,
+                "passed": passed,
+                "failed": failed,
+                "skipped": skipped,
+                "warnings": warnings,
+                "errors": errors,
+                "total": passed + failed + skipped + warnings + errors,
+            }
+        )
 
         for f in tool_data.get("findings", []):
             all_findings.append({**f, "tool": tool_name})
@@ -78,7 +80,9 @@ def render_unified_report(
     sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
     all_findings.sort(key=lambda f: sev_order.get(f.get("severity", "MEDIUM"), 2))
 
-    total_tests = total_passed + total_failed + total_warnings + total_skipped + total_errors
+    total_tests = (
+        total_passed + total_failed + total_warnings + total_skipped + total_errors
+    )
     success_rate = round(total_passed / total_tests * 100, 1) if total_tests > 0 else 0
 
     # Severity counts
@@ -115,15 +119,18 @@ def render_unified_report(
 
 def _merge_with_existing(current_results: dict, reports_dir: str) -> dict:
     """Merge current scan results with previously scanned tool data from disk.
-    
+
     Reads Reports/<tool>/report_*/results.json for tools not in current_results.
     """
-    import json
     merged = dict(current_results)
-    
+
     # Tools already in current results
-    current_tools = {k for k in current_results if k != "summary" and isinstance(current_results.get(k), dict)}
-    
+    current_tools = {
+        k
+        for k in current_results
+        if k != "summary" and isinstance(current_results.get(k), dict)
+    }
+
     # Check for existing tool folders
     abs_reports = os.path.abspath(reports_dir)
     tool_dirs = {
@@ -132,24 +139,31 @@ def _merge_with_existing(current_results: dict, reports_dir: str) -> dict:
         "opa": os.path.join(abs_reports, "opa"),
         "kics": os.path.join(abs_reports, "kics"),
     }
-    
+
     for tool_name, tool_path in tool_dirs.items():
         if tool_name in current_tools:
             continue  # Already have fresh data
         if not os.path.isdir(tool_path):
             continue
-            
+
         # Load existing results
         if tool_name == "checkov":
             from thothctl.services.scan.report_parser import parse_checkov_dir
+
             report = parse_checkov_dir(tool_path)
             if report.total > 0:
                 merged[tool_name] = {
                     "status": "COMPLETE",
                     "report_data": report.to_report_data(),
                     "findings": [
-                        {"id": f.id, "severity": f.severity, "title": f.title,
-                         "resource": f.resource, "file": f.file, "line": f.line}
+                        {
+                            "id": f.id,
+                            "severity": f.severity,
+                            "title": f.title,
+                            "resource": f.resource,
+                            "file": f.file,
+                            "line": f.line,
+                        }
                         for f in report.findings
                     ],
                 }
@@ -158,27 +172,35 @@ def _merge_with_existing(current_results: dict, reports_dir: str) -> dict:
             if passed + failed > 0:
                 merged[tool_name] = {
                     "status": "COMPLETE",
-                    "report_data": {"passed_count": passed, "failed_count": failed, "skipped_count": 0, "error_count": 0, "warning_count": 0},
+                    "report_data": {
+                        "passed_count": passed,
+                        "failed_count": failed,
+                        "skipped_count": 0,
+                        "error_count": 0,
+                        "warning_count": 0,
+                    },
                     "findings": findings,
                 }
 
     # Recalculate summary
     total_issues = sum(
-        d.get("report_data", {}).get("failed_count", 0) + d.get("report_data", {}).get("error_count", 0)
-        for k, d in merged.items() if k != "summary" and isinstance(d, dict)
+        d.get("report_data", {}).get("failed_count", 0)
+        + d.get("report_data", {}).get("error_count", 0)
+        for k, d in merged.items()
+        if k != "summary" and isinstance(d, dict)
     )
     merged["summary"] = {"total_issues": total_issues}
-    
+
     return merged
 
 
 def _load_trivy_from_disk(trivy_dir: str):
     """Load Trivy results from existing report files."""
     import json
-    
+
     passed = failed = 0
     findings = []
-    
+
     for direntry in os.listdir(trivy_dir):
         report_path = os.path.join(trivy_dir, direntry)
         if not os.path.isdir(report_path):
@@ -199,15 +221,19 @@ def _load_trivy_from_disk(trivy_dir: str):
                         if misconf.get("Status") == "PASS":
                             continue
                         cause = misconf.get("CauseMetadata", {})
-                        findings.append({
-                            "id": misconf.get("AVDID") or misconf.get("ID", ""),
-                            "severity": (misconf.get("Severity") or "MEDIUM").upper(),
-                            "title": misconf.get("Title", ""),
-                            "resource": cause.get("Resource", ""),
-                            "file": cause.get("Filename", result.get("Target", "")),
-                            "line": cause.get("StartLine", 0),
-                        })
+                        findings.append(
+                            {
+                                "id": misconf.get("AVDID") or misconf.get("ID", ""),
+                                "severity": (
+                                    misconf.get("Severity") or "MEDIUM"
+                                ).upper(),
+                                "title": misconf.get("Title", ""),
+                                "resource": cause.get("Resource", ""),
+                                "file": cause.get("Filename", result.get("Target", "")),
+                                "line": cause.get("StartLine", 0),
+                            }
+                        )
             except (json.JSONDecodeError, OSError):
                 continue
-    
+
     return passed, failed, findings

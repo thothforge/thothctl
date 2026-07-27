@@ -1,11 +1,11 @@
 import logging
-import time
 import os
+import time
+from os import path
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 from colorama import Fore
-from os import path
 
 from ...utils.common.create_compliance_html_reports import (
     ComplianceReportGenerator,
@@ -13,11 +13,16 @@ from ...utils.common.create_compliance_html_reports import (
 )
 from ...utils.common.create_html_reports import HTMLReportGenerator
 from ...utils.common.delete_directory import DirectoryManager
+from .report_parser import parse_checkov_dir, parse_tool_result
+
 # from .scanners.tfsec import TFSecScanner
 from .scanners.checkov import CheckovScanner
 from .scanners.kics import KICSScanner
+from .scanners.opa import OPAScanner
 from .scanners.scan_reports import ReportProcessor, ReportScanner
-from .report_parser import parse_checkov_dir, parse_tool_result
+from .scanners.scanners import Scanner, ScanOrchestrator
+from .scanners.terraform_compliance import TerraformComplianceScanner
+from .scanners.trivy import TrivyScanner
 
 
 def debug_print(message: str) -> None:
@@ -28,13 +33,14 @@ def debug_print(message: str) -> None:
 
 def verbose_print(message: str) -> None:
     """Print verbose message if verbose or debug mode is enabled."""
-    if os.environ.get("THOTHCTL_DEBUG") == "true" or os.environ.get("THOTHCTL_VERBOSE") == "true":
+    if (
+        os.environ.get("THOTHCTL_DEBUG") == "true"
+        or os.environ.get("THOTHCTL_VERBOSE") == "true"
+    ):
         print(f"[INFO] {message}")
+
+
 # thothctl/application/scan_service.py (Application Layer)
-from .scanners.scanners import ScanOrchestrator, Scanner
-from .scanners.trivy import TrivyScanner
-from .scanners.opa import OPAScanner
-from .scanners.terraform_compliance import TerraformComplianceScanner
 
 
 class ScanService:
@@ -46,7 +52,9 @@ class ScanService:
             "checkov": Scanner("checkov", CheckovScanner()),
             "kics": Scanner("kics", KICSScanner()),
             "opa": Scanner("opa", OPAScanner()),
-            "terraform-compliance": Scanner("terraform-compliance", TerraformComplianceScanner()),
+            "terraform-compliance": Scanner(
+                "terraform-compliance", TerraformComplianceScanner()
+            ),
         }
         self.logger = logging.getLogger(__name__)
 
@@ -107,7 +115,7 @@ class ScanService:
             project_type = self.detect_project_type(directory)
             self.logger.info(f"Detected project type: {project_type}")
             options["_project_type"] = project_type
-            
+
             # Process Checkov reports if selected
             if "checkov" in selected_tools:
                 checkov_reports_path = path.join(reports_path, "checkov")
@@ -117,11 +125,14 @@ class ScanService:
                     cfn_options = dict(options.get("checkov", {}))
                     cfn_options["framework"] = "cloudformation"
                     templates = (
-                        self._find_cdk_templates(directory) if project_type == "cdk"
+                        self._find_cdk_templates(directory)
+                        if project_type == "cdk"
                         else self._find_cloudformation_templates(directory)
                     )
                     if templates:
-                        self.logger.info(f"Scanning {len(templates)} CloudFormation templates with Checkov")
+                        self.logger.info(
+                            f"Scanning {len(templates)} CloudFormation templates with Checkov"
+                        )
                         scanner = self.available_scanners.get("checkov")
                         for template in templates:
                             try:
@@ -132,9 +143,13 @@ class ScanService:
                                     tftool=tftool,
                                 )
                             except Exception as e:
-                                self.logger.warning(f"Checkov CFN scan failed for {template}: {e}")
+                                self.logger.warning(
+                                    f"Checkov CFN scan failed for {template}: {e}"
+                                )
                     else:
-                        self.logger.info("No CloudFormation templates found for Checkov")
+                        self.logger.info(
+                            "No CloudFormation templates found for Checkov"
+                        )
                 else:
                     # Terraform: use recursive scan (existing behavior)
                     self._recursive_terraform_scan(
@@ -145,17 +160,17 @@ class ScanService:
                         max_workers=max_workers,
                         compact=compact,
                     )
-                
+
                 # Process the directory to generate HTML/compliance reports
                 checkov_scan_dir = path.join(checkov_reports_path, "security-scan")
                 if path.exists(checkov_scan_dir):
                     processor.process_directory(
                         directory=checkov_scan_dir, report_tool="checkov"
                     )
-                
+
                 # Parse all Checkov results using unified parser
                 checkov_report = parse_checkov_dir(checkov_reports_path)
-                
+
                 results["checkov"] = {
                     "status": checkov_report.status,
                     "report_path": checkov_report.report_path,
@@ -163,19 +178,25 @@ class ScanService:
                     "issues_count": checkov_report.issues_count,
                     "report_data": checkov_report.to_report_data(),
                     "findings": [
-                        {"id": f.id, "severity": f.severity, "title": f.title,
-                         "resource": f.resource, "file": f.file, "line": f.line}
+                        {
+                            "id": f.id,
+                            "severity": f.severity,
+                            "title": f.title,
+                            "resource": f.resource,
+                            "file": f.file,
+                            "line": f.line,
+                        }
                         for f in checkov_report.findings
                     ],
                 }
                 total_issues += checkov_report.issues_count
-                
+
                 self.logger.info(
                     f"Checkov results: passed={checkov_report.passed}, "
                     f"failed={checkov_report.failed}, skipped={checkov_report.skipped}, "
                     f"errors={checkov_report.errors}"
                 )
-                    
+
             # Run other scanners (excluding checkov which is handled above)
             other_scanners = [
                 self.available_scanners[tool]
@@ -185,7 +206,7 @@ class ScanService:
             if other_scanners:
                 orchestrator = ScanOrchestrator(other_scanners)
                 scan_results = orchestrator.run_scans(directory, reports_path, options)
-                
+
                 # Normalize results using unified parser
                 for tool, raw_result in scan_results.items():
                     tool_report = parse_tool_result(tool, raw_result)
@@ -198,7 +219,7 @@ class ScanService:
                         "findings": raw_result.get("findings", []),
                     }
                     total_issues += tool_report.issues_count
-                
+
             # Add total issues to results
             results["summary"] = {"total_issues": total_issues}
 
@@ -207,7 +228,9 @@ class ScanService:
                 generator = HTMLReportGenerator()
                 checkov_scan_path = path.join(reports_path, "checkov", "security-scan")
                 if path.exists(checkov_scan_path):
-                    generator.create_html_reports(directory=checkov_scan_path, mode="simple")
+                    generator.create_html_reports(
+                        directory=checkov_scan_path, mode="simple"
+                    )
             except Exception as e:
                 self.logger.warning(f"Per-stack HTML report generation failed: {e}")
 
@@ -216,10 +239,15 @@ class ScanService:
         except Exception as e:
             self.logger.error(f"Scan execution failed: {e}")
             raise
-            
+
     def _recursive_terraform_scan(
-        self, directory: str, reports_dir: str, options: Dict, tftool: str,
-        max_workers: int = 2, compact: bool = False,
+        self,
+        directory: str,
+        reports_dir: str,
+        options: Dict,
+        tftool: str,
+        max_workers: int = 2,
+        compact: bool = False,
     ) -> Dict[str, Dict]:
         """
         Recursively scan directories for Terraform files and run Checkov.
@@ -244,8 +272,12 @@ class ScanService:
             self.logger.info(f"No terraform stacks found in {directory}")
             return results
 
-        self.logger.info(f"Found {len(stacks)} terraform stacks to scan (workers={max_workers})")
-        print(f"{Fore.MAGENTA}\n \U0001f50e Found {len(stacks)} stacks to scan (parallel={max_workers})")
+        self.logger.info(
+            f"Found {len(stacks)} terraform stacks to scan (workers={max_workers})"
+        )
+        print(
+            f"{Fore.MAGENTA}\n \U0001f50e Found {len(stacks)} stacks to scan (parallel={max_workers})"
+        )
 
         scan_options = dict(options)
         if compact:
@@ -316,8 +348,16 @@ class ScanService:
         """Find CloudFormation template files (YAML/JSON with Resources key)."""
         templates = []
         root = Path(directory)
-        exclude = {".terraform", ".git", "node_modules", ".terragrunt-cache",
-                   "Reports", "cdk.out", ".venv", "venv"}
+        exclude = {
+            ".terraform",
+            ".git",
+            "node_modules",
+            ".terragrunt-cache",
+            "Reports",
+            "cdk.out",
+            ".venv",
+            "venv",
+        }
 
         for f in sorted(root.rglob("*")):
             if not f.is_file():
@@ -331,7 +371,11 @@ class ScanService:
             # Quick check for CFN markers without full parsing
             try:
                 head = f.read_text(errors="ignore")[:2000]
-                if "AWSTemplateFormatVersion" in head or ('"Resources"' in head and '"Type"' in head) or ("Resources:" in head and "Type:" in head):
+                if (
+                    "AWSTemplateFormatVersion" in head
+                    or ('"Resources"' in head and '"Type"' in head)
+                    or ("Resources:" in head and "Type:" in head)
+                ):
                     templates.append(str(f))
             except Exception:
                 continue
@@ -347,6 +391,8 @@ class ScanService:
         for f in cdk_out.glob("*.template.json"):
             templates.append(str(f))
         return templates
+
+
 def recursive_scan(
     directory: str,
     tool: str,

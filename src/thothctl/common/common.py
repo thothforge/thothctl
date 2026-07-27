@@ -1,17 +1,17 @@
 """Common variables, methods, to all project."""
+
 import hashlib
 import logging
-from pathlib import Path, PurePath
-from typing import Optional, Dict, Any
-
 import os
+from pathlib import Path, PurePath
+from typing import Optional
+
 import toml
 from colorama import Fore
 from rich.console import Console
 from rich.table import Table
 
 from ..utils.platform_utils import get_config_dir
-
 
 config_file_name = ".thothcf.toml"
 
@@ -47,7 +47,7 @@ def create_iac_conf(file_name=config_file_name):
     """
     config_dir = get_config_dir()
     config_path = config_dir / file_name
-    
+
     if not config_dir.exists():
         config_dir.mkdir(parents=True, exist_ok=True)
         logging.debug(f"Folder {config_dir} created")
@@ -113,7 +113,12 @@ def check_info_project(
 
 
 # create project info in toml file for creating an array of tables
-def create_info_project(project_name: str, file_name=config_file_name, content=None, space: Optional[str] = None):
+def create_info_project(
+    project_name: str,
+    file_name=config_file_name,
+    content=None,
+    space: Optional[str] = None,
+):
     """
     Create project info in toml file for creating an array of tables.
 
@@ -125,14 +130,14 @@ def create_info_project(project_name: str, file_name=config_file_name, content=N
     """
     if content is None:
         content = {"template_files": []}
-        
+
     # Add thothcf section with space if provided
     if "thothcf" not in content:
         content["thothcf"] = {"project_id": project_name}
-        
+
     if space:
         content["thothcf"]["space"] = space
-        
+
     config_path = PurePath(f"{Path.home()}/.thothcf/", file_name)
 
     if os.path.exists(config_path):
@@ -142,13 +147,15 @@ def create_info_project(project_name: str, file_name=config_file_name, content=N
         if project_name in config:
             # Check if project has space information
             space_info = ""
-            if config[project_name].get("thothcf") and config[project_name]["thothcf"].get("space"):
+            if config[project_name].get("thothcf") and config[project_name][
+                "thothcf"
+            ].get("space"):
                 project_space = config[project_name]["thothcf"]["space"]
                 space_info = f" in space '{project_space}'"
-                
+
             # Create the exact removal command
             removal_cmd = f"thothctl remove project -pj {project_name}"
-            
+
             raise ValueError(
                 f"💥 Project '{project_name}'{space_info} already exists. \n"
                 f"Run 👉 {Fore.CYAN}{removal_cmd}{Fore.RESET} 👈🏼 if you want to reuse the project name."
@@ -292,7 +299,7 @@ def list_spaces():
 
         if "spaces" in config:
             return list(config["spaces"].keys())
-    
+
     return []
 
 
@@ -311,7 +318,7 @@ def get_project_space(project_name):
 
         if project_name in config and "thothcf" in config[project_name]:
             return config[project_name]["thothcf"].get("space")
-    
+
     return None
 
 
@@ -331,7 +338,7 @@ def get_space_details():
         if "spaces" in config:
             for space_name, space_data in config["spaces"].items():
                 space_details[space_name] = space_data
-    
+
     return space_details
 
 
@@ -352,24 +359,24 @@ def get_active_space() -> Optional[str]:
 def get_space_vcs_provider(space_name: str) -> Optional[str]:
     """
     Get the VCS provider for a space.
-    
+
     :param space_name: Name of the space
     :return: VCS provider name or None if not found
     """
     if not space_name:
         return None
-        
+
     space_details = get_space_details()
     if space_name in space_details:
         return space_details[space_name].get("version_control", {}).get("provider")
-    
+
     return None
 
 
 def get_projects_in_space(space_name):
     """
     Get all projects in a specific space.
-    
+
     :param space_name: Name of the space
     :return: List of project names in the space
     """
@@ -384,8 +391,7 @@ def get_projects_in_space(space_name):
             if isinstance(project_data, dict) and "thothcf" in project_data:
                 if project_data["thothcf"].get("space") == space_name:
                     projects.append(project_name)
-    
-    
+
     return projects
 
 
@@ -398,16 +404,16 @@ def print_list_projects(show_space=True):
     """
     table = Table(title="Project List", title_style="bold magenta", show_lines=True)
     table.add_column("ProjectName", justify="left", style="cyan", no_wrap=True)
-    
+
     if show_space:
         table.add_column("Space", justify="left", style="green", no_wrap=True)
-    
+
     projects = list_projects()
     if not projects:
         console = Console()
         console.print("[yellow]No projects found[/yellow]")
         return
-        
+
     for p in projects:
         if show_space:
             space = get_project_space(p)
@@ -430,31 +436,28 @@ def print_list_spaces():
     table.add_column("SpaceName", justify="left", style="green", no_wrap=True)
     table.add_column("Projects", justify="left", style="cyan", no_wrap=True)
     table.add_column("Description", justify="left", style="yellow", no_wrap=True)
-    
+
     spaces = list_spaces()
     if not spaces:
         console = Console()
-        console.print("[yellow]🔍 No spaces found. Create one with 'thothctl init space'[/yellow]")
+        console.print(
+            "[yellow]🔍 No spaces found. Create one with 'thothctl init space'[/yellow]"
+        )
         return
-    
+
     # Get space descriptions if available
     space_details = get_space_details()
-        
+
     for space in spaces:
         projects = get_projects_in_space(space)
         project_count = len(projects)
-        project_display = f"{project_count} project{'s' if project_count != 1 else ''}"
-        
+
         # Get description if available
         description = "No description"
         if space in space_details and "description" in space_details[space]:
             description = space_details[space]["description"]
-        
-        table.add_row(
-            f"🌐 {space}", 
-            f"{project_count} projects",
-            f"{description}"
-        )
+
+        table.add_row(f"🌐 {space}", f"{project_count} projects", f"{description}")
 
     console = Console()
     console.print(table)

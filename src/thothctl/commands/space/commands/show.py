@@ -1,17 +1,17 @@
 """Show space configuration summary."""
+
 from pathlib import Path
 
 import click
 import toml
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich import box
 
-from ....common.common import list_spaces, get_projects_in_space
-from ....core.commands import ClickCommand
+from ....common.common import get_projects_in_space, list_spaces
 from ....core.cli_ui import CliUI
-
+from ....core.commands import ClickCommand
 
 ACTIVE_SPACE_FILE = Path.home() / ".thothcf" / "active_space"
 
@@ -28,7 +28,9 @@ class ShowSpaceCommand(ClickCommand):
         spaces = list_spaces()
         if space_name not in spaces:
             self.ui.print_error(f"Space '{space_name}' does not exist")
-            self.ui.print_info(f"Available spaces: {', '.join(spaces) if spaces else 'none'}")
+            self.ui.print_info(
+                f"Available spaces: {', '.join(spaces) if spaces else 'none'}"
+            )
             raise ValueError(f"Space '{space_name}' does not exist")
         return True
 
@@ -45,12 +47,14 @@ class ShowSpaceCommand(ClickCommand):
 
         # Header
         status = "🟢 ACTIVE" if is_active else "⚪ INACTIVE"
-        self.console.print(Panel(
-            f"[bold]{space.get('name', space_name)}[/bold] — {space.get('description', 'No description')}\n"
-            f"Status: {status}  |  Created: {space.get('created_at', 'unknown')[:10]}",
-            title="🌐 Space Configuration",
-            border_style="cyan",
-        ))
+        self.console.print(
+            Panel(
+                f"[bold]{space.get('name', space_name)}[/bold] — {space.get('description', 'No description')}\n"
+                f"Status: {status}  |  Created: {space.get('created_at', 'unknown')[:10]}",
+                title="🌐 Space Configuration",
+                border_style="cyan",
+            )
+        )
 
         # Configuration table
         table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
@@ -91,7 +95,9 @@ class ShowSpaceCommand(ClickCommand):
         creds_path = Path.home() / ".thothcf" / "spaces" / space_name / "credentials"
         if creds_path.exists():
             cred_files = list(creds_path.iterdir())
-            self.console.print(f"\n[bold]🔒 Credentials:[/bold] {len(cred_files)} stored (encrypted)")
+            self.console.print(
+                f"\n[bold]🔒 Credentials:[/bold] {len(cred_files)} stored (encrypted)"
+            )
         else:
             self.console.print("\n[dim]🔒 No credentials configured.[/dim]")
 

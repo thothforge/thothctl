@@ -1,11 +1,12 @@
 """Safety controls: confidence checking, rate limiting, and emergency overrides."""
+
 import json
 import logging
 import time
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Tuple, Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from ..config.decision_rules import SafetyConfig
 
@@ -44,19 +45,33 @@ class SafetyGuard:
         required = thresholds.get(action, 0.95)
         if confidence >= required:
             return True, f"Confidence {confidence:.0%} meets threshold {required:.0%}"
-        return False, f"Confidence {confidence:.0%} below threshold {required:.0%}. Manual review required."
+        return (
+            False,
+            f"Confidence {confidence:.0%} below threshold {required:.0%}. Manual review required.",
+        )
 
     # -- Rate limiting --
 
     def check_rate_limit(self, action: str, repository: str) -> Tuple[bool, str]:
         """Check if action is within daily rate limits and cooldown."""
         # Daily limit
-        limit_key = f"max_auto_{action}s_per_day" if action != "request_changes" else "max_auto_approvals_per_day"
+        limit_key = (
+            f"max_auto_{action}s_per_day"
+            if action != "request_changes"
+            else "max_auto_approvals_per_day"
+        )
         daily_limit = getattr(self.config, limit_key, 50)
-        daily_count = sum(1 for a in self._today_actions if a.action == action and a.repository == repository)
+        daily_count = sum(
+            1
+            for a in self._today_actions
+            if a.action == action and a.repository == repository
+        )
 
         if daily_count >= daily_limit:
-            return False, f"Daily limit of {daily_limit} {action}s reached for {repository}"
+            return (
+                False,
+                f"Daily limit of {daily_limit} {action}s reached for {repository}",
+            )
 
         # Cooldown
         repo_actions = [a for a in self._today_actions if a.repository == repository]
@@ -78,7 +93,10 @@ class SafetyGuard:
         approvers = pr_context.get("approvers", [])
 
         if any(label in self.config.emergency_labels for label in labels):
-            return True, f"Emergency label detected: {set(labels) & set(self.config.emergency_labels)}"
+            return (
+                True,
+                f"Emergency label detected: {set(labels) & set(self.config.emergency_labels)}",
+            )
         if author in self.config.trusted_bots:
             return True, f"Trusted bot: {author}"
         if any(a in self.config.bypass_approvers for a in approvers):
@@ -88,14 +106,22 @@ class SafetyGuard:
 
     # -- Full check --
 
-    def can_take_action(self, action: str, confidence: float,
-                        repository: str, pr_context: Optional[Dict] = None) -> Tuple[bool, str]:
+    def can_take_action(
+        self,
+        action: str,
+        confidence: float,
+        repository: str,
+        pr_context: Optional[Dict] = None,
+    ) -> Tuple[bool, str]:
         """Run all safety checks. Returns (allowed, reason)."""
         # Override check first
         if pr_context:
             overridden, reason = self.check_override(pr_context)
             if overridden:
-                return False, f"Override active: {reason}. Falling back to comment-only."
+                return (
+                    False,
+                    f"Override active: {reason}. Falling back to comment-only.",
+                )
 
         ok, reason = self.check_confidence(action, confidence)
         if not ok:
@@ -109,11 +135,16 @@ class SafetyGuard:
 
     # -- Recording --
 
-    def record_action(self, action: str, repository: str, pr_id: str,
-                      confidence: float, reason: str) -> None:
+    def record_action(
+        self, action: str, repository: str, pr_id: str, confidence: float, reason: str
+    ) -> None:
         record = ActionRecord(
-            timestamp=time.time(), action=action, repository=repository,
-            pr_id=pr_id, confidence=confidence, reason=reason,
+            timestamp=time.time(),
+            action=action,
+            repository=repository,
+            pr_id=pr_id,
+            confidence=confidence,
+            reason=reason,
         )
         self._today_actions.append(record)
         self._persist_record(record)
@@ -122,7 +153,11 @@ class SafetyGuard:
         actions = {}
         for a in self._today_actions:
             actions[a.action] = actions.get(a.action, 0) + 1
-        return {"date": date.today().isoformat(), "actions": actions, "total": len(self._today_actions)}
+        return {
+            "date": date.today().isoformat(),
+            "actions": actions,
+            "total": len(self._today_actions),
+        }
 
     # -- Persistence --
 

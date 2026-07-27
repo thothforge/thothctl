@@ -1,18 +1,16 @@
 import asyncio
 import logging
+import os
 from enum import Enum
 from typing import Optional
 
 import click
-
-import os
 from colorama import Fore
 from rich.console import Console
 from rich.panel import Panel
 
 from ....core.commands import ClickCommand
 from ....services.inventory.inventory_service import InventoryService
-
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -224,7 +222,7 @@ class IaCInvCommand(ClickCommand):
 
         except Exception as e:
             self.console.print(
-                "[yellow]Unable to display summary. " f"Error: {str(e)}[/yellow]"
+                f"[yellow]Unable to display summary. Error: {str(e)}[/yellow]"
             )
 
     def _display_summary(self, inventory: dict) -> None:

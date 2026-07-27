@@ -4,10 +4,11 @@ Supports two modes:
 - Inline agent: ephemeral, no pre-created agent needed (CI/CD, dev)
 - Persistent agent: pre-created agent with ID + alias (production)
 """
+
 import json
 import logging
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 from ..config.ai_settings import ProviderConfig
 from ..tracing import span
@@ -19,7 +20,7 @@ class BedrockAgentProvider:
     """Bedrock Agent Runtime integration (InvokeInlineAgent / InvokeAgent)."""
 
     def __init__(self, config: ProviderConfig):
-        self.model = config.model or "anthropic.claude-sonnet-4-20250514"
+        self.model = config.model or "anthropic.claude-sonnet-4-6"
         self.max_tokens = config.max_tokens
         self.temperature = config.temperature
         self.region = config.region or "us-east-1"
@@ -33,7 +34,10 @@ class BedrockAgentProvider:
         if self._client is None:
             try:
                 import boto3
-                self._client = boto3.client("bedrock-agent-runtime", region_name=self.region)
+
+                self._client = boto3.client(
+                    "bedrock-agent-runtime", region_name=self.region
+                )
             except ImportError:
                 raise ImportError("boto3 required. Install with: pip install boto3")
         return self._client
@@ -44,19 +48,26 @@ class BedrockAgentProvider:
 
     def analyze(self, system_prompt: str, user_content: str) -> Dict[str, Any]:
         """Send analysis request via agent runtime and return parsed JSON."""
-        with span("provider.bedrock_agent.analyze", {
-            "model": self.model,
-            "mode": "persistent" if self.is_persistent else "inline",
-            "session_id": self._session_id,
-        }) as s:
+        with span(
+            "provider.bedrock_agent.analyze",
+            {
+                "model": self.model,
+                "mode": "persistent" if self.is_persistent else "inline",
+                "session_id": self._session_id,
+            },
+        ) as s:
             if self.is_persistent:
                 text = self._invoke_persistent(system_prompt, user_content)
             else:
                 text = self._invoke_inline(system_prompt, user_content)
 
             result = self._parse_response(text)
-            s.set_attribute("tokens.input", result.get("_usage", {}).get("input_tokens", 0))
-            s.set_attribute("tokens.output", result.get("_usage", {}).get("output_tokens", 0))
+            s.set_attribute(
+                "tokens.input", result.get("_usage", {}).get("input_tokens", 0)
+            )
+            s.set_attribute(
+                "tokens.output", result.get("_usage", {}).get("output_tokens", 0)
+            )
             return result
 
     def _invoke_inline(self, instruction: str, input_text: str) -> str:

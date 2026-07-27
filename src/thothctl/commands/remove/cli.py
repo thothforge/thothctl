@@ -6,7 +6,6 @@ from typing import Optional
 import click
 from click.shell_completion import CompletionItem
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +16,11 @@ class RemoveCLI(click.MultiCommand):
 
         try:
             for item in commands_path.iterdir():
-                if item.name.endswith(".py") and not item.name.startswith("_") and item.name != "cli.py":
+                if (
+                    item.name.endswith(".py")
+                    and not item.name.startswith("_")
+                    and item.name != "cli.py"
+                ):
                     commands.append(item.stem)
         except Exception as e:
             logger.error(f"Error listing remove commands: {e}")
@@ -32,7 +35,6 @@ class RemoveCLI(click.MultiCommand):
         """
         commands = self.list_commands(ctx)
         return [CompletionItem(cmd) for cmd in commands if cmd.startswith(incomplete)]
-
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:

@@ -1,12 +1,14 @@
 """thothctl main cli."""
+
 import importlib.util
 import logging
 import os
 import sys
 from functools import wraps
+from importlib.metadata import version
 from pathlib import Path
 from typing import Optional
-from importlib.metadata import version
+
 import click
 
 from .utils.banner import get_banner
@@ -14,7 +16,9 @@ from .utils.banner import get_banner
 
 def global_options(f):
     @click.option("--debug", is_flag=True, help="Enable debug mode (most verbose)")
-    @click.option("--verbose", "-v", is_flag=True, help="Enable verbose mode (show info messages)")
+    @click.option(
+        "--verbose", "-v", is_flag=True, help="Enable verbose mode (show info messages)"
+    )
     @click.option(
         "-d",
         "--code-directory",
@@ -22,7 +26,6 @@ def global_options(f):
         help="Configuration file path",
         default=".",
     )
-
     @wraps(f)
     def wrapper(*args, **kwargs):
         return f(*args, **kwargs)
@@ -72,10 +75,12 @@ class ThothCLI(click.MultiCommand):
 
 
 @click.command(cls=ThothCLI)
-@click.version_option(version=version('thothctl'),
-    prog_name='thothctl',
-    message=get_banner() + '\n   Version: %(version)s\n',
-    help='Show the version and exit.')
+@click.version_option(
+    version=version("thothctl"),
+    prog_name="thothctl",
+    message=get_banner() + "\n   Version: %(version)s\n",
+    help="Show the version and exit.",
+)
 @global_options
 @click.pass_context
 def cli(ctx, debug, verbose, code_directory):
@@ -85,12 +90,13 @@ def cli(ctx, debug, verbose, code_directory):
     ctx.obj["DEBUG"] = debug
     ctx.obj["VERBOSE"] = verbose
     ctx.obj["CODE_DIRECTORY"] = code_directory
-    
+
     # Initialize telemetry for non-interactive use
     if not sys.stdin.isatty():
         from .core.telemetry import telemetry
+
         telemetry.initialize()
-    
+
     # Configure logging based on flags
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)

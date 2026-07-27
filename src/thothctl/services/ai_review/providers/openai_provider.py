@@ -1,7 +1,8 @@
 """OpenAI provider for AI review."""
+
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 from ..config.ai_settings import ProviderConfig
 from ..tracing import span
@@ -24,9 +25,14 @@ class OpenAIProvider:
         if self._client is None:
             try:
                 from openai import OpenAI
-                self._client = OpenAI(api_key=self.api_key) if self.api_key else OpenAI()
+
+                self._client = (
+                    OpenAI(api_key=self.api_key) if self.api_key else OpenAI()
+                )
             except ImportError:
-                raise ImportError("openai package required. Install with: pip install openai")
+                raise ImportError(
+                    "openai package required. Install with: pip install openai"
+                )
         return self._client
 
     def analyze(self, system_prompt: str, user_content: str) -> Dict[str, Any]:
@@ -46,7 +52,10 @@ class OpenAIProvider:
             result = json.loads(response.choices[0].message.content)
             input_tokens = usage.prompt_tokens
             output_tokens = usage.completion_tokens
-            result["_usage"] = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+            result["_usage"] = {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            }
             s.set_attribute("tokens.input", input_tokens)
             s.set_attribute("tokens.output", output_tokens)
             return result

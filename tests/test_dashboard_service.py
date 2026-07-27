@@ -1,17 +1,15 @@
-import pytest
 import json
-import time
 import tempfile
-from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
-from fastapi.testclient import TestClient
+from unittest.mock import patch
 
+import pytest
+from fastapi.testclient import TestClient
 from thothctl.services.dashboard.dashboard_service import DashboardService
 from thothctl.services.dashboard.data_loader import DashboardDataLoader
 
 
 class TestDashboardService:
-
     def test_dashboard_service_initialization(self):
         """Test dashboard service initializes correctly."""
         service = DashboardService(port=8080, host="127.0.0.1")
@@ -20,9 +18,9 @@ class TestDashboardService:
         assert service.app is not None
         assert service.data_loader is not None
 
-    @patch('webbrowser.open')
-    @patch('threading.Thread')
-    @patch('uvicorn.run')
+    @patch("webbrowser.open")
+    @patch("threading.Thread")
+    @patch("uvicorn.run")
     def test_run_with_browser(self, mock_uvicorn, mock_thread, mock_browser):
         """Test dashboard runs and opens browser."""
         service = DashboardService()
@@ -38,21 +36,24 @@ class TestDashboardService:
 
         # Only test routes that we know exist in the current implementation
         required_routes = [
-            '/',
-            '/api/inventory',
-            '/api/scan-results',
-            '/api/cost-analysis',
-            '/api/blast-radius',
-            '/api/refresh',
+            "/",
+            "/api/inventory",
+            "/api/scan-results",
+            "/api/cost-analysis",
+            "/api/blast-radius",
+            "/api/refresh",
         ]
 
         for route in required_routes:
             response = client.get(route)
-            assert response.status_code in [200, 404, 500], f"Route {route} not accessible"
+            assert response.status_code in [
+                200,
+                404,
+                500,
+            ], f"Route {route} not accessible"
 
 
 class TestDashboardDataLoader:
-
     def setup_method(self):
         """Setup test environment with isolated temp directory."""
         self.temp_dir = tempfile.mkdtemp()
@@ -88,7 +89,11 @@ class TestDashboardDataLoader:
         reports_dir = Path(self.temp_dir) / "Reports"
         reports_dir.mkdir(parents=True)
 
-        test_data = {"components": [{"stack": "test", "providers": ["aws"]}], "version": 2, "projectName": "test"}
+        test_data = {
+            "components": [{"stack": "test", "providers": ["aws"]}],
+            "version": 2,
+            "projectName": "test",
+        }
         inventory_file = reports_dir / "InventoryIaC_20260101.json"
         inventory_file.write_text(json.dumps(test_data))
 
@@ -120,36 +125,36 @@ class TestDashboardAPI:
 
     def test_api_inventory_endpoint(self):
         """Test /api/inventory endpoint."""
-        response = self.client.get('/api/inventory')
+        response = self.client.get("/api/inventory")
         assert response.status_code in [200, 500]
 
     def test_api_scan_results_endpoint(self):
         """Test /api/scan-results endpoint."""
-        response = self.client.get('/api/scan-results')
+        response = self.client.get("/api/scan-results")
         assert response.status_code in [200, 500]
 
     def test_api_cost_analysis_endpoint(self):
         """Test /api/cost-analysis endpoint."""
-        response = self.client.get('/api/cost-analysis')
+        response = self.client.get("/api/cost-analysis")
         assert response.status_code == 200
 
     def test_api_blast_radius_endpoint(self):
         """Test /api/blast-radius endpoint."""
-        response = self.client.get('/api/blast-radius')
+        response = self.client.get("/api/blast-radius")
         assert response.status_code == 200
 
     def test_api_refresh_endpoint(self):
         """Test /api/refresh endpoint."""
-        response = self.client.get('/api/refresh')
+        response = self.client.get("/api/refresh")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
 
     def test_main_dashboard_page(self):
         """Test main dashboard page loads."""
-        response = self.client.get('/')
+        response = self.client.get("/")
         assert response.status_code == 200
-        assert 'ThothCTL' in response.text
+        assert "ThothCTL" in response.text
 
 
 if __name__ == "__main__":

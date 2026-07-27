@@ -1,44 +1,48 @@
 """Utility for fetching Terraform module details from registry."""
+
 import json
 import os
-import re
-import requests
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class TerraformModuleDetails:
     """Class for fetching Terraform module details from registry."""
-    
+
     def __init__(self, cache_dir: str = None):
         """
         Initialize the TerraformModuleDetails class.
-        
+
         Args:
             cache_dir: Directory to cache module details
         """
         if cache_dir is None:
             # Use default cache directory in the same directory as this file
             self.cache_dir = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), 
-                "..", "..", "services", "generate", "create_stacks", ".registry_cache"
+                os.path.dirname(os.path.abspath(__file__)),
+                "..",
+                "..",
+                "services",
+                "generate",
+                "create_stacks",
+                ".registry_cache",
             )
         else:
             self.cache_dir = cache_dir
-            
+
         # Create cache directory if it doesn't exist
         os.makedirs(self.cache_dir, exist_ok=True)
-        
+
     def get_module_details(
         self, namespace: str, name: str, provider: str = "aws"
     ) -> Optional[Dict[str, Any]]:
         """
         Get module details from registry or cache.
-        
+
         Args:
             namespace: Module namespace
             name: Module name
             provider: Provider name
-            
+
         Returns:
             Dictionary containing module details or None if not found
         """
@@ -51,33 +55,33 @@ class TerraformModuleDetails:
             except Exception:
                 # If there's an error reading the cache, continue to fetch from registry
                 pass
-                
+
         # Fetch module details from registry
         try:
             # For this implementation, we'll create mock module details
             # In a real implementation, you would fetch from the Terraform registry API
             module_details = self._create_mock_module_details(namespace, name, provider)
-            
+
             # Cache module details
             with open(cache_file, "w") as f:
                 json.dump(module_details, f, indent=2)
-                
+
             return module_details
         except Exception as e:
             print(f"Error fetching module details: {e}")
             return None
-            
+
     def _create_mock_module_details(
         self, namespace: str, name: str, provider: str
     ) -> Dict[str, Any]:
         """
         Create mock module details for testing.
-        
+
         Args:
             namespace: Module namespace
             name: Module name
             provider: Provider name
-            
+
         Returns:
             Dictionary containing mock module details
         """
@@ -90,10 +94,10 @@ class TerraformModuleDetails:
             "version": "1.0.0",
             "description": f"Mock {name} module for {provider}",
         }
-        
+
         # Root module inputs and outputs based on module name
         root = {"inputs": [], "outputs": []}
-        
+
         # Add inputs and outputs based on module name
         if name == "vpc":
             root["inputs"] = [
@@ -250,7 +254,7 @@ class TerraformModuleDetails:
                     "value": "module.ec2_instance.private_ip",
                 },
             ]
-        
+
         # Return complete module details
         return {
             "basic_info": basic_info,

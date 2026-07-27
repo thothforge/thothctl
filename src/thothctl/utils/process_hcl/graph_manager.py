@@ -1,11 +1,13 @@
+import json
 import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
-from colorama import init
+from colorama import Fore, init
 
+from thothctl.config.constants import TERRAMATE_FILE
 
 # Initialize colorama
 init(autoreset=True)

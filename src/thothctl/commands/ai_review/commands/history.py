@@ -1,4 +1,5 @@
 """History command — view past AI decision records."""
+
 import json
 import logging
 from datetime import date, timedelta
@@ -7,8 +8,8 @@ from pathlib import Path
 import click
 from rich.table import Table
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,9 @@ class HistoryCommand(ClickCommand):
         super().__init__()
         self.ui = CliUI()
 
-    def _execute(self, days=7, repository=None, action=None, json_output=False, **kwargs):
+    def _execute(
+        self, days=7, repository=None, action=None, json_output=False, **kwargs
+    ):
         log_dir = Path(ACTIONS_LOG_DIR)
         if not log_dir.exists():
             self.ui.print_warning("No decision history found.")
@@ -63,10 +66,14 @@ class HistoryCommand(ClickCommand):
         table.add_column("Reason", max_width=40)
 
         from datetime import datetime
+
         for r in sorted(records, key=lambda x: x["timestamp"], reverse=True):
             ts = datetime.fromtimestamp(r["timestamp"]).strftime("%Y-%m-%d %H:%M")
-            action_style = {"approve": "green", "reject": "red",
-                            "request_changes": "yellow"}.get(r["action"], "white")
+            action_style = {
+                "approve": "green",
+                "reject": "red",
+                "request_changes": "yellow",
+            }.get(r["action"], "white")
             table.add_row(
                 ts,
                 f"[{action_style}]{r['action']}[/{action_style}]",
@@ -83,7 +90,10 @@ class HistoryCommand(ClickCommand):
 cli = HistoryCommand.as_click_command(name="history")(
     click.option("--days", type=int, default=7, help="Number of days to look back"),
     click.option("--repository", help="Filter by repository"),
-    click.option("--action", type=click.Choice(["approve", "reject", "request_changes", "comment"]),
-                 help="Filter by action type"),
+    click.option(
+        "--action",
+        type=click.Choice(["approve", "reject", "request_changes", "comment"]),
+        help="Filter by action type",
+    ),
     click.option("--json", "json_output", is_flag=True, help="Output as JSON"),
 )

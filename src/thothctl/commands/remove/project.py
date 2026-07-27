@@ -1,9 +1,8 @@
+import os
 from contextlib import contextmanager
 from pathlib import Path
 
 import click
-
-import os
 
 from ...core.commands import ClickCommand
 from ...services.project.cleanup.clean_project import remove_projects
@@ -20,7 +19,7 @@ class RemoveProjectCommand(ClickCommand):
     def _execute(self, project_name: str, **kwargs) -> None:
         """Execute Environment initialization"""
         ctx = click.get_current_context()
-        debug = ctx.obj.get("DEBUG")
+        ctx.obj.get("DEBUG")
         self._clean_up_project(project_name=project_name)
 
     def _clean_up_project(self, project_name: str) -> None:

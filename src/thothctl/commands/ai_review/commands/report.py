@@ -1,11 +1,12 @@
 """Report command - cost and usage reporting."""
+
 import logging
 
 import click
 from rich.table import Table
 
-from ....core.commands import ClickCommand
 from ....core.cli_ui import CliUI
+from ....core.commands import ClickCommand
 from ....services.ai_review.ai_agent import AIReviewAgent
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class ReportCommand(ClickCommand):
             if export:
                 import json
                 from pathlib import Path
+
                 Path(export).write_text(json.dumps(report, indent=2))
                 self.ui.print_success(f"Report exported to {export}")
 
@@ -61,7 +63,8 @@ cli = ReportCommand.as_click_command(name="report")(
         help="Reporting period",
     ),
     click.option(
-        "-p", "--provider",
+        "-p",
+        "--provider",
         type=click.Choice(["openai", "bedrock", "bedrock_agent", "azure", "ollama"]),
         help="Filter by provider",
     ),

@@ -1,14 +1,13 @@
 import gzip
 import json
 import logging
+import os
 import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, Optional
 
-import os
 import requests
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

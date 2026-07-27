@@ -1,7 +1,8 @@
 """AWS Bedrock provider for AI review."""
+
 import json
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 from ..config.ai_settings import ProviderConfig
 from ..tracing import span
@@ -13,7 +14,7 @@ class BedrockProvider:
     """AWS Bedrock integration for security analysis."""
 
     def __init__(self, config: ProviderConfig):
-        self.model = config.model or "anthropic.claude-3-sonnet-20240229-v1:0"
+        self.model = config.model or "anthropic.claude-sonnet-4-6"
         self.max_tokens = config.max_tokens
         self.temperature = config.temperature
         self.region = config.region or "us-east-1"
@@ -24,14 +25,19 @@ class BedrockProvider:
         if self._client is None:
             try:
                 import boto3
+
                 self._client = boto3.client("bedrock-runtime", region_name=self.region)
             except ImportError:
-                raise ImportError("boto3 package required. Install with: pip install boto3")
+                raise ImportError(
+                    "boto3 package required. Install with: pip install boto3"
+                )
         return self._client
 
     def analyze(self, system_prompt: str, user_content: str) -> Dict[str, Any]:
         """Send analysis request to Bedrock and return parsed JSON response."""
-        with span("provider.bedrock.analyze", {"model": self.model, "region": self.region}) as s:
+        with span(
+            "provider.bedrock.analyze", {"model": self.model, "region": self.region}
+        ) as s:
             body = {
                 "anthropic_version": "bedrock-2023-05-31",
                 "max_tokens": self.max_tokens,
@@ -59,7 +65,10 @@ class BedrockProvider:
             result = json.loads(text)
             input_tokens = usage.get("input_tokens", 0)
             output_tokens = usage.get("output_tokens", 0)
-            result["_usage"] = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+            result["_usage"] = {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            }
             s.set_attribute("tokens.input", input_tokens)
             s.set_attribute("tokens.output", output_tokens)
             return result

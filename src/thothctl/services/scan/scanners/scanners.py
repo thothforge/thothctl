@@ -1,6 +1,5 @@
-from typing import Dict, List, Optional
-
 from abc import ABC, abstractmethod
+from typing import Dict, List, Optional
 
 
 class ScannerPort(ABC):

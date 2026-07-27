@@ -17,11 +17,9 @@ Test locally:
     -H "Content-Type: application/json" \
     -d '{"prompt": "Analyze ./terraform for security issues"}'
 """
-import json
+
 import logging
 import os
-import re
-import tempfile
 from typing import Any, Dict
 
 from fastapi import FastAPI, Request
@@ -35,6 +33,7 @@ app = FastAPI(title="ThothCTL AgentCore Agent", version="0.13.2")
 
 
 # ── AgentCore contract ──────────────────────────────────────────────
+
 
 @app.get("/ping")
 def ping():
@@ -64,13 +63,26 @@ async def invocations(request: Request):
     if not mode:
         mode = _detect_mode(prompt)
 
-    with span("invocations", {"mode": mode, "directory": directory,
-                              "provider": provider, "repository": repository,
-                              "run_id": run_id}) as s:
+    with span(
+        "invocations",
+        {
+            "mode": mode,
+            "directory": directory,
+            "provider": provider,
+            "repository": repository,
+            "run_id": run_id,
+        },
+    ) as s:
         try:
             result = _dispatch(
-                mode=mode, directory=directory, provider=provider, model=model,
-                roles=roles, repository=repository, run_id=run_id, prompt=prompt,
+                mode=mode,
+                directory=directory,
+                provider=provider,
+                model=model,
+                roles=roles,
+                repository=repository,
+                run_id=run_id,
+                prompt=prompt,
             )
             s.set_attribute("result.status", "ok")
             return JSONResponse(content={"result": result})
@@ -82,9 +94,11 @@ async def invocations(request: Request):
 
 # ── Existing REST endpoints (kept for direct API use) ───────────────
 
+
 @app.get("/health")
 def health():
     from thothctl.services.ai_review.config.ai_settings import AISettings
+
     try:
         settings = AISettings.load()
         return {"status": "healthy", "default_provider": settings.default_provider}
@@ -109,25 +123,47 @@ def fix(request_body: dict):
 
 # ── Internal dispatch ───────────────────────────────────────────────
 
-def _dispatch(mode: str, directory: str = ".", provider: str = "bedrock",
-              model: str = None, roles: list = None, repository: str = "",
-              run_id: str = "", **kwargs) -> Dict[str, Any]:
+
+def _dispatch(
+    mode: str,
+    directory: str = ".",
+    provider: str = "bedrock",
+    model: str = None,
+    roles: list = None,
+    repository: str = "",
+    run_id: str = "",
+    **kwargs,
+) -> Dict[str, Any]:
     """Route to the appropriate agent workflow."""
     if mode == "review":
-        from thothctl.services.ai_review.orchestrator import AgentOrchestrator, AgentRole
+        from thothctl.services.ai_review.orchestrator import (
+            AgentOrchestrator,
+            AgentRole,
+        )
+
         role_map = {r.value: r for r in AgentRole}
-        parsed_roles = [role_map[r] for r in (roles or ["security", "architecture", "fix"]) if r in role_map]
+        parsed_roles = [
+            role_map[r]
+            for r in (roles or ["security", "architecture", "fix"])
+            if r in role_map
+        ]
         orch = AgentOrchestrator(provider=provider, model=model)
-        result = orch.run_agents(directory, roles=parsed_roles, repository=repository, run_id=run_id)
+        result = orch.run_agents(
+            directory, roles=parsed_roles, repository=repository, run_id=run_id
+        )
         return result.__dict__
 
     if mode == "fix":
         from thothctl.services.ai_review.ai_agent import AIReviewAgent
+
         agent = AIReviewAgent(provider=provider, model=model)
-        return agent.generate_fixes(directory, severity_filter=kwargs.get("severity_filter"))
+        return agent.generate_fixes(
+            directory, severity_filter=kwargs.get("severity_filter")
+        )
 
     # Default: analyze
     from thothctl.services.ai_review.ai_agent import AIReviewAgent
+
     agent = AIReviewAgent(provider=provider, model=model)
     return agent.analyze_directory(directory)
 
