@@ -253,17 +253,21 @@ Space (IDP context)
 
 ```
 ~/.thothcf/
-├── spaces.toml          # Registry of all spaces
+├── spaces.toml          # Registry of all spaces (includes per-space config)
 ├── active_space         # Currently active space name
 ├── .thothcf.toml        # Project registry
 └── spaces/
     └── <space_name>/
-        ├── space.toml
+        ├── metadata.toml          # Directory identification (name, created_at, config_source)
+        ├── configs/
+        │   └── scan_policy.toml   # Space-level scan policy overrides
         ├── credentials/
         ├── vcs/
         ├── terraform/
         └── orchestration/
 ```
+
+> **Note**: Per-space configuration (VCS provider, registry, orchestration tool) is stored centrally in `~/.thothcf/spaces.toml` rather than in individual space directories. The `configs/` directory holds space-level policy overrides such as scan enforcement thresholds.
 
 ### Active space
 

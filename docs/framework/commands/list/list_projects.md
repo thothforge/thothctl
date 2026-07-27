@@ -71,6 +71,29 @@ The project list output includes the following information:
 
 Projects are marked with a checkmark (☑️) to indicate they are being tracked by ThothCTL.
 
+### Namespace Scoping
+
+Projects are namespace-scoped to their parent space. This means the **same project name can exist in different spaces** — for example, `vpc-network` can exist in both `development` and `production` spaces as independent projects. The Space column identifies which namespace each project belongs to.
+
+```
+                     Project List                    
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ ProjectName                        ┃ Space        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ ☑️  vpc-network                    │ development  │
+├────────────────────────────────────┼──────────────┤
+│ ☑️  vpc-network                    │ production   │
+├────────────────────────────────────┼──────────────┤
+│ ☑️  ecs-service                    │ development  │
+├────────────────────────────────────┼──────────────┤
+│ ☑️  eks-cluster                    │ production   │
+├────────────────────────────────────┼──────────────┤
+│ ☑️  terraform_module_example       │ -            │
+└────────────────────────────────────┴──────────────┘
+```
+
+Projects not associated with any space show `-` in the Space column. The project registry in `~/.thothcf/spaces.toml` tracks which projects belong to each space under `spaces.<name>.projects`.
+
 ## Filtering Projects
 
 While ThothCTL doesn't provide built-in filtering options for the list command, you can combine it with standard command-line tools to filter the output:

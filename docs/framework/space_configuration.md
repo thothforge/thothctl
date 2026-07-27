@@ -1,80 +1,207 @@
 # Space Configuration
 
-A Space in ThothForge represents a logical container for your Internal Developer Platform (IDP) resources. It defines the context in which your projects, templates, and configurations operate.
+A Space in ThothForge represents a logical container for your Internal Developer Platform (IDP) resources. It defines the context in which your projects, credentials, and governance policies operate.
 
-## Creating a Space
+## Configuration Model
 
-You can create a new space using the `thothctl init space` command:
+ThothCTL uses a **single source of truth** for all space configuration: the `spaces.toml` file located at `~/.thothcf/spaces.toml`. Individual space directories contain only operational files (credentials, policy overrides) and a minimal `metadata.toml` for directory identification.
 
-```bash
-thothctl init space -sn my-space -vcss github --ci github-actions --description "My development space" --terraform-registry "https://registry.terraform.io"
-```
+## spaces.toml Schema
 
-This will create a new space configuration file in the `~/.thothcf/` directory.
-
-## Space Configuration File
-
-The space configuration is stored as a TOML file in the `~/.thothcf/` directory. The file name is the space name with a `.toml` extension.
-
-Here's an example of a space configuration file:
+All space configuration lives under the `[spaces.<name>]` namespace:
 
 ```toml
-# ThothForge Space Configuration
-
-[space]
+[spaces.my-space]
 name = "my-space"
-description = "My development space"
-version_control = "github"
-ci_system = "github-actions"
-created_at = "2025-04-28T02:33:21"
-updated_at = "2025-04-28T02:33:21"
+description = "Production environment"
+created_at = "2026-07-27T16:45:00"
 
-# Registry configurations
-[[registries]]
-name = "terraform-registry"
-url = "https://registry.terraform.io"
-type = "terraform"
-auth_required = false
-default = true
+[spaces.my-space.version_control]
+provider = "github"
 
-# Endpoints for various services
-[endpoints]
-backstage = "https://backstage.example.com"
-documentation = "https://docs.example.com"
+[spaces.my-space.terraform]
+registry = "https://registry.terraform.io"
+auth_method = "none"
+
+[spaces.my-space.orchestration]
+tool = "terragrunt"
+
+[spaces.my-space.governance]
+policy_repo = "https://github.com/org/iac-policies.git"
+
+[spaces.my-space.projects]
+[spaces.my-space.projects.vpc-stack]
+registered_at = "2026-07-27T16:50:00"
 ```
 
-## Configuration Options
+## Configuration Sections
 
-### Space Section
+### Root Fields
 
-The `[space]` section contains general information about the space:
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | String | Space identifier (matches the key) |
+| `description` | String | Human-readable description |
+| `created_at` | DateTime | ISO 8601 creation timestamp |
 
-- `name`: The name of the space
-- `description`: A description of the space
-- `version_control`: The version control system used by the space
-- `ci_system`: The CI/CD system used by the space
-- `created_at`: The date and time when the space was created
-- `updated_at`: The date and time when the space was last updated
+### version_control
 
-### Registries Section
+Configures the VCS provider for the space.
 
-The `[[registries]]` section contains information about module registries:
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `provider` | String | `github`, `gitlab`, `azure_repos` | VCS provider |
 
-- `name`: The name of the registry
-- `url`: The URL of the registry
-- `type`: The type of registry (e.g., "terraform")
-- `auth_required`: Whether authentication is required to access the registry
-- `default`: Whether this is the default registry
+### terraform
 
-### Endpoints Section
+Configures Terraform registry access.
 
-The `[endpoints]` section contains URLs for various services used by the space.
+| Field | Type | Description |
+|-------|------|-------------|
+| `registry` | String | Registry URL (e.g., `https://registry.terraform.io`) |
+| `auth_method` | String | Authentication method: `none`, `token`, `oidc` |
+
+### orchestration
+
+Configures the IaC orchestration tool.
+
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `tool` | String | `terragrunt`, `terramate`, `none` | Orchestration tool |
+
+### governance
+
+Configures organization-level policy enforcement.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `policy_repo` | String | Git URL or local path to OPA/Rego policy repository |
+
+### projects
+
+Namespace-scoped project registry. Projects are registered under their parent space.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `<project-name>.registered_at` | DateTime | When the project was registered to this space |
+
+## Directory Structure
+
+```
+~/.thothcf/
+├── spaces.toml              # Single source of truth for all space config
+├── active_space             # Currently active space name (plain text file)
+├── .thothcf.toml            # Global project registry (legacy, backward compat)
+└── spaces/
+    └── <space-name>/
+        ├── metadata.toml    # Directory identification (name, created_at, config_source)
+        ├── credentials/     # Encrypted VCS/TF/cloud credentials (.enc files)
+        ├── configs/         # Space-level policy overrides
+        │   └── scan_policy.toml  # Scan enforcement + supply chain thresholds
+        ├── vcs/             # Provider-specific config (github.toml, etc.)
+        ├── terraform/       # Registry config (registry.toml)
+        └── orchestration/   # Tool config (terragrunt.toml, etc.)
+```
+
+### metadata.toml
+
+A minimal identification file inside each space directory. It does **not** contain configuration — only enough to identify the directory and link it back to `spaces.toml`.
+
+```toml
+name = "my-space"
+created_at = "2026-07-27T16:45:00"
+config_source = "spaces.toml"
+```
+
+### configs/scan_policy.toml
+
+Space-level overrides for security scanning and supply chain thresholds:
+
+```toml
+[enforcement]
+mode = "hard"           # "soft" (report only) or "hard" (fail pipeline)
+fail_on_severity = "high"
+
+[supply_chain]
+max_staleness_days = 90
+require_pinned_versions = true
+```
+
+## Environment Variables
+
+For non-interactive setup (CI/CD pipelines), use environment variables instead of interactive prompts:
+
+| Variable | Description |
+|----------|-------------|
+| `THOTH_SPACE_TOKEN` | VCS personal access token (GitHub PAT, GitLab token, Azure DevOps PAT) |
+| `THOTH_SPACE_ORG` | VCS organization name |
+| `THOTH_SPACE_PASSWORD` | Password for credential encryption |
+| `THOTH_SPACE_TF_TOKEN` | Terraform registry authentication token |
+
+These variables are consumed during `thothctl init space` and `thothctl space update` to skip interactive prompts.
+
+## Multi-Space Configuration Example
+
+A `spaces.toml` with multiple environments:
+
+```toml
+[spaces.development]
+name = "development"
+description = "Development and testing"
+created_at = "2026-07-01T10:00:00"
+
+[spaces.development.version_control]
+provider = "github"
+
+[spaces.development.terraform]
+registry = "https://registry.terraform.io"
+auth_method = "none"
+
+[spaces.development.orchestration]
+tool = "terragrunt"
+
+[spaces.development.projects]
+[spaces.development.projects.networking]
+registered_at = "2026-07-02T09:00:00"
+[spaces.development.projects.compute]
+registered_at = "2026-07-03T14:30:00"
+
+# ---
+
+[spaces.production]
+name = "production"
+description = "Production infrastructure"
+created_at = "2026-07-01T10:05:00"
+
+[spaces.production.version_control]
+provider = "github"
+
+[spaces.production.terraform]
+registry = "https://app.terraform.io"
+auth_method = "token"
+
+[spaces.production.orchestration]
+tool = "terragrunt"
+
+[spaces.production.governance]
+policy_repo = "https://github.com/myorg/iac-policies.git"
+
+[spaces.production.projects]
+[spaces.production.projects.vpc-stack]
+registered_at = "2026-07-05T11:00:00"
+[spaces.production.projects.eks-cluster]
+registered_at = "2026-07-06T08:15:00"
+```
 
 ## Managing Spaces
 
-### Listing Spaces
+### Creating a Space
 
-You can list all available spaces using the `thothctl list spaces` command:
+```bash
+thothctl init space --name "production" --description "Production environment" --vcs-provider github
+```
+
+### Listing Spaces
 
 ```bash
 thothctl list spaces
@@ -82,48 +209,32 @@ thothctl list spaces
 
 ### Showing Space Details
 
-View the full configuration summary of a space:
-
 ```bash
 thothctl space show my-space
 ```
 
-This displays:
-- Space name, description, status (active/inactive), and creation date
-- Version control provider
-- Terraform registry and authentication method
-- Orchestration tool
-- Governance policy repository (if configured)
-- Associated projects
-- Credentials status
+Displays: space name, description, status (active/inactive), VCS provider, Terraform registry, orchestration tool, governance policy, associated projects, and credentials status.
 
 ### Activating a Space
 
-Set a space as the active context (used as default for new projects):
+```bash
+thothctl space activate production
+```
+
+### Deactivating a Space
 
 ```bash
-thothctl space activate my-space
+thothctl space deactivate
 ```
 
 ### Updating a Space
 
-Update an existing space's configuration:
-
 ```bash
-thothctl space update my-space --vcs-provider github --orchestration-tool terragrunt
-thothctl space update my-space --policy-repo https://github.com/myorg/iac-policies.git
+thothctl space update production --policy-repo https://github.com/myorg/policies.git
+thothctl space update production --orchestration-tool terragrunt
 ```
 
-Available options:
-- `-d, --description` — New description
-- `-vcs, --vcs-provider` — Version control provider (`azure_repos`, `github`, `gitlab`)
-- `-ot, --orchestration-tool` — Orchestration tool (`terragrunt`, `terramate`, `none`)
-- `-tr, --terraform-registry` — Terraform registry URL
-- `-pr, --policy-repo` — Git repository URL or local path for organization-level IaC policies
-
 ### Deleting a Space
-
-You can delete a space using the `thothctl remove space` command:
 
 ```bash
 thothctl remove space -sn my-space
@@ -131,10 +242,17 @@ thothctl remove space -sn my-space
 
 ## Using Spaces with Projects
 
-When creating a new project, you can specify the space to use:
+Projects are registered under their parent space in `spaces.toml`:
 
 ```bash
-thothctl init project -sn my-space -pn my-project
+# Create a project in a specific space
+thothctl init project --space production --name vpc-stack
+
+# This adds to spaces.toml:
+# [spaces.production.projects.vpc-stack]
+# registered_at = "2026-07-27T16:50:00"
 ```
 
-This will create a new project in the specified space.
+## Backward Compatibility
+
+The legacy format (individual `space.toml` files per directory with `[space]`, `[[registries]]`, `[endpoints]` sections) is still recognized for reading. On first access, ThothCTL will offer to migrate legacy configurations to the new `spaces.toml` format. The global `.thothcf.toml` project registry is maintained for backward compatibility but new project registrations use the namespace-scoped `spaces.<name>.projects` section.

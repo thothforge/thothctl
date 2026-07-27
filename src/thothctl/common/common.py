@@ -163,6 +163,9 @@ def create_info_project(
         else:
             config[project_name] = content
             dump_iac_conf(content=config)
+            # Register project in space namespace (spaces.toml)
+            if space:
+                register_project_in_space(project_name, space)
             return config[project_name]
     else:
         create_iac_conf()
@@ -377,9 +380,23 @@ def get_projects_in_space(space_name):
     """
     Get all projects in a specific space.
 
+    Reads from spaces.toml first (namespaced registry), then falls back to
+    scanning the flat .thothcf.toml for backward compatibility.
+
     :param space_name: Name of the space
     :return: List of project names in the space
     """
+    # Primary: check spaces.toml namespaced projects
+    spaces_path = PurePath(f"{Path.home()}/.thothcf/spaces.toml")
+    if os.path.exists(spaces_path):
+        with open(spaces_path, mode="rt", encoding="utf-8") as fp:
+            spaces_config = toml.load(fp)
+        space_data = spaces_config.get("spaces", {}).get(space_name, {})
+        namespaced_projects = list(space_data.get("projects", {}).keys())
+        if namespaced_projects:
+            return namespaced_projects
+
+    # Fallback: scan flat .thothcf.toml (legacy)
     projects = []
     config_path = PurePath(f"{Path.home()}/.thothcf/", config_file_name)
 
@@ -393,6 +410,72 @@ def get_projects_in_space(space_name):
                     projects.append(project_name)
 
     return projects
+
+
+def register_project_in_space(project_name: str, space_name: str) -> None:
+    """
+    Register a project under a space in spaces.toml (namespaced).
+
+    This enables namespace scoping — the same project name can exist in
+    different spaces without collision.
+
+    :param project_name: Name of the project
+    :param space_name: Name of the space to register under
+    """
+    from datetime import datetime
+
+    spaces_path = Path.home() / ".thothcf" / "spaces.toml"
+    if not spaces_path.exists():
+        logging.warning(
+            "Cannot register project in space: spaces.toml not found. "
+            "Run 'thothctl init space' first."
+        )
+        return
+
+    with open(spaces_path, mode="rt", encoding="utf-8") as fp:
+        config = toml.load(fp)
+
+    if "spaces" not in config or space_name not in config["spaces"]:
+        logging.warning(f"Space '{space_name}' not found in spaces.toml")
+        return
+
+    space = config["spaces"][space_name]
+    if "projects" not in space:
+        space["projects"] = {}
+
+    space["projects"][project_name] = {
+        "registered_at": datetime.now().isoformat(),
+    }
+
+    with open(spaces_path, mode="wt", encoding="utf-8") as fp:
+        toml.dump(config, fp)
+
+    logging.debug(f"Registered project '{project_name}' in space '{space_name}'")
+
+
+def unregister_project_from_space(project_name: str, space_name: str) -> None:
+    """
+    Remove a project from a space in spaces.toml.
+
+    :param project_name: Name of the project
+    :param space_name: Name of the space
+    """
+    spaces_path = Path.home() / ".thothcf" / "spaces.toml"
+    if not spaces_path.exists():
+        return
+
+    with open(spaces_path, mode="rt", encoding="utf-8") as fp:
+        config = toml.load(fp)
+
+    space = config.get("spaces", {}).get(space_name, {})
+    projects = space.get("projects", {})
+    if project_name in projects:
+        del projects[project_name]
+        with open(spaces_path, mode="wt", encoding="utf-8") as fp:
+            toml.dump(config, fp)
+        logging.debug(
+            f"Unregistered project '{project_name}' from space '{space_name}'"
+        )
 
 
 def print_list_projects(show_space=True):

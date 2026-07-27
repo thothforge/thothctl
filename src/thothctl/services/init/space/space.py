@@ -28,6 +28,9 @@ class SpaceService:
         terraform_auth: str = "none",
         orchestration_tool: str = "terragrunt",
         policy_repo: Optional[str] = None,
+        vcs_token: Optional[str] = None,
+        vcs_org: Optional[str] = None,
+        credential_password: Optional[str] = None,
     ) -> None:
         """
         Initialize a new space.
@@ -39,6 +42,9 @@ class SpaceService:
         :param terraform_auth: Terraform registry authentication method (none, token, env_var)
         :param orchestration_tool: Default orchestration tool (terragrunt, terramate, none)
         :param policy_repo: Git repository URL for organization-level IaC policies
+        :param vcs_token: Optional VCS token for non-interactive setup (falls back to THOTH_SPACE_TOKEN env var)
+        :param vcs_org: Optional VCS organization/username for non-interactive setup (falls back to THOTH_SPACE_ORG env var)
+        :param credential_password: Optional encryption password for non-interactive setup (falls back to THOTH_SPACE_PASSWORD env var)
         :return: None
         """
         self.ui.print_info(f"🚀 Initializing space: {space_name}")
@@ -71,15 +77,26 @@ class SpaceService:
 
         # Setup credentials if needed
         if vcs_provider == "azure_repos":
-            self._setup_azure_repos_credentials(space_name)
+            self._setup_azure_repos_credentials(
+                space_name, token=vcs_token, org=vcs_org, password=credential_password
+            )
         elif vcs_provider == "github":
-            self._setup_github_credentials(space_name)
+            self._setup_github_credentials(
+                space_name, token=vcs_token, org=vcs_org, password=credential_password
+            )
         elif vcs_provider == "gitlab":
-            self._setup_gitlab_credentials(space_name)
+            self._setup_gitlab_credentials(
+                space_name, token=vcs_token, org=vcs_org, password=credential_password
+            )
 
         # Setup Terraform credentials if needed
         if terraform_auth != "none":
-            self._setup_terraform_credentials(space_name, terraform_auth)
+            self._setup_terraform_credentials(
+                space_name,
+                terraform_auth,
+                token=vcs_token,
+                password=credential_password,
+            )
 
         self.ui.print_success(f"🎉 Space '{space_name}' initialized successfully!")
 
@@ -175,7 +192,29 @@ class SpaceService:
         # Create subdirectories for space resources
         os.makedirs(space_dir.joinpath("credentials"), exist_ok=True)
         os.makedirs(space_dir.joinpath("configs"), exist_ok=True)
-        os.makedirs(space_dir.joinpath("templates"), exist_ok=True)
+
+        # Create default scan policy configuration
+        scan_policy_path = space_dir.joinpath("configs", "scan_policy.toml")
+        scan_policy_path.write_text(
+            "# Space-level scan policy overrides\n"
+            "# These settings apply to all projects in this space unless overridden at project level.\n"
+            "\n"
+            "[scan]\n"
+            '# Enforcement mode: "soft" (report only) or "hard" (fail on violations)\n'
+            'enforcement = "soft"\n'
+            '# Minimum severity to report: "low", "medium", "high", "critical"\n'
+            'severity_threshold = "medium"\n'
+            "# Checks to exclude (by ID)\n"
+            "excluded_checks = []\n"
+            "\n"
+            "[supply_chain]\n"
+            "# Maximum days a module can be stale before warning/denial\n"
+            "max_staleness_days_warn = 90\n"
+            "max_staleness_days_deny = 180\n"
+            "# Require exact version pinning for all modules\n"
+            "require_exact_pinning = true\n",
+            encoding="utf-8",
+        )
         os.makedirs(
             space_dir.joinpath("vcs"), exist_ok=True
         )  # Version Control System configs
@@ -186,31 +225,20 @@ class SpaceService:
             space_dir.joinpath("orchestration"), exist_ok=True
         )  # Orchestration tool configs
 
-        # Create default space configuration file
-        space_config = {
-            "space": {"name": space_name, "version": "1.0.0"},
-            "credentials": {"path": "credentials"},
-            "configurations": {"path": "configs"},
-            "templates": {"path": "templates"},
-            "version_control": {
-                "path": "vcs",
-                "default_provider": vcs_provider,
-                "providers": ["azure_repos", "github", "gitlab"],
-            },
-            "terraform": {
-                "path": "terraform",
-                "registry_url": terraform_registry,
-                "auth_method": terraform_auth,  # Options: none, token, env_var
-            },
-            "orchestration": {
-                "path": "orchestration",
-                "default_tool": orchestration_tool,
-                "tools": ["terragrunt", "terramate", "none"],
+        # Create minimal metadata file for directory identification only.
+        # All configuration is stored in ~/.thothcf/spaces.toml (single source of truth).
+        metadata = {
+            "space": {
+                "name": space_name,
+                "created_at": self._get_current_timestamp(),
+                "config_source": "~/.thothcf/spaces.toml",
             },
         }
 
-        with open(space_dir.joinpath("space.toml"), mode="wt", encoding="utf-8") as fp:
-            toml.dump(space_config, fp)
+        with open(
+            space_dir.joinpath("metadata.toml"), mode="wt", encoding="utf-8"
+        ) as fp:
+            toml.dump(metadata, fp)
 
         # Create provider-specific configuration files
         self._create_vcs_config(space_dir.joinpath("vcs"), vcs_provider)
@@ -337,30 +365,45 @@ class SpaceService:
 
             self.ui.print_info("🔄 Created Terramate orchestration configuration")
 
-    def _setup_azure_repos_credentials(self, space_name: str) -> None:
+    def _setup_azure_repos_credentials(
+        self, space_name: str, token=None, org=None, password=None
+    ) -> None:
         """
         Setup Azure Repos credentials for the space.
 
         :param space_name: Name of the space
+        :param token: Optional PAT token (falls back to THOTH_SPACE_TOKEN env var, then interactive prompt)
+        :param org: Optional organization name (falls back to THOTH_SPACE_ORG env var, then interactive prompt)
+        :param password: Optional encryption password (falls back to THOTH_SPACE_PASSWORD env var, then interactive prompt)
         :return: None
         """
         self.ui.print_info("🔐 Setting up Azure DevOps credentials")
 
         # Ask for organization name
-        org_name = input("Enter Azure DevOps organization name: ")
+        org_name = (
+            org
+            or os.environ.get("THOTH_SPACE_ORG")
+            or input("Enter Azure DevOps organization name: ")
+        )
 
         # Ask for PAT securely
         self.ui.print_info(
             "You'll need a Personal Access Token (PAT) with appropriate permissions"
         )
-        pat = getpass.getpass("Enter your Azure DevOps Personal Access Token: ")
+        pat = (
+            token
+            or os.environ.get("THOTH_SPACE_TOKEN")
+            or getpass.getpass("Enter your Azure DevOps Personal Access Token: ")
+        )
 
         # Create credentials dictionary
         credentials = {"type": "azure_repos", "organization": org_name, "pat": pat}
 
         # Ask for encryption password
-        encryption_password = getpass.getpass(
-            "Enter a password to encrypt your credentials: "
+        encryption_password = (
+            password
+            or os.environ.get("THOTH_SPACE_PASSWORD")
+            or getpass.getpass("Enter a password to encrypt your credentials: ")
         )
 
         # Save encrypted credentials
@@ -376,30 +419,43 @@ class SpaceService:
             self.logger.error(f"Failed to save credentials: {e}")
             self.ui.print_error(f"Failed to save credentials: {e}")
 
-    def _setup_github_credentials(self, space_name: str) -> None:
+    def _setup_github_credentials(
+        self, space_name: str, token=None, org=None, password=None
+    ) -> None:
         """
         Setup GitHub credentials for the space.
 
         :param space_name: Name of the space
+        :param token: Optional PAT token (falls back to THOTH_SPACE_TOKEN env var, then interactive prompt)
+        :param org: Optional username/org (falls back to THOTH_SPACE_ORG env var, then interactive prompt)
+        :param password: Optional encryption password (falls back to THOTH_SPACE_PASSWORD env var, then interactive prompt)
         :return: None
         """
         self.ui.print_info("🔐 Setting up GitHub credentials")
 
         # Ask for GitHub username
-        username = input("Enter GitHub username: ")
+        username = (
+            org or os.environ.get("THOTH_SPACE_ORG") or input("Enter GitHub username: ")
+        )
 
         # Ask for token securely
         self.ui.print_info(
             "You'll need a Personal Access Token with appropriate permissions"
         )
-        token = getpass.getpass("Enter your GitHub Personal Access Token: ")
+        pat = (
+            token
+            or os.environ.get("THOTH_SPACE_TOKEN")
+            or getpass.getpass("Enter your GitHub Personal Access Token: ")
+        )
 
         # Create credentials dictionary
-        credentials = {"type": "github", "username": username, "token": token}
+        credentials = {"type": "github", "username": username, "token": pat}
 
         # Ask for encryption password
-        encryption_password = getpass.getpass(
-            "Enter a password to encrypt your credentials: "
+        encryption_password = (
+            password
+            or os.environ.get("THOTH_SPACE_PASSWORD")
+            or getpass.getpass("Enter a password to encrypt your credentials: ")
         )
 
         # Save encrypted credentials
@@ -415,30 +471,43 @@ class SpaceService:
             self.logger.error(f"Failed to save credentials: {e}")
             self.ui.print_error(f"Failed to save credentials: {e}")
 
-    def _setup_gitlab_credentials(self, space_name: str) -> None:
+    def _setup_gitlab_credentials(
+        self, space_name: str, token=None, org=None, password=None
+    ) -> None:
         """
         Setup GitLab credentials for the space.
 
         :param space_name: Name of the space
+        :param token: Optional PAT token (falls back to THOTH_SPACE_TOKEN env var, then interactive prompt)
+        :param org: Optional username/org (falls back to THOTH_SPACE_ORG env var, then interactive prompt)
+        :param password: Optional encryption password (falls back to THOTH_SPACE_PASSWORD env var, then interactive prompt)
         :return: None
         """
         self.ui.print_info("🔐 Setting up GitLab credentials")
 
         # Ask for GitLab username
-        username = input("Enter GitLab username: ")
+        username = (
+            org or os.environ.get("THOTH_SPACE_ORG") or input("Enter GitLab username: ")
+        )
 
         # Ask for token securely
         self.ui.print_info(
             "You'll need a Personal Access Token with appropriate permissions"
         )
-        token = getpass.getpass("Enter your GitLab Personal Access Token: ")
+        pat = (
+            token
+            or os.environ.get("THOTH_SPACE_TOKEN")
+            or getpass.getpass("Enter your GitLab Personal Access Token: ")
+        )
 
         # Create credentials dictionary
-        credentials = {"type": "gitlab", "username": username, "token": token}
+        credentials = {"type": "gitlab", "username": username, "token": pat}
 
         # Ask for encryption password
-        encryption_password = getpass.getpass(
-            "Enter a password to encrypt your credentials: "
+        encryption_password = (
+            password
+            or os.environ.get("THOTH_SPACE_PASSWORD")
+            or getpass.getpass("Enter a password to encrypt your credentials: ")
         )
 
         # Save encrypted credentials
@@ -454,26 +523,40 @@ class SpaceService:
             self.logger.error(f"Failed to save credentials: {e}")
             self.ui.print_error(f"Failed to save credentials: {e}")
 
-    def _setup_terraform_credentials(self, space_name: str, auth_method: str) -> None:
+    def _setup_terraform_credentials(
+        self, space_name: str, auth_method: str, token=None, password=None
+    ) -> None:
         """
         Setup Terraform registry credentials for the space.
 
         :param space_name: Name of the space
         :param auth_method: Authentication method (token, env_var)
+        :param token: Optional registry token (falls back to THOTH_SPACE_TF_TOKEN env var, then interactive prompt)
+        :param password: Optional encryption password (falls back to THOTH_SPACE_PASSWORD env var, then interactive prompt)
         :return: None
         """
         if auth_method == "token":
             self.ui.print_info("🔐 Setting up Terraform registry token")
 
             # Ask for token securely
-            token = getpass.getpass("Enter your Terraform registry token: ")
+            tf_token = (
+                token
+                or os.environ.get("THOTH_SPACE_TF_TOKEN")
+                or getpass.getpass("Enter your Terraform registry token: ")
+            )
 
             # Create credentials dictionary
-            credentials = {"type": "terraform", "auth_method": "token", "token": token}
+            credentials = {
+                "type": "terraform",
+                "auth_method": "token",
+                "token": tf_token,
+            }
 
             # Ask for encryption password
-            encryption_password = getpass.getpass(
-                "Enter a password to encrypt your credentials: "
+            encryption_password = (
+                password
+                or os.environ.get("THOTH_SPACE_PASSWORD")
+                or getpass.getpass("Enter a password to encrypt your credentials: ")
             )
 
             # Save encrypted credentials

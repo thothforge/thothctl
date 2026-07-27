@@ -16,6 +16,7 @@ Spaces provide:
 | Subcommand | Description |
 |------------|-------------|
 | `activate` | Set a space as the active context |
+| `deactivate` | Clear the active space context |
 | `show` | Display space configuration summary |
 | `update` | Modify space settings (policy repo, VCS, tools) |
 
@@ -24,6 +25,9 @@ Spaces provide:
 ```bash
 # Activate a space
 thothctl space activate my-space
+
+# Deactivate (clear active space)
+thothctl space deactivate
 
 # Show space configuration
 thothctl space show my-space
@@ -58,6 +62,28 @@ New projects will use this space by default unless --space is specified.
 
 ---
 
+### deactivate
+
+Clear the active space context. After deactivation, commands that require a space will need an explicit `--space` flag or will fall back to project-level configuration.
+
+```bash
+thothctl space deactivate
+```
+
+**Effect:**
+- Removes the `~/.thothcf/active_space` file (or clears its content)
+- No space is used by default for new projects
+- Commands requiring credentials will prompt for a `--space` flag or fail with "no space configured"
+
+**Example:**
+```bash
+$ thothctl space deactivate
+🔓 Active space cleared. No space is currently active.
+Use 'thothctl space activate <name>' to set a new active space.
+```
+
+---
+
 ### show
 
 Display the full configuration of a space.
@@ -67,12 +93,13 @@ thothctl space show <SPACE_NAME>
 ```
 
 **Displays:**
-- Space name and version
-- VCS provider and settings (organization, project, repository)
-- Terraform registry configuration
+- Space name, description, status (active/inactive), and creation date
+- Version control provider
+- Terraform registry and authentication method
 - Orchestration tool (terragrunt, terramate, none)
-- Policy repository URL (if configured)
-- Credentials status (encrypted PAT present/missing)
+- Governance policy repository (if configured)
+- Associated projects
+- Credentials status
 
 ---
 
@@ -109,47 +136,47 @@ thothctl space update production --terraform-registry https://app.terraform.io
 
 ## Space Configuration Structure
 
-Spaces are stored at `~/.thothcf/spaces/<space-name>/`:
+All space configuration is stored in `~/.thothcf/spaces.toml` (single source of truth). Space directories contain only operational files:
 
 ```
-~/.thothcf/spaces/my-space/
-├── space.toml                    # Main configuration
-├── vcs/
-│   ├── azure_repos.toml          # Azure DevOps settings
-│   ├── github.toml               # GitHub settings
-│   └── gitlab.toml               # GitLab settings
-├── credentials/
-│   └── vcs.enc                   # Encrypted PAT token
-├── terraform/
-│   └── registry.toml             # Registry configuration
-└── orchestration/
-    └── terragrunt.toml           # Orchestration settings
+~/.thothcf/
+├── spaces.toml              # Single source of truth for all space config
+├── active_space             # Currently active space name (plain text file)
+└── spaces/
+    └── <space-name>/
+        ├── metadata.toml    # Directory identification (name, created_at, config_source)
+        ├── credentials/     # Encrypted VCS/TF/cloud credentials (.enc files)
+        ├── configs/         # Space-level policy overrides
+        │   └── scan_policy.toml  # Scan enforcement + supply chain thresholds
+        ├── vcs/             # Provider-specific config (github.toml, etc.)
+        ├── terraform/       # Registry config (registry.toml)
+        └── orchestration/   # Tool config (terragrunt.toml, etc.)
 ```
 
-### space.toml Example
+### spaces.toml Example
 
 ```toml
-[space]
+[spaces.production]
 name = "production"
-version = "1.0.0"
+description = "Production infrastructure"
+created_at = "2026-07-01T10:05:00"
 
-[credentials]
-path = "credentials"
+[spaces.production.version_control]
+provider = "github"
 
-[version_control]
-path = "vcs"
-default_provider = "azure_repos"
-providers = ["azure_repos", "github", "gitlab"]
+[spaces.production.terraform]
+registry = "https://app.terraform.io"
+auth_method = "token"
 
-[terraform]
-path = "terraform"
-registry_url = "https://registry.terraform.io"
-auth_method = "none"
+[spaces.production.orchestration]
+tool = "terragrunt"
 
-[orchestration]
-path = "orchestration"
-default_tool = "terragrunt"
-tools = ["terragrunt", "terramate", "none"]
+[spaces.production.governance]
+policy_repo = "https://github.com/myorg/iac-policies.git"
+
+[spaces.production.projects]
+[spaces.production.projects.vpc-stack]
+registered_at = "2026-07-05T11:00:00"
 ```
 
 ### VCS Provider Configuration
@@ -183,14 +210,13 @@ Spaces are created with `thothctl init space`:
 
 ```bash
 # Interactive creation
-thothctl init space --space-name production
+thothctl init space --name production
 
-# The init wizard prompts for:
-# - VCS provider (azure_repos, github, gitlab)
-# - Organization/project details
-# - PAT token (stored encrypted)
-# - Terraform registry
-# - Orchestration tool
+# Non-interactive creation (CI/CD)
+THOTH_SPACE_TOKEN=ghp_xxxx \
+THOTH_SPACE_ORG=myorg \
+THOTH_SPACE_PASSWORD=secret \
+thothctl init space --name production --vcs-provider github
 ```
 
 ## How Spaces Are Used
@@ -233,12 +259,15 @@ When `--post-to-pr` is used:
 
 ```bash
 # Create spaces for each environment
-thothctl init space --space-name dev
-thothctl init space --space-name staging
-thothctl init space --space-name production
+thothctl init space --name dev
+thothctl init space --name staging
+thothctl init space --name production
 
 # Activate for current work
 thothctl space activate dev
+
+# Deactivate when done
+thothctl space deactivate
 
 # Override for specific commands
 thothctl scan iac --post-to-pr --space production
@@ -258,7 +287,7 @@ thothctl scan iac -t opa  # Uses org policies automatically
 
 ## Related
 
-- [Space Management Use Case](../../use_cases/space_management.md)
+- [Space Configuration](../../space_configuration.md)
 - [Init Space Command](../init/)
 - [Scan Command — Policy Resolution](../scan/scan_overview.md)
 - [Workflow Command](../workflow/workflow_overview.md)

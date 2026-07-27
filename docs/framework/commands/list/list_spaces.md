@@ -49,6 +49,42 @@ The space list output includes the following information:
 
 Spaces are marked with a globe icon (🌐) to indicate they are spaces managed by ThothCTL.
 
+## Data Model
+
+Spaces and their associated projects are tracked in the global registry at `~/.thothcf/spaces.toml`. Each space entry includes a `projects` list under `spaces.<name>.projects`:
+
+```toml
+[spaces.dev]
+name = "dev"
+description = "Development environment"
+
+[spaces.dev.version_control]
+provider = "github"
+
+[spaces.dev.projects]
+[spaces.dev.projects.ecs-service]
+registered_at = "2024-01-16T09:00:00Z"
+[spaces.dev.projects.vpc-network]
+registered_at = "2024-01-17T14:00:00Z"
+[spaces.dev.projects.api-gateway]
+registered_at = "2024-01-18T11:00:00Z"
+
+[spaces.production]
+name = "production"
+description = "Production environment"
+
+[spaces.production.version_control]
+provider = "github"
+
+[spaces.production.projects]
+[spaces.production.projects.vpc-network]
+registered_at = "2024-02-02T10:00:00Z"
+[spaces.production.projects.eks-cluster]
+registered_at = "2024-02-03T15:00:00Z"
+```
+
+The project count displayed in the list output is derived from this registry. The same project name can appear in multiple spaces due to namespace scoping (e.g., `vpc-network` in both `dev` and `production`).
+
 ## Filtering Spaces
 
 While ThothCTL doesn't provide built-in filtering options for the list command, you can combine it with standard command-line tools to filter the output:

@@ -91,6 +91,16 @@ Usage: thothctl space activate SPACE_NAME
   Set a space as the active context
 ```
 
+### Deactivate a Space
+
+```
+Usage: thothctl space deactivate
+
+  Clear the active space context
+```
+
+This removes the currently active space, allowing you to work without any space context or switch to a different space.
+
 ### List Projects with Space Information
 
 ```
@@ -162,57 +172,82 @@ This removes the "development" space and all projects associated with it.
 
 ## Space Structure
 
-Each space has the following directory structure:
+Space configuration is managed through the global registry at `~/.thothcf/spaces.toml`, which is the single source of truth for all space definitions. Each space also has an associated directory structure:
 
 ```
-~/.thothcf/spaces/<space_name>/
-├── space.toml              # Space configuration file
-├── credentials/            # Credentials for various services
-├── configs/                # General configurations
-├── templates/              # Project templates
-├── vcs/                    # Version control system configurations
-│   └── <provider>.toml     # Provider-specific configuration
-├── terraform/              # Terraform registry configurations
-│   └── registry.toml       # Registry configuration
-└── orchestration/          # Orchestration tool configurations
-    └── <tool>.toml         # Tool-specific configuration
+~/.thothcf/
+├── spaces.toml                    # Global registry (single source of truth)
+├── active_space                   # Currently active space name (plain text file)
+└── spaces/<space_name>/
+    ├── metadata.toml              # Directory identification (name, created_at, config_source)
+    ├── credentials/               # Encrypted VCS/TF/cloud credentials (.enc files)
+    ├── configs/                   # Space-level policy overrides
+    │   └── scan_policy.toml       # Scan enforcement + supply chain thresholds
+    ├── vcs/                       # Version control system configurations
+    │   └── <provider>.toml        # Provider-specific configuration
+    ├── terraform/                 # Terraform registry configurations
+    │   └── registry.toml          # Registry configuration
+    └── orchestration/             # Orchestration tool configurations
+        └── <tool>.toml            # Tool-specific configuration
 ```
 
 ## Configuration Files
 
-### space.toml
+### spaces.toml (Global Registry)
 
-The main space configuration file:
+The main configuration file at `~/.thothcf/spaces.toml` stores all space definitions:
 
 ```toml
-[space]
+[spaces.development]
 name = "development"
-version = "1.0.0"
+description = "Development environment"
+created_at = "2024-01-15T10:30:00Z"
 
-[credentials]
-path = "credentials"
+[spaces.development.version_control]
+provider = "github"
 
-[configurations]
-path = "configs"
-
-[templates]
-path = "templates"
-
-[version_control]
-path = "vcs"
-default_provider = "github"
-providers = ["azure_repos", "github", "gitlab"]
-
-[terraform]
-path = "terraform"
-registry_url = "https://registry.terraform.io"
+[spaces.development.terraform]
+registry = "https://registry.terraform.io"
 auth_method = "token"
 
-[orchestration]
-path = "orchestration"
-default_tool = "terragrunt"
-tools = ["terragrunt", "terramate", "none"]
+[spaces.development.orchestration]
+tool = "terragrunt"
+
+[spaces.development.projects]
+[spaces.development.projects.my-app]
+registered_at = "2024-01-16T09:00:00Z"
+[spaces.development.projects.vpc-network]
+registered_at = "2024-01-17T14:00:00Z"
+[spaces.development.projects.ecs-service]
+registered_at = "2024-01-18T11:00:00Z"
+
+[spaces.production]
+name = "production"
+description = "Production environment"
+created_at = "2024-02-01T09:00:00Z"
+
+[spaces.production.version_control]
+provider = "azure_repos"
+
+[spaces.production.terraform]
+registry = "https://registry.terraform.io"
+auth_method = "env_var"
+
+[spaces.production.orchestration]
+tool = "terragrunt"
+
+[spaces.production.governance]
+policy_repo = "https://github.com/myorg/iac-policies.git"
+
+[spaces.production.projects]
+[spaces.production.projects.vpc-network]
+registered_at = "2024-02-02T10:00:00Z"
+[spaces.production.projects.eks-cluster]
+registered_at = "2024-02-03T15:00:00Z"
 ```
+
+!!! note "Namespace Scoping"
+    Projects are registered under `spaces.<name>.projects` in the global `spaces.toml`. This enables **namespace scoping** — the same project name can exist in different spaces (e.g., `vpc-network` in both `development` and `production`). Each space acts as an independent namespace for project names.
 
 ### VCS Configuration
 
@@ -280,6 +315,9 @@ backend = true
 3. **Documentation**: Include descriptive information for each space
 4. **Version Control**: Use the same VCS provider for all projects in a space
 5. **Credential Management**: Store credentials securely and reference them in space configurations
+6. **Namespace Awareness**: Leverage namespace scoping to use consistent project names across environments (e.g., `vpc-network` in both `dev` and `prod` spaces)
+7. **Deactivate When Switching Context**: Use `thothctl space deactivate` before switching between unrelated workstreams to avoid accidental cross-space operations
+8. **Non-Interactive Setup**: For CI/CD pipelines, use environment variables or flags for credential setup to avoid interactive prompts
 
 ## Examples
 

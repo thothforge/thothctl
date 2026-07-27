@@ -410,6 +410,39 @@ graph TB
 
 **Resolution rule**: Project-level policies override Space-level, which override Organization-level. Structure policies are **replaced entirely** (no merge). Security policies (Rego) are **additive** (all levels evaluated).
 
+### Space-Level Scan Policy (`configs/scan_policy.toml`)
+
+Each space can define a **scan policy override** at `~/.thothcf/spaces/<space_name>/configs/scan_policy.toml`. This file controls scan enforcement behavior and supply-chain thresholds for all projects within the space.
+
+```toml
+# ~/.thothcf/spaces/production/configs/scan_policy.toml
+
+[enforcement]
+mode = "hard"                    # "soft" (report only) or "hard" (fail on violations)
+fail_on_severity = "high"        # Minimum severity to trigger enforcement failure
+
+[supply_chain]
+max_module_staleness_days = 90   # Flag modules not updated in N days
+require_pinned_versions = true   # Require exact version pins (no ranges)
+allowed_registries = [           # Approved Terraform registries
+    "registry.terraform.io",
+    "https://private.registry.example.com"
+]
+
+[thresholds]
+max_critical = 0                 # Maximum critical findings before failure
+max_high = 5                     # Maximum high findings before failure
+max_medium = 20                  # Maximum medium findings (warning only)
+```
+
+**How it connects to scan commands**:
+
+- `thothctl scan iac` reads the active space's `configs/scan_policy.toml` to determine enforcement mode and severity thresholds.
+- `thothctl inventory iac --check-versions` uses `[supply_chain]` settings to flag stale or unpinned modules.
+- When `[enforcement].mode = "hard"`, scans that exceed the configured thresholds exit with a non-zero code, failing CI pipelines.
+
+This file sits between organization-level policies (Git repo) and project-level `.thothcf.toml` in the hierarchy — it provides team/space-wide defaults without requiring every project to redeclare them.
+
 ---
 
 ## Organization Policy Repository

@@ -24,7 +24,7 @@ Options:
 thothctl check space --space-name development
 ```
 
-This validates the specified space's configuration and provides comprehensive diagnostics.
+This validates the specified space's configuration from the global `~/.thothcf/spaces.toml` registry and provides comprehensive diagnostics.
 
 ## Validation Output
 
@@ -32,8 +32,9 @@ The command provides professional Rich-formatted output with multiple diagnostic
 
 ### Space Overview
 - Space name and description
-- Configuration file status
+- Configuration status from `~/.thothcf/spaces.toml` (the global registry)
 - Directory structure validation
+- `configs/scan_policy.toml` existence check (space-level policy overrides)
 - Creation and modification timestamps
 
 ### VCS Configuration
@@ -127,50 +128,50 @@ Shows credential status and provides security recommendations.
 
 ## Configuration Validation
 
-The command validates several configuration aspects:
+The command reads space configuration from `~/.thothcf/spaces.toml` — the single source of truth for all space definitions. It validates the space entry and its associated directory structure.
+
+### Global Registry (`~/.thothcf/spaces.toml`)
+
+The `check space` command looks up the space in the global registry:
+
+```toml
+[spaces.development]
+name = "development"
+description = "Development environment space"
+created_at = "2024-01-15T10:30:00Z"
+
+[spaces.development.version_control]
+provider = "github"
+
+[spaces.development.terraform]
+registry = "https://registry.terraform.io"
+auth_method = "token"
+
+[spaces.development.orchestration]
+tool = "terragrunt"
+
+[spaces.development.projects]
+[spaces.development.projects.my-app]
+registered_at = "2024-01-16T09:00:00Z"
+[spaces.development.projects.vpc-network]
+registered_at = "2024-01-17T14:00:00Z"
+```
 
 ### Space Directory Structure
 ```
 ~/.thothcf/spaces/{space_name}/
-├── config.toml              # Space configuration
-├── credentials.toml         # VCS credentials
+├── metadata.toml            # Directory identification (name, created_at, config_source)
+├── configs/
+│   └── scan_policy.toml     # Space-level scan policy overrides (optional)
+├── credentials/             # Encrypted VCS/TF/cloud credentials
 ├── vcs/                     # VCS-specific settings
 ├── terraform/               # Terraform registry settings
 └── orchestration/           # Orchestration tool settings
 ```
 
-### Configuration Files
+The command also checks for `configs/scan_policy.toml`, which provides space-level security policy overrides for scan operations.
 
-#### config.toml
-```toml
-[space]
-name = "development"
-description = "Development environment space"
-created_at = "2024-01-15T10:30:00Z"
-
-[vcs]
-provider = "github"
-auth_method = "token"
-
-[terraform]
-registry = "registry.terraform.io"
-
-[orchestration]
-tool = "terragrunt"
-```
-
-#### credentials.toml
-```toml
-[github]
-token = "ghp_xxxxxxxxxxxxxxxxxxxx"
-username = "developer"
-
-[azure_repos]
-# Azure DevOps credentials (if applicable)
-
-[gitlab]
-# GitLab credentials (if applicable)
-```
+Credentials are stored as encrypted `.enc` files in the `credentials/` directory. The `check space` command validates their presence and file integrity without decrypting them.
 
 ## Error Scenarios
 
@@ -182,9 +183,9 @@ username = "developer"
 
 ### Missing Configuration
 ```
-⚠️ Configuration file missing: config.toml
+⚠️ Configuration file missing: metadata.toml
 ```
-**Solution**: Reinitialize the space or manually create the configuration file.
+**Solution**: Reinitialize the space or manually create the metadata file.
 
 ### Invalid Credentials
 ```
