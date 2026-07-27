@@ -31,6 +31,7 @@ class SpaceService:
         vcs_token: Optional[str] = None,
         vcs_org: Optional[str] = None,
         credential_password: Optional[str] = None,
+        parent_space: Optional[str] = None,
     ) -> None:
         """
         Initialize a new space.
@@ -45,6 +46,7 @@ class SpaceService:
         :param vcs_token: Optional VCS token for non-interactive setup (falls back to THOTH_SPACE_TOKEN env var)
         :param vcs_org: Optional VCS organization/username for non-interactive setup (falls back to THOTH_SPACE_ORG env var)
         :param credential_password: Optional encryption password for non-interactive setup (falls back to THOTH_SPACE_PASSWORD env var)
+        :param parent_space: Optional parent space name for configuration inheritance
         :return: None
         """
         self.ui.print_info(f"🚀 Initializing space: {space_name}")
@@ -63,6 +65,15 @@ class SpaceService:
                 terraform_auth=terraform_auth,
                 orchestration_tool=orchestration_tool,
                 policy_repo=policy_repo,
+            )
+
+        # Set parent space for inheritance if specified
+        if parent_space:
+            from .inheritance import set_parent_space
+
+            set_parent_space(space_name, parent_space)
+            self.ui.print_info(
+                f"🔗 Space '{space_name}' inherits from '{parent_space}'"
             )
 
         # Create space directory structure

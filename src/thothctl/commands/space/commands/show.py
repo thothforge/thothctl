@@ -45,12 +45,18 @@ class ShowSpaceCommand(ClickCommand):
             active_space = ACTIVE_SPACE_FILE.read_text(encoding="utf-8").strip()
         is_active = space_name == active_space
 
+        # Resolve parent info
+        parent_name = space.get("parent")
+        parent_info = ""
+        if parent_name:
+            parent_info = f"  |  Parent: {parent_name}"
+
         # Header
         status = "🟢 ACTIVE" if is_active else "⚪ INACTIVE"
         self.console.print(
             Panel(
                 f"[bold]{space.get('name', space_name)}[/bold] — {space.get('description', 'No description')}\n"
-                f"Status: {status}  |  Created: {space.get('created_at', 'unknown')[:10]}",
+                f"Status: {status}  |  Created: {space.get('created_at', 'unknown')[:10]}{parent_info}",
                 title="🌐 Space Configuration",
                 border_style="cyan",
             )

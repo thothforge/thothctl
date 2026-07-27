@@ -31,6 +31,10 @@ class SpaceInitCommand(ClickCommand):
         terraform_auth: str = "none",
         orchestration_tool: str = "terragrunt",
         policy_repo: Optional[str] = None,
+        parent: Optional[str] = None,
+        vcs_token: Optional[str] = None,
+        vcs_org: Optional[str] = None,
+        credential_password: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Execute space initialization"""
@@ -49,6 +53,10 @@ class SpaceInitCommand(ClickCommand):
             terraform_auth=terraform_auth,
             orchestration_tool=orchestration_tool,
             policy_repo=policy_repo,
+            parent_space=parent,
+            vcs_token=vcs_token,
+            vcs_org=vcs_org,
+            credential_password=credential_password,
         )
 
         self.ui.print_success(f"✨ Space '{space_name}' is ready to use!")
@@ -168,5 +176,25 @@ cli = SpaceInitCommand.as_click_command(help="Initialize a new space")(
         prompt_required=False,
         help="Git repository URL or local path for organization-level IaC policies (OPA/Rego)",
         default="",
+    ),
+    click.option(
+        "--parent",
+        help="Parent space name for configuration inheritance",
+        default=None,
+    ),
+    click.option(
+        "--vcs-token",
+        help="VCS personal access token (non-interactive). Env: THOTH_SPACE_TOKEN",
+        default=None,
+    ),
+    click.option(
+        "--vcs-org",
+        help="VCS organization/username (non-interactive). Env: THOTH_SPACE_ORG",
+        default=None,
+    ),
+    click.option(
+        "--credential-password",
+        help="Password to encrypt credentials (non-interactive). Env: THOTH_SPACE_PASSWORD",
+        default=None,
     ),
 )

@@ -17,7 +17,7 @@ class SpaceCLI(click.MultiCommand):
         try:
             for item in commands_path.iterdir():
                 if item.name.endswith(".py") and not item.name.startswith("_"):
-                    commands.append(item.stem)
+                    commands.append(item.stem.replace("_", "-"))
         except Exception as e:
             logger.error(f"Error listing space commands: {e}")
             return []
@@ -26,11 +26,13 @@ class SpaceCLI(click.MultiCommand):
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:
-            module_path = Path(__file__).parent / "commands" / f"{cmd_name}.py"
+            # Support both hyphens and underscores
+            normalized = cmd_name.replace("-", "_")
+            module_path = Path(__file__).parent / "commands" / f"{normalized}.py"
             if not module_path.exists():
                 return None
             spec = importlib.util.spec_from_file_location(
-                f"thothctl.commands.space.commands.{cmd_name}", str(module_path)
+                f"thothctl.commands.space.commands.{normalized}", str(module_path)
             )
             if spec is None or spec.loader is None:
                 return None
