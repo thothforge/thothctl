@@ -15,7 +15,7 @@ version_tools = """[
   },
   {
     "name": "thothctl",
-    "version": "0.13.0"
+    "version": "0.24.4"
   },
   {
     "name": "pre-commit",
@@ -24,10 +24,6 @@ version_tools = """[
   {
     "name": "tflint",
     "version": "0.61.0"
-  },
-  {
-    "name": "tfsec",
-    "version": "1.28.1"
   },
   {
     "name": "checkov",

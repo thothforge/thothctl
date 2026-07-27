@@ -359,7 +359,6 @@ def install_tool(
         "tfswitch": install_tfswich,
         "terraform": lambda: install_terraform_linux(version=versions["terraform"]),
         "terragrunt": lambda: install_terragrunt(version=versions["terragrunt"]),
-        "tfsec": lambda: install_tfsec(version=versions["tfsec"]),
         "terraform-docs": lambda: install_terraform_docs(
             version=versions["terraform-docs"]
         ),
@@ -373,7 +372,7 @@ def install_tool(
         "open-tofu": install_open_tofu,
         "thothctl": install_thothctl,
         "kiro-cli": install_kiro_cli,
-        # "trivy": lambda: install_trivy(version=versions["trivy"]),
+        "trivy": lambda: install_trivy(version=versions["trivy"]),
         "snyk": install_snyk,
         "tofu": install_open_tofu,
         "uv": lambda: install_uv(version=versions["uv"]),
@@ -450,7 +449,6 @@ def bootstrap_env(so):
             install_tfswich()
             install_terraform_linux(versions["terraform"])
             install_terragrunt(version=versions["terragrunt"])
-            install_tfsec(version=versions["tfsec"])
             install_terraform_docs(version=versions["terraform-docs"])
             install_terramate(version=versions["terramate"])
             install_pre_commit(version=versions["pre-commit"])
