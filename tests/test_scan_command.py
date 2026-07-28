@@ -3,7 +3,6 @@
 from dataclasses import asdict
 
 import pytest
-
 from thothctl.utils.common.create_compliance_html_reports import (
     ComplianceReportGenerator,
     ReportConfig,

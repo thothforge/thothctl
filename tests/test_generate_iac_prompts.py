@@ -1,7 +1,6 @@
 """Unit tests for Intent-to-IaC prompts."""
 
 import pytest
-
 from thothctl.services.generate.intent.models import GeneratedFile
 from thothctl.services.generate.intent.prompts import (
     CDK_HINTS,

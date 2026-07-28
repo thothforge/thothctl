@@ -4,7 +4,6 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-
 from thothctl.services.generate.intent.code_generator import CodeGenerator
 from thothctl.services.generate.intent.models import (
     GeneratedFile,

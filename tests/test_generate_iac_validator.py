@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from thothctl.services.generate.intent.models import GeneratedFile, Violation
 from thothctl.services.generate.intent.validator import GenerationValidator
 

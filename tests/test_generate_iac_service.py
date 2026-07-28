@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from thothctl.services.generate.intent.intent_service import IntentToIaCService
 from thothctl.services.generate.intent.models import (
     ContextPayload,

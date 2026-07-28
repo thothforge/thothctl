@@ -5,7 +5,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from thothctl.services.generate.intent.context_builder import ContextBuilder
 from thothctl.services.generate.intent.models import (
     ContextPayload,
