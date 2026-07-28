@@ -349,6 +349,128 @@ def install_conftest():
     check_result(result=_exit, tool="conftest")
 
 
+def install_aws_cdk():
+    """Install AWS CDK CLI via npm (requires Node.js)."""
+    print(f"{Fore.MAGENTA}Installing AWS CDK CLI{Fore.RESET}")
+    _exit = os.system("npm install -g aws-cdk && cdk --version")
+    check_result(result=_exit, tool="aws-cdk")
+
+
+def install_aidlc_rules(target_dir: str = ".") -> bool:
+    """Install AI-DLC workflow rules for Kiro from GitHub releases.
+
+    Uses native Python (requests + zipfile) — no curl/unzip binary dependencies.
+
+    :param target_dir: Project root directory (where .kiro/ lives)
+    :return: True if installed successfully
+    """
+    import io
+    import shutil
+    import tempfile
+    import zipfile
+    from pathlib import Path
+
+    import requests
+
+    print(f"{Fore.MAGENTA}Installing AI-DLC workflow rules...{Fore.RESET}")
+
+    api_url = "https://api.github.com/repos/awslabs/aidlc-workflows/releases/latest"
+
+    try:
+        # Get latest release info
+        response = requests.get(api_url, timeout=30)
+        response.raise_for_status()
+        release_data = response.json()
+
+        # Find the zip asset
+        zip_url = None
+        for asset in release_data.get("assets", []):
+            if asset["name"].endswith(".zip"):
+                zip_url = asset["browser_download_url"]
+                break
+
+        if not zip_url:
+            # Fallback: use zipball_url from the release
+            zip_url = release_data.get("zipball_url")
+
+        if not zip_url:
+            print(
+                f"{Fore.RED}❌ No downloadable asset found in latest release{Fore.RESET}"
+            )
+            return False
+
+        # Download zip
+        print(
+            f"{Fore.MAGENTA}  Downloading from {release_data.get('tag_name', 'latest')}...{Fore.RESET}"
+        )
+        zip_response = requests.get(zip_url, timeout=60, allow_redirects=True)
+        zip_response.raise_for_status()
+
+        # Extract to temp directory
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with zipfile.ZipFile(io.BytesIO(zip_response.content)) as zf:
+                zf.extractall(tmpdir)
+
+            # Find the aidlc-rules directory (may be nested)
+            tmp_path = Path(tmpdir)
+            rules_dir = None
+            for candidate in tmp_path.rglob("aidlc-rules"):
+                if candidate.is_dir():
+                    rules_dir = candidate
+                    break
+
+            if not rules_dir:
+                # Try alternate structure: look for aws-aidlc-rules directly
+                for candidate in tmp_path.rglob("aws-aidlc-rules"):
+                    if candidate.is_dir():
+                        rules_dir = candidate.parent
+                        break
+
+            if not rules_dir:
+                print(
+                    f"{Fore.RED}❌ Could not find aidlc-rules in release archive{Fore.RESET}"
+                )
+                return False
+
+            # Copy rules to .kiro/steering/
+            target_path = Path(target_dir)
+            steering_dir = target_path / ".kiro" / "steering"
+            steering_dir.mkdir(parents=True, exist_ok=True)
+
+            # Copy aws-aidlc-rules to steering
+            src_rules = rules_dir / "aws-aidlc-rules"
+            if src_rules.exists():
+                dst_rules = steering_dir / "aws-aidlc-rules"
+                if dst_rules.exists():
+                    shutil.rmtree(dst_rules)
+                shutil.copytree(src_rules, dst_rules)
+                print(
+                    f"{Fore.GREEN}  ✅ Copied aws-aidlc-rules → .kiro/steering/{Fore.RESET}"
+                )
+
+            # Copy aws-aidlc-rule-details to .kiro/
+            src_details = rules_dir / "aws-aidlc-rule-details"
+            if src_details.exists():
+                dst_details = target_path / ".kiro" / "aws-aidlc-rule-details"
+                if dst_details.exists():
+                    shutil.rmtree(dst_details)
+                shutil.copytree(src_details, dst_details)
+                print(
+                    f"{Fore.GREEN}  ✅ Copied aws-aidlc-rule-details → .kiro/{Fore.RESET}"
+                )
+
+        version = release_data.get("tag_name", "latest")
+        print(f"{Fore.GREEN}✅ AI-DLC rules installed ({version}){Fore.RESET}")
+        return True
+
+    except requests.RequestException as e:
+        print(f"{Fore.RED}❌ Failed to download AI-DLC rules: {e}{Fore.RESET}")
+        return False
+    except (zipfile.BadZipFile, OSError) as e:
+        print(f"{Fore.RED}❌ Failed to extract AI-DLC rules: {e}{Fore.RESET}")
+        return False
+
+
 def install_tool(
     tool_name,
     versions,
@@ -378,6 +500,7 @@ def install_tool(
         "uv": lambda: install_uv(version=versions["uv"]),
         "opa": install_opa,
         "conftest": install_conftest,
+        "aws-cdk": install_aws_cdk,
     }
 
     if tool_name in tool_installers:
