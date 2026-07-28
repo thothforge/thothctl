@@ -108,7 +108,7 @@ thothctl check iac -type drift --recursive
 
 ```bash
 thothctl project convert --make-template --template-project-type terraform
-thothctl init project --name my-infra --template terraform-aws
+thothctl init project -p my-infra --project-type terraform
 ```
 
 - **Bidirectional conversion** between projects and reusable templates

@@ -217,7 +217,7 @@ cd terraform_terragrunt_scaffold_project
 #### ThothCTL Way:
 ```bash
 # Initialize project (downloads template, prompts for values)
-thothctl init project --name my-aws-infra --template terraform_terragrunt
+thothctl init project -p my-aws-infra --project-type terraform-terragrunt
 
 # Now use Kiro CLI with ThothCTL agent for AI assistance
 kiro-cli chat --agent thoth
@@ -483,7 +483,7 @@ Would you like me to apply these optimizations?"
 #### Option 1: AI Orchestrates via MCP
 ```bash
 # Initialize project first
-thothctl init project --name aws-prod-infra --template terraform_terragrunt
+thothctl init project -p aws-prod-infra --project-type terraform-terragrunt
 
 # Start AI chat - AI will execute commands via MCP
 kiro-cli chat --agent thoth
@@ -503,7 +503,7 @@ You: "Create a deployment checklist based on all findings"
 #### Option 2: Manual Execution + AI Analysis
 ```bash
 # Step 1: Initialize project
-thothctl init project --name aws-prod-infra --template terraform_terragrunt
+thothctl init project -p aws-prod-infra --project-type terraform-terragrunt
 
 # Step 2: Check environment
 thothctl check environment
@@ -815,7 +815,7 @@ thothctl mcp register --client kiro --force
 1. **Install ThothCTL**: `pip install thothctl`
 2. **Bootstrap Environment** (includes Kiro CLI): `thothctl init env`
 3. **Configure Kiro MCP**: Add ThothCTL to `~/.kiro/settings/mcp.json`
-4. **Initialize Project**: `thothctl init project --name my-infra`
+4. **Initialize Project**: `thothctl init project -p my-infra --project-type terraform`
 5. **Start AI Chat**: `kiro-cli chat --agent thoth`
 6. **Explore Templates**: Visit [ThothForge GitHub](https://github.com/thothforge)
 

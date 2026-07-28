@@ -12,7 +12,7 @@ pip install thothctl
 #### Step 2: Create Your First Project
 ```bash
 # Initialize a new Terraform project
-thothctl init project --name my-first-infra --template terraform-aws
+thothctl init project -p my-first-infra --project-type terraform
 cd my-first-infra
 ```
 

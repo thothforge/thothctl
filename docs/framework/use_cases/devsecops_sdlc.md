@@ -106,8 +106,8 @@ thothctl init space --name production \
 #### 1.2 Initialize Project
 ```bash
 # Create new IaC project from template
-thothctl init project --name my-infrastructure \
-  --template terraform-aws \
+thothctl init project -p my-infrastructure \
+  --project-type terraform \
   --space production
 ```
 
@@ -866,7 +866,7 @@ thothctl check iac -type cost-analysis --recursive
 
 ```bash
 # 1. PLAN: Initialize project
-thothctl init project --name aws-prod --template terraform-aws
+thothctl init project -p aws-prod --project-type terraform
 
 # 2. DEVELOP: Check environment
 thothctl check environment

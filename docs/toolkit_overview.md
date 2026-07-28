@@ -200,7 +200,7 @@ Pre-configured project templates with governance built in:
 
 ```bash
 # Create a new project from scaffold
-thothctl init project --name my-infra --reuse --space my-space
+thothctl init project -p my-infra --reuse --space my-space
 ```
 
 **What you get out of the box:**
