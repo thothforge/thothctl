@@ -92,6 +92,7 @@ class ProjectInitCommand(ClickCommand):
         context: str = None,
         language: str = None,
         ai_tools: Optional[str] = None,
+        with_aidlc: bool = False,
         **kwargs,
     ) -> None:
         """Execute project initialization"""
@@ -200,6 +201,12 @@ class ProjectInitCommand(ClickCommand):
         self.project_service.configure_ai_tools(
             project_path, ai_tools, batch_mode=batch
         )
+
+        # Install AI-DLC workflow rules if requested
+        if with_aidlc:
+            from ....services.init.environment.install_tools import install_aidlc_rules
+
+            install_aidlc_rules(target_dir=str(project_path))
 
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
@@ -716,5 +723,12 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         ),
         default=None,
         help="AI coding tool to keep in project: 'kiro', 'claude-code', 'both', or 'none' (interactive if omitted)",
+    ),
+    click.option(
+        "--with-aidlc",
+        is_flag=True,
+        default=False,
+        help="Install AI-DLC workflow rules for Kiro (.kiro/steering/). "
+        "Provides structured requirement → design → implementation workflows.",
     ),
 )
