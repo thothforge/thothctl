@@ -320,6 +320,59 @@ thothctl inventory iac \
   --project-name "Production Infrastructure - $(date +%B\ %Y)"
 ```
 
+## v0.25.0 — CDK Construct Inventory
+
+Starting with v0.25.0, `thothctl inventory iac --check-versions` supports **AWS CDK projects** (TypeScript and Python). CDK projects are auto-detected when a `cdk.json` file is present in the project root.
+
+### How It Works
+
+| Language | Parsed Files | Registry |
+|----------|-------------|----------|
+| TypeScript | `package.json` + `package-lock.json` | npm registry |
+| Python | `requirements.txt` / `pyproject.toml` | PyPI |
+
+ThothCTL identifies CDK construct libraries (e.g., `aws-cdk-lib`, `cdk-nag`, `@aws-cdk/aws-lambda-python-alpha`) and checks the upstream registry for the latest published version and release date.
+
+### Usage
+
+```bash
+# In a CDK project directory (cdk.json present)
+thothctl inventory iac --check-versions
+```
+
+### Example Output
+
+```
+📦 CDK Construct Inventory — my-cdk-app
+
+  Package                        Current    Latest     Status     Released
+  ─────────────────────────────────────────────────────────────────────────
+  aws-cdk-lib                    2.140.0    2.155.0    Outdated   2026-07-15
+  cdk-nag                        2.28.0     2.34.1     Outdated   2026-06-20
+  constructs                     10.3.0     10.3.0     Current    2026-05-01
+  @aws-cdk/aws-lambda-python-alpha  2.140.0-alpha.0  2.155.0-alpha.0  Outdated  2026-07-15
+  @myorg/cdk-patterns            1.5.0      —          Internal   —
+
+✅ 3 outdated · 1 current · 1 internal (skipped)
+```
+
+### Internal / Org-Scoped Packages
+
+Packages with internal or organization scopes (e.g., `@myorg/cdk-patterns`) are detected and listed in the inventory but are **not** version-checked against a public registry. They appear with status `Internal`.
+
+### Release Dates
+
+For every package checked against npm or PyPI, the **release date** of the latest version is fetched and displayed. This helps teams assess how far behind they are in calendar time, not just version numbers.
+
+### Report Integration
+
+CDK inventory data flows into the same report pipeline:
+- **HTML reports** include a CDK constructs section with version badges
+- **JSON reports** include CDK components in the standard structure
+- **CycloneDX SBOM** maps CDK constructs using the `pkg:npm/` or `pkg:pypi/` PURL scheme
+
+---
+
 ## v0.19.0 Changes
 
 ### 📦 CycloneDX 1.6 SBOM Generation

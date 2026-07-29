@@ -443,6 +443,53 @@ async def serve_amazon_q():
                     "additionalProperties": False,
                 },
             ),
+            # Quickstart
+            Tool(
+                name="thothctl_quickstart",
+                description="Guided onboarding — detect project type, check environment, suggest next steps. Get started with ThothCTL in under 2 minutes.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "project_type": {
+                            "type": "string",
+                            "enum": [
+                                "terraform",
+                                "terraform-terragrunt",
+                                "tofu",
+                                "cdkv2",
+                                "terraform_module",
+                            ],
+                            "description": "Project type (auto-detected if omitted)",
+                        },
+                        "project_name": {
+                            "type": "string",
+                            "description": "Project name for new project initialization",
+                        },
+                    },
+                    "additionalProperties": False,
+                },
+            ),
+            # Custom Workflow
+            Tool(
+                name="thothctl_workflow_run",
+                description="Run a custom composable workflow from YAML definition. Supports DAG execution with topological ordering, variable interpolation ({{changed_stacks}}, {{branch}}, {{space}}, {{project}}), and per-stage failure handling (block/warn/skip). Use --dry-run to preview execution plan.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file": {
+                            "type": "string",
+                            "description": "Path to workflow YAML file",
+                            "default": ".thothcf_workflow.yaml",
+                        },
+                        "dry_run": {
+                            "type": "boolean",
+                            "description": "Show execution plan without running",
+                            "default": False,
+                        },
+                    },
+                    "additionalProperties": False,
+                },
+            ),
         ]
 
     @server.call_tool()

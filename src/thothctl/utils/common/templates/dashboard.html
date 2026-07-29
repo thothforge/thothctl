@@ -636,7 +636,7 @@
 
             // Evidence
             const evidenceMethods = c.evidence?.identity?.methods || [];
-            const evidenceText = evidenceMethods.length ? `<span style="font-size:0.65rem" title="${evidenceMethods[0].value}">${evidenceMethods[0].technique.replace('source-code-analysis','📄 HCL parse')}</span>` : '—';
+            const evidenceText = evidenceMethods.length ? `<span style="font-size:0.65rem" title="${evidenceMethods[0].value}">${evidenceMethods[0].value.includes('package.json') ? '📦 npm parse' : evidenceMethods[0].value.includes('pyproject') || evidenceMethods[0].value.includes('requirements') ? '🐍 pip parse' : '📄 HCL parse'}</span>` : '—';
 
             html += `<tr>
                 <td><strong>${c.name||'—'}</strong>${purl}</td>

@@ -383,26 +383,89 @@ class IaCInvCommand(ClickCommand):
         if "version_checks" in inventory:
             self.ui.print_info(f"Outdated Components: {outdated_components}")
 
+        # Technical debt
+        self._display_technical_debt(inventory)
+
+    def _display_cdk_summary(self, comp_group: dict) -> None:
+        """Display CDK construct library inventory as a Rich table."""
+        from rich import box
+        from rich.table import Table
+
+        components = comp_group.get("components", [])
+        group_name = comp_group.get("name", "CDK Constructs")
+
+        outdated = sum(1 for c in components if c.get("status") == "Outdated")
+        internal = sum(1 for c in components if c.get("name", "").startswith("@") and
+                       c.get("name", "").split("/")[0] not in
+                       ("@aws-cdk", "@cdklabs", "@aws-solutions-constructs"))
+
+        self.ui.print_info(f"\n📦 {group_name}")
+        self.ui.print_info(
+            f"   Total: {len(components)} | "
+            f"Outdated: {outdated} | "
+            f"Internal: {internal}"
+        )
+
+        # Rich table for CDK constructs
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            box=box.ROUNDED,
+            title=f"🧩 {group_name}",
+        )
+        table.add_column("Package", style="cyan", no_wrap=True)
+        table.add_column("Current", style="white", width=12)
+        table.add_column("Latest", style="green", width=12)
+        table.add_column("Status", width=12)
+        table.add_column("Registry", style="dim", width=8)
+
+        for comp in components:
+            name = comp.get("name", "")
+            version = comp.get("version", [""])[0] if isinstance(comp.get("version"), list) else comp.get("version", "")
+            latest = comp.get("latest_version", version)
+            status = comp.get("status", "Unknown")
+            registry = comp.get("source", [""])[0] if isinstance(comp.get("source"), list) else comp.get("source", "")
+
+            if status == "Outdated":
+                status_display = "❗ Outdated"
+            elif status == "Updated":
+                status_display = "✅ Current"
+            else:
+                status_display = "— Unknown"
+
+            # Mark internal packages
+            if internal and name.startswith("@"):
+                scope = name.split("/")[0]
+                if scope not in ("@aws-cdk", "@cdklabs", "@aws-solutions-constructs"):
+                    status_display = "🏢 Internal"
+
+            table.add_row(name, version, latest, status_display, registry)
+
+        self.ui.console.print()
+        self.ui.console.print(table)
+
+    def _display_technical_debt(self, inventory: dict) -> None:
+        """Display technical debt metrics."""
         # Display technical debt metrics
         if "technical_debt" in inventory:
             tech_debt = inventory["technical_debt"]
             self.ui.print_info("\n📊 Technical Debt Metrics:")
 
-            # Color-code risk level
+            # Color-code risk level using Rich markup
             risk_level = tech_debt.get("risk_level", "low")
             debt_score = tech_debt.get("debt_score", 0)
 
             if risk_level == "critical":
-                risk_color = Fore.RED
+                risk_style = "bold red"
             elif risk_level == "high":
-                risk_color = Fore.YELLOW
+                risk_style = "bold yellow"
             elif risk_level == "medium":
-                risk_color = Fore.CYAN
+                risk_style = "cyan"
             else:
-                risk_color = Fore.GREEN
+                risk_style = "green"
 
-            self.ui.print_info(
-                f"Debt Score: {risk_color}{debt_score:.1f}%{Fore.RESET} ({risk_level.upper()} risk)"
+            self.ui.console.print(
+                f"  ℹ️ Debt Score: [{risk_style}]{debt_score:.1f}% ({risk_level.upper()} risk)[/{risk_style}]"
             )
             self.ui.print_info(
                 f"Outdated Modules: {tech_debt.get('outdated_modules', 0)}/{tech_debt.get('total_components', 0)}"

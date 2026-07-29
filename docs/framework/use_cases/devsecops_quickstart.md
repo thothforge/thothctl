@@ -9,32 +9,26 @@
 pip install thothctl
 ```
 
-#### Step 2: Create Your First Project
+#### Step 2: Guided Onboarding
 ```bash
-# Initialize a new Terraform project
-thothctl init project -p my-first-infra --project-type terraform
-cd my-first-infra
+thothctl quickstart
 ```
 
-#### Step 3: Check Your Environment
-```bash
-# Verify you have all required tools
-thothctl check environment
-```
+The `quickstart` command interactively walks you through environment detection, space creation, project initialization, and your first security scan — all in one guided flow.
 
-#### Step 4: Run Security Scan
-```bash
-# Scan your infrastructure code
-thothctl scan iac -t checkov
-```
-
-#### Step 5: View Results
+#### Step 3: View Results
 ```bash
 # Launch the dashboard
 thothctl dashboard launch
 ```
 
 **🎉 Congratulations!** You've completed your first DevSecOps workflow!
+
+> **Already have a project?** You can skip `quickstart` and jump straight to scanning:
+> ```bash
+> cd my-existing-infra
+> thothctl scan iac -t checkov
+> ```
 
 ---
 

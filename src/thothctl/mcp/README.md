@@ -53,6 +53,10 @@ The MCP server exposes the following ThothCTL commands as tools:
 
 ### Utility
 - `thothctl_version` - Get ThothCTL version
+- `thothctl_quickstart` - Guided onboarding — detect project, check environment, suggest next steps
+
+### Workflows
+- `thothctl_workflow_run` - Run a custom composable workflow from YAML definition (DAG execution, variable interpolation)
 
 ## Architecture
 

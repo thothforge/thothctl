@@ -475,6 +475,49 @@ class ThothCTLMCPHandler(BaseHTTPRequestHandler):
                 "description": "Get ThothCTL version",
                 "parameters": {"type": "object", "properties": {}},
             },
+            {
+                "name": "thothctl_quickstart",
+                "description": "Guided onboarding — detect project type, check environment, suggest next steps. Get started with ThothCTL in under 2 minutes.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "project_type": {
+                            "type": "string",
+                            "enum": [
+                                "terraform",
+                                "terraform-terragrunt",
+                                "tofu",
+                                "cdkv2",
+                                "terraform_module",
+                            ],
+                            "description": "Project type (auto-detected if omitted)",
+                        },
+                        "project_name": {
+                            "type": "string",
+                            "description": "Project name for new project initialization",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "thothctl_workflow_run",
+                "description": "Run a custom composable workflow from YAML definition. Supports DAG execution, variable interpolation ({{changed_stacks}}, {{branch}}), and failure handling (block/warn/skip).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file": {
+                            "type": "string",
+                            "description": "Path to workflow YAML file (default: .thothcf_workflow.yaml)",
+                            "default": ".thothcf_workflow.yaml",
+                        },
+                        "dry_run": {
+                            "type": "boolean",
+                            "description": "Show execution plan without running",
+                            "default": False,
+                        },
+                    },
+                },
+            },
         ]
 
         # Fix the tool names to match what's expected by the command mapping

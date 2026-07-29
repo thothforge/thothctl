@@ -133,6 +133,9 @@ def cli(ctx, debug, verbose, code_directory):
     ctx.obj["VERBOSE"] = verbose
     ctx.obj["CODE_DIRECTORY"] = code_directory
 
+    # Check for newer version (non-blocking, cached)
+    _check_version_freshness()
+
     # Initialize telemetry for non-interactive use
     if not sys.stdin.isatty():
         from .core.telemetry import telemetry
@@ -154,3 +157,72 @@ def cli(ctx, debug, verbose, code_directory):
 
 if __name__ == "__main__":
     cli()
+
+
+def _check_version_freshness():
+    """Check if a newer version is available (cached, non-blocking).
+
+    Uses a cache file (~/.thothcf/.version_check) to avoid hitting PyPI
+    on every invocation. Checks at most once every 24 hours.
+    """
+    import json
+    import time
+
+    cache_file = Path.home() / ".thothcf" / ".version_check"
+    cache_ttl = 86400  # 24 hours
+
+    try:
+        current = version("thothctl")
+
+        # Check cache first
+        if cache_file.exists():
+            cache = json.loads(cache_file.read_text(encoding="utf-8"))
+            if time.time() - cache.get("timestamp", 0) < cache_ttl:
+                latest = cache.get("latest")
+                if latest and latest != current:
+                    _show_upgrade_hint(current, latest)
+                return
+
+        # Fetch latest from PyPI (with short timeout)
+        import requests
+
+        resp = requests.get(
+            "https://pypi.org/pypi/thothctl/json",
+            timeout=3,
+        )
+        if resp.status_code == 200:
+            latest = resp.json().get("info", {}).get("version", current)
+
+            # Cache the result
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            cache_file.write_text(
+                json.dumps({"latest": latest, "timestamp": time.time()}),
+                encoding="utf-8",
+            )
+
+            if latest != current and _is_newer(latest, current):
+                _show_upgrade_hint(current, latest)
+
+    except Exception:
+        # Never let version check break the CLI
+        pass
+
+
+def _show_upgrade_hint(current: str, latest: str):
+    """Show a one-line upgrade hint in stderr."""
+    import sys
+
+    sys.stderr.write(
+        f"\033[33m⚠ ThothCTL {latest} available (you have {current}). "
+        f"Run: thothctl upgrade\033[0m\n"
+    )
+
+
+def _is_newer(latest: str, current: str) -> bool:
+    """Compare semantic versions."""
+    try:
+        latest_parts = tuple(int(x) for x in latest.split(".")[:3])
+        current_parts = tuple(int(x) for x in current.split(".")[:3])
+        return latest_parts > current_parts
+    except (ValueError, AttributeError):
+        return False

@@ -18,6 +18,14 @@ thothctl --version
 - **Linux**: Requires `graphviz` — `sudo apt install graphviz -y`
 - **macOS**: `brew install graphviz`
 
+## Guided Onboarding (Recommended First Step)
+
+```bash
+thothctl quickstart
+```
+
+The `quickstart` command walks you through initial setup interactively — detecting your environment, selecting a VCS provider, configuring your first space, and running a sample scan. It's the fastest way to get productive with ThothCTL.
+
 ## Setup Autocomplete
 
 ```bash
@@ -43,20 +51,33 @@ Options:
   -d, --code-directory PATH  Configuration file path
   --help                     Show this message and exit.
 
-Commands:
-  ai-review  AI-powered security analysis and code review for IaC
-  check      Validate environment, IaC, cost analysis, and blast radius
-  document   Generate documentation for IaC projects with AI support
-  generate   Generate IaC from rules, use cases, and components
-  init       Initialize and setup project configurations and environments
-  inventory  Create inventory for IaC composition with version tracking
-  list       List projects and spaces managed by thothctl locally
-  mcp        Model Context Protocol (MCP) server for AI integration
-  project    Convert, clean up and manage the current project
-  remove     Remove projects and spaces managed by thothctl
-  scan       Scan infrastructure code for security issues and compliance
-  upgrade    Upgrade thothctl to the latest version
+Getting Started:
+  quickstart  Guided onboarding for new users
+  init        Initialize and setup project configurations and environments
+
+Security & Compliance:
+  scan        Scan infrastructure code for security issues and compliance
+  ai-review   AI-powered security analysis and code review for IaC
+  check       Validate environment, IaC, cost analysis, and blast radius
+
+Infrastructure Management:
+  inventory   Create inventory for IaC composition with version tracking
+  document    Generate documentation for IaC projects with AI support
+  generate    Generate IaC from rules, use cases, and components
+
+Workflow & Orchestration:
+  workflow    Composable DevSecOps pipelines (devsecops, run)
+  dashboard   Web dashboard for visualizing results
+  mcp         Model Context Protocol (MCP) server for AI integration
+
+Project Management:
+  project     Convert, clean up and manage the current project
+  list        List projects and spaces managed by thothctl locally
+  remove      Remove projects and spaces managed by thothctl
+  upgrade     Upgrade thothctl to the latest version
 ```
+
+> **New in v0.25.0**: Commands are now displayed in logical categories. The CLI also warns you on every invocation when a newer version is available.
 
 ## Create a Space
 
@@ -109,6 +130,9 @@ thothctl check iac -type cost-analysis --recursive
 
 # Drift detection
 thothctl check iac -type drift --recursive
+
+# Dump effective configuration (v0.25.0)
+thothctl check config
 ```
 
 ## Create Inventory

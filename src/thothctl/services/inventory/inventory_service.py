@@ -353,6 +353,7 @@ class InventoryService:
             return await self._analyze_cdk_project(
                 source_path=source_path,
                 check_versions=check_versions,
+                check_schema_compatibility=check_schema_compatibility,
                 project_name=project_name,
                 report_type=report_type,
                 reports_directory=reports_directory,
@@ -1141,6 +1142,7 @@ class InventoryService:
         self,
         source_path: Path,
         check_versions: bool = False,
+        check_schema_compatibility: bool = False,
         project_name: str = "",
         report_type: str = "html",
         reports_directory: str = "Reports",
@@ -1149,6 +1151,17 @@ class InventoryService:
         """Analyze a CDK v2 project and create inventory from dependencies."""
         components: List[Component] = []
         cdk_language = "unknown"
+
+        # Check if this is a CDK project — use CDK-specific parser
+        from .cdk_parsers import detect_cdk_project, run_cdk_inventory
+
+        cdk_parser = detect_cdk_project(source_path)
+        cdk_result = None
+        if cdk_parser:
+            logger.info("CDK project detected, running construct inventory")
+            cdk_result = run_cdk_inventory(
+                source_path, check_versions=check_versions
+            )
 
         # Detect language and parse dependencies
         package_json = source_path / "package.json"
@@ -1183,6 +1196,11 @@ class InventoryService:
         inventory_dict = inventory.to_dict()
         inventory_dict["cdk_language"] = cdk_language
 
+        # Note: CDK parser results (cdk_result) are available for standalone use
+        # but not merged here since _parse_package_json already handles the inventory.
+        # The cdk_parsers module is used by _display_cdk_summary in the CLI for
+        # the pretty table view, and by MCP tools for programmatic access.
+
         # Version checking
         if check_versions and components:
             registry = "npm" if cdk_language == "typescript" else "pypi"
@@ -1193,7 +1211,7 @@ class InventoryService:
             outdated = 0
             for group in inventory_dict.get("components", []):
                 for comp in group.get("components", []):
-                    if comp.get("type") == "cdk_construct":
+                    if comp.get("type") in ("cdk_construct", "cdk-construct"):
                         total += 1
                         if comp.get("status") == "Outdated":
                             outdated += 1
@@ -1217,6 +1235,55 @@ class InventoryService:
                     "providers_with_breaking_changes": 0,
                 }
 
+        # CDK compatibility analysis
+        if check_schema_compatibility and check_versions:
+            from .cdk_sbom_service import CDKCompatibilityChecker
+
+            checker = CDKCompatibilityChecker()
+            all_comps = [
+                c
+                for g in inventory_dict.get("components", [])
+                for c in g.get("components", [])
+            ]
+            compat_reports = checker.check_compatibility(all_comps)
+            if compat_reports:
+                inventory_dict["cdk_compatibility"] = compat_reports
+                # Also store in module_compatibility format for dashboard rendering
+                inventory_dict["module_compatibility"] = {
+                    "reports": [
+                        {
+                            "module_name": r["name"],
+                            "old_version": r["current_version"],
+                            "new_version": r["latest_version"],
+                            "compatibility_level": r["compatibility_level"],
+                            "upgrade_safety": "safe" if r["upgrade_safe"] else "breaking",
+                            "summary": r["recommendations"][0] if r["recommendations"] else "",
+                            "issues": [
+                                {"severity": "info" if r["upgrade_safe"] else "breaking",
+                                 "category": "version",
+                                 "message": rec}
+                                for rec in r.get("recommendations", [])
+                            ],
+                            "changelog_data": r.get("changelog_summary", {}),
+                        }
+                        for r in compat_reports
+                    ],
+                    "safe_upgrades": sum(1 for r in compat_reports if r["upgrade_safe"]),
+                    "breaking_changes": sum(1 for r in compat_reports if r["is_breaking"]),
+                }
+                # Add to technical debt if breaking changes found
+                breaking = sum(
+                    1 for r in compat_reports if r.get("is_breaking")
+                )
+                if breaking > 0:
+                    logger.warning(
+                        f"{breaking} CDK construct(s) have breaking changes"
+                    )
+                    if "technical_debt" in inventory_dict:
+                        inventory_dict["technical_debt"][
+                            "modules_with_breaking_changes"
+                        ] = breaking
+
         # Generate reports
         reports_path = Path(reports_directory) / "inventory"
         reports_path.mkdir(parents=True, exist_ok=True)
@@ -1232,10 +1299,78 @@ class InventoryService:
             self.report_service.create_html_report(
                 inventory_dict, reports_directory=str(html_reports_path)
             )
+
+        # Generate CDK CycloneDX SBOM
+        if report_type in ("cyclonedx", "all"):
+            from .cdk_sbom_service import CDKSbomGenerator
+
+            sbom_gen = CDKSbomGenerator()
+            from datetime import datetime
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            sbom_path = reports_path / f"InventoryIaC_cyclonedx_{timestamp}.json"
+            sbom_gen.generate(
+                inventory_dict,
+                project_name=project_name or source_path.name,
+                output_path=sbom_path,
+            )
+            logger.info(f"CDK CycloneDX SBOM generated: {sbom_path}")
+            print(f"📋 CycloneDX 1.6 SBOM generated: {sbom_path}")
+
+        # Print compatibility summary if available
+        if inventory_dict.get("cdk_compatibility"):
+            reports = inventory_dict["cdk_compatibility"]
+            safe = sum(1 for r in reports if r.get("upgrade_safe"))
+            breaking = sum(1 for r in reports if r.get("is_breaking"))
+            print(
+                f"🔍 Compatibility check: {len(reports)} construct(s) analyzed — "
+                f"{safe} safe upgrades, {breaking} breaking"
+            )
+            for r in reports:
+                symbol = "✅" if r["upgrade_safe"] else "⚠️"
+                print(
+                    f"   {symbol} {r['name']}: {r['current_version']} → "
+                    f"{r['latest_version']} [{r['semver_change']}]"
+                )
+
         if print_console:
             self.report_service.print_inventory_console(inventory_dict)
 
         return inventory_dict
+
+    def _merge_cdk_inventory(self, inventory: dict, cdk_result) -> dict:
+        """Merge CDK construct dependencies into the inventory structure."""
+        if not cdk_result or not cdk_result.dependencies:
+            return inventory
+
+        # Add CDK constructs as a component group
+        cdk_components = []
+        for dep in cdk_result.dependencies:
+            component = {
+                "name": dep.name,
+                "version": [dep.version],
+                "latest_version": dep.latest_version or dep.version,
+                "source": [dep.registry],
+                "status": "Outdated" if dep.is_outdated else "Updated",
+                "file": dep.source_file,
+                "type": "cdk-construct",
+                "purl": dep.purl,
+            }
+            if dep.integrity_hash:
+                component["integrity"] = dep.integrity_hash
+            cdk_components.append(component)
+
+        # Add as a new component group
+        if "components" not in inventory:
+            inventory["components"] = []
+
+        inventory["components"].append({
+            "name": f"CDK Constructs ({cdk_result.language})",
+            "type": "cdk",
+            "components": cdk_components,
+        })
+
+        return inventory
 
     def _parse_package_json(self, path: Path) -> List[Component]:
         """Parse package.json for CDK construct dependencies."""
@@ -1400,8 +1535,13 @@ class InventoryService:
                     name = comp["name"]
                     local_ver = comp["version"][0] if comp.get("version") else "Null"
 
-                    latest = await self._fetch_registry_version(session, name, registry)
+                    latest, release_date, license_id = await self._fetch_registry_version(
+                        session, name, registry
+                    )
                     comp["latest_version"] = latest
+                    comp["release_date"] = release_date
+                    comp["published_at"] = release_date  # report_service reads this field
+                    comp["license"] = license_id
                     comp["source_url"] = (
                         f"https://www.npmjs.com/package/{name}"
                         if registry == "npm"
@@ -1418,24 +1558,53 @@ class InventoryService:
         return inventory_dict
 
     @staticmethod
-    async def _fetch_registry_version(session, name: str, registry: str) -> str:
-        """Fetch latest version from npm or PyPI."""
+    async def _fetch_registry_version(session, name: str, registry: str) -> tuple:
+        """Fetch latest version, release date, and license from npm or PyPI.
+
+        Returns:
+            Tuple of (version, release_date, license) where release_date and license are strings or empty.
+        """
         try:
             if registry == "npm":
-                url = f"https://registry.npmjs.org/{name}/latest"
+                # Fetch full package metadata (includes dist-tags + time + license)
+                pkg_name = name.replace("/", "%2F")
+                url = f"https://registry.npmjs.org/{pkg_name}"
                 async with session.get(url) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        return data.get("version", "Null")
+                        version = data.get("dist-tags", {}).get("latest", "Null")
+                        time_data = data.get("time", {})
+                        release_date = time_data.get(version, "")
+                        # Format: "2026-07-20T15:30:00.000Z" → "2026-07-20"
+                        if release_date:
+                            release_date = release_date[:10]
+                        # Get license from the latest version metadata
+                        versions_data = data.get("versions", {})
+                        license_id = ""
+                        if version in versions_data:
+                            license_id = versions_data[version].get("license", "")
+                        if not license_id:
+                            license_id = data.get("license", "")
+                        return version, release_date, license_id
             else:
                 url = f"https://pypi.org/pypi/{name}/json"
                 async with session.get(url) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        return data.get("info", {}).get("version", "Null")
+                        version = data.get("info", {}).get("version", "Null")
+                        license_id = data.get("info", {}).get("license", "")
+                        # Get release date from releases
+                        releases = data.get("releases", {})
+                        if version in releases and releases[version]:
+                            upload_time = releases[version][0].get(
+                                "upload_time_iso_8601", ""
+                            )
+                            release_date = upload_time[:10] if upload_time else ""
+                            return version, release_date, license_id
+                        return version, "", license_id
         except Exception as e:
             logger.warning(f"Failed to fetch version for {name} from {registry}: {e}")
-        return "Null"
+        return "Null", "", ""
 
     async def _analyze_module(
         self,

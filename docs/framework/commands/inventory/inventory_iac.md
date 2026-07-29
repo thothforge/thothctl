@@ -233,6 +233,47 @@ The system auto-generates actionable recommendations based on the metrics:
 - Review components with breaking changes before upgrading
 - Confirmation when infrastructure is well-maintained (score < 20%)
 
+## CDK Project Support (v0.25.0)
+
+The `inventory iac` command now supports **AWS CDK projects** (TypeScript and Python). When `cdk.json` is detected in your project, ThothCTL automatically switches to CDK inventory mode.
+
+### CDK TypeScript
+
+```bash
+# In a CDK TypeScript project
+thothctl inventory iac --check-versions
+# Detects constructs: aws-cdk-lib, cdk-nag, @myorg/cdk-patterns, constructs, etc.
+```
+
+Parses `package.json` and `package-lock.json` to identify CDK construct libraries, then queries the **npm registry** for latest versions and release dates.
+
+### CDK Python
+
+```bash
+# In a CDK Python project
+thothctl inventory iac --check-versions
+# Detects constructs: aws-cdk-lib, cdk-nag, constructs, etc.
+```
+
+Parses `requirements.txt` or `pyproject.toml` to identify CDK construct libraries, then queries **PyPI** for latest versions and release dates.
+
+### Framework Type Flag
+
+You can also explicitly select CDK mode:
+
+```bash
+thothctl inventory iac --framework-type cdkv2 --check-versions
+```
+
+### Notes
+
+- **Auto-detection**: If `cdk.json` exists, CDK mode is selected automatically (no `--framework-type` needed)
+- **Internal packages**: Org-scoped packages (e.g., `@myorg/cdk-patterns`) are listed but not version-checked
+- **Release dates**: Displayed for every public package to show staleness in calendar time
+- **Reports**: CDK constructs appear in HTML, JSON, and CycloneDX SBOM reports using `pkg:npm/` or `pkg:pypi/` PURL schemes
+
+---
+
 ## Framework Type Options
 
 ### Auto-detect Framework (Default)
