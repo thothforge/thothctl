@@ -62,7 +62,7 @@ class EnvironmentChecker:
                 clean_version = self._extract_version(version_line, tool["name"])
                 return True, clean_version
             return False, ""
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError, OSError):
             return False, ""
 
     def check_environment(self) -> Dict:
