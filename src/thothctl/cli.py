@@ -73,6 +73,48 @@ class ThothCLI(click.MultiCommand):
             click.echo(f"Error loading command {cmd_name}: {e}", err=True)
             return None
 
+    COMMAND_CATEGORIES = {
+        "DevSecOps Workflow": ["workflow", "scan", "check"],
+        "Project Lifecycle": ["init", "generate", "inventory", "project"],
+        "Governance": ["space", "dashboard", "ai-review"],
+        "Utilities": ["list", "remove", "document", "upgrade", "mcp", "quickstart"],
+    }
+
+    def format_commands(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        """Override to show commands in categorized groups."""
+        commands = {}
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd and not cmd.hidden:
+                commands[name] = cmd
+
+        if not commands:
+            return
+
+        # Render each category
+        for category, cmd_names in self.COMMAND_CATEGORIES.items():
+            rows = []
+            for name in cmd_names:
+                if name in commands:
+                    help_text = commands[name].get_short_help_str(limit=50)
+                    rows.append((name, help_text))
+            if rows:
+                with formatter.section(category):
+                    formatter.write_dl(rows)
+
+        # Uncategorized commands (safety net for new commands)
+        categorized = {n for names in self.COMMAND_CATEGORIES.values() for n in names}
+        uncategorized = [
+            (n, commands[n].get_short_help_str(limit=50))
+            for n in sorted(commands)
+            if n not in categorized
+        ]
+        if uncategorized:
+            with formatter.section("Other"):
+                formatter.write_dl(uncategorized)
+
 
 @click.command(cls=ThothCLI)
 @click.version_option(
