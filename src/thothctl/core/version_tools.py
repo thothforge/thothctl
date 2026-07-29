@@ -15,7 +15,7 @@ version_tools = """[
   },
   {
     "name": "thothctl",
-    "version": "0.25.1"
+    "version": "0.25.2"
   },
   {
     "name": "pre-commit",
