@@ -56,6 +56,19 @@ class RestoredIaCScanCommand(ClickCommand):
             code_directory = ctx.obj.get("CODE_DIRECTORY")
             debug_mode = ctx.obj.get("DEBUG", False)
 
+            # Scope to changed directories if --changed-only is set
+            changed_only = kwargs.get("changed_only", False)
+            if changed_only:
+                from ....utils.git_changes import get_changed_directories
+
+                changed_dirs = get_changed_directories(working_dir=code_directory)
+                self.console.print(
+                    f"[cyan]🔍 Changed directories: {', '.join(changed_dirs)}[/cyan]"
+                )
+                # Scope scan to first changed directory (single-dir scan)
+                if changed_dirs != ["."]:
+                    code_directory = os.path.join(code_directory, changed_dirs[0])
+
             # Set debug environment variable for the scan service
             if debug_mode:
                 os.environ["THOTHCTL_DEBUG"] = "true"
@@ -843,5 +856,11 @@ cli = RestoredIaCScanCommand.as_click_command(
         type=click.Choice(["text", "json", "sarif"], case_sensitive=False),
         default="text",
         help="Output format: 'text' (default), 'json' (structured), or 'sarif' (GitHub/IDE compatible)",
+    ),
+    click.option(
+        "--changed-only",
+        is_flag=True,
+        default=False,
+        help="Only scan directories with git changes (vs HEAD~1)",
     ),
 )

@@ -34,9 +34,9 @@ ALLOWLIST = {
 SKIP_DIRS = {"__pycache__", ".git", "node_modules", "cdk.out", ".venv"}
 
 PATTERNS = [
-    (r'^\s*print\(', 'Use CliUI methods instead of bare print()'),
-    (r'sys\.exit\([\'\"]', 'Use CliUI.print_error() + raise SystemExit(code)'),
-    (r'click\.echo\(', 'Use CliUI methods instead of click.echo()'),
+    (r"^\s*print\(", "Use CliUI methods instead of bare print()"),
+    (r"sys\.exit\([\'\"]", "Use CliUI.print_error() + raise SystemExit(code)"),
+    (r"click\.echo\(", "Use CliUI methods instead of click.echo()"),
 ]
 
 
@@ -113,7 +113,9 @@ def main() -> int:
         return 0  # count-only never blocks
 
     if total_violations > 0:
-        print(f"\n{total_violations} output consistency violation(s) found in {files_with_violations} file(s)")
+        print(
+            f"\n{total_violations} output consistency violation(s) found in {files_with_violations} file(s)"
+        )
         print("Use CliUI (from thothctl.core.cli_ui) for all user-facing output.")
         return 1
 

@@ -1,10 +1,7 @@
 """Tests for CDK construct library inventory: parsers, SBOM, and compatibility."""
 
 import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from thothctl.services.inventory.cdk_parsers import (
     CDKInventoryResult,
@@ -20,7 +17,6 @@ from thothctl.services.inventory.cdk_sbom_service import (
     CDKCompatibilityChecker,
     CDKSbomGenerator,
 )
-
 
 # ── CDK Package Detection ─────────────────────────────────────────────────────
 
@@ -335,9 +331,7 @@ class TestCDKSbomGenerator:
 
     def test_components_have_licenses(self):
         sbom = self.generator.generate(self.inventory)
-        assert sbom["components"][0]["licenses"] == [
-            {"license": {"id": "Apache-2.0"}}
-        ]
+        assert sbom["components"][0]["licenses"] == [{"license": {"id": "Apache-2.0"}}]
 
     def test_components_have_evidence(self):
         sbom = self.generator.generate(self.inventory)

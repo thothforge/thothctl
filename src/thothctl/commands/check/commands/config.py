@@ -2,15 +2,13 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict
 
-import click
 import toml
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.tree import Tree
 
 from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
@@ -56,9 +54,13 @@ class CheckConfigCommand(ClickCommand):
         active_file = Path.home() / ".thothcf" / "active_space"
         if active_file.exists():
             space_name = active_file.read_text(encoding="utf-8").strip()
-            self.console.print(f"\n[bold]🌐 Active Space:[/bold] [green]{space_name}[/green]")
+            self.console.print(
+                f"\n[bold]🌐 Active Space:[/bold] [green]{space_name}[/green]"
+            )
         else:
-            self.console.print("\n[bold]🌐 Active Space:[/bold] [dim]None (not set)[/dim]")
+            self.console.print(
+                "\n[bold]🌐 Active Space:[/bold] [dim]None (not set)[/dim]"
+            )
 
     def _show_space_config(self) -> None:
         """Show space-level configuration."""
@@ -150,7 +152,9 @@ class CheckConfigCommand(ClickCommand):
 
             for key, value in env_vars.items():
                 # Mask tokens/secrets
-                if any(s in key.lower() for s in ("token", "secret", "password", "key")):
+                if any(
+                    s in key.lower() for s in ("token", "secret", "password", "key")
+                ):
                     display_value = value[:4] + "****" if len(value) > 4 else "****"
                 else:
                     display_value = value
@@ -184,7 +188,9 @@ class CheckConfigCommand(ClickCommand):
             "> Space (spaces.toml) > Global defaults[/dim]"
         )
 
-    def _flatten_to_table(self, data: Dict, table: Table, source: str, prefix: str = "") -> None:
+    def _flatten_to_table(
+        self, data: Dict, table: Table, source: str, prefix: str = ""
+    ) -> None:
         """Flatten nested dict into table rows."""
         for key, value in data.items():
             full_key = f"{prefix}.{key}" if prefix else key

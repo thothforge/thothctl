@@ -1156,12 +1156,9 @@ class InventoryService:
         from .cdk_parsers import detect_cdk_project, run_cdk_inventory
 
         cdk_parser = detect_cdk_project(source_path)
-        cdk_result = None
         if cdk_parser:
             logger.info("CDK project detected, running construct inventory")
-            cdk_result = run_cdk_inventory(
-                source_path, check_versions=check_versions
-            )
+            run_cdk_inventory(source_path, check_versions=check_versions)
 
         # Detect language and parse dependencies
         package_json = source_path / "package.json"
@@ -1256,29 +1253,37 @@ class InventoryService:
                             "old_version": r["current_version"],
                             "new_version": r["latest_version"],
                             "compatibility_level": r["compatibility_level"],
-                            "upgrade_safety": "safe" if r["upgrade_safe"] else "breaking",
-                            "summary": r["recommendations"][0] if r["recommendations"] else "",
+                            "upgrade_safety": "safe"
+                            if r["upgrade_safe"]
+                            else "breaking",
+                            "summary": r["recommendations"][0]
+                            if r["recommendations"]
+                            else "",
                             "issues": [
-                                {"severity": "info" if r["upgrade_safe"] else "breaking",
-                                 "category": "version",
-                                 "message": rec}
+                                {
+                                    "severity": "info"
+                                    if r["upgrade_safe"]
+                                    else "breaking",
+                                    "category": "version",
+                                    "message": rec,
+                                }
                                 for rec in r.get("recommendations", [])
                             ],
                             "changelog_data": r.get("changelog_summary", {}),
                         }
                         for r in compat_reports
                     ],
-                    "safe_upgrades": sum(1 for r in compat_reports if r["upgrade_safe"]),
-                    "breaking_changes": sum(1 for r in compat_reports if r["is_breaking"]),
+                    "safe_upgrades": sum(
+                        1 for r in compat_reports if r["upgrade_safe"]
+                    ),
+                    "breaking_changes": sum(
+                        1 for r in compat_reports if r["is_breaking"]
+                    ),
                 }
                 # Add to technical debt if breaking changes found
-                breaking = sum(
-                    1 for r in compat_reports if r.get("is_breaking")
-                )
+                breaking = sum(1 for r in compat_reports if r.get("is_breaking"))
                 if breaking > 0:
-                    logger.warning(
-                        f"{breaking} CDK construct(s) have breaking changes"
-                    )
+                    logger.warning(f"{breaking} CDK construct(s) have breaking changes")
                     if "technical_debt" in inventory_dict:
                         inventory_dict["technical_debt"][
                             "modules_with_breaking_changes"
@@ -1364,11 +1369,13 @@ class InventoryService:
         if "components" not in inventory:
             inventory["components"] = []
 
-        inventory["components"].append({
-            "name": f"CDK Constructs ({cdk_result.language})",
-            "type": "cdk",
-            "components": cdk_components,
-        })
+        inventory["components"].append(
+            {
+                "name": f"CDK Constructs ({cdk_result.language})",
+                "type": "cdk",
+                "components": cdk_components,
+            }
+        )
 
         return inventory
 
@@ -1535,12 +1542,16 @@ class InventoryService:
                     name = comp["name"]
                     local_ver = comp["version"][0] if comp.get("version") else "Null"
 
-                    latest, release_date, license_id = await self._fetch_registry_version(
-                        session, name, registry
-                    )
+                    (
+                        latest,
+                        release_date,
+                        license_id,
+                    ) = await self._fetch_registry_version(session, name, registry)
                     comp["latest_version"] = latest
                     comp["release_date"] = release_date
-                    comp["published_at"] = release_date  # report_service reads this field
+                    comp[
+                        "published_at"
+                    ] = release_date  # report_service reads this field
                     comp["license"] = license_id
                     comp["source_url"] = (
                         f"https://www.npmjs.com/package/{name}"

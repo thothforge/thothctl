@@ -43,6 +43,21 @@ class DevSecOpsWorkflowCommand(ClickCommand):
         ctx = click.get_current_context()
         directory = ctx.obj.get("CODE_DIRECTORY", ".")
 
+        # Scope to changed directories if --changed-only is set
+        changed_only = kwargs.get("changed_only", False)
+        if changed_only:
+            from ....utils.git_changes import get_changed_directories
+
+            changed_dirs = get_changed_directories(working_dir=directory)
+            console.print(
+                f"[cyan]🔍 Changed directories: {', '.join(changed_dirs)}[/cyan]"
+            )
+            # Scope workflow to first changed directory
+            if changed_dirs != ["."]:
+                import os
+
+                directory = os.path.join(directory, changed_dirs[0])
+
         # Build options from kwargs
         options = {}
         if kwargs.get("policy_dir"):
@@ -259,5 +274,11 @@ cli = DevSecOpsWorkflowCommand.as_click_command(
         multiple=True,
         default=None,
         help="Override scan tools for secure phase (e.g., -t checkov -t trivy)",
+    ),
+    click.option(
+        "--changed-only",
+        is_flag=True,
+        default=False,
+        help="Only process directories with git changes (vs HEAD~1)",
     ),
 )

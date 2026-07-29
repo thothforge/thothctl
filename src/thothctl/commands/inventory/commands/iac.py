@@ -395,15 +395,17 @@ class IaCInvCommand(ClickCommand):
         group_name = comp_group.get("name", "CDK Constructs")
 
         outdated = sum(1 for c in components if c.get("status") == "Outdated")
-        internal = sum(1 for c in components if c.get("name", "").startswith("@") and
-                       c.get("name", "").split("/")[0] not in
-                       ("@aws-cdk", "@cdklabs", "@aws-solutions-constructs"))
+        internal = sum(
+            1
+            for c in components
+            if c.get("name", "").startswith("@")
+            and c.get("name", "").split("/")[0]
+            not in ("@aws-cdk", "@cdklabs", "@aws-solutions-constructs")
+        )
 
         self.ui.print_info(f"\n📦 {group_name}")
         self.ui.print_info(
-            f"   Total: {len(components)} | "
-            f"Outdated: {outdated} | "
-            f"Internal: {internal}"
+            f"   Total: {len(components)} | Outdated: {outdated} | Internal: {internal}"
         )
 
         # Rich table for CDK constructs
@@ -421,10 +423,18 @@ class IaCInvCommand(ClickCommand):
 
         for comp in components:
             name = comp.get("name", "")
-            version = comp.get("version", [""])[0] if isinstance(comp.get("version"), list) else comp.get("version", "")
+            version = (
+                comp.get("version", [""])[0]
+                if isinstance(comp.get("version"), list)
+                else comp.get("version", "")
+            )
             latest = comp.get("latest_version", version)
             status = comp.get("status", "Unknown")
-            registry = comp.get("source", [""])[0] if isinstance(comp.get("source"), list) else comp.get("source", "")
+            registry = (
+                comp.get("source", [""])[0]
+                if isinstance(comp.get("source"), list)
+                else comp.get("source", "")
+            )
 
             if status == "Outdated":
                 status_display = "❗ Outdated"
