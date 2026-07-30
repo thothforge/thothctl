@@ -218,6 +218,8 @@ thothctl init project -p my-infra --reuse --space my-space
 | [terraform-terragrunt-scaffold](https://github.com/thothforge/terraform_terragrunt_scaffold_project) | Multi-environment Terragrunt |
 | [terraform-scaffold](https://github.com/thothforge/terraform_project_scaffold) | Standard Terraform |
 | [terraform-module-scaffold](https://github.com/thothforge/terraform_module_scaffold) | Reusable modules |
+| [cdk-scaffold](https://github.com/thothforge/cdk_project_scaffold) | AWS CDK v2 (TypeScript/Python) |
+| [cloudformation-scaffold](https://github.com/thothforge/cloudformation_project_scaffold) | CloudFormation / SAM |
 
 ---
 

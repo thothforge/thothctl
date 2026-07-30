@@ -95,6 +95,8 @@ thothctl init project --project-name my-infra --reuse --space lab-github
 # - terraform-scaffold
 # - terragrunt-scaffold
 # - tofu-scaffold
+# - cdk-scaffold
+# - cloudformation-scaffold
 ```
 
 ### 3. DevSecOps Workflow

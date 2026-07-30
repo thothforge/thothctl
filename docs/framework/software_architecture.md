@@ -693,6 +693,8 @@ Git-based templates for project creation.
 - [terraform-scaffold](https://github.com/thothforge/terraform-scaffold)
 - [terragrunt-scaffold](https://github.com/thothforge/terragrunt-scaffold)
 - [tofu-scaffold](https://github.com/thothforge/tofu-scaffold)
+- [cdk-scaffold](https://github.com/thothforge/cdk-scaffold) - AWS CDK v2
+- [cloudformation-scaffold](https://github.com/thothforge/cloudformation-scaffold) - CloudFormation / SAM
 
 **Scaffold Structure:**
 ```
