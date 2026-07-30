@@ -35,6 +35,7 @@ class CheckIaCCommand(ClickCommand):
             "cost-analysis",
             "drift",
             "stack-optimizer",
+            "rules",
         ]
 
     def validate(self, **kwargs) -> bool:
@@ -100,6 +101,10 @@ class CheckIaCCommand(ClickCommand):
                 return result
             elif kwargs["check_type"] == "stack-optimizer":
                 result = self._run_stack_optimizer(directory=directory, **kwargs)
+                return result
+            elif kwargs["check_type"] == "rules":
+                self.ui.print_info("📏 Running organizational rules evaluation...")
+                result = self._run_rules_evaluation(directory=directory, **kwargs)
                 return result
 
             self.logger.debug("Check completed successfully")
@@ -2446,6 +2451,104 @@ new vis.Network(container, data, options);
         }
         return color_map.get(criticality, "white")
 
+    def _run_rules_evaluation(self, directory: str, **kwargs) -> bool:
+        """Run organizational rules evaluation using OPA/conftest.
+
+        Compiles .thothcf.toml [rules] into Rego policies, then delegates
+        evaluation to the existing OPA/conftest scanner. No custom evaluation
+        engine — OPA is the single policy framework.
+        """
+        try:
+            from ....services.check.rules_compiler import RulesCompiler
+            from ....services.scan.scanners.opa import OPAScanner
+
+            # Step 1: Compile TOML rules → Rego policies
+            compiler = RulesCompiler()
+            compiled_dir = compiler.compile(directory)
+
+            if not compiled_dir:
+                self.ui.print_warning(
+                    "No rules found in .thothcf.toml [rules] section. "
+                    "Add [[rules.naming]], [[rules.tagging]], "
+                    "[[rules.security]], or [[rules.architecture]] sections."
+                )
+                return True
+
+            self.ui.print_info(
+                f"📏 Compiled rules to Rego policies in {compiled_dir}"
+            )
+
+            # Step 2: Run conftest with the compiled policies
+            scanner = OPAScanner()
+            reports_dir = kwargs.get("reports_dir", "Reports")
+            result = scanner.scan(
+                directory=directory,
+                reports_dir=reports_dir,
+                options={
+                    "mode": "conftest",
+                    "policy_dir": compiled_dir,
+                },
+            )
+
+            # Step 3: Report results
+            exit_code = result.get("exit_code", 0)
+            report_path = result.get("json_report", "")
+
+            if exit_code == 0:
+                self.ui.print_success(
+                    "✅ All organizational rules passed!"
+                )
+                return True
+
+            # Parse conftest JSON output for structured display
+            if report_path and os.path.exists(report_path):
+                import json
+
+                with open(report_path, "r") as f:
+                    findings = json.load(f)
+
+                failures = []
+                warnings = []
+                for entry in findings:
+                    for failure in entry.get("failures", []):
+                        failures.append(failure.get("msg", ""))
+                    for warning in entry.get("warnings", []):
+                        warnings.append(warning.get("msg", ""))
+
+                if failures or warnings:
+                    table = Table(
+                        title="📏 Rule Violations",
+                        box=box.ROUNDED,
+                        show_lines=True,
+                    )
+                    table.add_column("Severity")
+                    table.add_column("Message")
+
+                    for msg in failures:
+                        table.add_row("[red]ERROR[/red]", msg)
+                    for msg in warnings:
+                        table.add_row("[yellow]WARN[/yellow]", msg)
+
+                    self.console.print(table)
+                    self.console.print(
+                        f"\n[bold]Summary:[/bold] "
+                        f"[red]{len(failures)} failure(s)[/red], "
+                        f"[yellow]{len(warnings)} warning(s)[/yellow]"
+                    )
+
+            if exit_code != 0:
+                self.ui.print_error(
+                    "❌ Rule evaluation failed — policy violations found."
+                )
+                return False
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Rules evaluation failed: {e}")
+            self.ui.print_error(f"Failed to run rules evaluation: {str(e)}")
+            return False
+
     def _run_stack_optimizer(self, directory: str, **kwargs) -> bool:
         """Run stack optimizer to deduplicate overlapping terragrunt filters."""
         import sys
@@ -2539,7 +2642,7 @@ cli = CheckIaCCommand.as_click_command(
     click.option(
         "-type",
         "--check_type",
-        help="tfplan: analyze plans | deps: view dependencies | blast-radius: impact analysis | cost-analysis: estimate costs | drift: detect infrastructure drift | stack-optimizer: deduplicate overlapping stacks",
+        help="tfplan: analyze plans | deps: view dependencies | blast-radius: impact analysis | cost-analysis: estimate costs | drift: detect infrastructure drift | stack-optimizer: deduplicate overlapping stacks | rules: evaluate organizational rules",
         type=click.Choice(
             [
                 "tfplan",
@@ -2548,6 +2651,7 @@ cli = CheckIaCCommand.as_click_command(
                 "cost-analysis",
                 "drift",
                 "stack-optimizer",
+                "rules",
             ],
             case_sensitive=True,
         ),

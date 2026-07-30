@@ -8,6 +8,8 @@ ThothCTL integrates AI across the infrastructure lifecycle through three distinc
 
 The **AI SDLC** is the overarching framework — not a single command, but the governed lifecycle that all ThothCTL features plug into. It defines *when* and *how* AI assists at each phase of infrastructure development.
 
+> 📖 **For the complete phase-by-phase guide** (enforcement modes, CI/CD integration, configuration, and detailed examples), see the [DevSecOps SDLC Guide](use_cases/devsecops_sdlc.md).
+
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e3f2fd','primaryTextColor':'#1565c0','primaryBorderColor':'#1976d2','lineColor':'#42a5f5','secondaryColor':'#fff3e0','tertiaryColor':'#f3e5f5','fontSize':'14px'}}}%%
 graph LR

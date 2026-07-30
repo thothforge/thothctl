@@ -1,6 +1,21 @@
 # Roadmap: ThothCTL as a Framework-Defined Infrastructure (FdI) Platform
 
-## Vision
+!!! warning "Deprecated — Superseded by 2026 Roadmap"
+    This document reflects the **original FdI roadmap** (v0.16–v0.22 phases) and is no longer the active planning document.
+    
+    **The current roadmap is**: `thothctl_roadmap_2026.md` (in the ThothForge root, outside this docs site) — integrates PlatformCon 2026 insights, competitive analysis, and updated implementation status.
+    
+    Key differences:
+    
+    - Phase numbering has changed (this doc's Phase 1–4 ≠ the 2026 roadmap's Phase 1–6)
+    - The 2026 roadmap reflects what is actually implemented (Intent-to-IaC, Workflow Engine partially done)
+    - New priorities added: Agent Governance, MCP Gateway, Compliance Scoring, Context Lake
+    
+    This file is preserved for historical context only. Do not use it for planning.
+
+---
+
+## Vision (Historical)
 
 Transform ThothCTL from an IaC management CLI into an **IaC-native Framework-Defined Infrastructure platform** where business intent and application conventions automatically produce production-ready infrastructure code — without requiring developers to write Terraform manually.
 

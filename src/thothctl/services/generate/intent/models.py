@@ -81,15 +81,90 @@ class ValidationResult:
         return sum(1 for v in self.violations if v.severity == "HIGH")
 
     def format_for_ai(self) -> str:
-        """Format violations as text for AI self-correction prompt."""
+        """Format violations as structured text for AI self-correction.
+
+        Groups by severity and provides actionable fix hints so the AI
+        can make surgical edits instead of rewriting entire files.
+        """
         if not self.violations:
             return "No violations found."
+
         lines = []
-        for v in self.violations:
-            lines.append(
-                f"- [{v.severity}] {v.check_id}: {v.message} (resource: {v.resource})"
-            )
+        lines.append(
+            f"VALIDATION FAILED: {self.total_violations} violation(s) "
+            f"({self.critical_count} critical, {self.high_count} high)\n"
+        )
+
+        # Group by tool for clarity
+        framework_violations = [v for v in self.violations if v.tool == "framework"]
+        security_violations = [v for v in self.violations if v.tool == "checkov"]
+        policy_violations = [v for v in self.violations if v.tool == "opa"]
+
+        if framework_violations:
+            lines.append("## SCHEMA/SYNTAX ERRORS (fix these first!):")
+            for v in framework_violations:
+                lines.append(
+                    f"  - [{v.severity}] {v.check_id}"
+                    f"{' in ' + v.file_path if v.file_path else ''}"
+                    f"{' (resource: ' + v.resource + ')' if v.resource else ''}"
+                    f"\n    Error: {v.message}"
+                    f"\n    Fix: Correct the syntax/schema error. Check resource "
+                    f"types, required attributes, and references."
+                )
+
+        if security_violations:
+            lines.append("\n## SECURITY VIOLATIONS:")
+            for v in security_violations:
+                fix_hint = self._get_fix_hint(v.check_id)
+                lines.append(
+                    f"  - [{v.severity}] {v.check_id}: {v.message}"
+                    f"{' (resource: ' + v.resource + ')' if v.resource else ''}"
+                    f"\n    Fix: {fix_hint}"
+                )
+
+        if policy_violations:
+            lines.append("\n## POLICY VIOLATIONS:")
+            for v in policy_violations:
+                lines.append(
+                    f"  - [{v.severity}] {v.check_id}: {v.message}"
+                    f"{' (resource: ' + v.resource + ')' if v.resource else ''}"
+                    f"\n    Fix: Add/modify the resource to comply with "
+                    f"organizational policy."
+                )
+
+        lines.append(
+            "\n## INSTRUCTIONS:"
+            "\n1. Fix ALL schema/syntax errors first (code won't deploy otherwise)"
+            "\n2. Then fix CRITICAL and HIGH security violations"
+            "\n3. Do NOT remove resources — only add missing configurations"
+            "\n4. Keep existing naming, tags, and structure intact"
+        )
+
         return "\n".join(lines)
+
+    @staticmethod
+    def _get_fix_hint(check_id: str) -> str:
+        """Return a concise fix hint for common Checkov check IDs."""
+        hints = {
+            "CKV_AWS_130": "Add aws_flow_log resource for VPC flow logs",
+            "CKV_AWS_178": "Use one NAT gateway per AZ for high availability",
+            "CKV_AWS_260": "Add 'description' field to security group rules",
+            "CKV2_AWS_11": "Enable VPC flow logs (aws_flow_log resource)",
+            "CKV_AWS_145": "Add server_side_encryption_configuration block",
+            "CKV_AWS_18": "Add logging block to S3 bucket",
+            "CKV_AWS_144": "Add replication_configuration to S3 bucket",
+            "CKV_AWS_23": "Add 'description' field to security group",
+            "CKV_AWS_19": "Add server_side_encryption_configuration with AES256 or aws:kms",
+            "CKV_AWS_21": "Add versioning { enabled = true } to S3 bucket",
+            "CKV_AWS_57": "Set acl to 'private' (not 'public-read')",
+            "CKV_AWS_79": "Enable IMDSv2: metadata_options { http_tokens = 'required' }",
+            "CKV_AWS_88": "Set associate_public_ip_address = false on EC2 instances",
+            "CKV_AWS_8": "Set storage_encrypted = true on RDS instance",
+            "CKV_AWS_16": "Set multi_az = true on RDS instance",
+            "CKV_AWS_17": "Set enabled_cloudwatch_logs_exports on RDS",
+            "CKV_AWS_157": "Set deletion_protection = true on RDS",
+        }
+        return hints.get(check_id, "Add missing security configuration")
 
 
 @dataclass
@@ -106,6 +181,7 @@ class IntentResult:
     context_tokens: int = 0
     generation_tokens: int = 0
     error: Optional[str] = None
+    diagram: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -123,6 +199,7 @@ class IntentResult:
             "estimated_resources": self.estimated_resources,
             "context_tokens": self.context_tokens,
             "generation_tokens": self.generation_tokens,
+            "diagram": self.diagram,
             "error": self.error,
         }
 

@@ -1,5 +1,12 @@
 # Implementation Plan: DevSecOps Workflow Abstraction
 
+!!! success "Implementation Complete"
+    This workflow has been fully implemented. The `thothctl workflow devsecops` command is available since v0.25.x.
+    For usage documentation, see the **[DevSecOps SDLC Guide](../devsecops_sdlc.md)** — the single source of truth for all DevSecOps workflow phases, commands, and configuration.
+    For command reference, see [workflow devsecops command](../../commands/workflow/workflow_devsecops.md).
+
+---
+
 ## Objective
 
 Provide two abstraction layers over the existing DevSecOps SDLC stages:
@@ -707,7 +714,7 @@ Decision matrix for project type → command variations:
 
 | # | Task | Type | Effort |
 |---|------|------|--------|
-| 24 | Workflow YAML config support (`.thothcf.toml` [workflow] section) | Feature | M |
+| 24 | Workflow YAML config support (`.thothcf.toml` \[workflow\] section) | Feature | M |
 | 25 | `--post-to-pr` support on workflow command | Feature | S |
 | 26 | JSON/SARIF output for workflow results | Feature | M |
 | 27 | GitHub Actions reusable workflow template | Docs | M |

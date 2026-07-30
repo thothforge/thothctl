@@ -136,6 +136,8 @@ ThothCTL exposes these capabilities through MCP:
 | `get_version` | Get ThothCTL version | "What version of ThothCTL is installed?" |
 | `upgrade_thothctl` | Upgrade ThothCTL | "Upgrade ThothCTL to latest version" |
 
+> 📖 The `workflow_devsecops` tool orchestrates the full DevSecOps SDLC pipeline. For detailed phase descriptions, enforcement modes, and configuration, see the [DevSecOps SDLC Guide](devsecops_sdlc.md).
+
 ---
 
 ## Component 2: Scaffold Templates

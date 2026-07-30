@@ -21,7 +21,7 @@ from .models import ContextPayload
 logger = logging.getLogger(__name__)
 
 # Token budget per section (approximate, 1 token ≈ 4 chars)
-_MAX_PROJECT_CONFIG_CHARS = 2000  # ~500 tokens
+_MAX_PROJECT_CONFIG_CHARS = 4000  # ~1000 tokens (scaffold rules are critical)
 _MAX_IAC_RULES_CHARS = 8000  # ~2000 tokens
 _MAX_PROJECT_OVERVIEW_CHARS = 2000  # ~500 tokens
 _MAX_EXISTING_PATTERNS_CHARS = 8000  # ~2000 tokens
@@ -83,8 +83,22 @@ class ContextBuilder:
     # ------------------------------------------------------------------
 
     def _load_thothcf(self, directory: Path) -> str:
-        """Extract relevant context from .thothcf.toml."""
+        """Extract scaffold/composition rules from .thothcf.toml.
+
+        This is what makes generated code follow the framework structure.
+        The AI must understand:
+        - Where to place generated files (folder hierarchy)
+        - What files each stack/module must contain
+        - Naming conventions and constraints
+        - Parent/child folder relationships
+        """
         toml_path = directory / ".thothcf.toml"
+
+        # Also check project-level config
+        if not toml_path.exists():
+            toml_path = directory / ".thothcf_project.toml"
+        if not toml_path.exists():
+            toml_path = directory / ".thothcf_module.toml"
         if not toml_path.exists():
             return ""
 
@@ -93,7 +107,7 @@ class ContextBuilder:
 
             config = toml.load(toml_path)
         except Exception as e:
-            self.logger.debug(f"Failed to load .thothcf.toml: {e}")
+            self.logger.debug(f"Failed to load config: {e}")
             return ""
 
         lines = []
@@ -105,35 +119,124 @@ class ContextBuilder:
             if thothcf.get("project_id"):
                 lines.append(f"- Project ID: {thothcf['project_id']}")
 
-        # Template parameters (naming, environment, tags, etc.)
+        # ----------------------------------------------------------
+        # SCAFFOLD: Project Structure (composition rules)
+        # ----------------------------------------------------------
+        structure = config.get("project_structure", {})
+        if structure:
+            lines.append("\n## SCAFFOLD — File Structure Rules")
+            lines.append(
+                "Generated code MUST follow this structure. "
+                "Place files in the correct folders."
+            )
+
+            root_files = structure.get("root_files", [])
+            if root_files:
+                lines.append(f"\nRoot files (must exist at project root):")
+                for rf in root_files:
+                    lines.append(f"  - {rf}")
+
+            folders = structure.get("folders", [])
+            if folders:
+                lines.append("\nFolder structure:")
+                # Build hierarchy
+                root_folders = [
+                    f for f in folders
+                    if f.get("type") == "root" or not f.get("parent")
+                ]
+                child_folders = [
+                    f for f in folders if f.get("parent")
+                ]
+
+                for folder in root_folders:
+                    name = folder.get("name", "")
+                    mandatory = folder.get("mandatory", False)
+                    content = folder.get("content", [])
+                    status = "REQUIRED" if mandatory else "optional"
+
+                    if content:
+                        files_str = ", ".join(content)
+                        lines.append(
+                            f"  - {name}/ ({status}) — "
+                            f"each entry must contain: [{files_str}]"
+                        )
+                    else:
+                        lines.append(f"  - {name}/ ({status})")
+
+                    # Add children
+                    children = [
+                        c for c in child_folders if c.get("parent") == name
+                    ]
+                    for child in children:
+                        child_name = child.get("name", "")
+                        child_content = child.get("content", [])
+                        child_mandatory = child.get("mandatory", False)
+                        c_status = "REQUIRED" if child_mandatory else "optional"
+                        if child_content:
+                            files_str = ", ".join(child_content)
+                            lines.append(
+                                f"    - {name}/{child_name}/ ({c_status}) — "
+                                f"must contain: [{files_str}]"
+                            )
+                        else:
+                            lines.append(
+                                f"    - {name}/{child_name}/ ({c_status})"
+                            )
+
+            # Stack path convention (inferred from folder structure)
+            stacks_folder = next(
+                (f for f in folders if f.get("name") == "stacks"), None
+            )
+            if stacks_folder:
+                content = stacks_folder.get("content", [])
+                lines.append(
+                    "\nStack composition rule:"
+                    "\n  - Place new stacks in: stacks/<layer>/<domain>/<service>/"
+                    "\n  - Layers: foundation → platform → application → observability"
+                )
+                if content:
+                    files_str = ", ".join(content)
+                    lines.append(
+                        f"  - Each stack directory MUST contain: {files_str}"
+                    )
+
+            # Module path convention
+            modules_folder = next(
+                (f for f in folders if f.get("name") == "modules"), None
+            )
+            if modules_folder:
+                content = modules_folder.get("content", [])
+                if content:
+                    files_str = ", ".join(content)
+                    lines.append(
+                        f"\nModule composition rule:"
+                        f"\n  - Place modules in: modules/<module_name>/"
+                        f"\n  - Each module MUST contain: {files_str}"
+                    )
+
+            # Ignored folders (don't generate into these)
+            ignore = structure.get("ignore_folders", [])
+            if ignore:
+                lines.append(
+                    f"\nNEVER generate files in: {', '.join(ignore)}"
+                )
+
+        # ----------------------------------------------------------
+        # NAMING: Template parameters & constraints
+        # ----------------------------------------------------------
         params = config.get("template_input_parameters", {})
         if params:
-            lines.append("\nTemplate parameters:")
+            lines.append("\n## NAMING — Parameter Conventions")
             for key, val in params.items():
                 desc = val.get("description", "")
                 value = val.get("template_value", "")
                 condition = val.get("condition", "")
-                lines.append(f"  - {key}: {value} ({desc})")
                 if condition:
-                    lines.append(f"    Constraint: {condition}")
-
-        # Project structure rules
-        structure = config.get("project_structure", {})
-        if structure:
-            root_files = structure.get("root_files", [])
-            if root_files:
-                lines.append(f"\nRequired root files: {', '.join(root_files)}")
-            folders = structure.get("folders", [])
-            if folders:
-                lines.append("Required folders:")
-                for f in folders[:10]:  # Limit
-                    name = f.get("name", "")
-                    content = f.get("content", [])
                     lines.append(
-                        f"  - {name}/: must contain {', '.join(content)}"
-                        if content
-                        else f"  - {name}/"
+                        f"  - {key}: pattern must match `{condition}` ({desc})"
                     )
+                elif value:
+                    lines.append(f"  - {key}: {value} ({desc})")
 
         result = "\n".join(lines)
         return result[:_MAX_PROJECT_CONFIG_CHARS]

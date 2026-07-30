@@ -137,7 +137,7 @@ thothctl workflow devsecops --phase deploy     # 🚀 Enforcement gate
 thothctl workflow devsecops --phase monitor    # 📊 Drift detection
 ```
 
-📖 [Workflow Documentation](framework/commands/workflow/workflow_devsecops.md)
+📖 [Workflow Documentation](framework/commands/workflow/workflow_devsecops.md) | [Complete DevSecOps SDLC Guide](framework/use_cases/devsecops_sdlc.md)
 
 ---
 

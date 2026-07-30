@@ -1,17 +1,24 @@
-"""Validation of generated IaC code using existing Checkov and OPA scanners.
+"""Validation of generated IaC code using existing scanners + framework-native tools.
 
-Writes generated files to a temp directory, runs scanners, parses results
-into Violation objects for the self-correction loop. No new scan engine —
-just orchestrates the existing scanners against temporary files.
+Supports multi-framework validation:
+- Terraform/OpenTofu: terraform validate (schema + references)
+- CloudFormation: cfn-lint (if available) or aws cloudformation validate-template
+- SAM: sam validate
+- CDK: cdk synth (if cdk.json present)
+- All frameworks: Checkov + OPA for security/policy
+
+Writes generated files to a temp directory, runs validators, parses results
+into Violation objects for the self-correction loop.
 """
 
 import json
 import logging
 import os
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .models import GeneratedFile, ValidationResult, Violation
 
@@ -19,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class GenerationValidator:
-    """Validates AI-generated IaC code against Checkov and OPA policies."""
+    """Validates AI-generated IaC code using framework-native + security tools."""
 
     def __init__(self):
         self._temp_dir: Optional[str] = None
@@ -27,17 +34,21 @@ class GenerationValidator:
     def validate(
         self,
         files: List[GeneratedFile],
+        project_type: str = "terraform",
         org_policy_dir: Optional[str] = None,
         skip_checkov: bool = False,
         skip_opa: bool = False,
+        skip_framework_validate: bool = False,
     ) -> ValidationResult:
-        """Validate generated files using Checkov and optionally OPA.
+        """Validate generated files using framework-native tools + scanners.
 
         Args:
             files: Generated files to validate
+            project_type: Framework type (terraform, cloudformation, cdkv2, sam, etc.)
             org_policy_dir: Path to OPA/Rego policy directory (optional)
             skip_checkov: Skip Checkov validation
             skip_opa: Skip OPA validation
+            skip_framework_validate: Skip framework-native validation
 
         Returns:
             ValidationResult with pass/fail status and violations list
@@ -51,17 +62,30 @@ class GenerationValidator:
         try:
             violations: List[Violation] = []
 
-            # Run Checkov
+            # Step 1: Framework-native validation (highest priority — catches
+            # schema errors that Checkov won't find)
+            if not skip_framework_validate:
+                fw_violations = self._run_framework_validate(
+                    temp_dir, project_type
+                )
+                violations.extend(fw_violations)
+
+            # Step 2: Run Checkov (security best practices)
             if not skip_checkov:
                 checkov_violations = self._run_checkov(temp_dir)
                 violations.extend(checkov_violations)
 
-            # Run OPA/Conftest
+            # Step 3: Run OPA/Conftest (org policies)
             if not skip_opa and org_policy_dir:
                 opa_violations = self._run_opa(temp_dir, org_policy_dir)
                 violations.extend(opa_violations)
 
-            passed = len(violations) == 0
+            passed = not any(
+                v.severity in ("CRITICAL", "HIGH") and v.tool == "framework"
+                for v in violations
+            ) and not any(
+                v.severity == "CRITICAL" for v in violations
+            )
 
             # Count per tool
             checkov_failed = sum(1 for v in violations if v.tool == "checkov")
@@ -70,7 +94,7 @@ class GenerationValidator:
             return ValidationResult(
                 passed=passed,
                 violations=violations,
-                checkov_passed=0,  # Will be filled by _run_checkov
+                checkov_passed=0,
                 checkov_failed=checkov_failed,
                 opa_passed=0,
                 opa_failed=opa_failed,
@@ -78,6 +102,424 @@ class GenerationValidator:
 
         finally:
             self._cleanup_temp(temp_dir)
+
+    # ------------------------------------------------------------------
+    # Framework-native validation
+    # ------------------------------------------------------------------
+
+    def _run_framework_validate(
+        self, directory: str, project_type: str
+    ) -> List[Violation]:
+        """Run framework-specific validation based on project type.
+
+        - terraform/terraform-terragrunt/terragrunt: terraform validate
+        - cloudformation: cfn-lint or aws cloudformation validate-template
+        - sam: sam validate
+        - cdkv2: cdk synth --no-staging
+        """
+        dispatch = {
+            "terraform": self._validate_terraform,
+            "terraform-terragrunt": self._validate_terraform,
+            "terragrunt": self._validate_terraform,
+            "cloudformation": self._validate_cloudformation,
+            "sam": self._validate_sam,
+            "cdkv2": self._validate_cdk,
+        }
+
+        handler = dispatch.get(project_type, self._validate_terraform)
+        try:
+            return handler(directory)
+        except Exception as e:
+            logger.warning(
+                f"Framework validation ({project_type}) failed: {e}"
+            )
+            return []
+
+    def _validate_terraform(self, directory: str) -> List[Violation]:
+        """Run terraform init -backend=false && terraform validate."""
+        violations = []
+
+        # Detect tool: prefer tofu, fall back to terraform
+        tf_cmd = self._find_tool(["tofu", "terraform"])
+        if not tf_cmd:
+            logger.info("No terraform/tofu binary found — skipping validate")
+            return []
+
+        # Init (no backend, no providers download to keep it fast)
+        init_result = subprocess.run(
+            [tf_cmd, "init", "-backend=false", "-input=false"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=directory,
+        )
+
+        if init_result.returncode != 0:
+            # Parse init errors (usually provider/module issues)
+            violations.extend(
+                self._parse_terraform_errors(
+                    init_result.stderr, "terraform init"
+                )
+            )
+            return violations
+
+        # Validate
+        validate_result = subprocess.run(
+            [tf_cmd, "validate", "-json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=directory,
+        )
+
+        if validate_result.returncode != 0:
+            violations.extend(
+                self._parse_terraform_validate_json(validate_result.stdout)
+            )
+
+        return violations
+
+    def _validate_cloudformation(self, directory: str) -> List[Violation]:
+        """Run cfn-lint on CloudFormation templates."""
+        violations = []
+
+        # Find CFN templates
+        cfn_files = self._find_cfn_templates(directory)
+        if not cfn_files:
+            return []
+
+        # Try cfn-lint first (richer output)
+        cfn_lint = self._find_tool(["cfn-lint"])
+        if cfn_lint:
+            for cfn_file in cfn_files:
+                result = subprocess.run(
+                    [cfn_lint, "-f", "json", str(cfn_file)],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=directory,
+                )
+                violations.extend(
+                    self._parse_cfn_lint_json(result.stdout, cfn_file, directory)
+                )
+            return violations
+
+        # Fallback: python3 -m cfnlint
+        try:
+            for cfn_file in cfn_files:
+                result = subprocess.run(
+                    ["python3", "-m", "cfnlint", "-f", "json", str(cfn_file)],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=directory,
+                )
+                violations.extend(
+                    self._parse_cfn_lint_json(result.stdout, cfn_file, directory)
+                )
+            return violations
+        except Exception:
+            pass
+
+        # Last resort: basic YAML schema check
+        logger.info("No cfn-lint available — skipping CloudFormation validation")
+        return []
+
+    def _validate_sam(self, directory: str) -> List[Violation]:
+        """Run sam validate on SAM templates."""
+        violations = []
+
+        sam_cmd = self._find_tool(["sam"])
+        if not sam_cmd:
+            # Fall back to CloudFormation validation
+            return self._validate_cloudformation(directory)
+
+        # Find SAM template (template.yaml or template.yml)
+        template = None
+        for name in ("template.yaml", "template.yml", "sam-template.yaml"):
+            candidate = Path(directory) / name
+            if candidate.exists():
+                template = candidate
+                break
+
+        if not template:
+            # No SAM template found, try CFN validation
+            return self._validate_cloudformation(directory)
+
+        result = subprocess.run(
+            [sam_cmd, "validate", "--template", str(template), "--lint"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=directory,
+        )
+
+        if result.returncode != 0:
+            error_text = result.stderr or result.stdout
+            violations.append(
+                Violation(
+                    check_id="SAM_VALIDATE",
+                    severity="HIGH",
+                    resource="template",
+                    message=self._clean_error_message(error_text),
+                    file_path=str(template.relative_to(directory)),
+                    tool="framework",
+                )
+            )
+
+        return violations
+
+    def _validate_cdk(self, directory: str) -> List[Violation]:
+        """Run cdk synth --no-staging for CDK validation."""
+        violations = []
+
+        cdk_cmd = self._find_tool(["cdk"])
+        if not cdk_cmd:
+            logger.info("No cdk binary found — skipping CDK validation")
+            return []
+
+        # Check if cdk.json exists (required for cdk synth)
+        cdk_json = Path(directory) / "cdk.json"
+        if not cdk_json.exists():
+            # Can't run cdk synth without cdk.json — skip
+            return []
+
+        # Install deps if package.json exists
+        pkg_json = Path(directory) / "package.json"
+        if pkg_json.exists():
+            subprocess.run(
+                ["npm", "install", "--silent"],
+                capture_output=True,
+                cwd=directory,
+                timeout=120,
+            )
+
+        result = subprocess.run(
+            [cdk_cmd, "synth", "--no-staging", "--quiet"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=directory,
+            env={**os.environ, "CDK_DEFAULT_ACCOUNT": "123456789012",
+                 "CDK_DEFAULT_REGION": "us-east-1"},
+        )
+
+        if result.returncode != 0:
+            error_text = result.stderr or result.stdout
+            # Parse CDK errors (TypeScript compile errors, construct errors)
+            violations.extend(
+                self._parse_cdk_errors(error_text, directory)
+            )
+
+        return violations
+
+    # ------------------------------------------------------------------
+    # Framework-specific error parsers
+    # ------------------------------------------------------------------
+
+    def _parse_terraform_validate_json(self, json_output: str) -> List[Violation]:
+        """Parse terraform validate -json output."""
+        violations = []
+        try:
+            data = json.loads(json_output)
+            for diag in data.get("diagnostics", []):
+                severity = diag.get("severity", "error").upper()
+                if severity == "ERROR":
+                    severity = "HIGH"
+                elif severity == "WARNING":
+                    severity = "MEDIUM"
+
+                # Extract file/line info
+                range_info = diag.get("range", {})
+                filename = range_info.get("filename", "")
+                start = range_info.get("start", {})
+                line = start.get("line", 0)
+
+                violations.append(
+                    Violation(
+                        check_id="TF_VALIDATE",
+                        severity=severity,
+                        resource=diag.get("address", ""),
+                        message=diag.get("detail", diag.get("summary", "")),
+                        file_path=f"{filename}:{line}" if line else filename,
+                        tool="framework",
+                    )
+                )
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return violations
+
+    def _parse_terraform_errors(
+        self, stderr: str, stage: str
+    ) -> List[Violation]:
+        """Parse terraform init/plan errors from stderr."""
+        violations = []
+        if not stderr:
+            return violations
+
+        # Extract meaningful error lines
+        error_lines = [
+            line.strip()
+            for line in stderr.splitlines()
+            if line.strip()
+            and not line.strip().startswith("╷")
+            and not line.strip().startswith("╵")
+            and not line.strip().startswith("│")
+            and "Error:" in line
+        ]
+
+        for line in error_lines[:5]:  # Limit to 5 errors
+            violations.append(
+                Violation(
+                    check_id=f"TF_{stage.upper().replace(' ', '_')}",
+                    severity="HIGH",
+                    resource="",
+                    message=self._clean_error_message(line),
+                    file_path="",
+                    tool="framework",
+                )
+            )
+
+        # If no structured errors found but returncode != 0, add generic
+        if not violations and stderr.strip():
+            violations.append(
+                Violation(
+                    check_id=f"TF_{stage.upper().replace(' ', '_')}",
+                    severity="HIGH",
+                    resource="",
+                    message=self._clean_error_message(stderr[:500]),
+                    file_path="",
+                    tool="framework",
+                )
+            )
+
+        return violations
+
+    def _parse_cfn_lint_json(
+        self, json_output: str, cfn_file: Path, directory: str
+    ) -> List[Violation]:
+        """Parse cfn-lint JSON output."""
+        violations = []
+        try:
+            findings = json.loads(json_output) if json_output.strip() else []
+            for finding in findings:
+                level = finding.get("Level", "Error")
+                severity_map = {
+                    "Error": "HIGH",
+                    "Warning": "MEDIUM",
+                    "Informational": "LOW",
+                }
+                violations.append(
+                    Violation(
+                        check_id=finding.get("Rule", {}).get("Id", "CFN_LINT"),
+                        severity=severity_map.get(level, "MEDIUM"),
+                        resource=finding.get("Location", {}).get(
+                            "Path", [""]
+                        )[-1] if isinstance(finding.get("Location", {}).get("Path"), list) else "",
+                        message=finding.get("Message", ""),
+                        file_path=str(
+                            Path(finding.get("Filename", str(cfn_file)))
+                            .relative_to(directory)
+                        ) if finding.get("Filename") else str(
+                            cfn_file.relative_to(directory)
+                        ),
+                        tool="framework",
+                    )
+                )
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+        return violations
+
+    def _parse_cdk_errors(
+        self, error_text: str, directory: str
+    ) -> List[Violation]:
+        """Parse CDK synth errors (TypeScript/Python compile errors)."""
+        violations = []
+        lines = error_text.splitlines()
+
+        for line in lines:
+            stripped = line.strip()
+            # TypeScript errors: file.ts(line,col): error TS...
+            if "error TS" in stripped or "Error:" in stripped:
+                violations.append(
+                    Violation(
+                        check_id="CDK_SYNTH",
+                        severity="HIGH",
+                        resource="",
+                        message=self._clean_error_message(stripped),
+                        file_path="",
+                        tool="framework",
+                    )
+                )
+            # Python errors
+            elif "SyntaxError" in stripped or "ImportError" in stripped:
+                violations.append(
+                    Violation(
+                        check_id="CDK_SYNTH",
+                        severity="HIGH",
+                        resource="",
+                        message=self._clean_error_message(stripped),
+                        file_path="",
+                        tool="framework",
+                    )
+                )
+
+        if not violations and error_text.strip():
+            violations.append(
+                Violation(
+                    check_id="CDK_SYNTH",
+                    severity="HIGH",
+                    resource="",
+                    message=self._clean_error_message(error_text[:500]),
+                    file_path="",
+                    tool="framework",
+                )
+            )
+
+        return violations[:5]  # Limit
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _find_cfn_templates(self, directory: str) -> List[Path]:
+        """Find CloudFormation/SAM template files."""
+        templates = []
+        for ext in ("*.yaml", "*.yml", "*.json"):
+            for f in Path(directory).rglob(ext):
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")[:300]
+                    if (
+                        "AWSTemplateFormatVersion" in content
+                        or "Transform:" in content
+                        or '"AWSTemplateFormatVersion"' in content
+                    ):
+                        templates.append(f)
+                except Exception:
+                    pass
+        return templates
+
+    @staticmethod
+    def _find_tool(names: List[str]) -> Optional[str]:
+        """Find the first available tool from a list of names."""
+        for name in names:
+            path = shutil.which(name)
+            if path:
+                return path
+        return None
+
+    @staticmethod
+    def _clean_error_message(text: str) -> str:
+        """Clean up error messages for display."""
+        # Remove ANSI codes
+        import re
+        text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+        # Remove excessive whitespace
+        text = " ".join(text.split())
+        # Truncate
+        if len(text) > 300:
+            text = text[:300] + "..."
+        return text.strip()
 
     # ------------------------------------------------------------------
     # Temp workspace management
