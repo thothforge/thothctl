@@ -130,6 +130,11 @@ class ProjectInitCommand(ClickCommand):
         # If space is provided, show info and get VCS provider
         vcs_provider = version_control_systems_service
         vcs_params = {}
+
+        # Auto-detect VCS from flags: --github-org implies github
+        if github_username and vcs_provider != "github":
+            vcs_provider = "github"
+
         if space:
             self.ui.print_info(f"🌌 Using space: {space}")
             space_vcs = get_space_vcs_provider(space)
@@ -140,7 +145,7 @@ class ProjectInitCommand(ClickCommand):
         # Pass the appropriate parameters based on VCS provider
         if vcs_provider == "azure_repos" and az_org_name:
             vcs_params["az_org_name"] = az_org_name
-        elif vcs_provider == "github" and github_username:
+        elif vcs_provider == "github":
             vcs_params["github_username"] = github_username
 
         # If reuse is enabled, first let user select template before creating project
@@ -637,9 +642,9 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
     click.option(
         "-vcss",
         "--version-control-systems-service",
-        default="azure_repos",
+        default="github",
         type=click.Choice(["azure_repos", "github", "gitlab"], case_sensitive=True),
-        help="The Version Control System Service for you IDP",
+        help="The Version Control System Service for your IDP (default: github)",
     ),
     click.option(
         "-reuse",
