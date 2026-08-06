@@ -442,50 +442,56 @@ class ProjectInitCommand(ClickCommand):
                     "No space configured. Enter GitHub credentials directly."
                 )
 
-            # If no credentials from space, ask user
+            # If no credentials from space, default to thothforge public org
             if not username:
+                # Default: use thothforge organization (public templates)
+                username = kwargs.get("github_username", "thothforge")
+                self.ui.print_info(
+                    f"📦 Using default template source: github.com/{username}"
+                )
 
-                # Ask user if they want to set up credentials
+                # Offer to save credentials to space if space exists
                 if space and self.ui.confirm(
                     "Would you like to set up GitHub credentials for this space?"
                 ):
-                    username = input("Enter GitHub username or organization name: ")
+                    custom_username = input(
+                        f"Enter GitHub username or organization [{username}]: "
+                    ).strip()
+                    if custom_username:
+                        username = custom_username
                     self.ui.print_info(
                         "You'll need a Personal Access Token with appropriate permissions"
                     )
-                    token = getpass.getpass("Enter your GitHub Personal Access Token: ")
+                    token = getpass.getpass(
+                        "Enter your GitHub Personal Access Token (Enter to skip for public repos): "
+                    ).strip()
+                    if not token:
+                        token = None
 
-                    # Create and save credentials
-                    credentials = {
-                        "type": "github",
-                        "username": username,
-                        "token": token,
-                    }
+                    # Save credentials if token provided
+                    if token:
+                        credentials = {
+                            "type": "github",
+                            "username": username,
+                            "token": token,
+                        }
 
-                    encryption_password = getpass.getpass(
-                        "Enter a password to encrypt your credentials: "
-                    )
-
-                    try:
-                        save_credentials(
-                            space_name=space,
-                            credentials=credentials,
-                            credential_type="vcs",
-                            password=encryption_password,
+                        encryption_password = getpass.getpass(
+                            "Enter a password to encrypt your credentials: "
                         )
-                        self.ui.print_success(
-                            "🔒 GitHub credentials saved securely for future use"
-                        )
-                    except Exception as e:
-                        self.ui.print_error(f"Failed to save credentials: {e}")
-                        # Continue without saving, use credentials for this session only
-                else:
-                    # User declined to set up credentials, try with public access
-                    self.ui.print_info("Attempting to access public repositories...")
-                    username = input(
-                        "Enter GitHub username or organization name for public repositories: "
-                    )
-                    # token remains None for public access
+
+                        try:
+                            save_credentials(
+                                space_name=space,
+                                credentials=credentials,
+                                credential_type="vcs",
+                                password=encryption_password,
+                            )
+                            self.ui.print_success(
+                                "🔒 GitHub credentials saved securely for future use"
+                            )
+                        except Exception as e:
+                            self.ui.print_error(f"Failed to save credentials: {e}")
 
             if not username:
                 self.ui.print_error("GitHub username is required")
