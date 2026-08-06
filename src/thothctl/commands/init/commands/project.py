@@ -417,26 +417,36 @@ class ProjectInitCommand(ClickCommand):
             token = None
             username = None
 
-            # Try to get credentials from space first
-            try:
-                credentials, _ = get_credentials_with_password(space, "vcs")
+            # Try to get credentials from space first (only if space is set)
+            if space:
+                try:
+                    credentials, _ = get_credentials_with_password(space, "vcs")
 
-                if credentials.get("type") == "github":
-                    token = credentials.get("token")
-                    username = credentials.get("username")
+                    if credentials.get("type") == "github":
+                        token = credentials.get("token")
+                        username = credentials.get("username")
+                        self.ui.print_info(
+                            f"✅ Using GitHub credentials from space '{space}'"
+                        )
+                    else:
+                        self.ui.print_warning(
+                            f"Space '{space}' has non-GitHub VCS credentials"
+                        )
+
+                except FileNotFoundError:
                     self.ui.print_info(
-                        f"✅ Using GitHub credentials from space '{space}'"
+                        f"No GitHub credentials found for space '{space}'"
                     )
-                else:
-                    self.ui.print_warning(
-                        f"Space '{space}' has non-GitHub VCS credentials"
-                    )
+            else:
+                self.ui.print_info(
+                    "No space configured. Enter GitHub credentials directly."
+                )
 
-            except FileNotFoundError:
-                self.ui.print_info(f"No GitHub credentials found for space '{space}'")
+            # If no credentials from space, ask user
+            if not username:
 
                 # Ask user if they want to set up credentials
-                if self.ui.confirm(
+                if space and self.ui.confirm(
                     "Would you like to set up GitHub credentials for this space?"
                 ):
                     username = input("Enter GitHub username or organization name: ")
