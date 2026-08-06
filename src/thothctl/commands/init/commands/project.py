@@ -444,54 +444,11 @@ class ProjectInitCommand(ClickCommand):
 
             # If no credentials from space, default to thothforge public org
             if not username:
-                # Default: use thothforge organization (public templates)
-                username = kwargs.get("github_username", "thothforge")
+                # Priority: --github-username flag > thothforge default
+                username = kwargs.get("github_username") or "thothforge"
                 self.ui.print_info(
-                    f"📦 Using default template source: github.com/{username}"
+                    f"📦 Using GitHub template source: github.com/{username}"
                 )
-
-                # Offer to save credentials to space if space exists
-                if space and self.ui.confirm(
-                    "Would you like to set up GitHub credentials for this space?"
-                ):
-                    custom_username = input(
-                        f"Enter GitHub username or organization [{username}]: "
-                    ).strip()
-                    if custom_username:
-                        username = custom_username
-                    self.ui.print_info(
-                        "You'll need a Personal Access Token with appropriate permissions"
-                    )
-                    token = getpass.getpass(
-                        "Enter your GitHub Personal Access Token (Enter to skip for public repos): "
-                    ).strip()
-                    if not token:
-                        token = None
-
-                    # Save credentials if token provided
-                    if token:
-                        credentials = {
-                            "type": "github",
-                            "username": username,
-                            "token": token,
-                        }
-
-                        encryption_password = getpass.getpass(
-                            "Enter a password to encrypt your credentials: "
-                        )
-
-                        try:
-                            save_credentials(
-                                space_name=space,
-                                credentials=credentials,
-                                credential_type="vcs",
-                                password=encryption_password,
-                            )
-                            self.ui.print_success(
-                                "🔒 GitHub credentials saved securely for future use"
-                            )
-                        except Exception as e:
-                            self.ui.print_error(f"Failed to save credentials: {e}")
 
             if not username:
                 self.ui.print_error("GitHub username is required")
@@ -698,9 +655,10 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         default=None,
     ),
     click.option(
-        "-gh-user",
-        "--github-username",
-        help="GitHub username or organization (for GitHub)",
+        "-gh-org",
+        "--github-org",
+        "github_username",
+        help="GitHub organization or username for templates (default: thothforge)",
         default=None,
     ),
     click.option(
