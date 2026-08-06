@@ -560,13 +560,48 @@ class ProjectService:
 
             self.ui.print_info(f"📥 Cloning template: {selected_template['repo_name']}")
 
-            # Embed token in URL for authentication if available
             repo_url = selected_template["repo_url"]
-            if token and "github.com" in repo_url:
-                # Insert token into GitHub URL
-                repo_url = repo_url.replace("https://", f"https://{token}@")
 
-            repo = git.Repo.clone_from(url=repo_url, to_path=str(project_path))
+            # Strategy 1: Use gh CLI (most secure — uses existing auth)
+            gh_cloned = False
+            if shutil.which("gh"):
+                try:
+                    import subprocess
+
+                    result = subprocess.run(
+                        ["gh", "repo", "clone", repo_url, str(project_path)],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+                    if result.returncode == 0:
+                        gh_cloned = True
+                        self.ui.print_info("✅ Cloned via gh CLI")
+                except Exception:
+                    pass
+
+            # Strategy 2: Plain git clone (works for public repos)
+            if not gh_cloned:
+                try:
+                    repo = git.Repo.clone_from(
+                        url=repo_url, to_path=str(project_path)
+                    )
+                except Exception as clone_err:
+                    # Strategy 3: Embed token in URL (last resort, private repos)
+                    if token and "github.com" in repo_url:
+                        authenticated_url = repo_url.replace(
+                            "https://",
+                            f"https://x-access-token:{token}@",
+                        )
+                        repo = git.Repo.clone_from(
+                            url=authenticated_url, to_path=str(project_path)
+                        )
+                    else:
+                        raise clone_err
+
+            # Load repo object if cloned via gh
+            if gh_cloned:
+                repo = git.Repo(str(project_path))
 
             # Get tag and commit info
             tag, sha = get_latest_tag_info(repo)
