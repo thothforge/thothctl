@@ -543,6 +543,9 @@ class ProjectService:
                 self.logger.warning(f"Error accessing credentials: {e}")
 
         # Require gh CLI for GitHub operations (secure, no tokens in URLs)
+        import shutil
+        import subprocess
+
         if not shutil.which("gh"):
             self.ui.print_error(
                 "GitHub CLI (gh) is required for GitHub integration.\n"
@@ -552,7 +555,6 @@ class ProjectService:
             raise ValueError("gh CLI not found. Install with: brew install gh (macOS) or apt install gh (Linux)")
 
         # Verify gh is authenticated
-        import subprocess
         gh_auth = subprocess.run(
             ["gh", "auth", "status"], capture_output=True, text=True
         )
