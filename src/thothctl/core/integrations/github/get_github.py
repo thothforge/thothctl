@@ -58,9 +58,13 @@ def get_repos_patterns(
 
     repos = []
     for repo in repos_data:
+        # Normalize: treat hyphens and underscores as equivalent for matching
+        normalized_name = repo["name"].replace("-", "_")
         if any(
-            repo["name"].startswith(prefix) for prefix in allowed_pattern_prefixes
-        ) and any(repo["name"].endswith(suffix) for suffix in allowed_pattern_suffixes):
+            normalized_name.startswith(prefix) for prefix in allowed_pattern_prefixes
+        ) and any(
+            normalized_name.endswith(suffix) for suffix in allowed_pattern_suffixes
+        ):
             repos.append(
                 {
                     "Name": repo["name"],
