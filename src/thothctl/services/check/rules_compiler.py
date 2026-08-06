@@ -13,7 +13,6 @@ Phase 2.2 of the Policy Engine roadmap.
 import logging
 import os
 import textwrap
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import toml
@@ -65,32 +64,24 @@ class RulesCompiler:
             return None
 
         # Determine output directory
-        output_dir = self._output_dir or os.path.join(
-            project_dir, DEFAULT_OUTPUT_DIR
-        )
+        output_dir = self._output_dir or os.path.join(project_dir, DEFAULT_OUTPUT_DIR)
         os.makedirs(output_dir, exist_ok=True)
 
         generated_files = []
 
         # Compile each rule type into its own .rego file
         if "naming" in rules_config:
-            path = self._compile_naming_rules(
-                rules_config["naming"], output_dir
-            )
+            path = self._compile_naming_rules(rules_config["naming"], output_dir)
             if path:
                 generated_files.append(path)
 
         if "tagging" in rules_config:
-            path = self._compile_tagging_rules(
-                rules_config["tagging"], output_dir
-            )
+            path = self._compile_tagging_rules(rules_config["tagging"], output_dir)
             if path:
                 generated_files.append(path)
 
         if "security" in rules_config:
-            path = self._compile_security_rules(
-                rules_config["security"], output_dir
-            )
+            path = self._compile_security_rules(rules_config["security"], output_dir)
             if path:
                 generated_files.append(path)
 
@@ -103,8 +94,7 @@ class RulesCompiler:
 
         if generated_files:
             logger.info(
-                f"Compiled {len(generated_files)} Rego policy file(s) "
-                f"to {output_dir}"
+                f"Compiled {len(generated_files)} Rego policy file(s) to {output_dir}"
             )
             return output_dir
 
@@ -139,23 +129,10 @@ class RulesCompiler:
             if not pattern:
                 continue
 
-            # Build resource type filter
-            type_filter = ""
-            if resource_types:
-                types_str = ", ".join(f'"{t}"' for t in resource_types)
-                type_filter = (
-                    f"\n    resource_type := resource_types[_]"
-                    f"\n    resource_types := [{types_str}]"
-                    f"\n    resource_block[resource_type]"
-                )
-            else:
-                type_filter = "\n    resource_type := resource_types[_]"
-                # Get all resource types dynamically
-                rego_rules.append("")  # will be overridden below
-
             deny_or_warn = "deny" if severity == "error" else "warn"
 
-            rego_rule = textwrap.dedent(f"""\
+            rego_rule = textwrap.dedent(
+                f"""\
                 # Rule: {name}
                 {deny_or_warn}[msg] {{
                     resource_block := input.resource[_]
@@ -167,15 +144,14 @@ class RulesCompiler:
                     not regex.match(`{pattern}`, instance_name)
                     msg := sprintf("{name}: resource '%s.%s' does not match naming pattern '{pattern}'", [resource_type, instance_name])
                 }}
-            """)
+            """
+            )
             rego_rules.append(rego_rule)
 
         if not rego_rules:
             return None
 
-        return self._write_rego_file(
-            output_dir, "naming", rego_rules
-        )
+        return self._write_rego_file(output_dir, "naming", rego_rules)
 
     # --- Tagging rules ---
 
@@ -215,7 +191,8 @@ class RulesCompiler:
                     f"    resource_type == allowed_types[_]\n"
                 )
 
-            rego_rule = textwrap.dedent(f"""\
+            rego_rule = textwrap.dedent(
+                f"""\
                 # Rule: {name}
                 {deny_or_warn}[msg] {{
                     resource_block := input.resource[_]
@@ -228,15 +205,14 @@ class RulesCompiler:
                     not instance.tags[required_tag]
                     msg := sprintf("{name}: resource '%s.%s' missing required tag '%s'", [resource_type, instance_name, required_tag])
                 }}
-            """)
+            """
+            )
             rego_rules.append(rego_rule)
 
         if not rego_rules:
             return None
 
-        return self._write_rego_file(
-            output_dir, "tagging", rego_rules
-        )
+        return self._write_rego_file(output_dir, "tagging", rego_rules)
 
     # --- Security rules ---
 
@@ -269,7 +245,8 @@ class RulesCompiler:
 
             for i, pattern in enumerate(banned_patterns):
                 rule_id = f"{name}_{i}" if len(banned_patterns) > 1 else name
-                rego_rule = textwrap.dedent(f"""\
+                rego_rule = textwrap.dedent(
+                    f"""\
                     # Rule: {rule_id} — banned pattern: {pattern}
                     {deny_or_warn}[msg] {{
                         resource_block := input.resource[_]
@@ -284,15 +261,14 @@ class RulesCompiler:
                         regex.match(`{pattern}`, combined)
                         msg := sprintf("{name}: resource '%s.%s' matches banned pattern '{pattern}' at %s", [resource_type, instance_name, key_str])
                     }}
-                """)
+                """
+                )
                 rego_rules.append(rego_rule)
 
         if not rego_rules:
             return None
 
-        return self._write_rego_file(
-            output_dir, "security", rego_rules
-        )
+        return self._write_rego_file(output_dir, "security", rego_rules)
 
     # --- Architecture rules ---
 
@@ -327,7 +303,8 @@ class RulesCompiler:
                     "aws_elasticache_replication_group",
                 ]
                 types_str = ", ".join(f'"{t}"' for t in db_types)
-                rego_rule = textwrap.dedent(f"""\
+                rego_rule = textwrap.dedent(
+                    f"""\
                     # Rule: {name} — require multi-AZ for databases
                     {deny_or_warn}[msg] {{
                         resource_block := input.resource[_]
@@ -340,14 +317,16 @@ class RulesCompiler:
                         not instance.multi_az == true
                         msg := sprintf("{name}: resource '%s.%s' should have multi_az = true", [resource_type, instance_name])
                     }}
-                """)
+                """
+                )
                 rego_rules.append(rego_rule)
 
             # require_modules
             required_modules = config.get("require_modules", [])
             if required_modules:
                 for mod in required_modules:
-                    rego_rule = textwrap.dedent(f"""\
+                    rego_rule = textwrap.dedent(
+                        f"""\
                         # Rule: {name} — require module: {mod}
                         {deny_or_warn}[msg] {{
                             modules := object.get(input, "module", [])
@@ -359,28 +338,29 @@ class RulesCompiler:
                             not "{mod}" == module_sources[_]
                             msg := "{name}: required module '{mod}' not found in project"
                         }}
-                    """)
+                    """
+                    )
                     rego_rules.append(rego_rule)
 
             # max_resources_per_file (advisory — conftest runs per-file)
             max_resources = config.get("max_resources_per_file")
             if max_resources is not None:
-                rego_rule = textwrap.dedent(f"""\
+                rego_rule = textwrap.dedent(
+                    f"""\
                     # Rule: {name} — max {max_resources} resources per file
                     {deny_or_warn}[msg] {{
                         resources := input.resource
                         count(resources) > {max_resources}
                         msg := sprintf("{name}: file has %d resources (max {max_resources})", [count(resources)])
                     }}
-                """)
+                """
+                )
                 rego_rules.append(rego_rule)
 
         if not rego_rules:
             return None
 
-        return self._write_rego_file(
-            output_dir, "architecture", rego_rules
-        )
+        return self._write_rego_file(output_dir, "architecture", rego_rules)
 
     # --- Helpers ---
 
@@ -390,7 +370,8 @@ class RulesCompiler:
         """Write compiled rules to a .rego file."""
         file_path = os.path.join(output_dir, f"{rule_type}.rego")
 
-        header = textwrap.dedent(f"""\
+        header = textwrap.dedent(
+            f"""\
             # Auto-generated by ThothCTL Rules Compiler
             # Source: .thothcf.toml [rules.{rule_type}]
             # Do not edit — regenerate with: thothctl check iac --type rules
@@ -398,7 +379,8 @@ class RulesCompiler:
 
             import rego.v1
 
-        """)
+        """
+        )
 
         content = header + "\n".join(rules)
 

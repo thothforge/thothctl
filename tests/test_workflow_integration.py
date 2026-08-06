@@ -280,7 +280,6 @@ class TestQuickstartDetection:
     def test_detect_from_thothcf(self, tmp_path):
         """Test detection from .thothcf.toml."""
         import toml
-
         from thothctl.commands.quickstart.cli import detect_project_type
 
         (tmp_path / ".thothcf.toml").write_text(

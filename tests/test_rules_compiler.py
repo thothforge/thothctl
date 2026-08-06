@@ -32,9 +32,7 @@ class TestRulesCompilerNaming(unittest.TestCase):
                 }
             ]
         }
-        self.compiler._compile_naming_rules(
-            rules_config["naming"], self.tmpdir
-        )
+        self.compiler._compile_naming_rules(rules_config["naming"], self.tmpdir)
         rego_path = os.path.join(self.tmpdir, "naming.rego")
         self.assertTrue(os.path.exists(rego_path))
 
@@ -59,9 +57,7 @@ class TestRulesCompilerNaming(unittest.TestCase):
                 }
             ]
         }
-        self.compiler._compile_naming_rules(
-            rules_config["naming"], self.tmpdir
-        )
+        self.compiler._compile_naming_rules(rules_config["naming"], self.tmpdir)
         rego_path = os.path.join(self.tmpdir, "naming.rego")
         content = open(rego_path).read()
         # Warning severity → warn instead of deny
@@ -104,9 +100,7 @@ class TestRulesCompilerTagging(unittest.TestCase):
                 }
             ]
         }
-        self.compiler._compile_tagging_rules(
-            rules_config["tagging"], self.tmpdir
-        )
+        self.compiler._compile_tagging_rules(rules_config["tagging"], self.tmpdir)
         rego_path = os.path.join(self.tmpdir, "tagging.rego")
         self.assertTrue(os.path.exists(rego_path))
 
@@ -142,9 +136,7 @@ class TestRulesCompilerSecurity(unittest.TestCase):
                 }
             ]
         }
-        self.compiler._compile_security_rules(
-            rules_config["security"], self.tmpdir
-        )
+        self.compiler._compile_security_rules(rules_config["security"], self.tmpdir)
         rego_path = os.path.join(self.tmpdir, "security.rego")
         self.assertTrue(os.path.exists(rego_path))
 
@@ -188,9 +180,7 @@ class TestRulesCompilerArchitecture(unittest.TestCase):
                 {
                     "name": "approved_modules",
                     "config": {
-                        "require_modules": [
-                            "terraform-aws-modules/vpc/aws"
-                        ],
+                        "require_modules": ["terraform-aws-modules/vpc/aws"],
                     },
                 }
             ]
@@ -230,7 +220,8 @@ class TestRulesCompilerFull(unittest.TestCase):
 
     def test_compile_from_toml(self):
         """Full pipeline: write .thothcf.toml, compile, verify output."""
-        toml_content = textwrap.dedent("""\
+        toml_content = textwrap.dedent(
+            """\
             [project]
             name = "test-infra"
 
@@ -254,7 +245,8 @@ class TestRulesCompilerFull(unittest.TestCase):
             name = "ha"
             [rules.architecture.config]
             require_multi_az = true
-        """)
+        """
+        )
 
         config_path = os.path.join(self.tmpdir, ".thothcf.toml")
         with open(config_path, "w") as f:
@@ -268,13 +260,11 @@ class TestRulesCompilerFull(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(result, "naming.rego")))
         self.assertTrue(os.path.exists(os.path.join(result, "tagging.rego")))
         self.assertTrue(os.path.exists(os.path.join(result, "security.rego")))
-        self.assertTrue(
-            os.path.exists(os.path.join(result, "architecture.rego"))
-        )
+        self.assertTrue(os.path.exists(os.path.join(result, "architecture.rego")))
 
     def test_compile_no_rules_returns_none(self):
         """If no rules section, compile returns None."""
-        toml_content = "[project]\nname = \"test\"\n"
+        toml_content = '[project]\nname = "test"\n'
         config_path = os.path.join(self.tmpdir, ".thothcf.toml")
         with open(config_path, "w") as f:
             f.write(toml_content)

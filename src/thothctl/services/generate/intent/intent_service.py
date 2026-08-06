@@ -210,7 +210,12 @@ class IntentToIaCService:
     # Diagram generation
     # ------------------------------------------------------------------
 
-    def _generate_diagram(self, directory: str, files: List[GeneratedFile] = None, resources: List[str] = None) -> Optional[str]:
+    def _generate_diagram(
+        self,
+        directory: str,
+        files: List[GeneratedFile] = None,
+        resources: List[str] = None,
+    ) -> Optional[str]:
         """Generate a Mermaid architecture diagram from generated resources.
 
         Works without tfplan.json by building diagram from:
@@ -250,25 +255,22 @@ class IntentToIaCService:
     def _extract_resource_types(self, files: List[GeneratedFile]) -> List[str]:
         """Extract resource type names from generated files."""
         import re
+
         resource_types = []
 
         for f in files:
             # Terraform: resource "aws_vpc" "main" {
-            tf_resources = re.findall(
-                r'resource\s+"([^"]+)"\s+"([^"]+)"', f.content
-            )
+            tf_resources = re.findall(r'resource\s+"([^"]+)"\s+"([^"]+)"', f.content)
             for rtype, rname in tf_resources:
                 resource_types.append(f"{rtype}.{rname}")
 
             # CloudFormation: Type: AWS::EC2::VPC
-            cfn_resources = re.findall(
-                r'Type:\s*(AWS::[A-Za-z0-9:]+)', f.content
-            )
+            cfn_resources = re.findall(r"Type:\s*(AWS::[A-Za-z0-9:]+)", f.content)
             resource_types.extend(cfn_resources)
 
             # CDK: new ec2.Vpc(... or new s3.Bucket(...
             cdk_resources = re.findall(
-                r'new\s+([a-z][a-z0-9_]*)\.([A-Z][A-Za-z]+)\(', f.content
+                r"new\s+([a-z][a-z0-9_]*)\.([A-Z][A-Za-z]+)\(", f.content
             )
             for module, construct in cdk_resources:
                 resource_types.append(f"aws_{module}_{construct.lower()}")
@@ -289,26 +291,71 @@ class IntentToIaCService:
 
         layer_patterns = {
             "Network": [
-                "vpc", "subnet", "gateway", "route", "nat", "elb", "alb",
-                "nlb", "lb", "cloudfront", "VPC", "Subnet", "InternetGateway",
-                "NATGateway", "LoadBalancer", "ElasticLoadBalancing",
+                "vpc",
+                "subnet",
+                "gateway",
+                "route",
+                "nat",
+                "elb",
+                "alb",
+                "nlb",
+                "lb",
+                "cloudfront",
+                "VPC",
+                "Subnet",
+                "InternetGateway",
+                "NATGateway",
+                "LoadBalancer",
+                "ElasticLoadBalancing",
             ],
             "Database": [
-                "rds", "db_instance", "db_cluster", "dynamodb", "elasticache",
-                "aurora", "redshift", "DBInstance", "DBCluster", "Table",
+                "rds",
+                "db_instance",
+                "db_cluster",
+                "dynamodb",
+                "elasticache",
+                "aurora",
+                "redshift",
+                "DBInstance",
+                "DBCluster",
+                "Table",
                 "ReplicationGroup",
             ],
             "Compute": [
-                "instance", "ec2", "lambda", "ecs", "eks", "fargate",
-                "auto_scaling", "launch_template", "Function", "Instance",
-                "Cluster", "Service", "TaskDefinition",
+                "instance",
+                "ec2",
+                "lambda",
+                "ecs",
+                "eks",
+                "fargate",
+                "auto_scaling",
+                "launch_template",
+                "Function",
+                "Instance",
+                "Cluster",
+                "Service",
+                "TaskDefinition",
             ],
             "Storage": [
-                "s3", "bucket", "ebs", "efs", "Bucket", "FileSystem",
+                "s3",
+                "bucket",
+                "ebs",
+                "efs",
+                "Bucket",
+                "FileSystem",
             ],
             "Security": [
-                "iam", "security_group", "kms", "waf", "acl", "policy",
-                "role", "Role", "Policy", "SecurityGroup", "Key",
+                "iam",
+                "security_group",
+                "kms",
+                "waf",
+                "acl",
+                "policy",
+                "role",
+                "Role",
+                "Policy",
+                "SecurityGroup",
+                "Key",
             ],
         }
 
@@ -331,19 +378,19 @@ class IntentToIaCService:
 
             # Create subgraph per layer
             layer_id = layer_name.lower()
-            lines.append(f"    subgraph {layer_id}[\"{layer_name} Layer\"]")
+            lines.append(f'    subgraph {layer_id}["{layer_name} Layer"]')
 
             for i, resource in enumerate(resources[:8]):  # Limit per layer
                 # Clean resource name for display
                 display_name = resource.split(".")[-1] if "." in resource else resource
                 display_name = display_name.replace("aws_", "").replace("AWS::", "")
                 node_id = f"{layer_id}_{i}"
-                lines.append(f"        {node_id}[\"{display_name}\"]")
+                lines.append(f'        {node_id}["{display_name}"]')
 
             lines.append("    end")
 
         # Add connections between layers (inferred)
-        active_layers = [l for l in layers if layers[l]]
+        active_layers = [layer for layer in layers if layers[layer]]
         # Network → Compute, Compute → Database, Security → all
         connections = [
             ("Network", "Compute"),

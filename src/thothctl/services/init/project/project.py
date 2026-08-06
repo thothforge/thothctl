@@ -552,7 +552,9 @@ class ProjectService:
                 "Install: https://cli.github.com/\n"
                 "Then run: gh auth login"
             )
-            raise ValueError("gh CLI not found. Install with: brew install gh (macOS) or apt install gh (Linux)")
+            raise ValueError(
+                "gh CLI not found. Install with: brew install gh (macOS) or apt install gh (Linux)"
+            )
 
         # Verify gh is authenticated
         gh_auth = subprocess.run(
@@ -560,8 +562,7 @@ class ProjectService:
         )
         if gh_auth.returncode != 0:
             self.ui.print_error(
-                "GitHub CLI is not authenticated.\n"
-                "Run: gh auth login"
+                "GitHub CLI is not authenticated.\n" "Run: gh auth login"
             )
             raise ValueError("gh CLI not authenticated. Run: gh auth login")
 
@@ -591,9 +592,7 @@ class ProjectService:
             )
             if result.returncode != 0:
                 error_msg = result.stderr.strip() or result.stdout.strip()
-                raise RuntimeError(
-                    f"Failed to clone template: {error_msg}"
-                )
+                raise RuntimeError(f"Failed to clone template: {error_msg}")
 
             repo = git.Repo(str(project_path))
 

@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 
 from .models import GeneratedFile, ValidationResult, Violation
 
@@ -65,9 +65,7 @@ class GenerationValidator:
             # Step 1: Framework-native validation (highest priority — catches
             # schema errors that Checkov won't find)
             if not skip_framework_validate:
-                fw_violations = self._run_framework_validate(
-                    temp_dir, project_type
-                )
+                fw_violations = self._run_framework_validate(temp_dir, project_type)
                 violations.extend(fw_violations)
 
             # Step 2: Run Checkov (security best practices)
@@ -83,9 +81,7 @@ class GenerationValidator:
             passed = not any(
                 v.severity in ("CRITICAL", "HIGH") and v.tool == "framework"
                 for v in violations
-            ) and not any(
-                v.severity == "CRITICAL" for v in violations
-            )
+            ) and not any(v.severity == "CRITICAL" for v in violations)
 
             # Count per tool
             checkov_failed = sum(1 for v in violations if v.tool == "checkov")
@@ -130,9 +126,7 @@ class GenerationValidator:
         try:
             return handler(directory)
         except Exception as e:
-            logger.warning(
-                f"Framework validation ({project_type}) failed: {e}"
-            )
+            logger.warning(f"Framework validation ({project_type}) failed: {e}")
             return []
 
     def _validate_terraform(self, directory: str) -> List[Violation]:
@@ -157,9 +151,7 @@ class GenerationValidator:
         if init_result.returncode != 0:
             # Parse init errors (usually provider/module issues)
             violations.extend(
-                self._parse_terraform_errors(
-                    init_result.stderr, "terraform init"
-                )
+                self._parse_terraform_errors(init_result.stderr, "terraform init")
             )
             return violations
 
@@ -300,16 +292,17 @@ class GenerationValidator:
             text=True,
             timeout=120,
             cwd=directory,
-            env={**os.environ, "CDK_DEFAULT_ACCOUNT": "123456789012",
-                 "CDK_DEFAULT_REGION": "us-east-1"},
+            env={
+                **os.environ,
+                "CDK_DEFAULT_ACCOUNT": "123456789012",
+                "CDK_DEFAULT_REGION": "us-east-1",
+            },
         )
 
         if result.returncode != 0:
             error_text = result.stderr or result.stdout
             # Parse CDK errors (TypeScript compile errors, construct errors)
-            violations.extend(
-                self._parse_cdk_errors(error_text, directory)
-            )
+            violations.extend(self._parse_cdk_errors(error_text, directory))
 
         return violations
 
@@ -349,9 +342,7 @@ class GenerationValidator:
             pass
         return violations
 
-    def _parse_terraform_errors(
-        self, stderr: str, stage: str
-    ) -> List[Violation]:
+    def _parse_terraform_errors(self, stderr: str, stage: str) -> List[Violation]:
         """Parse terraform init/plan errors from stderr."""
         violations = []
         if not stderr:
@@ -413,16 +404,17 @@ class GenerationValidator:
                     Violation(
                         check_id=finding.get("Rule", {}).get("Id", "CFN_LINT"),
                         severity=severity_map.get(level, "MEDIUM"),
-                        resource=finding.get("Location", {}).get(
-                            "Path", [""]
-                        )[-1] if isinstance(finding.get("Location", {}).get("Path"), list) else "",
+                        resource=finding.get("Location", {}).get("Path", [""])[-1]
+                        if isinstance(finding.get("Location", {}).get("Path"), list)
+                        else "",
                         message=finding.get("Message", ""),
                         file_path=str(
-                            Path(finding.get("Filename", str(cfn_file)))
-                            .relative_to(directory)
-                        ) if finding.get("Filename") else str(
-                            cfn_file.relative_to(directory)
-                        ),
+                            Path(finding.get("Filename", str(cfn_file))).relative_to(
+                                directory
+                            )
+                        )
+                        if finding.get("Filename")
+                        else str(cfn_file.relative_to(directory)),
                         tool="framework",
                     )
                 )
@@ -430,9 +422,7 @@ class GenerationValidator:
             pass
         return violations
 
-    def _parse_cdk_errors(
-        self, error_text: str, directory: str
-    ) -> List[Violation]:
+    def _parse_cdk_errors(self, error_text: str, directory: str) -> List[Violation]:
         """Parse CDK synth errors (TypeScript/Python compile errors)."""
         violations = []
         lines = error_text.splitlines()
@@ -513,6 +503,7 @@ class GenerationValidator:
         """Clean up error messages for display."""
         # Remove ANSI codes
         import re
+
         text = re.sub(r"\x1b\[[0-9;]*m", "", text)
         # Remove excessive whitespace
         text = " ".join(text.split())

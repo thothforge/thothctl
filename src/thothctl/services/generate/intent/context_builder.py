@@ -132,7 +132,7 @@ class ContextBuilder:
 
             root_files = structure.get("root_files", [])
             if root_files:
-                lines.append(f"\nRoot files (must exist at project root):")
+                lines.append("\nRoot files (must exist at project root):")
                 for rf in root_files:
                     lines.append(f"  - {rf}")
 
@@ -141,12 +141,9 @@ class ContextBuilder:
                 lines.append("\nFolder structure:")
                 # Build hierarchy
                 root_folders = [
-                    f for f in folders
-                    if f.get("type") == "root" or not f.get("parent")
+                    f for f in folders if f.get("type") == "root" or not f.get("parent")
                 ]
-                child_folders = [
-                    f for f in folders if f.get("parent")
-                ]
+                child_folders = [f for f in folders if f.get("parent")]
 
                 for folder in root_folders:
                     name = folder.get("name", "")
@@ -164,9 +161,7 @@ class ContextBuilder:
                         lines.append(f"  - {name}/ ({status})")
 
                     # Add children
-                    children = [
-                        c for c in child_folders if c.get("parent") == name
-                    ]
+                    children = [c for c in child_folders if c.get("parent") == name]
                     for child in children:
                         child_name = child.get("name", "")
                         child_content = child.get("content", [])
@@ -179,9 +174,7 @@ class ContextBuilder:
                                 f"must contain: [{files_str}]"
                             )
                         else:
-                            lines.append(
-                                f"    - {name}/{child_name}/ ({c_status})"
-                            )
+                            lines.append(f"    - {name}/{child_name}/ ({c_status})")
 
             # Stack path convention (inferred from folder structure)
             stacks_folder = next(
@@ -196,9 +189,7 @@ class ContextBuilder:
                 )
                 if content:
                     files_str = ", ".join(content)
-                    lines.append(
-                        f"  - Each stack directory MUST contain: {files_str}"
-                    )
+                    lines.append(f"  - Each stack directory MUST contain: {files_str}")
 
             # Module path convention
             modules_folder = next(
@@ -217,9 +208,7 @@ class ContextBuilder:
             # Ignored folders (don't generate into these)
             ignore = structure.get("ignore_folders", [])
             if ignore:
-                lines.append(
-                    f"\nNEVER generate files in: {', '.join(ignore)}"
-                )
+                lines.append(f"\nNEVER generate files in: {', '.join(ignore)}")
 
         # ----------------------------------------------------------
         # NAMING: Template parameters & constraints

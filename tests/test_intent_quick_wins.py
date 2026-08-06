@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 
+from thothctl.services.generate.intent.intent_service import IntentToIaCService
 from thothctl.services.generate.intent.models import (
     GeneratedFile,
     IntentResult,
@@ -11,7 +12,6 @@ from thothctl.services.generate.intent.models import (
     Violation,
 )
 from thothctl.services.generate.intent.validator import GenerationValidator
-from thothctl.services.generate.intent.intent_service import IntentToIaCService
 
 
 class TestFrameworkValidation(unittest.TestCase):

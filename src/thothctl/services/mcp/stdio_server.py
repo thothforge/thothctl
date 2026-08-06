@@ -29,17 +29,26 @@ async def thothctl_version() -> str:
 # --- Check commands ---
 
 
-@server.tool(name="thothctl_check_environment", description="Check if development environment tools are installed")
+@server.tool(
+    name="thothctl_check_environment",
+    description="Check if development environment tools are installed",
+)
 async def thothctl_check_environment() -> str:
     return _run_cmd(["thothctl", "check", "environment"])
 
 
-@server.tool(name="thothctl_check_iac", description="Check Infrastructure as Code artifacts like tfplan")
+@server.tool(
+    name="thothctl_check_iac",
+    description="Check Infrastructure as Code artifacts like tfplan",
+)
 async def thothctl_check_iac() -> str:
     return _run_cmd(["thothctl", "check", "iac"])
 
 
-@server.tool(name="thothctl_check_project", description="Check project structure and configuration")
+@server.tool(
+    name="thothctl_check_project",
+    description="Check project structure and configuration",
+)
 async def thothctl_check_project() -> str:
     return _run_cmd(["thothctl", "check", "project"])
 
@@ -47,7 +56,10 @@ async def thothctl_check_project() -> str:
 # --- Document commands ---
 
 
-@server.tool(name="thothctl_document_iac", description="Generate documentation for Infrastructure as Code")
+@server.tool(
+    name="thothctl_document_iac",
+    description="Generate documentation for Infrastructure as Code",
+)
 async def thothctl_document_iac() -> str:
     return _run_cmd(["thothctl", "document", "iac"])
 
@@ -55,7 +67,10 @@ async def thothctl_document_iac() -> str:
 # --- Generate commands ---
 
 
-@server.tool(name="thothctl_generate_stacks", description="Generate infrastructure stacks from YAML configuration")
+@server.tool(
+    name="thothctl_generate_stacks",
+    description="Generate infrastructure stacks from YAML configuration",
+)
 async def thothctl_generate_stacks() -> str:
     return _run_cmd(["thothctl", "generate", "stacks"])
 
@@ -88,24 +103,41 @@ async def thothctl_generate_iac(
 # --- Init commands ---
 
 
-@server.tool(name="thothctl_init_env", description="Initialize development environment with required tools")
+@server.tool(
+    name="thothctl_init_env",
+    description="Initialize development environment with required tools",
+)
 async def thothctl_init_env() -> str:
     return _run_cmd(["thothctl", "init", "env"])
 
 
-@server.tool(name="thothctl_init_project", description="Initialize a new IaC project with scaffold and structure")
+@server.tool(
+    name="thothctl_init_project",
+    description="Initialize a new IaC project with scaffold and structure",
+)
 async def thothctl_init_project(
     project_name: str,
     project_type: str = "terraform-terragrunt",
     space: Optional[str] = None,
 ) -> str:
-    cmd = ["thothctl", "init", "project", "--project-name", project_name, "--project-type", project_type]
+    cmd = [
+        "thothctl",
+        "init",
+        "project",
+        "--project-name",
+        project_name,
+        "--project-type",
+        project_type,
+    ]
     if space:
         cmd.extend(["--space", space])
     return _run_cmd(cmd)
 
 
-@server.tool(name="thothctl_init_space", description="Initialize a new infrastructure space for multi-tenancy")
+@server.tool(
+    name="thothctl_init_space",
+    description="Initialize a new infrastructure space for multi-tenancy",
+)
 async def thothctl_init_space(space_name: str) -> str:
     return _run_cmd(["thothctl", "init", "space", "--space-name", space_name])
 
@@ -113,7 +145,10 @@ async def thothctl_init_space(space_name: str) -> str:
 # --- Inventory commands ---
 
 
-@server.tool(name="thothctl_inventory_iac", description="Create infrastructure inventory (SBOM) with dependency tracking")
+@server.tool(
+    name="thothctl_inventory_iac",
+    description="Create infrastructure inventory (SBOM) with dependency tracking",
+)
 async def thothctl_inventory_iac(
     check_versions: bool = False,
     project_name: Optional[str] = None,
@@ -129,7 +164,9 @@ async def thothctl_inventory_iac(
 # --- List commands ---
 
 
-@server.tool(name="thothctl_list_projects", description="List all IaC projects in current space")
+@server.tool(
+    name="thothctl_list_projects", description="List all IaC projects in current space"
+)
 async def thothctl_list_projects() -> str:
     return _run_cmd(["thothctl", "list", "projects"])
 
@@ -139,7 +176,10 @@ async def thothctl_list_spaces() -> str:
     return _run_cmd(["thothctl", "list", "spaces"])
 
 
-@server.tool(name="thothctl_list_templates", description="List available project templates from VCS")
+@server.tool(
+    name="thothctl_list_templates",
+    description="List available project templates from VCS",
+)
 async def thothctl_list_templates() -> str:
     return _run_cmd(["thothctl", "list", "templates"])
 
@@ -147,12 +187,18 @@ async def thothctl_list_templates() -> str:
 # --- Project commands ---
 
 
-@server.tool(name="thothctl_project_cleanup", description="Clean up project cache and temporary files")
+@server.tool(
+    name="thothctl_project_cleanup",
+    description="Clean up project cache and temporary files",
+)
 async def thothctl_project_cleanup() -> str:
     return _run_cmd(["thothctl", "project", "cleanup"])
 
 
-@server.tool(name="thothctl_project_convert", description="Convert project to/from template format")
+@server.tool(
+    name="thothctl_project_convert",
+    description="Convert project to/from template format",
+)
 async def thothctl_project_convert(target_type: Optional[str] = None) -> str:
     cmd = ["thothctl", "project", "convert"]
     if target_type:
@@ -163,7 +209,10 @@ async def thothctl_project_convert(target_type: Optional[str] = None) -> str:
 # --- Remove commands ---
 
 
-@server.tool(name="thothctl_remove_project", description="Remove a project from the current space")
+@server.tool(
+    name="thothctl_remove_project",
+    description="Remove a project from the current space",
+)
 async def thothctl_remove_project(project_name: str) -> str:
     return _run_cmd(["thothctl", "remove", "project", "--project-name", project_name])
 
@@ -176,13 +225,16 @@ async def thothctl_remove_space(space_name: str) -> str:
 # --- Scan commands ---
 
 
-@server.tool(name="thothctl_scan_iac", description="Run multi-tool security scanning on IaC (Checkov, Trivy, KICS, OPA)")
+@server.tool(
+    name="thothctl_scan_iac",
+    description="Run multi-tool security scanning on IaC (Checkov, Trivy, KICS, OPA)",
+)
 async def thothctl_scan_iac(
     tools: Optional[list] = None,
     enforcement: Optional[str] = None,
 ) -> str:
     cmd = ["thothctl", "scan", "iac"]
-    for tool in (tools or ["checkov"]):
+    for tool in tools or ["checkov"]:
         cmd.extend(["--tools", tool])
     if enforcement:
         cmd.extend(["--enforcement", enforcement])
@@ -192,7 +244,10 @@ async def thothctl_scan_iac(
 # --- Cost analysis ---
 
 
-@server.tool(name="thothctl_cost_analysis", description="Analyze AWS infrastructure costs with monthly/annual projections")
+@server.tool(
+    name="thothctl_cost_analysis",
+    description="Analyze AWS infrastructure costs with monthly/annual projections",
+)
 async def thothctl_cost_analysis(recursive: bool = False) -> str:
     cmd = ["thothctl", "check", "iac", "-type", "cost-analysis"]
     if recursive:
@@ -203,7 +258,10 @@ async def thothctl_cost_analysis(recursive: bool = False) -> str:
 # --- Drift detection ---
 
 
-@server.tool(name="thothctl_drift_detection", description="Detect infrastructure drift between code and deployed state")
+@server.tool(
+    name="thothctl_drift_detection",
+    description="Detect infrastructure drift between code and deployed state",
+)
 async def thothctl_drift_detection(
     recursive: bool = False,
     tftool: Optional[str] = None,
@@ -228,7 +286,10 @@ async def thothctl_drift_detection(
 # --- AI Review ---
 
 
-@server.tool(name="thothctl_ai_review", description="AI-powered security review, code analysis, and automated PR decisions")
+@server.tool(
+    name="thothctl_ai_review",
+    description="AI-powered security review, code analysis, and automated PR decisions",
+)
 async def thothctl_ai_review(
     mode: str = "analyze",
     provider: Optional[str] = None,
@@ -249,7 +310,9 @@ async def thothctl_ai_review(
 # --- Upgrade ---
 
 
-@server.tool(name="thothctl_upgrade", description="Upgrade ThothCTL to the latest version")
+@server.tool(
+    name="thothctl_upgrade", description="Upgrade ThothCTL to the latest version"
+)
 async def thothctl_upgrade(check_only: bool = False) -> str:
     cmd = ["thothctl", "upgrade"]
     if check_only:
@@ -260,7 +323,10 @@ async def thothctl_upgrade(check_only: bool = False) -> str:
 # --- Workflow ---
 
 
-@server.tool(name="thothctl_workflow_devsecops", description="Execute DevSecOps SDLC workflow phases (plan, develop, build, test, secure, deploy, monitor)")
+@server.tool(
+    name="thothctl_workflow_devsecops",
+    description="Execute DevSecOps SDLC workflow phases (plan, develop, build, test, secure, deploy, monitor)",
+)
 async def thothctl_workflow_devsecops(
     phase: str = "all",
     enforcement: Optional[str] = None,
@@ -278,7 +344,10 @@ async def thothctl_workflow_devsecops(
     return _run_cmd(cmd, timeout=300)
 
 
-@server.tool(name="thothctl_workflow_run", description="Execute a custom composable workflow from YAML definition")
+@server.tool(
+    name="thothctl_workflow_run",
+    description="Execute a custom composable workflow from YAML definition",
+)
 async def thothctl_workflow_run(
     file: str,
     dry_run: bool = False,
@@ -289,7 +358,10 @@ async def thothctl_workflow_run(
     return _run_cmd(cmd, timeout=300)
 
 
-@server.tool(name="thothctl_quickstart", description="Interactive guided onboarding for new projects")
+@server.tool(
+    name="thothctl_quickstart",
+    description="Interactive guided onboarding for new projects",
+)
 async def thothctl_quickstart() -> str:
     return _run_cmd(["thothctl", "quickstart"])
 

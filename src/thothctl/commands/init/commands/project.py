@@ -417,7 +417,7 @@ class ProjectInitCommand(ClickCommand):
     def _select_github_template(self, space: str, **kwargs) -> Optional[dict]:
         """Select template from GitHub"""
         try:
-            from ....utils.crypto import get_credentials_with_password, save_credentials
+            from ....utils.crypto import get_credentials_with_password
 
             token = None
             username = None

@@ -2474,9 +2474,7 @@ new vis.Network(container, data, options);
                 )
                 return True
 
-            self.ui.print_info(
-                f"📏 Compiled rules to Rego policies in {compiled_dir}"
-            )
+            self.ui.print_info(f"📏 Compiled rules to Rego policies in {compiled_dir}")
 
             # Step 2: Run conftest with the compiled policies
             scanner = OPAScanner()
@@ -2495,9 +2493,7 @@ new vis.Network(container, data, options);
             report_path = result.get("json_report", "")
 
             if exit_code == 0:
-                self.ui.print_success(
-                    "✅ All organizational rules passed!"
-                )
+                self.ui.print_success("✅ All organizational rules passed!")
                 return True
 
             # Parse conftest JSON output for structured display
