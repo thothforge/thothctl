@@ -228,7 +228,133 @@ Define the development environment for IaC projects. For example, native OS like
 
 ## Project
 
-IaC project, could be around a use case, blueprint, starter template published in your Catalog or default setup. 
+IaC project, could be around a use case, blueprint, starter template published in your Catalog or default setup.
+
+## Scaffold vs Blueprint vs Template
+
+ThothCTL distinguishes three types of reusable project artifacts. Understanding the difference is critical for proper project lifecycle management.
+
+### Scaffold
+
+A **scaffold** is an **empty starting structure** — folders, placeholder files, and configuration boilerplate that a team fills in with their own code. It defines *where* things go, not *what* they do.
+
+| Property | Value |
+|----------|-------|
+| **Purpose** | Start a new project from scratch with correct structure |
+| **Contains business logic** | ❌ No — only empty files and folder conventions |
+| **Parameterized** | ✅ Template placeholders (`#{ProjectName}#`, `#{Region}#`) |
+| **Requires prerequisites** | ❌ None — self-contained starting point |
+| **ThothCTL command** | `thothctl init project --project-type <type>` |
+| **Example** | `terraform-scaffold`, `cdk-scaffold`, `cloudformation-scaffold` |
+
+```
+terraform-scaffold/               ← SCAFFOLD: empty structure
+├── .thothcf.toml                 # Project rules + naming conventions
+├── .pre-commit-config.yaml
+├── common/
+│   ├── common.hcl                # Boilerplate (provider config)
+│   └── variables.tf              # Empty variables file
+├── stacks/                       # Empty — YOU add stacks here
+├── modules/                      # Empty — YOU add modules here
+└── README.md                     # Instructions for the team
+```
+
+**Official Scaffolds:**
+
+| Scaffold | Use Case |
+|----------|----------|
+| [terraform-terragrunt-scaffold](https://github.com/thothforge/terraform_terragrunt_scaffold_project) | Multi-environment Terragrunt |
+| [terraform-scaffold](https://github.com/thothforge/terraform_project_scaffold) | Standard Terraform |
+| [terraform-module-scaffold](https://github.com/thothforge/terraform_module_scaffold) | Reusable modules |
+| [cdk-scaffold](https://github.com/thothforge/cdk_project_scaffold) | AWS CDK v2 (TypeScript/Python) |
+| [cloudformation-scaffold](https://github.com/thothforge/cloudformation_project_scaffold) | CloudFormation / SAM |
+
+---
+
+### Blueprint
+
+A **blueprint** is an **opinionated, pre-configured reference implementation** for a specific use case. It contains real constructs, working stacks, tests, CI/CD, and configuration-driven deployment. Users **configure and deploy** — they don't code from scratch.
+
+| Property | Value |
+|----------|-------|
+| **Purpose** | Deploy a proven architecture for a specific domain |
+| **Contains business logic** | ✅ Yes — working stacks, constructs, pipelines |
+| **Parameterized** | ✅ YAML-driven configuration (environments, accounts, regions) |
+| **Requires prerequisites** | ✅ Often needs IAM roles, networking, or other infra to exist |
+| **Has tests** | ✅ Unit tests, cdk-nag checks, snapshot tests |
+| **Has CI/CD** | ✅ Complete deployment pipeline |
+| **ThothCTL command** | `thothctl project convert --make-template` (to create from existing) |
+| **Example** | `cdkv2-devops-agent-blueprint`, `eks-platform-blueprint` |
+
+```
+cdkv2-devops-agent-blueprint/     ← BLUEPRINT: working implementation
+├── .thothcf.toml
+├── lib/
+│   ├── stacks/
+│   │   ├── foundation/           # Real stack — KMS, S3, IAM baselines
+│   │   ├── agent/                # Real stack — DevOps Agent Space
+│   │   ├── platform/             # Real stack — VPC, ECS
+│   │   └── application/          # Real stack — Lambda, DynamoDB
+│   └── constructs/               # Reusable L2/L3 constructs
+├── skills/                       # DevOps Agent skills (domain knowledge)
+├── project_configs/
+│   └── environment_options.yaml  # Configure accounts, regions, features
+├── test/                         # cdk-nag + snapshot + unit tests
+└── .github/workflows/deploy.yml  # Full CI/CD pipeline
+```
+
+**Key difference from a scaffold**: You **configure** a blueprint (edit YAML), you **code into** a scaffold (write IaC from scratch).
+
+---
+
+### Template
+
+A **template** is what you get when you run `thothctl project convert --make-template` on a working project. It's a **parameterized, reusable version** of a real project — with placeholders for project-specific values.
+
+| Property | Value |
+|----------|-------|
+| **Purpose** | Replicate proven patterns across teams |
+| **Created from** | An existing project or blueprint |
+| **Contains business logic** | ✅ Yes, but parameterized with `#{Placeholders}#` |
+| **Published to** | Git registry (GitHub/GitLab), Backstage catalog |
+| **ThothCTL command** | `thothctl project convert --make-template` (create) |
+| | `thothctl init project --template-url <git-url>` (consume) |
+
+**Lifecycle**: Project → `convert --make-template` → Template → `init project` → New Project
+
+---
+
+### Relationship Diagram
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3b82f6','primaryTextColor':'#ffffff','lineColor':'#94a3b8','fontSize':'14px'}}}%%
+graph LR
+    S["🏗️ Scaffold<br/><small>Empty structure</small>"]:::scaffoldNode
+    B["📐 Blueprint<br/><small>Reference implementation</small>"]:::blueprintNode
+    T["📦 Template<br/><small>Parameterized reusable</small>"]:::templateNode
+    P["🚀 Project<br/><small>Your working code</small>"]:::projectNode
+
+    S -->|"init project"| P
+    B -->|"configure & deploy"| P
+    P -->|"convert --make-template"| T
+    T -->|"init project --template-url"| P
+    B -->|"convert --make-template"| T
+
+    classDef scaffoldNode fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    classDef blueprintNode fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    classDef templateNode fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    classDef projectNode fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+```
+
+### Quick Comparison
+
+| | Scaffold | Blueprint | Template |
+|---|---|---|---|
+| **Start coding?** | ✅ Write everything | ❌ Configure YAML | ✅ Fill placeholders |
+| **Has working code?** | ❌ Empty | ✅ Complete | ✅ Parameterized |
+| **Domain-specific?** | ❌ Generic | ✅ Specific use case | ✅ From a real project |
+| **Deploy immediately?** | ❌ Need to add code | ✅ After configuration | ✅ After init |
+| **Use when** | Starting fresh | Adopting proven architecture | Replicating patterns |
 
 ## Space
 
