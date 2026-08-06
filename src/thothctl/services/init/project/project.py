@@ -542,10 +542,26 @@ class ProjectService:
             except Exception as e:
                 self.logger.warning(f"Error accessing credentials: {e}")
 
-        # If we still don't have a token, ask for it
-        if not token:
-            self.ui.print_info("GitHub Personal Access Token required")
-            token = getpass.getpass("Enter your GitHub Personal Access Token: ")
+        # Require gh CLI for GitHub operations (secure, no tokens in URLs)
+        if not shutil.which("gh"):
+            self.ui.print_error(
+                "GitHub CLI (gh) is required for GitHub integration.\n"
+                "Install: https://cli.github.com/\n"
+                "Then run: gh auth login"
+            )
+            raise ValueError("gh CLI not found. Install with: brew install gh (macOS) or apt install gh (Linux)")
+
+        # Verify gh is authenticated
+        import subprocess
+        gh_auth = subprocess.run(
+            ["gh", "auth", "status"], capture_output=True, text=True
+        )
+        if gh_auth.returncode != 0:
+            self.ui.print_error(
+                "GitHub CLI is not authenticated.\n"
+                "Run: gh auth login"
+            )
+            raise ValueError("gh CLI not authenticated. Run: gh auth login")
 
         # If we still don't have a username, ask for it
         if not github_username:
@@ -562,46 +578,22 @@ class ProjectService:
 
             repo_url = selected_template["repo_url"]
 
-            # Strategy 1: Use gh CLI (most secure — uses existing auth)
-            gh_cloned = False
-            if shutil.which("gh"):
-                try:
-                    import subprocess
+            # Clone via gh CLI (secure — uses gh auth, no tokens in URLs)
+            import subprocess
 
-                    result = subprocess.run(
-                        ["gh", "repo", "clone", repo_url, str(project_path)],
-                        capture_output=True,
-                        text=True,
-                        timeout=60,
-                    )
-                    if result.returncode == 0:
-                        gh_cloned = True
-                        self.ui.print_info("✅ Cloned via gh CLI")
-                except Exception:
-                    pass
+            result = subprocess.run(
+                ["gh", "repo", "clone", repo_url, str(project_path)],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode != 0:
+                error_msg = result.stderr.strip() or result.stdout.strip()
+                raise RuntimeError(
+                    f"Failed to clone template: {error_msg}"
+                )
 
-            # Strategy 2: Plain git clone (works for public repos)
-            if not gh_cloned:
-                try:
-                    repo = git.Repo.clone_from(
-                        url=repo_url, to_path=str(project_path)
-                    )
-                except Exception as clone_err:
-                    # Strategy 3: Embed token in URL (last resort, private repos)
-                    if token and "github.com" in repo_url:
-                        authenticated_url = repo_url.replace(
-                            "https://",
-                            f"https://x-access-token:{token}@",
-                        )
-                        repo = git.Repo.clone_from(
-                            url=authenticated_url, to_path=str(project_path)
-                        )
-                    else:
-                        raise clone_err
-
-            # Load repo object if cloned via gh
-            if gh_cloned:
-                repo = git.Repo(str(project_path))
+            repo = git.Repo(str(project_path))
 
             # Get tag and commit info
             tag, sha = get_latest_tag_info(repo)
