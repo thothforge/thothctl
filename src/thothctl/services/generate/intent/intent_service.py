@@ -104,6 +104,7 @@ class IntentToIaCService:
                 validation = self.validator.validate(
                     files=generation.files,
                     project_type=resolved_type,
+                    project_dir=directory,
                     org_policy_dir=org_policy_dir,
                 )
 

@@ -35,6 +35,7 @@ class GenerationValidator:
         self,
         files: List[GeneratedFile],
         project_type: str = "terraform",
+        project_dir: Optional[str] = None,
         org_policy_dir: Optional[str] = None,
         skip_checkov: bool = False,
         skip_opa: bool = False,
@@ -45,6 +46,7 @@ class GenerationValidator:
         Args:
             files: Generated files to validate
             project_type: Framework type (terraform, cloudformation, cdkv2, sam, etc.)
+            project_dir: Original project directory (for loading .thothcf.toml rules)
             org_policy_dir: Path to OPA/Rego policy directory (optional)
             skip_checkov: Skip Checkov validation
             skip_opa: Skip OPA validation
@@ -77,6 +79,11 @@ class GenerationValidator:
             if not skip_opa and org_policy_dir:
                 opa_violations = self._run_opa(temp_dir, org_policy_dir)
                 violations.extend(opa_violations)
+
+            # Step 4: Run compiled .thothcf.toml rules (naming, tagging, security, architecture)
+            if not skip_opa and project_dir:
+                rules_violations = self._run_compiled_rules(temp_dir, project_dir)
+                violations.extend(rules_violations)
 
             passed = not any(
                 v.severity in ("CRITICAL", "HIGH") and v.tool == "framework"
@@ -710,6 +717,41 @@ class GenerationValidator:
             )
 
         return violations
+
+    # ------------------------------------------------------------------
+    # Compiled Rules (.thothcf.toml → Rego → conftest)
+    # ------------------------------------------------------------------
+
+    def _run_compiled_rules(self, directory: str, project_dir: str) -> List[Violation]:
+        """Compile .thothcf.toml rules to Rego and evaluate via conftest.
+
+        This is the Phase 2.4 integration: organizational rules (naming,
+        tagging, security, architecture) are enforced at generation time.
+        """
+        try:
+            from ...check.rules_compiler import RulesCompiler
+
+            # Compile rules from the real project dir (not the temp workspace)
+            compiler = RulesCompiler()
+            compiled_dir = compiler.compile(project_dir)
+
+            if not compiled_dir:
+                return []
+
+            logger.info(
+                f"Evaluating compiled org rules from {project_dir} "
+                f"against generated code"
+            )
+
+            # Run conftest with compiled policies against the temp workspace
+            return self._run_opa(directory, compiled_dir)
+
+        except ImportError:
+            logger.debug("RulesCompiler not available — skipping rules validation")
+            return []
+        except Exception as e:
+            logger.warning(f"Compiled rules validation failed: {e}")
+            return []
 
     # ------------------------------------------------------------------
     # Helpers
