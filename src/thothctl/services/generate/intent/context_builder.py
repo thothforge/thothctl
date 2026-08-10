@@ -336,24 +336,42 @@ class ContextBuilder:
         return result[:_MAX_EXISTING_PATTERNS_CHARS]
 
     def _load_org_policies(self, directory: Path) -> str:
-        """Load OPA/Rego policy summaries (rule names + comments)."""
-        # Try to find policy directory
+        """Load organizational rules and policy summaries.
+
+        Sources:
+        1. THOTH_ORG_POLICY repo rules/base.toml (naming, tagging, security rules)
+        2. THOTH_ORG_POLICY repo rules/<project_type>.toml (type-specific rules)
+        3. OPA/Rego policy summaries (rule names + comments)
+        """
+        sections = []
+
+        # Resolve org policy path
+        org_policy_path = None
+        org_policy_env = os.environ.get("THOTH_ORG_POLICY")
+        if org_policy_env and not org_policy_env.startswith("git::"):
+            org_policy_path = Path(org_policy_env)
+        if not org_policy_path:
+            # Check cached org policy
+            cache_dir = Path.home() / ".thothcf" / ".policy_cache"
+            if cache_dir.exists():
+                for d in cache_dir.iterdir():
+                    if d.is_dir() and (d / "rules").exists():
+                        org_policy_path = d
+                        break
+
+        # 1. Load TOML rules from org policy repo
+        if org_policy_path and (org_policy_path / "rules").exists():
+            rules_section = self._load_org_toml_rules(org_policy_path)
+            if rules_section:
+                sections.append(rules_section)
+
+        # 2. Load Rego policy summaries
         policy_dirs = [
             directory / "policies",
             directory / "policy",
         ]
-
-        # Also check THOTH_ORG_POLICY env var cached location
-        org_policy_env = os.environ.get("THOTH_ORG_POLICY")
-        if org_policy_env and not org_policy_env.startswith("git::"):
-            policy_dirs.append(Path(org_policy_env))
-
-        # Check org policy cache
-        cache_dir = Path.home() / ".thothcf" / ".policy_cache"
-        if cache_dir.exists():
-            for d in cache_dir.iterdir():
-                if d.is_dir():
-                    policy_dirs.append(d)
+        if org_policy_path:
+            policy_dirs.append(org_policy_path)
 
         rego_summaries = []
         for policy_dir in policy_dirs:
@@ -364,11 +382,75 @@ class ContextBuilder:
                 if summary:
                     rego_summaries.append(summary)
 
-        if not rego_summaries:
+        if rego_summaries:
+            sections.append(
+                "OPA Policies (enforced via conftest):\n"
+                + "\n".join(rego_summaries[:15])
+            )
+
+        if not sections:
             return ""
 
-        result = "\n".join(rego_summaries[:20])  # Max 20 policy summaries
-        return result[:_MAX_ORG_POLICIES_CHARS]
+        return "\n\n".join(sections)[:_MAX_ORG_POLICIES_CHARS]
+
+    def _load_org_toml_rules(self, org_policy_path: Path) -> str:
+        """Load rules/base.toml + rules/<project_type>.toml from org policy repo."""
+        try:
+            import toml
+        except ImportError:
+            return ""
+
+        lines = []
+        rules_dir = org_policy_path / "rules"
+
+        # Load base.toml
+        base_path = rules_dir / "base.toml"
+        if base_path.exists():
+            try:
+                config = toml.load(base_path)
+                metadata = config.get("metadata", {})
+                if metadata:
+                    lines.append(
+                        f"## Organization Rules: {metadata.get('name', 'Org Standards')}"
+                        f" (enforcement: {metadata.get('enforcement', 'mandatory')})"
+                    )
+
+                rules = config.get("rules", {})
+
+                # Naming rules
+                naming = rules.get("naming", {})
+                if naming:
+                    pattern = naming.get("pattern", "")
+                    enforcement = naming.get("enforcement", "mandatory")
+                    lines.append(
+                        f"\nNAMING ({enforcement}):"
+                        f"\n  Resource names MUST match: `{pattern}`"
+                    )
+
+                # Tagging rules
+                tagging = rules.get("tagging", {})
+                if tagging:
+                    tags = tagging.get("required_tags", [])
+                    enforcement = tagging.get("enforcement", "mandatory")
+                    if tags:
+                        lines.append(
+                            f"\nTAGGING ({enforcement}):"
+                            f"\n  ALL resources MUST have tags: {', '.join(tags)}"
+                        )
+
+                # Security rules
+                security = rules.get("security", {})
+                if security:
+                    enforcement = security.get("enforcement", "mandatory")
+                    lines.append(f"\nSECURITY ({enforcement}):")
+                    for key, value in security.items():
+                        if key != "enforcement":
+                            lines.append(f"  - {key}: {value}")
+
+            except Exception as e:
+                self.logger.debug(f"Failed to load org rules: {e}")
+
+        return "\n".join(lines) if lines else ""
 
     # ------------------------------------------------------------------
     # Helpers

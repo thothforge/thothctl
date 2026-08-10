@@ -25,8 +25,17 @@ class BedrockProvider:
         if self._client is None:
             try:
                 import boto3
+                from botocore.config import Config
 
-                self._client = boto3.client("bedrock-runtime", region_name=self.region)
+                # IaC generation responses can be large; increase read timeout
+                config = Config(
+                    read_timeout=300,
+                    connect_timeout=10,
+                    retries={"max_attempts": 2},
+                )
+                self._client = boto3.client(
+                    "bedrock-runtime", region_name=self.region, config=config
+                )
             except ImportError:
                 raise ImportError(
                     "boto3 package required. Install with: pip install boto3"

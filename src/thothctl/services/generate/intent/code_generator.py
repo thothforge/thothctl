@@ -58,6 +58,8 @@ class CodeGenerator:
             config = settings.get_provider_config(provider_name)
             if model:
                 config.model = model
+            # IaC generation needs higher token limit than review (full modules)
+            config.max_tokens = max(config.max_tokens, 16000)
             self._provider = cls(config)
             logger.info(
                 f"AI provider initialized: {provider_name} (model: {config.model})"
@@ -91,7 +93,15 @@ class CodeGenerator:
 
         try:
             raw_result = self._provider.analyze(system_prompt, intent)
-            return self._parse_response(raw_result)
+            output = self._parse_response(raw_result)
+
+            # Retry once if parsing failed (model sometimes returns malformed JSON)
+            if not output.files and output.raw_response:
+                logger.warning("First attempt returned no files — retrying generation")
+                raw_result = self._provider.analyze(system_prompt, intent)
+                output = self._parse_response(raw_result)
+
+            return output
         except Exception as e:
             logger.error(f"AI generation failed: {e}")
             return GenerationOutput(

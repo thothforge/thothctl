@@ -131,15 +131,20 @@ class RulesCompiler:
 
             deny_or_warn = "deny" if severity == "error" else "warn"
 
+            type_filter = ""
+            if resource_types:
+                types_list = ", ".join(f'"{t}"' for t in resource_types)
+                type_filter = (
+                    f"\n    allowed_types := [{types_list}]"
+                    f"\n    resource_type == allowed_types[_]"
+                )
+
             rego_rule = textwrap.dedent(
                 f"""\
                 # Rule: {name}
-                {deny_or_warn}[msg] {{
-                    resource_block := input.resource[_]
-                    resource_types := object.keys(resource_block)
-                    resource_type := resource_types[_]
-                    {"type_check := " + repr(resource_types) + chr(10) + "    resource_type == type_check[_]" if resource_types else ""}
-                    instances := resource_block[resource_type]
+                {deny_or_warn} contains msg if {{
+                    resource_type := object.keys(input.resource)[_]{type_filter}
+                    instances := input.resource[resource_type]
                     instance_name := object.keys(instances)[_]
                     not regex.match(`{pattern}`, instance_name)
                     msg := sprintf("{name}: resource '%s.%s' does not match naming pattern '{pattern}'", [resource_type, instance_name])
@@ -194,12 +199,11 @@ class RulesCompiler:
             rego_rule = textwrap.dedent(
                 f"""\
                 # Rule: {name}
-                {deny_or_warn}[msg] {{
-                    resource_block := input.resource[_]
-                    resource_type := object.keys(resource_block)[_]
-                {type_filter_line}    instances := resource_block[resource_type]
+                {deny_or_warn} contains msg if {{
+                    resource_type := object.keys(input.resource)[_]
+                {type_filter_line}    instances := input.resource[resource_type]
                     instance_name := object.keys(instances)[_]
-                    instance := instances[instance_name]
+                    instance := instances[instance_name][_]
                     required_tags := [{tags_str}]
                     required_tag := required_tags[_]
                     not instance.tags[required_tag]
@@ -248,12 +252,11 @@ class RulesCompiler:
                 rego_rule = textwrap.dedent(
                     f"""\
                     # Rule: {rule_id} — banned pattern: {pattern}
-                    {deny_or_warn}[msg] {{
-                        resource_block := input.resource[_]
-                        resource_type := object.keys(resource_block)[_]
-                        instances := resource_block[resource_type]
+                    {deny_or_warn} contains msg if {{
+                        resource_type := object.keys(input.resource)[_]
+                        instances := input.resource[resource_type]
                         instance_name := object.keys(instances)[_]
-                        instance := instances[instance_name]
+                        instance := instances[instance_name][_]
                         walk(instance, [path, value])
                         key_str := concat(".", path)
                         val_str := sprintf("%v", [value])
@@ -306,14 +309,13 @@ class RulesCompiler:
                 rego_rule = textwrap.dedent(
                     f"""\
                     # Rule: {name} — require multi-AZ for databases
-                    {deny_or_warn}[msg] {{
-                        resource_block := input.resource[_]
-                        resource_type := object.keys(resource_block)[_]
+                    {deny_or_warn} contains msg if {{
                         db_types := [{types_str}]
-                        resource_type == db_types[_]
-                        instances := resource_block[resource_type]
+                        resource_type := db_types[_]
+                        input.resource[resource_type]
+                        instances := input.resource[resource_type]
                         instance_name := object.keys(instances)[_]
-                        instance := instances[instance_name]
+                        instance := instances[instance_name][_]
                         not instance.multi_az == true
                         msg := sprintf("{name}: resource '%s.%s' should have multi_az = true", [resource_type, instance_name])
                     }}
@@ -328,7 +330,7 @@ class RulesCompiler:
                     rego_rule = textwrap.dedent(
                         f"""\
                         # Rule: {name} — require module: {mod}
-                        {deny_or_warn}[msg] {{
+                        {deny_or_warn} contains msg if {{
                             modules := object.get(input, "module", [])
                             module_sources := [src |
                                 mod_block := modules[_]
@@ -348,7 +350,7 @@ class RulesCompiler:
                 rego_rule = textwrap.dedent(
                     f"""\
                     # Rule: {name} — max {max_resources} resources per file
-                    {deny_or_warn}[msg] {{
+                    {deny_or_warn} contains msg if {{
                         resources := input.resource
                         count(resources) > {max_resources}
                         msg := sprintf("{name}: file has %d resources (max {max_resources})", [count(resources)])
