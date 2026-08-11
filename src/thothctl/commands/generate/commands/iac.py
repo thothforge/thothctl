@@ -36,6 +36,7 @@ class GenerateIaCCommand(ClickCommand):
         max_iterations: int = 3,
         skip_validation: bool = False,
         include_diagram: bool = True,
+        composition: str = "single",
         **kwargs,
     ) -> None:
         """Execute IaC generation from intent."""
@@ -120,6 +121,7 @@ class GenerateIaCCommand(ClickCommand):
                 max_iterations=max_iterations,
                 skip_validation=skip_validation,
                 include_diagram=include_diagram,
+                composition=composition,
             )
 
         # Display results
@@ -286,5 +288,15 @@ cli = GenerateIaCCommand.as_click_command(
         "--include-diagram/--no-diagram",
         default=True,
         help="Generate architecture diagram alongside code",
+    ),
+    click.option(
+        "--composition",
+        type=click.Choice(["single", "full", "incremental"], case_sensitive=False),
+        default="single",
+        help=(
+            "Composition mode: 'single' generates one stack (default), "
+            "'full' generates a complete project with root config, "
+            "'incremental' adds stacks to an existing project"
+        ),
     ),
 )

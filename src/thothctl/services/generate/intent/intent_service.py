@@ -52,6 +52,7 @@ class IntentToIaCService:
         max_iterations: int = 3,
         skip_validation: bool = False,
         include_diagram: bool = True,
+        composition: str = "single",
     ) -> IntentResult:
         """Run the full Intent-to-IaC pipeline.
 
@@ -65,10 +66,26 @@ class IntentToIaCService:
             max_iterations: Maximum self-correction attempts
             skip_validation: Skip Checkov/OPA validation entirely
             include_diagram: Generate Mermaid diagram of the output
+            composition: Generation mode: single (default), full (project), incremental
 
         Returns:
             IntentResult with generated files, validation status, and metadata
         """
+        # Route to composition generation if requested
+        if composition in ("full", "incremental"):
+            return self._generate_composition(
+                intent=intent,
+                directory=directory,
+                project_type=project_type,
+                output_dir=output_dir,
+                apply=apply,
+                self_correct=self_correct,
+                max_iterations=max_iterations,
+                skip_validation=skip_validation,
+                include_diagram=include_diagram,
+                incremental=(composition == "incremental"),
+            )
+
         logger.info(
             f"Intent-to-IaC: '{intent[:80]}' (type={project_type}, provider={self.provider})"
         )
@@ -406,3 +423,142 @@ class IntentToIaCService:
                 lines.append(f"    {src_id} --> {dst_id}")
 
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Composition generation (multi-stack)
+    # ------------------------------------------------------------------
+
+    def _generate_composition(
+        self,
+        intent: str,
+        directory: str,
+        project_type: str,
+        output_dir: Optional[str],
+        apply: bool,
+        self_correct: bool,
+        max_iterations: int,
+        skip_validation: bool,
+        include_diagram: bool,
+        incremental: bool = False,
+    ) -> IntentResult:
+        """Generate a full multi-stack project from a complex intent.
+
+        1. Build context
+        2. Decompose intent into stacks (AI call)
+        3. Generate code per stack (AI call per stack)
+        4. Assemble project structure (deterministic)
+        5. Validate + write
+        """
+        from .composition_models import CompositionPlan
+        from .intent_decomposer import IntentDecomposer
+        from .project_assembler import ProjectAssembler
+
+        logger.info(
+            f"Composition generation: '{intent[:80]}' "
+            f"(type={project_type}, mode={'incremental' if incremental else 'full'})"
+        )
+
+        # Step 1: Build context
+        context_payload = self.context_builder.build_context(directory, project_type)
+        context_text = context_payload.compile()
+        resolved_type = context_payload.project_type
+
+        # Step 2: Decompose intent into stacks
+        decomposer = IntentDecomposer(provider=self.provider, model=self.model)
+        plan = decomposer.decompose(intent, resolved_type, context_text)
+
+        if not plan or not plan.stacks:
+            return IntentResult(
+                success=False,
+                error="Failed to decompose intent into stacks",
+                context_tokens=context_payload.total_tokens_estimate,
+            )
+
+        logger.info(
+            f"Decomposed into {plan.stack_count} stacks: "
+            f"{[s.name for s in plan.stacks]}"
+        )
+
+        # Determine if root config exists
+        target_dir = output_dir or directory
+        plan.needs_root_config = not Path(target_dir).joinpath("root.hcl").exists()
+        plan.needs_common = not Path(target_dir).joinpath("common").exists()
+
+        if incremental:
+            plan.needs_root_config = False
+            plan.needs_common = False
+
+        # Step 3: Assemble project structure (root.hcl, common/, terragrunt.hcl per stack)
+        assembler = ProjectAssembler(project_type=resolved_type)
+        structure_files = assembler.assemble(
+            plan, target_dir, existing_project=incremental
+        )
+
+        # Step 4: Generate code per stack (AI calls)
+        all_files = list(structure_files)
+        ordered_stacks = plan.topological_order()
+
+        for stack in ordered_stacks:
+            logger.info(f"Generating stack: {stack.path} ({stack.intent[:50]})")
+
+            # Generate the Terraform code for this stack
+            stack_generation = self.code_generator.generate(
+                intent=stack.intent,
+                context=context_text,
+                project_type=resolved_type,
+            )
+
+            if stack_generation.files:
+                # Prefix file paths with stack path
+                for f in stack_generation.files:
+                    prefixed_path = f"{stack.path}/{f.path}"
+                    all_files.append(
+                        GeneratedFile(path=prefixed_path, content=f.content)
+                    )
+
+        if not all_files:
+            return IntentResult(
+                success=False,
+                error="No files generated for any stack",
+                context_tokens=context_payload.total_tokens_estimate,
+            )
+
+        # Step 5: Validate (optional)
+        validation = ValidationResult(passed=True)
+        if not skip_validation:
+            org_policy_dir = self._resolve_org_policy_dir(directory)
+            validation = self.validator.validate(
+                files=all_files,
+                project_type=resolved_type,
+                project_dir=directory,
+                org_policy_dir=org_policy_dir,
+                skip_framework_validate=True,  # Can't run terraform validate on partial project
+            )
+
+        # Step 6: Write to disk if --apply
+        if apply and all_files:
+            self._write_files(all_files, target_dir)
+            logger.info(f"Project written to: {target_dir}")
+
+        # Step 7: Generate diagram
+        diagram = None
+        if include_diagram and all_files:
+            resources = []
+            for stack in ordered_stacks:
+                resources.append(f"stack_{stack.layer}_{stack.name}")
+            diagram = self._build_mermaid_diagram(resources)
+
+        return IntentResult(
+            success=True,
+            files=all_files,
+            validation=validation,
+            iterations=1,
+            explanation=(
+                f"Generated {plan.stack_count} stacks across layers: "
+                + ", ".join(f"{s.layer}/{s.domain}/{s.name}" for s in ordered_stacks)
+            ),
+            modules_used=[s.module_source for s in plan.stacks if s.module_source],
+            estimated_resources=[s.name for s in plan.stacks],
+            context_tokens=context_payload.total_tokens_estimate,
+            diagram=diagram,
+        )
