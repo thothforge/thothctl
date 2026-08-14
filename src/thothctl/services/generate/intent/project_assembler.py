@@ -195,12 +195,9 @@ class ProjectAssembler:
             lines.append("}")
             lines.append("")
 
-        # terraform source block
-        if stack.module_source:
-            lines.append("terraform {")
-            lines.append(f'  source = "{stack.module_source}"')
-            lines.append("}")
-            lines.append("")
+        # NOTE: In terraform-terragrunt pattern, module source lives in main.tf
+        # (not in terragrunt.hcl). The terragrunt.hcl only handles orchestration:
+        # include, dependencies, and inputs.
 
         # inputs block
         lines.append("inputs = {")
