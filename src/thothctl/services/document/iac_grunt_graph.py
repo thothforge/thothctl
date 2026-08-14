@@ -330,13 +330,28 @@ class DependencyGraphGenerator:
         return None
 
     def _generate_graph(self, directory: Path) -> Optional[str]:
-        """Generate graph using terragrunt."""
+        """Generate graph using terragrunt.
+
+        Runs `terragrunt dag graph` from the project root (where root.hcl is),
+        not from the individual stack directory. Per-stack directories only show
+        "." when run locally, which produces an empty graph.
+        """
+        # Find project root (where root.hcl lives)
+        graph_dir = self._find_terragrunt_root(directory)
+
         command = ["terragrunt", "dag", "graph", "--non-interactive"]
 
-        stdout, stderr, return_code = self.executor.execute(command, directory)
+        stdout, stderr, return_code = self.executor.execute(command, graph_dir)
 
         if return_code != 0:
             self.logger.error("Terragrunt command failed: %s", stderr)
+            return None
+
+        # If output is just "." (empty single-node graph), skip
+        if stdout.strip() in ('digraph {\n\t"." ;\n}', 'digraph {\n}', ''):
+            self.logger.debug(
+                "Empty graph from %s (no dependencies visible)", directory
+            )
             return None
 
         # Process the graph content to simplify paths
@@ -348,6 +363,22 @@ class DependencyGraphGenerator:
         )
 
         return enhanced_content
+
+    def _find_terragrunt_root(self, directory: Path) -> Path:
+        """Find the terragrunt project root by looking for root.hcl upward.
+
+        Returns the directory containing root.hcl, or the original
+        directory if not found.
+        """
+        current = directory.resolve()
+        for _ in range(10):  # Max 10 levels up
+            if (current / "root.hcl").exists():
+                return current
+            parent = current.parent
+            if parent == current:
+                break
+            current = parent
+        return directory
 
     def _parse_terragrunt_hcl(self, hcl_path: Path) -> dict:
         """Parse a terragrunt.hcl file to extract dependency information."""

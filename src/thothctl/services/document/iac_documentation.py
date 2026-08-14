@@ -436,7 +436,7 @@ def create_terraform_docs(
     file_scanner = FileScanner(exclude_patterns=exclude, max_workers=4)
     print(f"{Fore.YELLOW}The framework is: {framework}")
     print(f"{Fore.CYAN}Graph type: {graph_type}")
-    if mood == "resources":
+    if mood in ("resources", "stacks"):
         if framework.lower() in ["terraform-terragrunt", "terragrunt"]:
             graph_result = graph_dependencies(
                 directory=Path(directory).absolute(),
