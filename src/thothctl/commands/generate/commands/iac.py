@@ -111,6 +111,9 @@ class GenerateIaCCommand(ClickCommand):
 
         # Generate
         with self.ui.status_spinner("🤖 Generating infrastructure code..."):
+            import time
+
+            self._start_time = time.time()
             result = service.generate(
                 intent=intent,
                 directory=directory,
@@ -190,6 +193,23 @@ class GenerateIaCCommand(ClickCommand):
             console.print(f"📊 Resources: {', '.join(result.estimated_resources)}")
         if result.explanation:
             console.print(f"📝 {result.explanation}")
+
+        # Show metrics
+        import time
+
+        elapsed = time.time() - self._start_time if hasattr(self, "_start_time") else 0
+        metrics_parts = []
+        if result.context_tokens:
+            metrics_parts.append(f"context: ~{result.context_tokens} tokens")
+        if result.generation_tokens:
+            metrics_parts.append(f"generation: ~{result.generation_tokens} tokens")
+        if elapsed > 0:
+            metrics_parts.append(f"time: {elapsed:.1f}s")
+        if result.iterations > 1:
+            metrics_parts.append(f"iterations: {result.iterations}")
+        metrics_parts.append(f"files: {len(result.files)}")
+        if metrics_parts:
+            console.print(f"⏱️  Metrics: {' | '.join(metrics_parts)}")
 
         # Final guidance
         console.print("")

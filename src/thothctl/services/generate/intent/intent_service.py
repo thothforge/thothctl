@@ -424,6 +424,113 @@ class IntentToIaCService:
 
         return "\n".join(lines)
 
+    def _load_scaffold_example(self, project_type: str, stack) -> str:
+        """Load a real scaffold example as few-shot context for per-stack generation.
+
+        Searches cached scaffolds for a similar stack and returns its files
+        as an example the AI should follow. This makes the scaffold the single
+        source of truth for code structure — not hardcoded prompts.
+        """
+        from pathlib import Path
+
+        # Search scaffold cache for matching examples
+        scaffold_cache = Path.home() / ".thothcf"
+        scaffold_names = {
+            "terraform-terragrunt": "terraform_terragrunt_scaffold_project",
+            "terragrunt": "terraform_terragrunt_scaffold_project",
+        }
+        scaffold_dir = scaffold_cache / scaffold_names.get(project_type, "")
+
+        example_parts = []
+
+        if scaffold_dir.exists():
+            # Find a matching or similar stack in the scaffold
+            stacks_dir = scaffold_dir / "stacks"
+            if stacks_dir.exists():
+                # Try exact match first, then same domain, then any from same layer
+                candidates = list(stacks_dir.rglob("main.tf"))
+                best_match = None
+
+                for candidate in candidates:
+                    rel = str(candidate.relative_to(stacks_dir))
+                    if stack.domain in rel or stack.name in rel:
+                        best_match = candidate.parent
+                        break
+
+                if not best_match and candidates:
+                    # Take first example from the same layer
+                    for candidate in candidates:
+                        rel = str(candidate.relative_to(stacks_dir))
+                        if stack.layer in rel:
+                            best_match = candidate.parent
+                            break
+
+                if best_match:
+                    # Load the example files
+                    for tf_file in sorted(best_match.glob("*.tf")):
+                        content = tf_file.read_text(encoding="utf-8", errors="ignore")
+                        if content.strip():
+                            example_parts.append(
+                                f"### Scaffold example: {tf_file.name}\n```hcl\n{content.strip()}\n```"
+                            )
+                    tg_file = best_match / "terragrunt.hcl"
+                    if tg_file.exists():
+                        content = tg_file.read_text(encoding="utf-8", errors="ignore")
+                        if content.strip():
+                            example_parts.append(
+                                f"### Scaffold example: terragrunt.hcl\n```hcl\n{content.strip()}\n```"
+                            )
+
+        # Always include the composition rules (whether scaffold found or not)
+        rules = (
+            "COMPOSITION RULES (from scaffold):\n"
+            "- Generate ONLY: main.tf, variables.tf, outputs.tf (flat paths)\n"
+            "- main.tf must contain ONLY resources/modules/data — "
+            "NO terraform{}, provider{}, or backend{} blocks\n"
+            "- Provider and backend are managed by root.hcl (terragrunt generates them)\n"
+            "- Use var.tags for tags (passed from terragrunt inputs)\n"
+            "- Use var.project and var.environment for naming\n"
+        )
+
+        if example_parts:
+            return (
+                f"FOLLOW THIS SCAFFOLD PATTERN (from your org's official scaffold):\n\n"
+                + "\n\n".join(example_parts[:3])  # Max 3 files as example
+                + f"\n\n{rules}"
+            )
+        else:
+            return rules
+
+    @staticmethod
+    def _strip_terraform_block(content: str) -> str:
+        """Remove terraform {}, provider {}, and backend blocks from generated code.
+
+        In terragrunt projects, root.hcl handles provider and backend config.
+        Per-stack .tf files should only contain resources, data sources, and locals.
+        """
+        import re
+
+        # Remove terraform { ... } block (multi-line, handles nested braces)
+        content = re.sub(
+            r"terraform\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}\s*\n?",
+            "",
+            content,
+            flags=re.DOTALL,
+        )
+
+        # Remove provider "aws" { ... } block
+        content = re.sub(
+            r'provider\s+"[^"]+"\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}\s*\n?',
+            "",
+            content,
+            flags=re.DOTALL,
+        )
+
+        # Clean up excessive blank lines left behind
+        content = re.sub(r"\n{3,}", "\n\n", content)
+
+        return content.strip() + "\n"
+
     # ------------------------------------------------------------------
     # Composition generation (multi-stack)
     # ------------------------------------------------------------------
@@ -501,23 +608,16 @@ class IntentToIaCService:
         for stack in ordered_stacks:
             logger.info(f"Generating stack: {stack.path} ({stack.intent[:50]})")
 
-            # Build a focused intent for this specific stack
-            stack_intent = (
-                f"{stack.intent}\n\n"
-                f"IMPORTANT: Generate ONLY these files with flat paths:\n"
-                f"- main.tf (resources)\n"
-                f"- variables.tf (input variables)\n"
-                f"- outputs.tf (output values)\n"
-                f"Do NOT generate terragrunt.hcl, root.hcl, or nested directory structures.\n"
-                f"Do NOT include provider blocks (provider is managed by root.hcl).\n"
-                f"Use variable references for values passed from dependencies."
-            )
+            # Load scaffold example as few-shot pattern
+            # The scaffold IS the source of truth, not hardcoded prompts
+            scaffold_example = self._load_scaffold_example(resolved_type, stack)
+            stack_intent = f"{stack.intent}\n\n{scaffold_example}"
 
             # Generate the Terraform code for this stack
             stack_generation = self.code_generator.generate(
                 intent=stack_intent,
                 context=context_text,
-                project_type="terraform",  # Generate pure TF, not terragrunt
+                project_type="terraform",  # Generate pure TF resources
             )
 
             if stack_generation.files:
@@ -533,10 +633,13 @@ class IntentToIaCService:
                     # Skip if AI regenerated a terragrunt.hcl (assembler already made one)
                     if filename == "terragrunt.hcl":
                         continue
+                    # Strip terraform/provider/backend blocks from .tf files
+                    # (root.hcl handles these in terragrunt projects)
+                    content = f.content
+                    if resolved_type in ("terraform-terragrunt", "terragrunt"):
+                        content = self._strip_terraform_block(content)
                     prefixed_path = f"{stack.path}/{filename}"
-                    all_files.append(
-                        GeneratedFile(path=prefixed_path, content=f.content)
-                    )
+                    all_files.append(GeneratedFile(path=prefixed_path, content=content))
 
         if not all_files:
             return IntentResult(
@@ -582,5 +685,6 @@ class IntentToIaCService:
             modules_used=[s.module_source for s in plan.stacks if s.module_source],
             estimated_resources=[s.name for s in plan.stacks],
             context_tokens=context_payload.total_tokens_estimate,
+            generation_tokens=sum(len(f.content) // 4 for f in all_files),
             diagram=diagram,
         )
