@@ -501,17 +501,39 @@ class IntentToIaCService:
         for stack in ordered_stacks:
             logger.info(f"Generating stack: {stack.path} ({stack.intent[:50]})")
 
+            # Build a focused intent for this specific stack
+            stack_intent = (
+                f"{stack.intent}\n\n"
+                f"IMPORTANT: Generate ONLY these files with flat paths:\n"
+                f"- main.tf (resources)\n"
+                f"- variables.tf (input variables)\n"
+                f"- outputs.tf (output values)\n"
+                f"Do NOT generate terragrunt.hcl, root.hcl, or nested directory structures.\n"
+                f"Do NOT include provider blocks (provider is managed by root.hcl).\n"
+                f"Use variable references for values passed from dependencies."
+            )
+
             # Generate the Terraform code for this stack
             stack_generation = self.code_generator.generate(
-                intent=stack.intent,
+                intent=stack_intent,
                 context=context_text,
-                project_type=resolved_type,
+                project_type="terraform",  # Generate pure TF, not terragrunt
             )
 
             if stack_generation.files:
                 # Prefix file paths with stack path
+                # Strip any nested path from AI output — keep only filename
                 for f in stack_generation.files:
-                    prefixed_path = f"{stack.path}/{f.path}"
+                    # AI sometimes returns full paths or nested structures
+                    # We only want the filename (main.tf, variables.tf, etc.)
+                    filename = Path(f.path).name
+                    # Skip files that aren't Terraform files
+                    if not filename.endswith((".tf", ".tfvars", ".hcl", ".md")):
+                        continue
+                    # Skip if AI regenerated a terragrunt.hcl (assembler already made one)
+                    if filename == "terragrunt.hcl":
+                        continue
+                    prefixed_path = f"{stack.path}/{filename}"
                     all_files.append(
                         GeneratedFile(path=prefixed_path, content=f.content)
                     )
