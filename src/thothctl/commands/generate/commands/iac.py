@@ -149,6 +149,28 @@ class GenerateIaCCommand(ClickCommand):
         # Display results
         if not result.success:
             self.ui.print_error(f"Generation failed: {result.error}")
+            # Still record failed runs to history
+            try:
+                import time as _time
+
+                _elapsed = _time.time() - self._start_time if hasattr(self, "_start_time") else 0
+                from ....services.generate.intent.generation_history import (
+                    save_generation_run,
+                )
+
+                save_generation_run(
+                    intent=intent,
+                    result=result,
+                    duration_seconds=_elapsed,
+                    project_type=project_type,
+                    composition=composition,
+                    output_mode=mode,
+                    space=space or "",
+                    provider=provider,
+                    model=model or "",
+                )
+            except Exception:
+                pass
             return
 
         # Show validation status
@@ -217,6 +239,29 @@ class GenerateIaCCommand(ClickCommand):
         import time
 
         elapsed = time.time() - self._start_time if hasattr(self, "_start_time") else 0
+
+        # Record to generation history (for dashboard)
+        try:
+            from ....services.generate.intent.generation_history import (
+                save_generation_run,
+            )
+
+            save_generation_run(
+                intent=intent,
+                result=result,
+                duration_seconds=elapsed,
+                project_type=project_type,
+                composition=composition,
+                output_mode=mode,
+                space=space or "",
+                provider=provider,
+                model=model or "",
+                output_dir=output_dir or ".",
+                plan_validation=plan_validation or "disabled",
+            )
+        except Exception as e:
+            logger.debug(f"Failed to record generation history: {e}")
+
         metrics_parts = []
         if result.context_tokens:
             metrics_parts.append(f"context: ~{result.context_tokens} tokens")

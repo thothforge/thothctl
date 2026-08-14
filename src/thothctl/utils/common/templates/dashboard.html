@@ -223,6 +223,7 @@
                 <a class="nav-link" data-section="risks">💥 Blast Radius</a>
                 <a class="nav-link" data-section="drift">🔍 Drift</a>
                 <a class="nav-link" data-section="ai">🤖 AI Usage</a>
+                <a class="nav-link" data-section="generation">✨ Generation</a>
                 <div class="nav-actions">
                     <button class="btn btn-refresh" onclick="refreshAll()">🔄 Refresh</button>
                     <button class="btn btn-export" onclick="window.print()">📄 Export</button>
@@ -272,6 +273,10 @@
         </section>
         <section id="drift" class="content-section"><h2 class="section-title">🔍 Drift Detection</h2><div id="drift-content"><div class="message">Loading...</div></div></section>
         <section id="ai" class="content-section"><h2 class="section-title">🤖 AI Token Usage</h2><div id="ai-content"><div class="message">Loading...</div></div></section>
+        <section id="generation" class="content-section">
+            <h2 class="section-title">✨ Intent-to-IaC Generation History</h2>
+            <div id="generation-content"><div class="message">Loading...</div></div>
+        </section>
     </div>
 
     <script>
@@ -298,11 +303,11 @@
     async function refreshAll() { await fetch('/api/refresh'); loadAll(); }
 
     async function loadAll() {
-        const endpoints = {project:'/api/project', inventory:'/api/inventory', security:'/api/scan-results', costs:'/api/cost-analysis', risks:'/api/blast-radius', drift:'/api/drift', topology:'/api/topology', ai:'/api/ai-usage'};
+        const endpoints = {project:'/api/project', inventory:'/api/inventory', security:'/api/scan-results', costs:'/api/cost-analysis', risks:'/api/blast-radius', drift:'/api/drift', topology:'/api/topology', ai:'/api/ai-usage', generation:'/api/generation-history'};
         const results = await Promise.allSettled(Object.entries(endpoints).map(async ([k,url]) => {
             const r = await fetch(url); D[k] = await r.json(); return k;
         }));
-        renderOverview(); renderInventory(); renderSecurity(); renderCosts(); renderRisks(); renderDrift(); renderAI();
+        renderOverview(); renderInventory(); renderSecurity(); renderCosts(); renderRisks(); renderDrift(); renderAI(); renderGeneration();
     }
 
     function msg(text, cmd) { return `<div class="message">${text}${cmd ? '<br><code>'+cmd+'</code>' : ''}</div>`; }
@@ -1333,6 +1338,71 @@
             html += '</tbody></table>';
         }
         document.getElementById('ai-content').innerHTML = html;
+    }
+
+    function renderGeneration() {
+        const d = D.generation;
+        if (!d || err(d)) { document.getElementById('generation-content').innerHTML = msg(d?.error||d?.message||'No generation history yet. Run: thothctl generate iac --intent "..."', 'thothctl generate iac --intent "Create a VPC" --composition full'); return; }
+        const m = d.metrics || {};
+        let html = `<div class="summary-grid">
+            <div class="card"><div class="card-number">${m.total_runs||0}</div><div class="card-label">Total Runs</div></div>
+            <div class="card" style="border-color:var(--success)"><div class="card-number" style="color:var(--success)">${m.success_rate||0}%</div><div class="card-label">Success Rate</div></div>
+            <div class="card"><div class="card-number">${m.avg_duration||0}s</div><div class="card-label">Avg Duration</div></div>
+            <div class="card"><div class="card-number">${(m.total_tokens||0).toLocaleString()}</div><div class="card-label">Total Tokens</div></div>
+            <div class="card"><div class="card-number">${m.avg_files||0}</div><div class="card-label">Avg Files/Run</div></div>
+            <div class="card"><div class="card-number">${m.avg_iterations||0}</div><div class="card-label">Avg Iterations</div></div>
+        </div>`;
+        if (d.runs && d.runs.length) {
+            html += '<table class="data-table"><thead><tr><th>Time</th><th>Intent</th><th>Type</th><th>Mode</th><th>Status</th><th>Files</th><th>Duration</th><th>Actions</th></tr></thead><tbody>';
+            d.runs.forEach(r => {
+                const status = r.success ? '<span style="color:var(--success)">✅ Pass</span>' : '<span style="color:var(--danger)">❌ Fail</span>';
+                const intentShort = (r.intent||'').substring(0, 60) + ((r.intent||'').length > 60 ? '...' : '');
+                const dur = r.duration_seconds ? r.duration_seconds.toFixed(0) + 's' : '—';
+                html += `<tr>
+                    <td style="white-space:nowrap">${r.timestamp ? new Date(r.timestamp).toLocaleString() : '—'}</td>
+                    <td title="${(r.intent||'').replace(/"/g,'&quot;')}">${intentShort}</td>
+                    <td>${r.composition||'single'}/${r.output_mode||'project'}</td>
+                    <td>${r.provider||'—'}</td>
+                    <td>${status}</td>
+                    <td>${r.files_count||0}</td>
+                    <td>${dur}</td>
+                    <td><button onclick="viewGenRun('${r.id}')" style="font-size:0.7rem;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer">View</button></td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+        } else {
+            html += msg('No generation runs recorded yet.');
+        }
+        document.getElementById('generation-content').innerHTML = html;
+    }
+
+    async function viewGenRun(runId) {
+        try {
+            const r = await fetch('/api/generation-results/' + runId);
+            const data = await r.json();
+            let html = '<div style="padding:12px">';
+            html += `<h3 style="margin:0 0 8px">Intent: ${data.intent||''}</h3>`;
+            html += `<div style="font-size:0.8rem;color:var(--secondary);margin-bottom:12px">Provider: ${data.provider}/${data.model} | Composition: ${data.composition} | Mode: ${data.output_mode} | Space: ${data.space||'—'}</div>`;
+            if (data.stacks && data.stacks.length) {
+                html += '<div style="margin-bottom:8px"><strong>Stacks:</strong> ' + data.stacks.map(s => `<span style="background:var(--primary);color:white;padding:1px 6px;border-radius:4px;font-size:0.75rem;margin:2px">${s.name}</span>`).join(' ') + '</div>';
+            }
+            if (data.violations && data.violations.length) {
+                html += '<div style="margin-bottom:8px;color:var(--warning)"><strong>Violations (' + data.violations.length + '):</strong></div>';
+                html += '<ul style="font-size:0.8rem;margin:0">';
+                data.violations.slice(0, 10).forEach(v => { html += `<li>[${v.severity}] ${v.check_id}: ${v.message}</li>`; });
+                html += '</ul>';
+            }
+            if (data.files && data.files.length) {
+                html += '<div style="margin-top:12px"><strong>Files (' + data.files.length + '):</strong></div>';
+                html += '<div style="max-height:400px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-top:6px">';
+                data.files.forEach(f => {
+                    html += `<details style="border-bottom:1px solid var(--border)"><summary style="padding:6px 12px;cursor:pointer;font-size:0.8rem;font-family:monospace">${f.path} <span style="color:var(--secondary)">(${f.size_bytes} bytes)</span></summary><pre style="padding:8px 12px;margin:0;font-size:0.75rem;overflow-x:auto;background:var(--card-bg)">${(f.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre></details>`;
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+            document.getElementById('generation-content').innerHTML = html + '<br><button onclick="renderGeneration()" style="padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer">← Back to History</button>';
+        } catch(e) { document.getElementById('generation-content').innerHTML = msg('Error loading run: ' + e.message); }
     }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>

@@ -210,6 +210,45 @@ class DashboardService:
                 logger.error(f"AI usage API error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
+        @self.app.get("/api/generation-history")
+        async def api_generation_history(
+            limit: int = 50,
+            offset: int = 0,
+            success_only: bool = False,
+        ):
+            """API endpoint for intent-to-IaC generation history."""
+            try:
+                from thothctl.services.generate.intent.generation_history import (
+                    get_generation_history,
+                )
+
+                return get_generation_history(
+                    limit=limit, offset=offset, success_only=success_only
+                )
+            except Exception as e:
+                logger.error(f"Generation history API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/generation-results/{run_id}")
+        async def api_generation_result(run_id: str):
+            """API endpoint for a specific generation run (files, stacks, violations)."""
+            try:
+                from thothctl.services.generate.intent.generation_history import (
+                    get_generation_result,
+                )
+
+                result = get_generation_result(run_id)
+                if result is None:
+                    raise HTTPException(
+                        status_code=404, detail=f"Run {run_id} not found"
+                    )
+                return result
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Generation result API error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
     def _get_dashboard_template(self) -> str:
         """Get the dashboard HTML template."""
         template_path = (
