@@ -689,6 +689,14 @@ class PlanRunner:
         import re
         # Remove ANSI escape codes
         text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+        # Security: remove AWS account IDs, ARNs, and resource IDs
+        text = re.sub(r"arn:aws[a-z-]*:[^\s\"',]+", "arn:aws:***:***:***", text)
+        text = re.sub(r"\b\d{12}\b", "***ACCOUNT***", text)
+        text = re.sub(
+            r"(vpc|subnet|sg|igw|rtb|acl|nat|eni|i|vol|snap)-[0-9a-f]{8,17}",
+            r"\1-***",
+            text,
+        )
         # Remove excessive whitespace
         text = " ".join(text.split())
         # Truncate

@@ -203,9 +203,13 @@ class IntentToIaCService:
 
     def _write_files(self, files: List[GeneratedFile], target_dir: str) -> None:
         """Write generated files to the target directory."""
-        target = Path(target_dir)
+        target = Path(target_dir).resolve()
         for f in files:
-            file_path = target / f.path
+            # Security: validate path stays within target directory
+            file_path = (target / f.path).resolve()
+            if not str(file_path).startswith(str(target)):
+                logger.warning(f"Path traversal blocked: {f.path}")
+                continue
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(f.content, encoding="utf-8")
             logger.debug(f"Written: {file_path}")

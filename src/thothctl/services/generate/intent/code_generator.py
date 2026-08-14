@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 class CodeGenerator:
     """Generates IaC code by calling an AI provider."""
 
+    # Security: hard cap on AI calls per service instance
+    _MAX_AI_CALLS = 50
+
     def __init__(self, provider: str = "ollama", model: str = None):
         """Initialize with an AI provider.
 
@@ -29,6 +32,7 @@ class CodeGenerator:
         self.provider_name = provider
         self.model_name = model
         self._provider = None
+        self._ai_call_count = 0
         self._init_ai_provider(provider, model)
 
     def _init_ai_provider(self, provider_name: str, model: str = None) -> None:
@@ -69,6 +73,15 @@ class CodeGenerator:
             logger.error(f"Failed to initialize AI provider '{provider_name}': {e}")
             raise
 
+    def _check_budget(self) -> None:
+        """Check AI call budget. Raises RuntimeError if exceeded."""
+        self._ai_call_count += 1
+        if self._ai_call_count > self._MAX_AI_CALLS:
+            raise RuntimeError(
+                f"AI call budget exceeded ({self._MAX_AI_CALLS} calls). "
+                f"Stopping to prevent runaway costs."
+            )
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -92,12 +105,14 @@ class CodeGenerator:
         logger.debug(f"System prompt length: {len(system_prompt)} chars")
 
         try:
+            self._check_budget()
             raw_result = self._provider.analyze(system_prompt, intent)
             output = self._parse_response(raw_result)
 
             # Retry once if parsing failed (model sometimes returns malformed JSON)
             if not output.files and output.raw_response:
                 logger.warning("First attempt returned no files — retrying generation")
+                self._check_budget()
                 raw_result = self._provider.analyze(system_prompt, intent)
                 output = self._parse_response(raw_result)
 
@@ -146,6 +161,7 @@ class CodeGenerator:
         )
 
         try:
+            self._check_budget()
             raw_result = self._provider.analyze(system_prompt, user_content)
             return self._parse_response(raw_result)
         except Exception as e:

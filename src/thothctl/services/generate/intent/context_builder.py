@@ -314,6 +314,17 @@ class ContextBuilder:
             and "node_modules" not in str(f)
         ]
 
+        # Security: filter out files that may contain secrets
+        _SENSITIVE_PATTERNS = {
+            ".env", "secret", "password", "token", ".tfvars",
+            ".key", "credentials", ".pem", ".pfx", "id_rsa",
+        }
+        target_files = [
+            f
+            for f in target_files
+            if not any(p in str(f).lower() for p in _SENSITIVE_PATTERNS)
+        ]
+
         # Take up to N example files, preferring diverse paths
         seen_parents = set()
         selected = []

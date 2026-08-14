@@ -568,10 +568,16 @@ class GenerationValidator:
     def _create_temp_workspace(self, files: List[GeneratedFile]) -> str:
         """Write generated files to a temp directory, preserving relative paths."""
         temp_dir = tempfile.mkdtemp(prefix="thothctl_validate_")
+        os.chmod(temp_dir, 0o700)  # S8: restrict permissions
         logger.debug(f"Created temp workspace: {temp_dir}")
 
+        temp_root = Path(temp_dir).resolve()
         for f in files:
-            file_path = Path(temp_dir) / f.path
+            # Security: validate path stays within temp directory
+            file_path = (temp_root / f.path).resolve()
+            if not str(file_path).startswith(str(temp_root)):
+                logger.warning(f"Path traversal blocked in temp workspace: {f.path}")
+                continue
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(f.content, encoding="utf-8")
 
