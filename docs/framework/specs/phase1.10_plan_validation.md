@@ -998,6 +998,17 @@ thothctl generate plan-check --directory ./my-project/ --discover
 | Circular dependency crash (ValueError unhandled) | Graceful error message |
 | Context shows 0 tokens in CLI | Now shows correct estimate |
 
+### v0.27.1: Blueprint vs Project Output Mode
+
+| Feature | Implementation |
+|---------|---------------|
+| `--mode blueprint` | Keeps `#{...}#` placeholders — reusable template for Backstage/IDP catalogs |
+| `--mode project` (default) | Resolves all placeholders from space config + intent + defaults |
+| `--space <name>` flag | Loads deployment parameters from `~/.thothcf/spaces/<name>/` |
+| ParameterResolver | Extracts region/env from NL intent, loads space orchestration config, derives backend names |
+| Intent NLP extraction | "in us-east-1" → region, "for production" → environment |
+| Computed derivations | `backend_bucket = {project}-{env}-tfstate`, `dynamodb = {project}-{env}-tflock` |
+
 ---
 
 ## File Structure

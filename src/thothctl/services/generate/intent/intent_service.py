@@ -57,6 +57,8 @@ class IntentToIaCService:
         skip_validation: bool = False,
         include_diagram: bool = True,
         composition: str = "single",
+        output_mode: str = "project",
+        space: Optional[str] = None,
     ) -> IntentResult:
         """Run the full Intent-to-IaC pipeline.
 
@@ -88,6 +90,8 @@ class IntentToIaCService:
                 skip_validation=skip_validation,
                 include_diagram=include_diagram,
                 incremental=(composition == "incremental"),
+                output_mode=output_mode,
+                space=space,
             )
 
         logger.info(
@@ -649,6 +653,8 @@ class IntentToIaCService:
         skip_validation: bool,
         include_diagram: bool,
         incremental: bool = False,
+        output_mode: str = "project",
+        space: Optional[str] = None,
     ) -> IntentResult:
         """Generate a full multi-stack project from a complex intent.
 
@@ -847,6 +853,16 @@ class IntentToIaCService:
                 skip_plan=True,  # Plan already validated per-stack during generation
             )
 
+        # Step 7.5: Resolve #{...}# placeholders when mode=project
+        if output_mode == "project" and all_files:
+            all_files = self._resolve_placeholders(
+                files=all_files,
+                intent=intent,
+                space=space,
+                project_name=self._derive_project_name(output_dir, intent),
+                scaffold_dir=scaffold_loader.scaffold_dir if hasattr(scaffold_loader, 'scaffold_dir') else None,
+            )
+
         # Step 8: Write to disk if --apply
         if apply and all_files:
             self._write_files(all_files, target_dir)
@@ -1040,3 +1056,117 @@ class IntentToIaCService:
             )
         else:
             return f"# {filename} for {stack_name} ({domain})\n"
+
+    # ------------------------------------------------------------------
+    # Placeholder Resolution (blueprint vs project mode)
+    # ------------------------------------------------------------------
+
+    def _resolve_placeholders(
+        self,
+        files: List[GeneratedFile],
+        intent: str,
+        space: Optional[str] = None,
+        project_name: Optional[str] = None,
+        scaffold_dir: Optional[str] = None,
+    ) -> List[GeneratedFile]:
+        """Resolve #{...}# placeholders in all generated files.
+
+        Called when output_mode="project". Replaces template placeholders
+        with concrete values derived from space config, intent, and defaults.
+
+        Args:
+            files: Generated files (may contain #{...}# placeholders).
+            intent: Natural language intent (for extracting region, env, etc.)
+            space: Space name to load config from.
+            project_name: Explicit project name (from output dir or CLI).
+            scaffold_dir: Path to cached scaffold (for loading template_input_parameters).
+
+        Returns:
+            Updated list of GeneratedFile with placeholders resolved.
+        """
+        from .parameter_resolver import ParameterResolver
+
+        # Load scaffold template_input_parameters if available
+        scaffold_params = self._load_scaffold_params(scaffold_dir)
+
+        resolver = ParameterResolver(
+            intent=intent,
+            space_name=space,
+            project_name=project_name,
+            scaffold_params=scaffold_params,
+        )
+
+        values = resolver.resolve_all()
+
+        if not values:
+            logger.debug("No parameter values resolved — skipping placeholder resolution")
+            return files
+
+        # Resolve placeholders in all file contents
+        resolved_files = []
+        for f in files:
+            resolved_content = resolver.resolve_content(f.content, values)
+            resolved_files.append(
+                GeneratedFile(path=f.path, content=resolved_content)
+            )
+
+        # Log any remaining unresolved placeholders
+        for f in resolved_files:
+            unresolved = resolver.has_unresolved(f.content, values)
+            if unresolved:
+                logger.warning(
+                    f"Unresolved placeholders in {f.path}: {unresolved}"
+                )
+
+        logger.info(
+            f"Resolved placeholders in {len(resolved_files)} files "
+            f"(mode=project, values: {list(values.keys())})"
+        )
+
+        return resolved_files
+
+    @staticmethod
+    def _derive_project_name(
+        output_dir: Optional[str], intent: str
+    ) -> Optional[str]:
+        """Derive project name from output directory or intent.
+
+        Priority:
+        1. Last component of output_dir path (e.g., /tmp/vpc-test → "vpc-test")
+        2. First noun-phrase from intent (simplified extraction)
+        """
+        if output_dir:
+            name = Path(output_dir).name
+            if name and name != "." and name != "/":
+                return name
+
+        # Simple extraction from intent: take first 2-3 meaningful words
+        import re
+        words = re.findall(r"[a-z]+", intent.lower())
+        # Skip common filler words
+        skip = {"create", "a", "an", "the", "with", "for", "and", "in", "my", "our"}
+        meaningful = [w for w in words if w not in skip][:3]
+        if meaningful:
+            return "-".join(meaningful)
+
+        return None
+
+    @staticmethod
+    def _load_scaffold_params(scaffold_dir: Optional[str]) -> dict:
+        """Load template_input_parameters from scaffold's .thothcf.toml."""
+        if not scaffold_dir:
+            # Try default scaffold location
+            scaffold_dir = str(
+                Path.home() / ".thothcf" / "terraform_terragrunt_scaffold_project"
+            )
+
+        toml_path = Path(scaffold_dir) / ".thothcf.toml"
+        if not toml_path.exists():
+            return {}
+
+        try:
+            import toml
+            data = toml.load(toml_path)
+            return data.get("template_input_parameters", {})
+        except Exception:
+            return {}

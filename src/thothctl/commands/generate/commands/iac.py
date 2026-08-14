@@ -37,6 +37,8 @@ class GenerateIaCCommand(ClickCommand):
         skip_validation: bool = False,
         include_diagram: bool = True,
         composition: str = "single",
+        mode: str = "project",
+        space: Optional[str] = None,
         plan_validation: Optional[str] = None,
         plan_iam_role: Optional[str] = None,
         plan_profile: Optional[str] = None,
@@ -140,6 +142,8 @@ class GenerateIaCCommand(ClickCommand):
                 skip_validation=skip_validation,
                 include_diagram=include_diagram,
                 composition=composition,
+                output_mode=mode,
+                space=space,
             )
 
         # Display results
@@ -400,6 +404,21 @@ cli = GenerateIaCCommand.as_click_command(
             "'full' generates a complete project with root config, "
             "'incremental' adds stacks to an existing project"
         ),
+    ),
+    click.option(
+        "--mode",
+        type=click.Choice(["blueprint", "project"], case_sensitive=False),
+        default="project",
+        help=(
+            "Output mode: 'blueprint' keeps #{...}# placeholders (reusable template), "
+            "'project' resolves values from space config/intent (ready to deploy). "
+            "Default: project."
+        ),
+    ),
+    click.option(
+        "--space",
+        default=None,
+        help="Space name to load deployment parameters from (for --mode project)",
     ),
     click.option(
         "--plan-validation",
