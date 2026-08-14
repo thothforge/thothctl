@@ -86,9 +86,9 @@ class GenerationValidator:
                 violations.extend(rules_violations)
 
             passed = not any(
-                v.severity in ("CRITICAL", "HIGH") and v.tool == "framework"
+                v.severity in ("CRITICAL", "HIGH")
                 for v in violations
-            ) and not any(v.severity == "CRITICAL" for v in violations)
+            )
 
             # Count per tool
             checkov_failed = sum(1 for v in violations if v.tool == "checkov")

@@ -72,7 +72,7 @@ class TestValidateWithMockedScanners:
         mock_checkov.return_value = []
 
         files = [GeneratedFile("main.tf", 'resource "aws_vpc" "main" {}')]
-        result = self.validator.validate(files)
+        result = self.validator.validate(files, skip_framework_validate=True)
 
         assert result.passed is True
         assert result.total_violations == 0
@@ -90,7 +90,7 @@ class TestValidateWithMockedScanners:
         ]
 
         files = [GeneratedFile("main.tf", "resource {}")]
-        result = self.validator.validate(files)
+        result = self.validator.validate(files, skip_framework_validate=True)
 
         assert result.passed is False
         assert result.total_violations == 2
@@ -119,7 +119,7 @@ class TestValidateWithMockedScanners:
         ]
 
         files = [GeneratedFile("main.tf", "resource {}")]
-        result = self.validator.validate(files, org_policy_dir="/fake/policies")
+        result = self.validator.validate(files, org_policy_dir="/fake/policies", skip_framework_validate=True)
 
         assert result.passed is False
         assert result.total_violations == 2
@@ -132,7 +132,7 @@ class TestValidateWithMockedScanners:
     def test_skip_checkov_flag(self, mock_checkov):
         """skip_checkov=True skips Checkov entirely."""
         files = [GeneratedFile("main.tf", "resource {}")]
-        result = self.validator.validate(files, skip_checkov=True)
+        result = self.validator.validate(files, skip_checkov=True, skip_framework_validate=True)
 
         mock_checkov.assert_not_called()
         assert result.passed is True
@@ -150,7 +150,7 @@ class TestValidateWithMockedScanners:
         mock_checkov.return_value = []
 
         files = [GeneratedFile("main.tf", "resource {}")]
-        result = self.validator.validate(files, org_policy_dir=None)
+        result = self.validator.validate(files, org_policy_dir=None, skip_framework_validate=True)
 
         assert result.passed is True
 
@@ -167,7 +167,7 @@ class TestValidateWithMockedScanners:
         ]
 
         files = [GeneratedFile("main.tf", "resource {}")]
-        result = self.validator.validate(files)
+        result = self.validator.validate(files, skip_framework_validate=True)
 
         ai_text = result.format_for_ai()
         assert "CKV_AWS_130" in ai_text

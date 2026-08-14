@@ -38,7 +38,7 @@ class TestRulesCompilerNaming(unittest.TestCase):
 
         content = open(rego_path).read()
         self.assertIn("package main", content)
-        self.assertIn("deny[msg]", content)
+        self.assertIn("deny contains msg if", content)
         self.assertIn("resource_naming", content)
         self.assertIn("regex.match", content)
         self.assertIn("^(dev|stg|prd)_[a-z_]+$", content)
@@ -61,7 +61,7 @@ class TestRulesCompilerNaming(unittest.TestCase):
         rego_path = os.path.join(self.tmpdir, "naming.rego")
         content = open(rego_path).read()
         # Warning severity → warn instead of deny
-        self.assertIn("warn[msg]", content)
+        self.assertIn("warn contains msg if", content)
         self.assertIn("aws_s3_bucket", content)
 
     def test_disabled_rules_skipped(self):
@@ -106,7 +106,7 @@ class TestRulesCompilerTagging(unittest.TestCase):
 
         content = open(rego_path).read()
         self.assertIn("package main", content)
-        self.assertIn("deny[msg]", content)
+        self.assertIn("deny contains msg if", content)
         self.assertIn("Environment", content)
         self.assertIn("Owner", content)
         self.assertIn("CostCenter", content)
@@ -142,7 +142,7 @@ class TestRulesCompilerSecurity(unittest.TestCase):
 
         content = open(rego_path).read()
         self.assertIn("package main", content)
-        self.assertIn("deny[msg]", content)
+        self.assertIn("deny contains msg if", content)
         self.assertIn("acl.*public", content)
         self.assertIn("publicly_accessible.*true", content)
         self.assertIn("walk(instance", content)
