@@ -66,12 +66,30 @@ class BedrockProvider:
             text = response_body["content"][0]["text"]
             usage = response_body.get("usage", {})
 
+            # Extract JSON from LLM response (may have markdown fences)
+            json_text = text
             if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
+                json_text = text.split("```json")[1].split("```")[0].strip()
             elif "```" in text:
-                text = text.split("```")[1].split("```")[0].strip()
+                json_text = text.split("```")[1].split("```")[0].strip()
 
-            result = json.loads(text)
+            # Try parsing the extracted JSON
+            try:
+                result = json.loads(json_text)
+            except (json.JSONDecodeError, TypeError):
+                # LLM returned malformed JSON (common: unescaped newlines in HCL)
+                # Try repairing unescaped newlines/tabs inside string values
+                repaired = self._repair_json_strings(json_text)
+                try:
+                    result = json.loads(repaired)
+                except (json.JSONDecodeError, TypeError):
+                    # Still can't parse — return raw text for downstream handling
+                    logger.debug(
+                        f"Bedrock response not valid JSON, returning raw text "
+                        f"({len(text)} chars)"
+                    )
+                    return {"response": text, "_raw": text}
+
             input_tokens = usage.get("input_tokens", 0)
             output_tokens = usage.get("output_tokens", 0)
             result["_usage"] = {
@@ -81,6 +99,50 @@ class BedrockProvider:
             s.set_attribute("tokens.input", input_tokens)
             s.set_attribute("tokens.output", output_tokens)
             return result
+
+    @staticmethod
+    def _repair_json_strings(text: str) -> str:
+        """Repair unescaped newlines/tabs in LLM-generated JSON strings.
+
+        LLMs frequently generate JSON with literal newlines inside string
+        values (especially when the string contains HCL/Terraform code).
+        This method escapes them properly.
+        """
+        result = []
+        in_string = False
+        escape_next = False
+
+        for c in text:
+            if escape_next:
+                result.append(c)
+                escape_next = False
+                continue
+            if c == "\\" and in_string:
+                escape_next = True
+                result.append(c)
+                continue
+            if c == '"':
+                in_string = not in_string
+                result.append(c)
+                continue
+            if in_string:
+                if c == "\n":
+                    result.append("\\n")
+                elif c == "\r":
+                    result.append("\\r")
+                elif c == "\t":
+                    result.append("\\t")
+                else:
+                    result.append(c)
+            else:
+                result.append(c)
+
+        import re
+
+        repaired = "".join(result)
+        # Fix trailing commas (another common LLM issue)
+        repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+        return repaired
 
     @property
     def name(self) -> str:

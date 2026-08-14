@@ -252,10 +252,10 @@ class TestDiagramGeneration(unittest.TestCase):
                 content='resource "aws_vpc" "main" {}\nresource "aws_instance" "web" {}\n',
             )
         ]
-        result = self.svc._generate_diagram(tmpdir, files=files)
+        result = self.svc._generate_diagram(tmpdir, files=files, apply=True)
         self.assertIsNotNone(result)
 
-        # Check file was written
+        # Check file was written (only when apply=True)
         diagram_file = os.path.join(tmpdir, "architecture.md")
         self.assertTrue(os.path.exists(diagram_file))
         content = open(diagram_file).read()

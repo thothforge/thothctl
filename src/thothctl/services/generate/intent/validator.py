@@ -28,8 +28,34 @@ logger = logging.getLogger(__name__)
 class GenerationValidator:
     """Validates AI-generated IaC code using framework-native + security tools."""
 
-    def __init__(self):
+    def __init__(self, plan_config: Optional[dict] = None):
+        """Initialize the validator.
+
+        Args:
+            plan_config: Configuration from .thothcf.toml [generation.plan].
+                         If provided and plan_validation != "disabled",
+                         enables terraform plan validation in the pipeline.
+        """
         self._temp_dir: Optional[str] = None
+        self._plan_validator = None
+
+        if plan_config and plan_config.get("plan_validation", "disabled") != "disabled":
+            try:
+                from .plan_validator import PlanValidator
+
+                project_type = plan_config.get("project_type", "terraform-terragrunt")
+                tftool = plan_config.get("tftool", "tofu")
+                self._plan_validator = PlanValidator(
+                    config=plan_config,
+                    project_type=project_type,
+                    tftool=tftool,
+                )
+                logger.info(
+                    f"Plan validation enabled: mode={plan_config.get('plan_validation')}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize plan validator: {e}")
+                self._plan_validator = None
 
     def validate(
         self,
@@ -40,6 +66,8 @@ class GenerationValidator:
         skip_checkov: bool = False,
         skip_opa: bool = False,
         skip_framework_validate: bool = False,
+        skip_plan: bool = False,
+        stack_path: str = "",
     ) -> ValidationResult:
         """Validate generated files using framework-native tools + scanners.
 
@@ -51,6 +79,8 @@ class GenerationValidator:
             skip_checkov: Skip Checkov validation
             skip_opa: Skip OPA validation
             skip_framework_validate: Skip framework-native validation
+            skip_plan: Skip terraform plan validation
+            stack_path: Stack path for per-stack plan validation (terragrunt)
 
         Returns:
             ValidationResult with pass/fail status and violations list
@@ -70,17 +100,29 @@ class GenerationValidator:
                 fw_violations = self._run_framework_validate(temp_dir, project_type)
                 violations.extend(fw_violations)
 
-            # Step 2: Run Checkov (security best practices)
+            # Step 2: Plan validation (deployability — catches errors that
+            # terraform validate misses: invalid attribute combos, provider
+            # constraints, cross-resource reference issues)
+            if not skip_plan and self._plan_validator:
+                plan_violations = self._plan_validator.validate_per_stack(
+                    files=files,
+                    project_dir=project_dir or ".",
+                    stack_path=stack_path,
+                    temp_dir=temp_dir,
+                )
+                violations.extend(plan_violations)
+
+            # Step 3: Run Checkov (security best practices)
             if not skip_checkov:
                 checkov_violations = self._run_checkov(temp_dir)
                 violations.extend(checkov_violations)
 
-            # Step 3: Run OPA/Conftest (org policies)
+            # Step 4: Run OPA/Conftest (org policies)
             if not skip_opa and org_policy_dir:
                 opa_violations = self._run_opa(temp_dir, org_policy_dir)
                 violations.extend(opa_violations)
 
-            # Step 4: Run compiled .thothcf.toml rules (naming, tagging, security, architecture)
+            # Step 5: Run compiled .thothcf.toml rules (naming, tagging, security, architecture)
             if not skip_opa and project_dir:
                 rules_violations = self._run_compiled_rules(temp_dir, project_dir)
                 violations.extend(rules_violations)

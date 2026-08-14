@@ -28,18 +28,22 @@ class IntentToIaCService:
         self,
         provider: str = "ollama",
         model: str = None,
+        plan_config: Optional[dict] = None,
     ):
         """Initialize the service with an AI provider.
 
         Args:
             provider: AI provider name (ollama, bedrock, openai, azure)
             model: Optional model override
+            plan_config: Optional plan validation config from .thothcf.toml [generation.plan].
+                         Enables terraform plan validation when plan_validation != "disabled".
         """
         self.provider = provider
         self.model = model
+        self.plan_config = plan_config
         self.context_builder = ContextBuilder()
         self.code_generator = CodeGenerator(provider=provider, model=model)
-        self.validator = GenerationValidator()
+        self.validator = GenerationValidator(plan_config=plan_config)
 
     def generate(
         self,
@@ -115,6 +119,8 @@ class IntentToIaCService:
 
         if not skip_validation:
             org_policy_dir = self._resolve_org_policy_dir(directory)
+            previous_violation_count = float("inf")
+            stagnation_counter = 0
 
             for i in range(max_iterations if self_correct else 1):
                 iterations = i + 1
@@ -133,6 +139,20 @@ class IntentToIaCService:
                     f"Validation failed: {validation.total_violations} violations "
                     f"(iteration {iterations}/{max_iterations})"
                 )
+
+                # Convergence detection: stop if violations aren't improving
+                current_count = validation.total_violations
+                if current_count >= previous_violation_count:
+                    stagnation_counter += 1
+                    if stagnation_counter >= 3:
+                        logger.info(
+                            "Self-correction stagnated (no improvement in 3 iterations)"
+                            " — stopping"
+                        )
+                        break
+                else:
+                    stagnation_counter = 0
+                previous_violation_count = current_count
 
                 # Self-correct if enabled and not on last iteration
                 if self_correct and i < max_iterations - 1:
@@ -157,6 +177,7 @@ class IntentToIaCService:
                 output_dir or directory,
                 files=generation.files,
                 resources=generation.estimated_resources,
+                apply=apply,
             )
 
         return IntentResult(
@@ -233,6 +254,7 @@ class IntentToIaCService:
         directory: str,
         files: List[GeneratedFile] = None,
         resources: List[str] = None,
+        apply: bool = False,
     ) -> Optional[str]:
         """Generate a Mermaid architecture diagram from generated resources.
 
@@ -258,11 +280,14 @@ class IntentToIaCService:
             # Generate Mermaid diagram
             mermaid = self._build_mermaid_diagram(resource_types)
 
-            # Write to file
-            diagram_path = Path(directory) / "architecture.md"
-            diagram_content = f"# Architecture Diagram\n\n```mermaid\n{mermaid}\n```\n"
-            diagram_path.write_text(diagram_content, encoding="utf-8")
-            logger.info(f"Architecture diagram written to {diagram_path}")
+            # Write to file (only when --apply, not in dry-run)
+            if apply:
+                diagram_path = Path(directory) / "architecture.md"
+                diagram_content = (
+                    f"# Architecture Diagram\n\n```mermaid\n{mermaid}\n```\n"
+                )
+                diagram_path.write_text(diagram_content, encoding="utf-8")
+                logger.info(f"Architecture diagram written to {diagram_path}")
 
             return mermaid
 
@@ -511,12 +536,17 @@ class IntentToIaCService:
         # Always include the composition rules (whether scaffold found or not)
         rules = (
             "COMPOSITION RULES (from scaffold):\n"
-            "- Generate ONLY: main.tf, variables.tf, outputs.tf (flat paths)\n"
-            "- main.tf must contain ONLY resources/modules/data — "
-            "NO terraform{}, provider{}, or backend{} blocks\n"
-            "- Provider and backend are managed by root.hcl (terragrunt generates them)\n"
+            "- Generate EXACTLY these files with STRICT content separation:\n"
+            "  * variables.tf — ONLY variable blocks (all inputs for this stack)\n"
+            "  * main.tf — ONLY resources, modules, data sources, locals\n"
+            "  * outputs.tf — ONLY output blocks (values for dependent stacks)\n"
+            "- NEVER put variable blocks in main.tf\n"
+            "- NEVER put output blocks in main.tf\n"
+            "- NEVER include terraform{}, provider{}, or backend{} blocks "
+            "(managed by root.hcl)\n"
             "- Use var.tags for tags (passed from terragrunt inputs)\n"
             "- Use var.project and var.environment for naming\n"
+            "- File paths must be flat (just filename, no subdirectories)\n"
         )
 
         if example_parts:
@@ -562,9 +592,12 @@ class IntentToIaCService:
         """Fallback composition rules when no scaffold is available."""
         return (
             "COMPOSITION RULES:\n"
-            "- Generate ONLY: main.tf, variables.tf, outputs.tf (flat paths)\n"
-            "- main.tf must contain ONLY resources/modules/data — "
-            "NO terraform{}, provider{}, or backend{} blocks\n"
+            "- Generate EXACTLY these files with STRICT content separation:\n"
+            "  * variables.tf — ONLY variable blocks (all inputs)\n"
+            "  * main.tf — ONLY resources, modules, data sources, locals\n"
+            "  * outputs.tf — ONLY output blocks\n"
+            "- NEVER put variable or output blocks in main.tf\n"
+            "- NEVER include terraform{}, provider{}, or backend{} blocks\n"
             "- Provider and backend are managed by root.hcl (terragrunt generates them)\n"
             "- Use var.tags for tags (passed from terragrunt inputs)\n"
             "- Use var.project and var.environment for naming\n"
@@ -686,7 +719,14 @@ class IntentToIaCService:
 
         # Step 5: Generate code per stack using scaffold examples as context
         all_files = list(structure_files)
-        ordered_stacks = plan.topological_order()
+        try:
+            ordered_stacks = plan.topological_order()
+        except ValueError as e:
+            return IntentResult(
+                success=False,
+                error=f"Circular dependency in stack plan: {e}",
+                context_tokens=context_payload.total_tokens_estimate,
+            )
 
         for stack in ordered_stacks:
             logger.info(f"Generating stack: {stack.path} ({stack.intent[:50]})")
@@ -705,6 +745,7 @@ class IntentToIaCService:
             if stack_generation.files:
                 # Prefix file paths with stack path
                 # Strip any nested path from AI output — keep only filename
+                stack_tf_files = []
                 for f in stack_generation.files:
                     # AI sometimes returns full paths or nested structures
                     # We only want the filename (main.tf, variables.tf, etc.)
@@ -721,7 +762,65 @@ class IntentToIaCService:
                     if resolved_type in ("terraform-terragrunt", "terragrunt"):
                         content = self._strip_terraform_block(content)
                     prefixed_path = f"{stack.path}/{filename}"
-                    all_files.append(GeneratedFile(path=prefixed_path, content=content))
+                    stack_tf_files.append(
+                        GeneratedFile(path=prefixed_path, content=content)
+                    )
+
+                # Per-stack plan validation (if enabled)
+                # Validates this stack via `terragrunt plan` before moving to next
+                if (
+                    not skip_validation
+                    and self.validator._plan_validator
+                    and stack_tf_files
+                ):
+                    max_plan_retries = min(max_iterations, 3)
+                    for plan_attempt in range(max_plan_retries):
+                        plan_violations = (
+                            self.validator._plan_validator.validate_per_stack(
+                                files=stack_tf_files,
+                                project_dir=target_dir,
+                                stack_path=stack.path,
+                            )
+                        )
+                        if not plan_violations:
+                            break  # Plan passed
+
+                        if not self_correct or plan_attempt >= max_plan_retries - 1:
+                            break  # Can't fix or last attempt
+
+                        logger.info(
+                            f"Plan validation failed for {stack.path}: "
+                            f"{len(plan_violations)} violations "
+                            f"(attempt {plan_attempt + 1}/{max_plan_retries})"
+                        )
+                        # Build a ValidationResult for the fix() method
+                        plan_vr = ValidationResult(
+                            passed=False, violations=plan_violations
+                        )
+                        # Re-generate with violation feedback
+                        stack_generation = self.code_generator.fix(
+                            stack_generation, plan_vr, context_text
+                        )
+                        # Re-process the fixed files
+                        stack_tf_files = []
+                        for f in stack_generation.files:
+                            filename = Path(f.path).name
+                            if not filename.endswith((".tf", ".tfvars")):
+                                continue
+                            if filename == "terragrunt.hcl":
+                                continue
+                            content = f.content
+                            if resolved_type in (
+                                "terraform-terragrunt",
+                                "terragrunt",
+                            ):
+                                content = self._strip_terraform_block(content)
+                            prefixed_path = f"{stack.path}/{filename}"
+                            stack_tf_files.append(
+                                GeneratedFile(path=prefixed_path, content=content)
+                            )
+
+                all_files.extend(stack_tf_files)
 
         if not all_files:
             return IntentResult(
@@ -745,6 +844,7 @@ class IntentToIaCService:
                 project_dir=directory,
                 org_policy_dir=org_policy_dir,
                 skip_framework_validate=True,  # Can't run terraform validate on partial project
+                skip_plan=True,  # Plan already validated per-stack during generation
             )
 
         # Step 8: Write to disk if --apply

@@ -256,7 +256,14 @@ class CodeGenerator:
                 try:
                     return json.loads(match.group(1).strip())
                 except (json.JSONDecodeError, TypeError):
-                    continue
+                    # Try repair on fenced content too
+                    repaired = CodeGenerator._repair_json_strings(
+                        match.group(1).strip()
+                    )
+                    try:
+                        return json.loads(repaired)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
 
         # Strategy 3: Find the outermost JSON object via brace matching
         start = text.find("{")
@@ -293,6 +300,48 @@ class CodeGenerator:
             try:
                 return json.loads(text[start:end])
             except (json.JSONDecodeError, TypeError):
-                pass
+                # Try repairing unescaped newlines/tabs in string values
+                repaired = CodeGenerator._repair_json_strings(text[start:end])
+                try:
+                    return json.loads(repaired)
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
         return None
+
+    @staticmethod
+    def _repair_json_strings(text: str) -> str:
+        """Repair unescaped newlines/tabs in LLM-generated JSON strings."""
+        result = []
+        in_string = False
+        escape_next = False
+
+        for c in text:
+            if escape_next:
+                result.append(c)
+                escape_next = False
+                continue
+            if c == "\\" and in_string:
+                escape_next = True
+                result.append(c)
+                continue
+            if c == '"':
+                in_string = not in_string
+                result.append(c)
+                continue
+            if in_string:
+                if c == "\n":
+                    result.append("\\n")
+                elif c == "\r":
+                    result.append("\\r")
+                elif c == "\t":
+                    result.append("\\t")
+                else:
+                    result.append(c)
+            else:
+                result.append(c)
+
+        repaired = "".join(result)
+        # Fix trailing commas
+        repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+        return repaired

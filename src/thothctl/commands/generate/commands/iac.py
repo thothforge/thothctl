@@ -37,6 +37,10 @@ class GenerateIaCCommand(ClickCommand):
         skip_validation: bool = False,
         include_diagram: bool = True,
         composition: str = "single",
+        plan_validation: Optional[str] = None,
+        plan_iam_role: Optional[str] = None,
+        plan_profile: Optional[str] = None,
+        plan_filter: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Execute IaC generation from intent."""
@@ -51,6 +55,15 @@ class GenerateIaCCommand(ClickCommand):
 
         # Determine working directory
         directory = output_dir or "."
+
+        # Build plan validation config (from CLI flags + .thothcf.toml)
+        plan_config = self._build_plan_config(
+            directory=directory,
+            plan_validation=plan_validation,
+            plan_iam_role=plan_iam_role,
+            plan_profile=plan_profile,
+            project_type=project_type,
+        )
 
         # Show intent
         console.print(
@@ -69,7 +82,9 @@ class GenerateIaCCommand(ClickCommand):
         try:
             from ....services.generate.intent.intent_service import IntentToIaCService
 
-            service = IntentToIaCService(provider=provider, model=model)
+            service = IntentToIaCService(
+                provider=provider, model=model, plan_config=plan_config
+            )
         except Exception as e:
             self.ui.print_error(f"Failed to initialize AI provider: {e}")
             return
@@ -106,7 +121,7 @@ class GenerateIaCCommand(ClickCommand):
             self.ui.print_warning("  No org context found — generating with defaults")
 
         self.ui.print_info(
-            f"  📊 Context: ~{payload.total_tokens_estimate} tokens | Type: {payload.project_type}"
+            f"  📊 Context: ~{payload.total_tokens_estimate or self._estimate_tokens(payload)} tokens | Type: {payload.project_type}"
         )
 
         # Generate
@@ -225,6 +240,73 @@ class GenerateIaCCommand(ClickCommand):
                 apply_cmd += f" -o {output_dir}"
             console.print(f"  [dim]{apply_cmd}[/dim]")
 
+    @staticmethod
+    def _estimate_tokens(payload) -> int:
+        """Estimate tokens from payload sections before compile() is called."""
+        total_chars = (
+            len(payload.project_config or "")
+            + len(payload.iac_rules or "")
+            + len(payload.project_overview or "")
+            + len(payload.existing_patterns or "")
+            + len(payload.org_policies or "")
+        )
+        return total_chars // 4  # ~4 chars per token
+
+    def _build_plan_config(
+        self,
+        directory: str,
+        plan_validation: Optional[str],
+        plan_iam_role: Optional[str],
+        plan_profile: Optional[str],
+        project_type: str,
+    ) -> Optional[dict]:
+        """Build plan validation config from CLI flags + .thothcf.toml.
+
+        Priority: CLI flags > env vars > .thothcf.toml > defaults.
+        """
+        import os
+
+        config = {}
+
+        # Try loading from .thothcf.toml
+        try:
+            import toml
+
+            toml_path = os.path.join(directory, ".thothcf.toml")
+            if os.path.exists(toml_path):
+                with open(toml_path, "r") as f:
+                    toml_data = toml.load(f)
+                config = toml_data.get("generation", {}).get("plan", {})
+        except Exception:
+            pass
+
+        # CLI flag overrides
+        if plan_validation:
+            config["plan_validation"] = plan_validation
+        elif os.environ.get("THOTH_PLAN_VALIDATION"):
+            config["plan_validation"] = os.environ["THOTH_PLAN_VALIDATION"]
+
+        if plan_iam_role:
+            config["iam_assume_role"] = plan_iam_role
+        elif os.environ.get("THOTH_PLAN_IAM_ROLE"):
+            config["iam_assume_role"] = os.environ["THOTH_PLAN_IAM_ROLE"]
+
+        # AWS profile support (for named profiles in ~/.aws/credentials)
+        if plan_profile:
+            config["aws_profile"] = plan_profile
+        elif os.environ.get("THOTH_PLAN_AWS_PROFILE"):
+            config["aws_profile"] = os.environ["THOTH_PLAN_AWS_PROFILE"]
+
+        # Always pass project type for routing
+        config["project_type"] = project_type
+
+        # Return None if disabled (or not configured at all)
+        mode = config.get("plan_validation", "disabled")
+        if mode == "disabled":
+            return None
+
+        return config
+
 
 # Create the Click command
 cli = GenerateIaCCommand.as_click_command(
@@ -318,5 +400,34 @@ cli = GenerateIaCCommand.as_click_command(
             "'full' generates a complete project with root config, "
             "'incremental' adds stacks to an existing project"
         ),
+    ),
+    click.option(
+        "--plan-validation",
+        type=click.Choice(
+            ["disabled", "per-stack", "full-project", "terraform"],
+            case_sensitive=False,
+        ),
+        default=None,
+        help=(
+            "Plan validation mode. 'per-stack': terragrunt plan per stack; "
+            "'full-project': terragrunt run --all -- plan; "
+            "'terraform': terraform plan for non-terragrunt projects. "
+            "Default: from .thothcf.toml or disabled."
+        ),
+    ),
+    click.option(
+        "--plan-iam-role",
+        default=None,
+        help="IAM role ARN for temporal credentials during plan validation",
+    ),
+    click.option(
+        "--plan-profile",
+        default=None,
+        help="AWS CLI profile name for plan validation (uses default credential chain if not set)",
+    ),
+    click.option(
+        "--plan-filter",
+        default=None,
+        help="Terragrunt filter pattern for targeted plan validation",
     ),
 )

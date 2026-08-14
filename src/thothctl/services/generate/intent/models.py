@@ -97,6 +97,7 @@ class ValidationResult:
 
         # Group by tool for clarity
         framework_violations = [v for v in self.violations if v.tool == "framework"]
+        plan_violations = [v for v in self.violations if v.tool == "plan"]
         security_violations = [v for v in self.violations if v.tool == "checkov"]
         policy_violations = [v for v in self.violations if v.tool == "opa"]
 
@@ -110,6 +111,18 @@ class ValidationResult:
                     f"\n    Error: {v.message}"
                     f"\n    Fix: Correct the syntax/schema error. Check resource "
                     f"types, required attributes, and references."
+                )
+
+        if plan_violations:
+            lines.append("\n## PLAN/DEPLOYABILITY ERRORS (fix after schema errors):")
+            for v in plan_violations:
+                fix_hint = self._get_plan_fix_hint(v.message)
+                lines.append(
+                    f"  - [{v.severity}] {v.check_id}"
+                    f"{' in ' + v.file_path if v.file_path else ''}"
+                    f"{' (resource: ' + v.resource + ')' if v.resource else ''}"
+                    f"\n    Error: {v.message}"
+                    f"\n    Fix: {fix_hint}"
                 )
 
         if security_violations:
@@ -165,6 +178,69 @@ class ValidationResult:
             "CKV_AWS_157": "Set deletion_protection = true on RDS",
         }
         return hints.get(check_id, "Add missing security configuration")
+
+    @staticmethod
+    def _get_plan_fix_hint(error_message: str) -> str:
+        """Return a fix hint based on plan error message patterns.
+
+        Plan errors are provider-specific and not mapped to IDs like Checkov.
+        We pattern-match the error message to provide actionable guidance.
+        """
+        msg_lower = error_message.lower()
+
+        # Instance type errors
+        if "instance type" in msg_lower or "instance_type" in msg_lower:
+            return (
+                "Use a valid instance type for the region. "
+                "Common types: t3.micro, t3.small, m5.large, r5.large"
+            )
+
+        # AZ availability
+        if "availability zone" in msg_lower or "not available" in msg_lower:
+            return (
+                "The specified resource configuration is not available in this AZ. "
+                "Try a different AZ or instance type."
+            )
+
+        # Missing required attribute
+        if "required" in msg_lower and ("attribute" in msg_lower or "argument" in msg_lower):
+            return "Add the missing required attribute to the resource block."
+
+        # Reference errors
+        if "reference" in msg_lower or "not found" in msg_lower:
+            return (
+                "Fix the resource reference. Ensure the target resource exists "
+                "and the attribute name is correct (e.g., .id, .arn, .name)."
+            )
+
+        # Security group
+        if "security_group" in msg_lower:
+            return (
+                "Check security group configuration. Ensure security_group_id "
+                "references an existing group or use self/source_security_group_id."
+            )
+
+        # CIDR / networking
+        if "cidr" in msg_lower or "invalid cidr" in msg_lower:
+            return "Use valid CIDR notation (e.g., 10.0.0.0/16, 10.0.1.0/24)."
+
+        # Duplicate resource
+        if "already exists" in msg_lower or "duplicate" in msg_lower:
+            return "Resource name conflicts with existing infrastructure. Use a unique name."
+
+        # Dependency / cycle
+        if "cycle" in msg_lower or "circular" in msg_lower:
+            return "Break the circular dependency between resources. Use depends_on explicitly."
+
+        # IAM
+        if "iam" in msg_lower and ("policy" in msg_lower or "role" in msg_lower):
+            return "Check IAM policy/role configuration. Ensure valid JSON policy document."
+
+        # Generic
+        return (
+            "Review the resource configuration against the provider documentation. "
+            "Fix the specific attribute or reference mentioned in the error."
+        )
 
 
 @dataclass
@@ -240,3 +316,66 @@ class ContextPayload:
         compiled = "# Organizational Context\n\n" + "\n\n".join(sections)
         self.total_tokens_estimate = len(compiled) // 4  # ~4 chars per token estimate
         return compiled
+
+
+# ============================================================
+# Plan Validation Models (Phase 1.10)
+# ============================================================
+
+
+class PlanMode(Enum):
+    """Plan validation execution modes."""
+
+    DISABLED = "disabled"
+    PER_STACK = "per-stack"
+    FULL_PROJECT = "full-project"
+    TERRAFORM = "terraform"
+
+
+@dataclass
+class PlanContext:
+    """Execution context for plan validation.
+
+    Determines HOW and WHERE plan runs:
+    - For terragrunt: in-place in the project directory (terragrunt handles backend/provider)
+    - For terraform: in a temp workspace with backend configured
+    """
+
+    mode: PlanMode
+    work_dir: str  # Directory where plan will execute
+    project_type: str  # "terraform-terragrunt", "terragrunt", "terraform"
+    stack_path: str = ""  # Relative stack path (for terragrunt per-stack)
+    is_in_place: bool = False  # True if files are written to real project dir
+    written_files: List[str] = field(default_factory=list)  # For rollback tracking
+
+
+@dataclass
+class StateConfig:
+    """Resolved state backend configuration."""
+
+    backend_type: str = "none"  # "s3", "local", "gcs", "azurerm", "none"
+    config: Dict[str, str] = field(default_factory=dict)
+    existing: bool = False  # Whether there's existing state to read
+
+
+@dataclass
+class PlanResult:
+    """Result of a plan validation execution."""
+
+    violations: List["Violation"] = field(default_factory=list)
+    plan_succeeded: bool = False
+    resources_to_create: int = 0
+    resources_to_update: int = 0
+    resources_to_destroy: int = 0
+    execution_time_seconds: float = 0.0
+    skipped: bool = False
+    skip_reason: str = ""
+
+    @property
+    def has_errors(self) -> bool:
+        """True if plan found blocking errors."""
+        return any(v.severity in ("CRITICAL", "HIGH") for v in self.violations)
+
+    def to_violations(self) -> List["Violation"]:
+        """Return violations list (for integration with GenerationValidator)."""
+        return self.violations

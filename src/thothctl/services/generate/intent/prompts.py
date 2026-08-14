@@ -14,16 +14,20 @@ Generate complete, deployable {project_type} code following organizational stand
 {context}
 
 INSTRUCTIONS:
-1. Generate ALL required files for a complete, working stack
+1. Generate SEPARATE files with strict content rules:
+   - variables.tf: ONLY variable blocks (inputs for the stack)
+   - main.tf: ONLY resources, modules, data sources, and locals — NO variables, NO outputs
+   - outputs.tf: ONLY output blocks (values exported for other stacks)
 2. Use official modules when available (terraform-aws-modules, aws-ia)
 3. Pin exact versions on all module sources (e.g., version = "5.17.0")
 4. Include all mandatory tags specified in the organizational rules
 5. Follow naming conventions from the project configuration
 6. Generate production-ready code with proper variable definitions and outputs
-7. For terragrunt: include proper include "root", dependency blocks with mock_outputs, locals, and inputs
+7. For terragrunt stacks: do NOT include terraform{{}}, provider{{}}, or backend{{}} blocks — those are managed by root.hcl
 8. For terraform: include complete provider configuration and resource definitions
 9. For cloudformation: use proper AWSTemplateFormatVersion, Parameters, Resources, Outputs structure
 10. Match the style of the existing patterns shown above
+11. CRITICAL: Each file must contain ONLY its designated content type. Never mix variables/outputs into main.tf.
 
 OUTPUT FORMAT — respond with ONLY this JSON (no markdown fences, no explanation outside JSON):
 {{
