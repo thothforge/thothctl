@@ -427,19 +427,46 @@ class IntentToIaCService:
     def _load_scaffold_example(self, project_type: str, stack) -> str:
         """Load a real scaffold example as few-shot context for per-stack generation.
 
-        Searches cached scaffolds for a similar stack and returns its files
-        as an example the AI should follow. This makes the scaffold the single
-        source of truth for code structure — not hardcoded prompts.
+        Fetches the official scaffold from GitHub (cached locally) and uses its
+        real stack files as examples the AI should follow. The scaffold IS the
+        source of truth for code structure.
+
+        Resolution order:
+        1. Local cache (~/.thothcf/<scaffold_name>/)
+        2. Auto-clone from GitHub (thothforge org) on first use
         """
         from pathlib import Path
 
-        # Search scaffold cache for matching examples
-        scaffold_cache = Path.home() / ".thothcf"
-        scaffold_names = {
-            "terraform-terragrunt": "terraform_terragrunt_scaffold_project",
-            "terragrunt": "terraform_terragrunt_scaffold_project",
+        # Official scaffolds per project type
+        scaffold_registry = {
+            "terraform-terragrunt": {
+                "name": "terraform_terragrunt_scaffold_project",
+                "repo": "thothforge/terraform_terragrunt_scaffold_project",
+            },
+            "terragrunt": {
+                "name": "terraform_terragrunt_scaffold_project",
+                "repo": "thothforge/terraform_terragrunt_scaffold_project",
+            },
+            "terraform": {
+                "name": "terraform_project_scaffold",
+                "repo": "thothforge/terraform_project_scaffold",
+            },
+            "cdkv2": {
+                "name": "cdkv2_typescript_scaffold",
+                "repo": "thothforge/cdkv2_typescript_scaffold",
+            },
         }
-        scaffold_dir = scaffold_cache / scaffold_names.get(project_type, "")
+
+        scaffold_info = scaffold_registry.get(project_type)
+        if not scaffold_info:
+            return self._default_composition_rules()
+
+        scaffold_cache = Path.home() / ".thothcf"
+        scaffold_dir = scaffold_cache / scaffold_info["name"]
+
+        # Auto-fetch scaffold from GitHub if not cached
+        if not scaffold_dir.exists() or not list(scaffold_dir.rglob("*.tf")):
+            scaffold_dir = self._fetch_scaffold(scaffold_info["repo"], scaffold_dir)
 
         example_parts = []
 
@@ -500,6 +527,48 @@ class IntentToIaCService:
             )
         else:
             return rules
+
+    @staticmethod
+    def _fetch_scaffold(repo: str, target_dir) -> "Path":
+        """Fetch official scaffold from GitHub via gh CLI (cached locally)."""
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        target = Path(target_dir)
+
+        if shutil.which("gh"):
+            try:
+                logger.info(f"Fetching scaffold from github.com/{repo}...")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                result = subprocess.run(
+                    ["gh", "repo", "clone", repo, str(target), "--", "--depth=1"],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                if result.returncode == 0:
+                    logger.info(f"Scaffold cached at {target}")
+                    return target
+                else:
+                    logger.warning(f"Failed to fetch scaffold: {result.stderr[:200]}")
+            except Exception as e:
+                logger.warning(f"Scaffold fetch failed: {e}")
+
+        return target
+
+    @staticmethod
+    def _default_composition_rules() -> str:
+        """Fallback composition rules when no scaffold is available."""
+        return (
+            "COMPOSITION RULES:\n"
+            "- Generate ONLY: main.tf, variables.tf, outputs.tf (flat paths)\n"
+            "- main.tf must contain ONLY resources/modules/data — "
+            "NO terraform{}, provider{}, or backend{} blocks\n"
+            "- Provider and backend are managed by root.hcl (terragrunt generates them)\n"
+            "- Use var.tags for tags (passed from terragrunt inputs)\n"
+            "- Use var.project and var.environment for naming\n"
+        )
 
     @staticmethod
     def _strip_terraform_block(content: str) -> str:
