@@ -521,7 +521,7 @@ class IntentToIaCService:
 
         if example_parts:
             return (
-                f"FOLLOW THIS SCAFFOLD PATTERN (from your org's official scaffold):\n\n"
+                "FOLLOW THIS SCAFFOLD PATTERN (from your org's official scaffold):\n\n"
                 + "\n\n".join(example_parts[:3])  # Max 3 files as example
                 + f"\n\n{rules}"
             )
@@ -619,27 +619,41 @@ class IntentToIaCService:
     ) -> IntentResult:
         """Generate a full multi-stack project from a complex intent.
 
-        1. Build context
-        2. Decompose intent into stacks (AI call)
-        3. Generate code per stack (AI call per stack)
-        4. Assemble project structure (deterministic)
-        5. Validate + write
+        Uses scaffold-driven generation:
+        1. Load scaffold structure (deterministic skeleton)
+        2. Build context
+        3. Decompose intent into stacks (AI call)
+        4. Assemble project structure using scaffold boilerplate (deterministic)
+        5. Generate code per stack using scaffold examples as context (AI per stack)
+        6. Post-process: validate completeness against scaffold rules
+        7. Validate + write
         """
-        from .composition_models import CompositionPlan
         from .intent_decomposer import IntentDecomposer
         from .project_assembler import ProjectAssembler
+        from .scaffold_loader import ScaffoldLoader
 
         logger.info(
             f"Composition generation: '{intent[:80]}' "
             f"(type={project_type}, mode={'incremental' if incremental else 'full'})"
         )
 
-        # Step 1: Build context
+        # Step 1: Load scaffold structure (deterministic skeleton)
+        # The scaffold defines the project skeleton — AI only fills resource content.
+        scaffold_loader = ScaffoldLoader(project_type=project_type)
+        scaffold = scaffold_loader.load()
+        logger.info(
+            f"Scaffold loaded: {scaffold.project_type} "
+            f"(root_files={len(scaffold.root_files)}, "
+            f"boilerplate={len(scaffold.boilerplate)}, "
+            f"examples={len(scaffold.examples)})"
+        )
+
+        # Step 2: Build context
         context_payload = self.context_builder.build_context(directory, project_type)
         context_text = context_payload.compile()
         resolved_type = context_payload.project_type
 
-        # Step 2: Decompose intent into stacks
+        # Step 3: Decompose intent into stacks
         decomposer = IntentDecomposer(provider=self.provider, model=self.model)
         plan = decomposer.decompose(intent, resolved_type, context_text)
 
@@ -664,23 +678,22 @@ class IntentToIaCService:
             plan.needs_root_config = False
             plan.needs_common = False
 
-        # Step 3: Assemble project structure (root.hcl, common/, terragrunt.hcl per stack)
+        # Step 4: Assemble project structure using scaffold boilerplate
         assembler = ProjectAssembler(project_type=resolved_type)
         structure_files = assembler.assemble(
-            plan, target_dir, existing_project=incremental
+            plan, target_dir, existing_project=incremental, scaffold=scaffold
         )
 
-        # Step 4: Generate code per stack (AI calls)
+        # Step 5: Generate code per stack using scaffold examples as context
         all_files = list(structure_files)
         ordered_stacks = plan.topological_order()
 
         for stack in ordered_stacks:
             logger.info(f"Generating stack: {stack.path} ({stack.intent[:50]})")
 
-            # Load scaffold example as few-shot pattern
-            # The scaffold IS the source of truth, not hardcoded prompts
-            scaffold_example = self._load_scaffold_example(resolved_type, stack)
-            stack_intent = f"{stack.intent}\n\n{scaffold_example}"
+            # Build scaffold context for this stack from loaded scaffold
+            scaffold_context = self._build_scaffold_context(scaffold, stack)
+            stack_intent = f"{stack.intent}\n\n{scaffold_context}"
 
             # Generate the Terraform code for this stack
             stack_generation = self.code_generator.generate(
@@ -717,7 +730,12 @@ class IntentToIaCService:
                 context_tokens=context_payload.total_tokens_estimate,
             )
 
-        # Step 5: Validate (optional)
+        # Step 6: Post-process — ensure completeness against scaffold rules
+        all_files = self._ensure_scaffold_completeness(
+            all_files, scaffold, ordered_stacks
+        )
+
+        # Step 7: Validate (optional)
         validation = ValidationResult(passed=True)
         if not skip_validation:
             org_policy_dir = self._resolve_org_policy_dir(directory)
@@ -729,12 +747,12 @@ class IntentToIaCService:
                 skip_framework_validate=True,  # Can't run terraform validate on partial project
             )
 
-        # Step 6: Write to disk if --apply
+        # Step 8: Write to disk if --apply
         if apply and all_files:
             self._write_files(all_files, target_dir)
             logger.info(f"Project written to: {target_dir}")
 
-        # Step 7: Generate diagram
+        # Step 9: Generate diagram
         diagram = None
         if include_diagram and all_files:
             resources = []
@@ -757,3 +775,168 @@ class IntentToIaCService:
             generation_tokens=sum(len(f.content) // 4 for f in all_files),
             diagram=diagram,
         )
+
+    # ------------------------------------------------------------------
+    # Scaffold-driven helpers (Tasks 3-6)
+    # ------------------------------------------------------------------
+
+    def _build_scaffold_context(self, scaffold, stack) -> str:
+        """Build scaffold context for per-stack generation from ScaffoldStructure.
+
+        Uses scaffold.examples to find the best matching few-shot pattern for
+        the current stack (by domain/layer/name similarity). Falls back to
+        composition rules if no example matches.
+
+        Args:
+            scaffold: ScaffoldStructure with examples and rules.
+            stack: StackPlan being generated.
+
+        Returns:
+            Prompt section with scaffold examples and rules.
+        """
+
+        example_parts = []
+
+        if scaffold.examples:
+            # Find best matching examples: prefer same domain, then same layer
+            scored_examples = []
+            for rel_path, content in scaffold.examples.items():
+                score = 0
+                path_lower = rel_path.lower()
+                if stack.domain and stack.domain in path_lower:
+                    score += 3
+                if stack.name and stack.name in path_lower:
+                    score += 5
+                if stack.layer and stack.layer in path_lower:
+                    score += 2
+                scored_examples.append((score, rel_path, content))
+
+            # Sort by score descending, take top 3
+            scored_examples.sort(key=lambda x: x[0], reverse=True)
+            for _score, rel_path, content in scored_examples[:3]:
+                example_parts.append(
+                    f"### Scaffold example: {rel_path}\n```hcl\n{content.strip()}\n```"
+                )
+
+        # Build composition rules from scaffold metadata
+        required_files = ", ".join(scaffold.stack_required_files) or (
+            "main.tf, variables.tf, outputs.tf"
+        )
+        rules = (
+            f"COMPOSITION RULES (from scaffold):\n"
+            f"- Generate ONLY these files: {required_files}\n"
+            f"- main.tf must contain ONLY resources/modules/data — "
+            f"NO terraform{{}}, provider{{}}, or backend{{}} blocks\n"
+            f"- Provider and backend are managed by root.hcl (terragrunt generates them)\n"
+            f"- Use var.tags for tags (passed from terragrunt inputs)\n"
+            f"- Use var.project and var.environment for naming\n"
+        )
+
+        if example_parts:
+            return (
+                "FOLLOW THIS SCAFFOLD PATTERN (from your org's official scaffold):\n\n"
+                + "\n\n".join(example_parts)
+                + f"\n\n{rules}"
+            )
+        else:
+            return rules
+
+    def _ensure_scaffold_completeness(
+        self, files: List[GeneratedFile], scaffold, ordered_stacks
+    ) -> List[GeneratedFile]:
+        """Ensure all stacks have the required files per scaffold rules.
+
+        If the AI missed generating a required file (e.g., outputs.tf),
+        add a placeholder so the project structure is complete.
+
+        Args:
+            files: All generated files so far.
+            scaffold: ScaffoldStructure with stack_required_files.
+            ordered_stacks: Stacks in the plan.
+
+        Returns:
+            Updated file list with any missing required files added.
+        """
+        if not scaffold.stack_required_files:
+            return files
+
+        # Build a set of existing file paths
+        existing_paths = {f.path for f in files}
+        added = []
+
+        for stack in ordered_stacks:
+            for required_file in scaffold.stack_required_files:
+                # terragrunt.hcl is handled by the assembler
+                if required_file == "terragrunt.hcl":
+                    continue
+
+                expected_path = f"{stack.path}/{required_file}"
+                if expected_path not in existing_paths:
+                    # Generate a minimal placeholder
+                    placeholder = self._placeholder_for_file(
+                        required_file, stack.name, stack.domain
+                    )
+                    added.append(GeneratedFile(path=expected_path, content=placeholder))
+                    logger.info(
+                        f"Scaffold completeness: added missing {expected_path}"
+                    )
+
+        if added:
+            logger.info(
+                f"Post-processing added {len(added)} missing required files"
+            )
+
+        return files + added
+
+    @staticmethod
+    def _placeholder_for_file(filename: str, stack_name: str, domain: str) -> str:
+        """Generate a minimal placeholder for a missing required file.
+
+        Args:
+            filename: The required filename (e.g., "variables.tf", "outputs.tf").
+            stack_name: Stack name for contextual comments.
+            domain: Stack domain for contextual comments.
+
+        Returns:
+            Minimal valid HCL content for the file.
+        """
+        if filename == "variables.tf":
+            return (
+                f"# Variables for {stack_name} ({domain})\n"
+                f"# Generated placeholder — populate with required inputs\n\n"
+                f'variable "project" {{\n'
+                f'  description = "Project name"\n'
+                f'  type        = string\n'
+                f"}}\n\n"
+                f'variable "environment" {{\n'
+                f'  description = "Environment name"\n'
+                f'  type        = string\n'
+                f"}}\n\n"
+                f'variable "tags" {{\n'
+                f'  description = "Common tags for all resources"\n'
+                f'  type        = map(string)\n'
+                f"  default     = {{}}\n"
+                f"}}\n"
+            )
+        elif filename == "outputs.tf":
+            return (
+                f"# Outputs for {stack_name} ({domain})\n"
+                f"# Generated placeholder — add outputs consumed by dependent stacks\n"
+            )
+        elif filename == "main.tf":
+            return (
+                f"# Main resources for {stack_name} ({domain})\n"
+                f"# Generated placeholder — add resource definitions\n"
+            )
+        elif filename == "README.md":
+            return (
+                f"# {stack_name}\n\n"
+                f"Stack for {domain} resources.\n\n"
+                f"## Usage\n\n"
+                f"```bash\n"
+                f"terragrunt plan\n"
+                f"terragrunt apply\n"
+                f"```\n"
+            )
+        else:
+            return f"# {filename} for {stack_name} ({domain})\n"

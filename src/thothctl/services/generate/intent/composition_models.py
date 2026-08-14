@@ -8,7 +8,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-
 # Canonical layer ordering (lower index = deployed first)
 LAYER_ORDER: Dict[str, int] = {
     "foundation": 0,
