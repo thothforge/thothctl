@@ -40,7 +40,7 @@ The AI produces compliant code because your organizational rules are injected di
 | `--intent` | `-i` | (required) | What infrastructure to create |
 | `--project-type` | `-pt` | auto | `terraform`, `terraform-terragrunt`, `terragrunt`, `cloudformation`, `cdkv2` |
 | `--provider` | `-p` | ollama | AI provider: `ollama`, `bedrock`, `openai`, `azure` |
-| `--model` | `-m` | (provider default) | Model override (e.g., `llama3`, `claude-sonnet-4-20250514`) |
+| `--model` | `-m` | (provider default) | Model override (e.g., `llama3`, `us.anthropic.claude-sonnet-4-6`) |
 | `--output-dir` | `-o` | current dir | Where to write generated files |
 | `--dry-run / --no-dry-run` | | dry-run | Preview without writing |
 | `--apply` | | off | Write files to disk |
@@ -48,6 +48,13 @@ The AI produces compliant code because your organizational rules are injected di
 | `--max-iterations` | | 3 | Maximum self-correction attempts |
 | `--skip-validation` | | off | Skip Checkov/OPA (trust AI output) |
 | `--include-diagram / --no-diagram` | | on | Generate architecture diagram |
+| `--composition` | | single | `single` (one stack), `full` (multi-stack project), `incremental` (add stacks to existing) |
+| `--mode` | | project | `blueprint` (template with `#{...}#` placeholders) or `project` (resolved, ready to deploy) |
+| `--space` | | — | Space name to load deployment parameters (for project mode) |
+| `--plan-validation` | | disabled | `disabled`, `per-stack`, `full-project`, `terraform` |
+| `--plan-profile` | | — | AWS profile for plan validation credentials |
+| `--plan-iam-role` | | — | IAM role ARN for temporal credentials during plan |
+| `--plan-filter` | | — | Terragrunt filter for targeted stack validation |
 
 ## Examples
 
@@ -91,6 +98,168 @@ The self-correction loop ensures:
 - ✅ Public access blocked (CKV_AWS_53, CKV_AWS_54, CKV_AWS_55, CKV_AWS_56)
 - ✅ Versioning enabled (CKV_AWS_21)
 - ✅ Logging configured (CKV_AWS_18)
+
+## Composition Mode (v0.26.1+)
+
+Generate entire multi-stack projects from a single intent:
+
+```bash
+# Full project: root.hcl + common/ + multiple stacks with dependencies
+thothctl generate iac \
+  -i "Create a microservices platform with VPC, EKS, RDS, and ElastiCache" \
+  --composition full \
+  -p bedrock -m us.anthropic.claude-sonnet-4-6 \
+  --apply -o ./my-platform
+```
+
+Generates:
+```
+my-platform/
+├── root.hcl                          # Backend + provider config
+├── common/common.hcl                 # Shared variables and locals
+├── common/common.tfvars              # Deployment parameters
+├── .gitignore
+├── .pre-commit-config.yaml
+└── stacks/
+    ├── foundation/networking/vpc/
+    │   ├── terragrunt.hcl            # include root, inputs
+    │   ├── main.tf                   # terraform-aws-modules/vpc/aws
+    │   ├── variables.tf              # ONLY variable blocks
+    │   └── outputs.tf                # ONLY output blocks
+    ├── platform/compute/eks/
+    │   ├── terragrunt.hcl            # dependency on vpc
+    │   ├── main.tf
+    │   ├── variables.tf
+    │   └── outputs.tf
+    └── platform/data/rds/
+        ├── terragrunt.hcl            # dependency on vpc
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+```
+
+**Composition modes:**
+- `single` — one stack (default)
+- `full` — complete project with root config, common, and multiple stacks
+- `incremental` — add stacks to an existing project
+
+## Blueprint vs Project Mode (v0.27.1+)
+
+Control whether output is a reusable template or a ready-to-deploy project:
+
+### Project Mode (default)
+
+```bash
+thothctl generate iac \
+  -i "VPC with subnets in us-east-1 for production" \
+  --mode project \
+  --space labvel-devsecops \
+  --composition full \
+  --apply -o ./vpc-prod
+```
+
+Output has **resolved values** from space config + intent:
+```hcl
+# common/common.hcl
+locals {
+  profile           = "labvel-devsecops"   # From --space
+  project           = "vpc-prod"           # From --output-dir
+  deployment_region = "us-east-1"          # Extracted from intent
+  environment       = "prod"              # Extracted from "for production"
+}
+```
+
+### Blueprint Mode
+
+```bash
+thothctl generate iac \
+  -i "VPC with subnets" \
+  --mode blueprint \
+  --composition full \
+  --apply -o ./vpc-template
+```
+
+Output keeps **`#{...}#` placeholders** (for Backstage, `thothctl init project`, or CI/CD):
+```hcl
+# common/common.hcl
+locals {
+  profile           = "#{deployment_profile}#"
+  project           = "#{project_name}#"
+  deployment_region = "#{deployment_region}#"
+}
+```
+
+### Value Resolution (Project Mode)
+
+Values are resolved from these sources (priority order):
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | Intent NLP extraction | "in us-east-1" → `deployment_region` |
+| 2 | Space config | `~/.thothcf/spaces/<name>/orchestration/terragrunt.toml` |
+| 3 | CLI flags | `--output-dir vpc-prod` → `project_name` |
+| 4 | Scaffold defaults | `template_input_parameters.template_value` |
+
+## Plan Validation (v0.27.0+)
+
+Validate generated code with `terraform/terragrunt plan` before output:
+
+```bash
+# Per-stack: runs terragrunt plan on each generated stack
+thothctl generate iac \
+  -i "VPC with subnets" \
+  --composition full \
+  --plan-validation per-stack \
+  --plan-profile labvel-devsecops
+
+# Full-project: runs terragrunt run --all -- plan --graph (DAG-aware)
+thothctl generate iac \
+  -i "VPC with subnets" \
+  --composition full \
+  --plan-validation full-project
+
+# With IAM role for temporal credentials (15-min session)
+thothctl generate iac \
+  -i "VPC with subnets" \
+  --plan-validation per-stack \
+  --plan-iam-role arn:aws:iam::123456789012:role/thothctl-plan-readonly
+```
+
+**Plan validation modes:**
+
+| Mode | What it does | Requires |
+|------|-------------|----------|
+| `disabled` (default) | No plan | Nothing |
+| `per-stack` | `terragrunt plan` per stack during generation | AWS credentials + terragrunt |
+| `full-project` | `terragrunt run --all -- plan --graph` after all stacks | AWS credentials + terragrunt |
+| `terraform` | `terraform plan` for non-terragrunt projects | AWS credentials + terraform/tofu |
+
+When plan fails, violations are fed back to the AI for self-correction (same loop as Checkov/OPA).
+
+### Configuration (`.thothcf.toml`)
+
+```toml
+[generation.plan]
+plan_validation = "per-stack"
+iam_assume_role = "arn:aws:iam::123456789012:role/plan-readonly"
+session_duration = 900
+provider_cache = true
+plan_timeout = 120
+```
+
+## Dashboard Integration (v0.27.4+)
+
+Every generation run is recorded and viewable in the ThothCTL dashboard:
+
+```bash
+thothctl dashboard launch
+# Navigate to ✨ Generation tab
+```
+
+The dashboard shows:
+- **Metrics**: total runs, success rate, avg duration, token usage
+- **History table**: intent, type, mode, status, files generated
+- **Detail view**: stacks, violations, collapsible file browser with syntax preview
 
 ### CloudFormation
 

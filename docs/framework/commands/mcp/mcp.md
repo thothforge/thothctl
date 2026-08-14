@@ -123,7 +123,7 @@ Check the status of the MCP server on a custom port:
 thothctl mcp status --port 9090
 ```
 
-## Available Tools (22)
+## Available Tools (26)
 
 The MCP server exposes the following ThothCTL commands as tools for AI assistants:
 
@@ -146,6 +146,12 @@ The MCP server exposes the following ThothCTL commands as tools for AI assistant
 | `thothctl_list_spaces` | List all spaces |
 | `thothctl_get_projects_in_space` | Get projects in a specific space |
 | `thothctl_list_templates` | List available templates from VCS providers |
+
+### Intent-to-IaC Generation
+| Tool | Description |
+|------|-------------|
+| `thothctl_generate_iac` | Generate governed IaC from natural language intent (see below) |
+| `thothctl_generate_stacks` | Generate infrastructure stacks from YAML config |
 
 ### Security & Compliance
 | Tool | Description |
@@ -171,13 +177,40 @@ The MCP server exposes the following ThothCTL commands as tools for AI assistant
 |------|-------------|
 | `thothctl_inventory_iac` | Create IaC composition inventory |
 | `thothctl_document_iac` | Generate documentation for IaC projects |
-| `thothctl_generate_stacks` | Generate infrastructure stacks |
+
+### DevSecOps Workflow
+| Tool | Description |
+|------|-------------|
+| `thothctl_workflow_devsecops` | Execute DevSecOps SDLC workflow phases |
+| `thothctl_workflow_run` | Execute custom composable YAML workflows |
 
 ### Utility
 | Tool | Description |
 |------|-------------|
 | `thothctl_version` | Get ThothCTL version |
 | `thothctl_upgrade` | Upgrade thothctl to latest version |
+
+### `thothctl_generate_iac` — Detailed Parameters
+
+This tool generates governed Infrastructure as Code from natural language. It supports scaffold-driven multi-stack composition, plan validation, and blueprint/project output modes.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `intent` | string | (required) | Natural language description of infrastructure to create |
+| `project_type` | enum | auto | `auto`, `terraform`, `terraform-terragrunt`, `terragrunt`, `cloudformation`, `cdkv2` |
+| `composition` | enum | single | `single` (one stack), `full` (multi-stack project), `incremental` (add to existing) |
+| `mode` | enum | project | `blueprint` (template with `#{...}#` placeholders) or `project` (resolved, ready to deploy) |
+| `space` | string | — | Space name to load deployment parameters from (for project mode) |
+| `self_correct` | boolean | true | Re-prompt AI to fix validation violations |
+| `max_iterations` | integer | 5 | Maximum self-correction attempts (capped at 10 for MCP) |
+| `plan_validation` | enum | disabled | `disabled`, `per-stack`, `full-project`, `terraform` |
+
+**Security**: MCP calls are **always dry-run** (never write to disk). Intent is sanitized against prompt injection. Call budget capped.
+
+**Example via Amazon Q**:
+```
+q chat "Generate a VPC with 3 private subnets and NAT gateway for production in us-east-1 using terraform-terragrunt composition full mode"
+```
 
 ## Integration with Amazon Q
 
