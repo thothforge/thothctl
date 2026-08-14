@@ -314,6 +314,58 @@ class SimpleHTTPMCPServer:
                 },
             },
             {
+                "name": "thothctl_generate_iac",
+                "description": "Generate governed IaC from natural language intent. Uses org rules, scaffold-driven composition, and self-correction. Supports blueprint mode (reusable template) and project mode (ready to deploy). Always runs in dry-run mode for security.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "intent": {
+                            "type": "string",
+                            "description": "Natural language description of the infrastructure to create",
+                        },
+                        "project_type": {
+                            "type": "string",
+                            "description": "Target project type",
+                            "enum": ["auto", "terraform", "terraform-terragrunt", "terragrunt", "cloudformation", "cdkv2"],
+                            "default": "auto",
+                        },
+                        "composition": {
+                            "type": "string",
+                            "description": "Composition mode: single (one stack), full (multi-stack project), incremental",
+                            "enum": ["single", "full", "incremental"],
+                            "default": "single",
+                        },
+                        "mode": {
+                            "type": "string",
+                            "description": "Output mode: blueprint (template with placeholders) or project (resolved values)",
+                            "enum": ["blueprint", "project"],
+                            "default": "project",
+                        },
+                        "space": {
+                            "type": "string",
+                            "description": "Space name to load deployment parameters from (for project mode)",
+                        },
+                        "self_correct": {
+                            "type": "boolean",
+                            "description": "Re-prompt AI to fix validation violations",
+                            "default": True,
+                        },
+                        "max_iterations": {
+                            "type": "integer",
+                            "description": "Maximum self-correction attempts (1-10)",
+                            "default": 5,
+                        },
+                        "plan_validation": {
+                            "type": "string",
+                            "description": "Plan validation mode",
+                            "enum": ["disabled", "per-stack", "full-project", "terraform"],
+                            "default": "disabled",
+                        },
+                    },
+                    "required": ["intent"],
+                },
+            },
+            {
                 "name": "thothctl_document",
                 "description": "Generate documentation for IaC projects",
                 "parameters": {
@@ -562,6 +614,34 @@ class SimpleHTTPMCPServer:
                 cmd.extend(["--template-url", arguments["template_url"]])
         elif name == "thothctl_generate":
             cmd.extend(["generate", "component", "--template", arguments["template"]])
+        elif name == "thothctl_generate_iac":
+            # Security: MCP always dry-run, intent sanitized
+            import re
+
+            intent = arguments.get("intent", "")
+            intent = re.sub(
+                r"(?i)(ignore|forget|disregard).*(?:previous|above|system)", "", intent
+            )
+            intent = re.sub(r"(?i)you are now|act as|pretend to be", "", intent)
+            intent = intent[:2000]
+            if not intent.strip():
+                return "Error: intent is required"
+
+            cmd.extend(["generate", "iac", "--intent", intent, "--dry-run"])
+            if arguments.get("project_type", "auto") != "auto":
+                cmd.extend(["--project-type", arguments["project_type"]])
+            if arguments.get("composition", "single") != "single":
+                cmd.extend(["--composition", arguments["composition"]])
+            if arguments.get("mode", "project") != "project":
+                cmd.extend(["--mode", arguments["mode"]])
+            if arguments.get("space"):
+                cmd.extend(["--space", arguments["space"]])
+            if not arguments.get("self_correct", True):
+                cmd.append("--no-self-correct")
+            iterations = min(max(1, arguments.get("max_iterations", 5)), 10)
+            cmd.extend(["--max-iterations", str(iterations)])
+            if arguments.get("plan_validation", "disabled") != "disabled":
+                cmd.extend(["--plan-validation", arguments["plan_validation"]])
         elif name == "thothctl_document":
             cmd.extend(["document", "iac"])
         elif name == "thothctl_check":

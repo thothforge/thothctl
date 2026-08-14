@@ -77,27 +77,70 @@ async def thothctl_generate_stacks() -> str:
 
 @server.tool(
     name="thothctl_generate_iac",
-    description="Generate governed IaC from natural language intent. Uses org rules and self-correction.",
+    description=(
+        "Generate governed IaC from natural language intent. "
+        "Uses org rules, scaffold-driven composition, and self-correction. "
+        "Supports blueprint mode (reusable template) and project mode (ready to deploy). "
+        "MCP calls are always dry-run (preview only) for security."
+    ),
 )
 async def thothctl_generate_iac(
     intent: str,
     project_type: str = "auto",
-    apply: bool = False,
-    skip_validation: bool = False,
+    composition: str = "single",
+    mode: str = "project",
+    space: Optional[str] = None,
     self_correct: bool = True,
+    max_iterations: int = 5,
+    plan_validation: str = "disabled",
 ) -> str:
-    cmd = ["thothctl", "generate", "iac", "--intent", intent]
+    """Generate IaC from intent with full composition and validation support.
+
+    Args:
+        intent: Natural language description of the infrastructure to create.
+        project_type: Target type (auto, terraform, terraform-terragrunt, cloudformation, cdkv2).
+        composition: single (one stack), full (multi-stack project), incremental (add to existing).
+        mode: blueprint (template with placeholders) or project (resolved, ready to deploy).
+        space: Space name to load deployment parameters from (for project mode).
+        self_correct: Re-prompt AI to fix validation violations.
+        max_iterations: Maximum self-correction attempts (1-10).
+        plan_validation: disabled, per-stack, full-project, or terraform.
+
+    Returns:
+        Generated file listing and content preview (always dry-run from MCP).
+    """
+    import re
+
+    # Security: sanitize intent (prevent prompt injection)
+    intent = re.sub(
+        r"(?i)(ignore|forget|disregard).*(?:previous|above|system)", "", intent
+    )
+    intent = re.sub(r"(?i)you are now|act as|pretend to be", "", intent)
+    intent = intent[:2000]  # Length cap
+
+    if not intent.strip():
+        return "Error: intent is required (non-empty description of infrastructure)"
+
+    # Security: MCP NEVER writes to disk (always dry-run)
+    cmd = ["thothctl", "generate", "iac", "--intent", intent, "--dry-run"]
+
     if project_type != "auto":
         cmd.extend(["--project-type", project_type])
-    if apply:
-        cmd.append("--apply")
-    else:
-        cmd.append("--dry-run")
-    if skip_validation:
-        cmd.append("--skip-validation")
+    if composition != "single":
+        cmd.extend(["--composition", composition])
+    if mode != "project":
+        cmd.extend(["--mode", mode])
+    if space:
+        cmd.extend(["--space", space])
     if not self_correct:
         cmd.append("--no-self-correct")
-    return _run_cmd(cmd, timeout=300)
+    # Cap iterations for MCP (prevent runaway)
+    iterations = min(max(1, max_iterations), 10)
+    cmd.extend(["--max-iterations", str(iterations)])
+    if plan_validation != "disabled":
+        cmd.extend(["--plan-validation", plan_validation])
+
+    return _run_cmd(cmd, timeout=600)
 
 
 # --- Init commands ---
