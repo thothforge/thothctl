@@ -179,7 +179,7 @@ def _check_version_freshness():
             cache = json.loads(cache_file.read_text(encoding="utf-8"))
             if time.time() - cache.get("timestamp", 0) < cache_ttl:
                 latest = cache.get("latest")
-                if latest and latest != current:
+                if latest and latest != current and _is_newer(latest, current):
                     _show_upgrade_hint(current, latest)
                 return
 

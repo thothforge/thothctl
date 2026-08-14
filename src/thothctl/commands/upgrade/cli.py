@@ -39,7 +39,7 @@ class UpgradeCommand(ClickCommand):
             self.ui.print_info(f"📦 Current version: {current_version}")
             self.ui.print_info(f"🔍 Latest version: {latest_version}")
 
-            if current_version == latest_version:
+            if not self._is_newer(latest_version, current_version):
                 self.ui.print_success("✅ ThothCTL is already up to date!")
                 return
 
@@ -56,6 +56,8 @@ class UpgradeCommand(ClickCommand):
             else:
                 self.ui.print_info("❌ Upgrade cancelled")
 
+        except click.Abort:
+            self.ui.print_info("❌ Upgrade cancelled")
         except Exception as e:
             self.ui.print_error(f"Failed to upgrade thothctl: {str(e)}")
             logger.exception("ThothCTL upgrade failed")
@@ -82,8 +84,22 @@ class UpgradeCommand(ClickCommand):
             )
 
     def _confirm_upgrade(self, current: str, latest: str) -> bool:
-        """Confirm upgrade with user."""
-        return click.confirm(f"Upgrade from {current} to {latest}?", default=True)
+        """Confirm upgrade with user. Returns True in non-interactive mode."""
+        try:
+            return click.confirm(f"Upgrade from {current} to {latest}?", default=True)
+        except (click.Abort, EOFError):
+            # Non-interactive (piped, no TTY, MCP) — abort gracefully
+            return False
+
+    @staticmethod
+    def _is_newer(latest: str, current: str) -> bool:
+        """Compare semantic versions. Returns True if latest > current."""
+        try:
+            latest_parts = tuple(int(x) for x in latest.split(".")[:3])
+            current_parts = tuple(int(x) for x in current.split(".")[:3])
+            return latest_parts > current_parts
+        except (ValueError, AttributeError):
+            return latest != current
 
     def _perform_upgrade(self) -> None:
         """Perform the actual upgrade."""
