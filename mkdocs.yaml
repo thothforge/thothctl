@@ -18,9 +18,10 @@ site_dir: 'site'
 # Navigation
 nav:
   - Home: index.md
-  - Toolkit Overview: toolkit_overview.md
+  - What's New: whats_new.md
   - Getting Started:
     - Quick Start: quick_start.md
+    - How It Works: how_it_works.md
     - Installation:
       - Linux & macOS: installation/linux_installation.md
       - Windows: installation/windows_installation.md
@@ -55,6 +56,7 @@ nav:
       - Customizing Standards: framework/commands/document/customizing_docs.md
       - Use Cases: framework/commands/document/use_cases.md
     - Generate:
+      - Intent-to-IaC: framework/commands/generate/generate_iac.md
       - Components: framework/commands/generate/generate_components.md
       - Stacks: framework/commands/generate/generate_stacks.md
     - Dashboard: framework/commands/dashboard/dashboard_overview.md
@@ -91,6 +93,7 @@ nav:
     - Tasks:
       - Create Template: framework/use_cases/tasks/create_template.md
   - Architecture:
+    - Platform Overview: toolkit_overview.md
     - Framework Architecture: framework/framework_architecture.md
     - Software Architecture: framework/software_architecture.md
     - Policy as Code: framework/policy_as_code.md

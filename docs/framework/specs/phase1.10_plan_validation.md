@@ -976,7 +976,7 @@ thothctl generate plan-check --directory ./my-project/ --discover
 | # | Task | Effort | Status |
 |---|------|--------|--------|
 | C.1 | CLI flags: `--plan-validation`, `--plan-iam-role`, `--plan-profile`, `--plan-filter` | 1d | ✅ |
-| C.2 | Config loading from `.thothcf.toml` [generation.plan] with env var overrides | 0.5d | ✅ |
+| C.2 | Config loading from `.thothcf.toml` \[generation.plan\] with env var overrides | 0.5d | ✅ |
 | C.3 | AWS profile support via `--plan-profile` and `THOTH_PLAN_AWS_PROFILE` | 0.5d | ✅ |
 
 ### Phase D: Testing & Documentation (Days 13-14) ✅

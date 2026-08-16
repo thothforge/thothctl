@@ -1,97 +1,214 @@
-# Thoth Framework
+---
+hide:
+  - navigation
+  - toc
+---
 
-Thoth Framework is a framework to create and manage the [Internal Developer Platform](https://internaldeveloperplatform.org/what-is-an-internal-developer-platform/) tasks for infrastructure, DevOps, DevSecOps, software developers, and platform engineering teams aligned with business objectives:
+# ThothCTL
 
-| Business Objective | Mechanism | Implementation |
-|---|---|---|
-| Minimize mistakes | Meaningful defaults | Templates |
-| Increase velocity | Automation | IaC Scripts |
-| Improve products | Fill product gaps | New components |
-| Enforce compliance | Restrict choices | Wrappers |
-| Reduce lock-in | Abstraction | Service layers |
+**AI-Powered Infrastructure Lifecycle CLI** — scan, generate, review, and govern your IaC from a single tool.
 
-![Thoth and DCP](./img/framework/thothfr.png)
+<div class="grid cards" markdown>
 
-## ThothCTL
+-   :material-shield-check:{ .lg .middle } **Security Scanning**
 
-The CLI tool for accelerating IaC adoption, enabling reuse, and interacting with the Internal Developer Platform.
+    ---
+
+    5 integrated scanners (Checkov, Trivy, KICS, OPA, TF-compliance) with unified reports and enforcement.
+
+    [:octicons-arrow-right-24: Scan your code](framework/commands/scan/scan_overview.md)
+
+-   :material-robot:{ .lg .middle } **Agent Companion Development**
+
+    ---
+
+    Build IaC with Kiro or Claude as your agent — ThothCTL's 26 MCP tools give AI agents hands to scan, generate, review, and deploy on your behalf.
+
+    [:octicons-arrow-right-24: AI-DLC Workflow](framework/use_cases/ai_dlc.md)
+
+-   :material-creation:{ .lg .middle } **Intent-to-IaC Generation**
+
+    ---
+
+    Natural language → governed Terraform via CLI or agent. Org rules enforced at generation time, scaffold-grounded, self-correcting.
+
+    [:octicons-arrow-right-24: Generate IaC](framework/commands/generate/generate_iac.md)
+
+-   :material-chart-timeline-variant:{ .lg .middle } **Inventory & SBOM**
+
+    ---
+
+    CycloneDX 1.6 compliant SBOM, technical debt scoring, and dependency staleness tracking.
+
+    [:octicons-arrow-right-24: Track dependencies](framework/commands/inventory/inventory_overview.md)
+
+-   :material-currency-usd:{ .lg .middle } **Cost & Drift**
+
+    ---
+
+    AWS cost projections, ITIL v4 blast radius, and AI-powered drift detection.
+
+    [:octicons-arrow-right-24: Analyze costs](framework/commands/check/cost-analysis.md)
+
+-   :material-pipe:{ .lg .middle } **DevSecOps Workflows**
+
+    ---
+
+    Composable YAML pipelines with 7 SDLC phases. Hard/soft enforcement. CI/CD ready.
+
+    [:octicons-arrow-right-24: Run workflows](framework/commands/workflow/workflow_overview.md)
+
+</div>
+
+---
+
+## 30 Seconds to First Result
 
 ```bash
 pip install thothctl
+thothctl scan iac -t checkov     # scan existing IaC
 ```
 
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `init` | Initialize and configure projects, spaces, environments |
-| `check` | Validate IaC structure, cost analysis, blast radius, drift detection |
-| `scan` | Security scanning with Checkov, Trivy, KICS, OPA |
-| `inventory` | Dependency tracking, version analysis, professional reports |
-| `document` | Auto-generate documentation for IaC modules |
-| `generate` | Generate components and stacks from rules |
-| `project` | Convert, upgrade, and manage projects |
-| `ai-review` | Multi-agent AI security analysis and PR decisions |
-| `mcp` | Model Context Protocol server for AI assistant integration |
-| `list` / `remove` | Manage projects and spaces |
-| `upgrade` | Upgrade thothctl to latest version |
-
-### Supported IaC Frameworks
-
-| Framework | Init | Scan | Inventory | Check | Document | Generate |
-|-----------|:----:|:----:|:---------:|:-----:|:--------:|:--------:|
-| **Terraform** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **OpenTofu** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Terragrunt** | ✅ | ✅ | ✅ | ✅ | ✅ | — |
-| **CDK v2** | — | — | ✅ | — | — | — |
-
-### Integrated Tools
-
-| Category | Tool | Integration |
-|----------|------|-------------|
-| **Security** | [Checkov](https://www.checkov.io/) | Native (pip) |
-| **Security** | [Trivy](https://trivy.dev/) | CLI binary |
-| **Security** | [KICS](https://docs.kics.io/) | Docker container |
-| **Compliance** | [Terraform-compliance](https://terraform-compliance.com/) | CLI binary |
-| **Policy** | [OPA/Conftest](https://www.openpolicyagent.org/) | CLI binary |
-| **Docs** | [Terraform-docs](https://terraform-docs.io/) | CLI binary |
-| **AI** | [OpenAI](https://platform.openai.com/) | GPT-4 Turbo |
-| **AI** | [AWS Bedrock](https://aws.amazon.com/bedrock/) | Claude Sonnet (InvokeModel + Agent) |
-| **AI** | [Azure OpenAI](https://azure.microsoft.com/en-us/products/ai-services/openai-service) | GPT-4 |
-| **AI** | [Ollama](https://ollama.com/) | Local models (Llama 3, Mistral) |
-| **VCS** | GitHub / GitLab / Azure DevOps | PR integration, source control |
-
-## Use Cases
-
-- **[Template Engine](template_engine/template_engine.md)** — Build, configure, and scaffold projects from templates
-- **[Policy as Code](framework/policy_as_code.md)** — Unified governance: structure rules, OPA/Rego security policies, drift policies, and AI decision thresholds
-- **[AI-Powered Development (AI-DLC)](framework/use_cases/ai_dlc.md)** — MCP integration with AI assistants for natural language IaC operations
-- **[AI Agent for IaC Security](framework/commands/ai-review/README.md)** — Multi-agent orchestrator with auto-decision engine, code fixes, and CI/CD API
-- **[DevSecOps SDLC](framework/use_cases/devsecops_sdlc.md)** — 8-phase lifecycle with scanning, cost analysis, blast radius, and drift detection
-- **[Platform Engineering Templates](framework/use_cases/platform_engineering_templates.md)** — Create and publish reusable templates for your organization
-- **[Space Management](framework/use_cases/space_management.md)** — Organize projects into spaces with shared configuration
-
-## Cross-Platform Support
-
-| Platform | Status | Shell Autocomplete |
-|----------|:------:|---|
-| **Linux** | ✅ | Bash / Zsh / Fish |
-| **macOS** | ✅ | Bash / Zsh / Fish |
-| **Windows 10/11** | ✅ | PowerShell |
-
-## Requirements
-
-- Python >= 3.8
-- `graphviz` (for dependency graphs)
-- Docker (optional, for KICS scanner)
+Or use the guided setup:
 
 ```bash
-# Linux/Debian
-sudo apt install graphviz -y
-
-# macOS
-brew install graphviz
-
-# Windows
-choco install graphviz
+thothctl quickstart              # interactive onboarding
 ```
+
+---
+
+## How It Works
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e3f2fd','primaryTextColor':'#1565c0','primaryBorderColor':'#1976d2','lineColor':'#42a5f5','secondaryColor':'#fff3e0','tertiaryColor':'#f3e5f5','fontSize':'14px'}}}%%
+graph LR
+    agent["<b>Agent / CLI</b><br/><small>Kiro · Claude · CLI</small>"]:::node0
+    generate["<b>Generate</b><br/><small>Intent → IaC</small>"]:::node1
+    scan["<b>Scan</b><br/><small>Security check</small>"]:::node2
+    review["<b>Review</b><br/><small>AI analysis</small>"]:::node3
+    deploy["<b>Deploy</b><br/><small>Blast radius</small>"]:::node4
+    monitor["<b>Monitor</b><br/><small>Drift & cost</small>"]:::node5
+
+    agent --> generate --> scan --> review --> deploy --> monitor
+    monitor -.->|"feedback"| agent
+
+    classDef node0 fill:#6200ea,stroke:#4a148c,stroke-width:2px,color:#fff
+    classDef node1 fill:#7c4dff,stroke:#6200ea,stroke-width:2px,color:#fff
+    classDef node2 fill:#ff9800,stroke:#e65100,stroke-width:2px,color:#fff
+    classDef node3 fill:#e91e63,stroke:#880e4f,stroke-width:2px,color:#fff
+    classDef node4 fill:#4caf50,stroke:#2e7d32,stroke-width:2px,color:#fff
+    classDef node5 fill:#00bcd4,stroke:#006064,stroke-width:2px,color:#fff
+```
+
+**Two interaction modes — same governed lifecycle:**
+
+- **Agent companion** (Kiro, Claude) — AI agent drives ThothCTL via MCP. You chat, it executes. [:octicons-arrow-right-24: AI-DLC Guide](framework/use_cases/ai_dlc.md)
+- **Direct CLI** — You run commands directly. Scriptable, CI/CD-native. [:octicons-arrow-right-24: How It Works](how_it_works.md)
+
+---
+
+## Choose Your Path
+
+=== "I want an AI agent to help me build"
+
+    Use Kiro CLI or Claude as your companion — the agent calls ThothCTL via MCP:
+
+    ```bash
+    # Start the MCP server (agents connect to this)
+    thothctl mcp server
+
+    # In Kiro CLI:
+    kiro-cli chat --agent thoth
+    # → "Scan my terraform for security issues"
+    # → "Generate a VPC with 3 private subnets"
+    # → "What's the cost estimate for this stack?"
+    ```
+
+    The agent has access to 26 MCP tools: scan, generate, review, inventory, cost analysis, drift detection, and more — all governed by your org rules.
+
+    [:octicons-arrow-right-24: Full AI-DLC Guide](framework/use_cases/ai_dlc.md)
+
+=== "I have existing IaC"
+
+    ```bash
+    cd my-terraform-project
+    thothctl scan iac -t checkov -t trivy     # security audit
+    thothctl inventory iac --check-versions   # dependency check
+    thothctl check iac -type cost-analysis    # cost estimate
+    ```
+
+=== "I'm starting fresh"
+
+    ```bash
+    thothctl quickstart                       # guided setup
+    # or:
+    thothctl init space -s my-space -vcs github
+    thothctl init project -p my-infra -s my-space
+    ```
+
+=== "I want to generate IaC from intent"
+
+    ```bash
+    thothctl generate iac \
+      -i "VPC with 3 private subnets and NAT gateway" \
+      -p ollama --apply
+    ```
+
+=== "I'm integrating into CI/CD"
+
+    ```yaml
+    # GitHub Actions
+    - run: thothctl scan iac -t checkov -t trivy --enforcement hard
+    - run: thothctl inventory iac --check-versions
+    - run: thothctl ai-review analyze -p bedrock
+    ```
+
+---
+
+## What Makes ThothCTL Different
+
+| | ThothCTL | Other tools |
+|---|---|---|
+| **Scope** | Full lifecycle (generate → scan → review → deploy → monitor) | Single-purpose |
+| **Agent-native** | 26 MCP tools — agents (Kiro, Claude) use ThothCTL as their hands | No agent integration |
+| **AI** | Multi-agent review + intent-to-IaC + agent companion workflow | None or basic |
+| **Cost** | Open-source, local-first, offline capable (Ollama) | SaaS, vendor-locked |
+| **Output** | Standard Terraform/HCL — no runtime lock-in | Proprietary formats |
+| **Governance** | OPA/Rego + org rules enforced at generation time | Post-hoc scanning only |
+
+---
+
+## Supported Platforms
+
+| Framework | Scan | Generate | Inventory | Check | Document |
+|-----------|:----:|:--------:|:---------:|:-----:|:--------:|
+| **Terraform** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **OpenTofu** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Terragrunt** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **CDK v2** | ✅ | ✅ | ✅ | ✅ | — |
+
+**Requirements**: Python 3.10+ · Linux, macOS, or Windows (WSL)
+
+---
+
+## Next Steps
+
+<div class="grid cards" markdown>
+
+-   [:material-rocket-launch: **Quick Start Guide**](quick_start.md)
+
+    Full installation and first project walkthrough.
+
+-   [:material-book-open-variant: **Use Cases**](framework/use_cases/README.md)
+
+    Real-world scenarios: DevSecOps, AI workflows, templates.
+
+-   [:material-cog: **Command Reference**](framework/commands/scan/scan_overview.md)
+
+    Complete documentation for all 15+ commands.
+
+-   [:material-github: **GitHub**](https://github.com/thothforge/thothctl)
+
+    Source code, issues, and contributions.
+
+</div>
