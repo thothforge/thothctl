@@ -18,7 +18,11 @@ class CloudFormationResourceMapper:
             "AWS::EKS::Nodegroup": "aws_eks_node_group",
             # Storage
             "AWS::S3::Bucket": "aws_s3_bucket",
+            "AWS::S3::BucketPolicy": "aws_s3_bucket_policy",
             "AWS::EC2::Volume": "aws_ebs_volume",
+            # Container Registry
+            "AWS::ECR::Repository": "aws_ecr_repository",
+            "AWS::ECR::ReplicationConfiguration": "aws_ecr_replication_configuration",
             # Database
             "AWS::RDS::DBInstance": "aws_db_instance",
             "AWS::DynamoDB::Table": "aws_dynamodb_table",
@@ -38,8 +42,21 @@ class CloudFormationResourceMapper:
             # Monitoring
             "AWS::CloudWatch::Alarm": "aws_cloudwatch_metric_alarm",
             "AWS::Logs::LogGroup": "aws_cloudwatch_log_group",
-            # Security
+            # Security / KMS
+            "AWS::KMS::Key": "aws_kms_key",
+            "AWS::KMS::Alias": "aws_kms_alias",
             "AWS::SecretsManager::Secret": "aws_secretsmanager_secret",
+            # IAM (free resources)
+            "AWS::IAM::Role": "aws_iam_role",
+            "AWS::IAM::Policy": "aws_iam_policy",
+            "AWS::IAM::ManagedPolicy": "aws_iam_policy",
+            "AWS::IAM::InstanceProfile": "aws_iam_instance_profile",
+            "AWS::IAM::User": "aws_iam_user",
+            "AWS::IAM::Group": "aws_iam_group",
+            "AWS::IAM::AccessKey": "aws_iam_access_key",
+            # SSM
+            "AWS::SSM::Parameter": "aws_ssm_parameter",
+            "AWS::SSM::Document": "aws_ssm_document",
             # AI/ML
             "AWS::Bedrock::Agent": "aws_bedrock_agent",
             "AWS::Bedrock::KnowledgeBase": "aws_bedrock_knowledge_base",

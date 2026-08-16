@@ -14,6 +14,7 @@ from .pricing.providers.cloudwatch_pricing import CloudWatchPricingProvider
 from .pricing.providers.dynamodb_pricing import DynamoDBPricingProvider
 from .pricing.providers.ebs_pricing import EBSPricingProvider
 from .pricing.providers.ec2_pricing import EC2PricingProvider
+from .pricing.providers.ecr_pricing import ECRPricingProvider
 from .pricing.providers.ecs_pricing import ECSPricingProvider
 from .pricing.providers.eip_pricing import EIPPricingProvider
 from .pricing.providers.eks_pricing import EKSPricingProvider
@@ -127,6 +128,11 @@ class CostAnalyzer:
         eip_provider = EIPPricingProvider(self.pricing_client)
         for resource in eip_provider.get_supported_resources():
             providers[resource] = eip_provider
+
+        # ECR
+        ecr_provider = ECRPricingProvider(self.pricing_client)
+        for resource in ecr_provider.get_supported_resources():
+            providers[resource] = ecr_provider
 
         # Free resources (IAM, VPC components, etc.)
         free_provider = FreeResourcesPricingProvider(self.pricing_client)

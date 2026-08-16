@@ -24,11 +24,26 @@ class FreeResourcesPricingProvider(BasePricingProvider):
             # IAM resources (free)
             "aws_iam_role",
             "aws_iam_policy",
+            "aws_iam_role_policy",
             "aws_iam_role_policy_attachment",
+            "aws_iam_policy_attachment",
             "aws_iam_instance_profile",
             "aws_iam_user",
+            "aws_iam_user_policy",
+            "aws_iam_user_policy_attachment",
             "aws_iam_group",
+            "aws_iam_group_policy",
+            "aws_iam_group_policy_attachment",
             "aws_iam_access_key",
+            "aws_iam_service_linked_role",
+            # S3 policies and configs (free — bucket cost is separate)
+            "aws_s3_bucket_policy",
+            "aws_s3_bucket_public_access_block",
+            "aws_s3_bucket_versioning",
+            "aws_s3_bucket_lifecycle_configuration",
+            "aws_s3_bucket_server_side_encryption_configuration",
+            "aws_s3_bucket_notification",
+            "aws_s3_bucket_logging",
             # VPC networking (free)
             "aws_route_table",
             "aws_route",
@@ -37,14 +52,20 @@ class FreeResourcesPricingProvider(BasePricingProvider):
             "aws_vpc",
             "aws_security_group",
             "aws_security_group_rule",
+            "aws_vpc_security_group_ingress_rule",
+            "aws_vpc_security_group_egress_rule",
             "aws_network_acl",
             "aws_network_acl_rule",
             "aws_default_security_group",
             "aws_default_network_acl",
+            "aws_default_route_table",
             "aws_vpc_ipv4_cidr_block_association",
             "aws_internet_gateway",
             # VPC Flow Logs (CloudWatch costs apply separately)
             "aws_flow_log",
+            # SSM (free for standard parameters, cost handled separately for advanced)
+            "aws_ssm_parameter",
+            "aws_ssm_document",
             # Resource management (free)
             "aws_resourcegroups_group",
             # EBS settings (free)
@@ -52,6 +73,10 @@ class FreeResourcesPricingProvider(BasePricingProvider):
             "aws_ebs_default_kms_key",
             # CloudWatch resources (log storage costs apply separately)
             "aws_cloudwatch_log_resource_policy",
+            # ECR lifecycle/replication config (free — storage cost is separate)
+            "aws_ecr_lifecycle_policy",
+            "aws_ecr_replication_configuration",
+            "aws_ecr_repository_policy",
         ]
 
     def calculate_cost(
@@ -74,8 +99,12 @@ class FreeResourcesPricingProvider(BasePricingProvider):
             "aws_vpc": "VPC",
             "aws_security_group": "VPC",
             "aws_network_acl": "VPC",
+            "aws_default_": "VPC",
             "aws_flow_log": "VPC",
             "aws_internet_gateway": "VPC",
+            "aws_s3_bucket_": "S3",
+            "aws_ssm_": "SSM",
+            "aws_ecr_": "ECR",
             "aws_resourcegroups": "Resource Groups",
             "aws_ebs_": "EBS",
             "aws_cloudwatch": "CloudWatch",
