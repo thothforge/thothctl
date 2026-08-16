@@ -4,7 +4,133 @@
 
 ## Overview
 
-ThothCTL is an Internal Developer Platform (IDP) framework built on a **4-layer architecture** that enables teams to build, manage, and operate infrastructure as code with built-in best practices, security, and AI assistance.
+The **Thoth Framework** is a Configuration Control Plane for Infrastructure as Code — a system that treats IaC configuration not as static files applied at deploy time, but as a continuously validated, policy-enforced control surface distributed via Git.
+
+**ThothCTL** is the CLI that implements this control plane. It combines a 4-layer architecture with the safety patterns that hyperscalers use for configuration management at scale: staged rollout, blast-radius containment, dependency-aware validation, and automated correction.
+
+---
+
+## Thoth as a Configuration Control Plane
+
+In modern distributed systems, [configuration is a control plane operation](https://www.infoq.com/articles/configuration-control-plane/) — it directly alters system behavior and must be treated with the same rigor as production code. The Thoth Framework applies this principle to Infrastructure as Code:
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#3b82f6',
+  'primaryTextColor':'#ffffff',
+  'primaryBorderColor':'#2563eb',
+  'lineColor':'#94a3b8',
+  'secondaryColor':'#10b981',
+  'tertiaryColor':'#8b5cf6',
+  'background':'transparent',
+  'mainBkg':'#3b82f6',
+  'secondBkg':'#10b981',
+  'tertiaryBkg':'#8b5cf6',
+  'clusterBkg':'rgba(241, 245, 249, 0.05)',
+  'clusterBorder':'#475569',
+  'titleColor':'currentColor',
+  'edgeLabelBackground':'transparent',
+  'nodeTextColor':'#ffffff',
+  'textColor':'currentColor',
+  'nodeBorder':'#1e293b',
+  'fontSize':'14px'
+}}}%%
+graph TB
+    subgraph source["<b>📋 Declarative Source of Truth (Git)</b>"]
+        direction LR
+        RULES[".thothcf.toml<br/>Org rules"]
+        POLICY["OPA/Rego<br/>Policy repo"]
+        SCAFFOLDS["Scaffolds<br/>Templates"]
+        TOML["Space config<br/>Credentials"]
+    end
+
+    subgraph controlplane["<b>⚙️ Configuration Control Plane (ThothCTL)</b>"]
+        direction LR
+        VALIDATE["<b>Validate</b><br/>Schema + policy<br/>Pre-deployment"]
+        GENERATE["<b>Generate</b><br/>Intent → governed<br/>IaC code"]
+        ENFORCE["<b>Enforce</b><br/>Scan + review<br/>Enforcement gates"]
+        RECONCILE["<b>Reconcile</b><br/>Drift detection<br/>Self-correction"]
+    end
+
+    subgraph targets["<b>☁️ Infrastructure (Desired State)</b>"]
+        direction LR
+        TF["Terraform"]
+        TG["Terragrunt"]
+        CDK["CDK v2"]
+        CFN["CloudFormation"]
+    end
+
+    source --> controlplane
+    controlplane --> targets
+    targets -.->|"actual state"| RECONCILE
+
+    classDef sourceStyle fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    classDef cpStyle fill:#3b82f6,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef targetStyle fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+
+    class RULES,POLICY,SCAFFOLDS,TOML sourceStyle
+    class VALIDATE,GENERATE,ENFORCE,RECONCILE cpStyle
+    class TF,TG,CDK,CFN targetStyle
+```
+
+### Control Plane Primitives
+
+The Thoth Framework maps directly to the industry-standard configuration safety patterns:
+
+| Control Plane Pattern | Thoth Implementation | How It Works |
+|---|---|---|
+| **Declarative source of truth** | Git repos (org policies, scaffolds, `.thothcf.toml`) | All configuration rules, templates, and governance live in version-controlled Git. No ad-hoc changes. |
+| **Schema validation** | `.thothcf.toml` rules + OPA/Rego | Naming conventions, required tags, security policies, and architectural constraints are validated before and during changes. |
+| **Staged rollout** | `workflow devsecops` phases + enforcement gates | Changes progress through Plan → Build → Test → Secure → Deploy with hard/soft gates at each phase. |
+| **Blast-radius containment** | Spaces + per-stack scoping + `--changed-only` | Spaces isolate projects with credential boundaries. Workflow scopes execution to changed stacks only. |
+| **Pre-deployment validation** | `scan iac` + `check iac` + plan validation | Multi-scanner security checks, cost analysis, and `terragrunt plan` validation before any apply. |
+| **Continuous reconciliation** | `check iac -type drift` + scan history | Drift detection compares live state against declared IaC. Scan history tracks compliance trends over time. |
+| **Policy enforcement** | OPA/Rego evaluated at generation + scan time | Org policies enforced both when generating new code and when validating existing code. |
+| **Automated rollback / correction** | Self-correction loops (generate → validate → fix → retry) | AI generates code, scanner validates, violations fed back to AI for correction (max 3 iterations). |
+| **Dependency-aware impact analysis** | Blast radius (ITIL v4) + cost analysis | Changes assessed for risk score, affected resource count, and cost impact before promotion. |
+| **Non-human identity & audit** | Agent governance (Phase 2.5) + memory persistence | Every AI agent action logged with identity, budget tracked, decisions auditable. |
+
+### Git as the Configuration Plane
+
+Unlike traditional configuration management (Chef, Puppet, Ansible) where a central server pushes state to agents, Thoth uses **Git as the distributed configuration plane**:
+
+```
+Organization Git Repos (Source of Truth)
+├── org-iac-policies/          ← OPA/Rego rules (security, compliance)
+├── terraform-scaffold/        ← Blessed project structures
+├── terraform-module-scaffold/ ← Approved module patterns
+└── per-project .thothcf.toml  ← Local overrides within org bounds
+
+ThothCTL (Reconciler)
+├── Reads org policies from Git (THOTH_ORG_POLICY env var)
+├── Reads scaffolds from Git (thothforge org or custom)
+├── Merges hierarchical rules (org → space → project)
+├── Validates, generates, and enforces against this compiled context
+└── Detects drift between declared (Git) and actual (cloud) state
+```
+
+This means:
+- **No central server** — ThothCTL runs locally or in CI/CD, pulling configuration from Git on demand
+- **Offline capable** — all policies cached locally after first fetch
+- **Auditable** — every rule change is a Git commit with author, timestamp, and diff
+- **Distributed** — teams fork and extend org policies; hierarchy resolves conflicts
+
+### Why This Matters for Platform Engineering
+
+Traditional IaC tools treat configuration as a static file problem: write HCL, apply, done. The control plane model recognizes that IaC configuration is **a live system** that:
+
+1. **Changes faster than code** — a tag policy update affects all future projects immediately
+2. **Propagates broadly** — one scaffolding change shapes every new project that uses it
+3. **Requires governance** — ungoverned AI-generated IaC floods PRs with non-compliant code
+4. **Needs continuous reconciliation** — infrastructure drifts, dependencies become stale, costs creep
+
+Thoth addresses this by embedding safety directly into the control plane — not as external gates bolted onto CI/CD, but as intrinsic properties of how configuration is authored, validated, and applied.
+
+---
+
+## 4-Layer Architecture
+
+The control plane is implemented through a layered architecture with clear separation of concerns:
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {

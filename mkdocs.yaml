@@ -93,7 +93,7 @@ nav:
     - Tasks:
       - Create Template: framework/use_cases/tasks/create_template.md
   - Architecture:
-    - Platform Overview: toolkit_overview.md
+    - What's in the Box: toolkit_overview.md
     - Framework Architecture: framework/framework_architecture.md
     - Software Architecture: framework/software_architecture.md
     - Policy as Code: framework/policy_as_code.md

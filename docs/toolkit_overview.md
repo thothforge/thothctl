@@ -1,10 +1,10 @@
-# Thoth IaC Toolkit
+# What's in the Box
 
-> The complete developer experience for Infrastructure as Code — from first commit to production monitoring.
+> Everything you get when you `pip install thothctl` — the tools, integrations, and ecosystem that make up the Thoth Framework developer experience.
 
-## What Is It?
+## Overview
 
-The Thoth IaC Toolkit is an integrated set of tools, policies, skills, and templates that enables DevSecOps for Infrastructure as Code. It combines a CLI platform, AI assistance, and organizational governance into a cohesive developer workflow.
+The Thoth Framework is a Configuration Control Plane for Infrastructure as Code. **ThothCTL** is the CLI that implements it — combining security scanning, AI-assisted generation, organizational governance, and workflow orchestration into a single tool. This page walks through each component you get out of the box.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {
