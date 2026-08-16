@@ -2,7 +2,7 @@
 
 ![ThothCTL MCP](./img/framework/thothfr.png)
 
-ThothCTL supports the Model Context Protocol (MCP), allowing AI assistants like Kiro CLI (Amazon Q) to interact with ThothCTL functionality directly. This integration enhances developer productivity by enabling natural language interactions with your Internal Developer Platform.
+ThothCTL supports the Model Context Protocol (MCP), allowing AI assistants like Kiro and Claude to interact with ThothCTL functionality directly. This integration enhances developer productivity by enabling natural language interactions with your Internal Developer Platform.
 
 ## What is MCP?
 
@@ -19,7 +19,7 @@ thothctl mcp [OPTIONS] COMMAND [ARGS]...
 Available commands:
 
 - `server` - Start the MCP server for ThothCTL
-- `register` - Register the MCP server with Amazon Q
+- `register` - Register the MCP server with your AI assistant
 - `status` - Check the status of the MCP server
 
 For detailed documentation on each command, see the [MCP Command Documentation](./framework/commands/mcp/mcp.md).
@@ -36,7 +36,7 @@ This will start the MCP server on port 8080 (default).
 
 ### Registering with Kiro CLI
 
-To use ThothCTL with Kiro CLI (Amazon Q), you need to register the MCP server:
+To use ThothCTL with Kiro CLI or Claude, you need to register the MCP server:
 
 ```bash
 kiro mcp add thothctl --command "thothctl mcp server"
@@ -81,13 +81,13 @@ This typically means one of the following:
    pip install --user thothctl
    ```
 
-2. **MCP Server is not running**: Start the MCP server before using it with Amazon Q.
+2. **MCP Server is not running**: Start the MCP server before using it with your AI assistant.
    ```bash
    # Start the MCP server in a separate terminal
    thothctl mcp server
    ```
 
-3. **MCP configuration file is missing or corrupted**: Amazon Q Developer CLI stores MCP server configurations in JSON files.
+3. **MCP configuration file is missing or corrupted**: Your AI assistant stores MCP server configurations in JSON files.
    
    **Configuration file locations**:
    - Global Configuration: `~/.aws/amazonq/mcp.json` - Applies to all workspaces
@@ -117,7 +117,7 @@ For more detailed troubleshooting, see the [MCP Command Documentation](./framewo
 
 ## Example Interactions
 
-With the MCP server running and registered with Amazon Q, you can use natural language to interact with ThothCTL:
+With the MCP server running and registered with your AI assistant, you can use natural language to interact with ThothCTL:
 
 - "List all projects managed by ThothCTL"
 - "Scan my infrastructure code for security issues"
@@ -248,19 +248,19 @@ ThothCTL MCP exposes two server modes:
 
 ```
 src/thothctl/services/mcp/
-├── stdio_server.py          ← stdio mode (Kiro, Amazon Q, Claude Code, Copilot)
+├── stdio_server.py          ← stdio mode (Kiro, Claude, Copilot)
 └── simple_http_server.py    ← HTTP mode (network integrations, CI/CD)
 ```
 
 **Stdio mode** (`thothctl mcp server --stdio`):
 - Used by AI coding assistants via MCP protocol over stdin/stdout
 - Each tool maps to a subprocess call to the thothctl CLI
-- 22 tools at full feature parity
+- 26 tools at full feature parity
 
 **HTTP mode** (`thothctl mcp server -p 8080`):
 - REST endpoints: `GET /tools`, `POST /execute`, `GET /health`
 - CORS-enabled for browser/network integrations
-- Same 22 tools via subprocess execution
+- Same 26 tools via subprocess execution
 
 ## Space Management
 

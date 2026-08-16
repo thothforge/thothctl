@@ -4,7 +4,7 @@
 
 ThothCTL Framework extends beyond CLI commands to provide a complete AI-powered development experience through:
 
-- **MCP Server Integration** - Connect with AI assistants (Kiro CLI/Amazon Q)
+- **MCP Server Integration** - Connect with AI assistants (Kiro CLI, Claude)
 - **Scaffold Templates** - Pre-built project structures with best practices
 - **Natural Language Interface** - Interact with IaC using conversational AI
 - **Automated Workflows** - AI-assisted DevSecOps automation
@@ -192,7 +192,7 @@ kiro-cli chat "Create a new Terraform project using the ThothForge scaffold temp
 # 4. Set up configuration
 ```
 
-#### With Kiro CLI (Amazon Q):
+#### With Kiro CLI:
 ```bash
 # Natural language project creation
 kiro-cli chat "I need a new AWS infrastructure project with Terragrunt"

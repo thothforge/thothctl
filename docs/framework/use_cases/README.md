@@ -14,7 +14,7 @@ Complete AI-assisted IaC development workflow with Kiro CLI and MCP integration.
 - Two workflow options: AI orchestration vs. manual + AI analysis
 
 **Key Features:**
-- 19 MCP tools for AI integration
+- 26 MCP tools for AI integration
 - Natural language interface
 - Automated documentation generation
 - Intelligent troubleshooting

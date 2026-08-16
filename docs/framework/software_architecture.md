@@ -567,7 +567,7 @@ EC2, RDS, S3, Lambda, ELB, VPC, EBS, CloudWatch, EKS, ECS, Secrets Manager, Bedr
 Model Context Protocol server for AI integration.
 
 **Capabilities:**
-- 19 MCP tools covering all commands
+- 26 MCP tools covering all commands
 - AI orchestration of ThothCTL
 - Result analysis
 - Natural language interface

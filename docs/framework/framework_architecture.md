@@ -161,7 +161,7 @@ graph TB
     subgraph layer4["<b>🎨 Developer Experience Layer</b><br/><i>Intuitive interfaces and AI assistance</i>"]
         direction LR
         CLI["<b>CLI Interface</b><br/>Rich terminal UI<br/>Autocompletion<br/>Cross-platform"]
-        AI["<b>AI Assistant</b><br/>Kiro CLI + MCP<br/>Natural language<br/>24 AI tools"]
+        AI["<b>AI Assistant</b><br/>Kiro · Claude + MCP<br/>Natural language<br/>26 MCP tools"]
         SKILLS["<b>Skills</b><br/>Reusable knowledge<br/>Decision logic<br/>Remediation"]
         DOCS["<b>Documentation</b><br/>Auto-generation<br/>AI-powered<br/>Multi-format"]
         TMPL["<b>Templates</b><br/>Jinja2 engine<br/>Code generation<br/>Scaffolding"]
@@ -359,8 +359,8 @@ Rich terminal UI with autocompletion, cross-platform support, and modern UX.
 - Shell autocompletion (bash, zsh, fish)
 - Progress indicators and spinners
 
-#### AI Assistant (Kiro CLI)
-Amazon Q integration with 19 specialized tools via Model Context Protocol (MCP).
+#### AI Assistant (Kiro, Claude)
+Agent companion integration with 26 tools via Model Context Protocol (MCP).
 
 **Capabilities:**
 - Natural language infrastructure queries
@@ -424,7 +424,7 @@ ThothCTL supports comprehensive IDP workflows:
 | **Dependency Management** | `inventory iac --check-versions` | [Inventory](commands/inventory/inventory_overview.md) |
 | **Drift Detection** | `check iac -type drift` | [Check Command](commands/check/check_overview.md) |
 | **Documentation** | `document iac --ai` | [Documentation](commands/document/document_overview.md) |
-| **AI Development** | Kiro CLI + MCP + Skills | [AI-DLC](use_cases/ai_dlc.md) |
+| **AI Development** | Kiro · Claude + MCP + Skills | [AI-DLC](use_cases/ai_dlc.md) |
 | **Observability** | `dashboard launch` | [Dashboard](commands/dashboard/dashboard_overview.md) |
 
 📖 **Complete Use Cases:** [Use Cases Documentation](use_cases/README.md)
@@ -450,7 +450,7 @@ ThothCTL supports comprehensive IDP workflows:
 - Jenkins
 
 ### AI Services
-- Amazon Q (via Kiro CLI)
+- Kiro, Claude (via MCP)
 - Model Context Protocol (MCP)
 
 ---

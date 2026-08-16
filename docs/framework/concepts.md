@@ -138,13 +138,13 @@ graph TD
 
 ```bash
 thothctl mcp start  # Start MCP server
-# Then use from Kiro CLI, Amazon Q, or any MCP-compatible assistant
+# Then use from Kiro CLI, Claude, or any MCP-compatible assistant
 ```
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e3f2fd','primaryTextColor':'#1565c0','primaryBorderColor':'#1976d2','lineColor':'#42a5f5','secondaryColor':'#fff3e0','tertiaryColor':'#f3e5f5','fontSize':'14px'}}}%%
 graph LR
-    ai["<b>🤖 AI Assistant</b><br/><small>Kiro CLI / Amazon Q</small>"]:::aiNode
+    ai["<b>🤖 AI Assistant</b><br/><small>Kiro · Claude</small>"]:::aiNode
     mcp["<b>📡 MCP Server</b><br/><small>ThothCTL tools exposed</small>"]:::mcpNode
     scan["<b>scan iac</b>"]:::toolNode
     check["<b>check iac</b>"]:::toolNode

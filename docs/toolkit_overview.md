@@ -33,7 +33,7 @@ graph TB
         subgraph experience["<b>🎨 Developer Experience</b>"]
             direction LR
             CLI["<b>ThothCTL</b><br/>Platform CLI<br/>15 commands"]
-            MCP["<b>MCP Server</b><br/>24 AI tools<br/>Kiro CLI"]
+            MCP["<b>MCP Server</b><br/>26 MCP tools<br/>Kiro · Claude"]
             SKILL["<b>Skills</b><br/>AI knowledge<br/>Decision logic"]
             DASH["<b>Dashboard</b><br/>Web UI<br/>Reporting"]
         end
@@ -226,7 +226,7 @@ thothctl init project -p my-infra --reuse --space my-space
 
 ### 6. MCP Server — AI Integration
 
-24 tools exposed via Model Context Protocol for AI agents:
+26 tools exposed via Model Context Protocol for AI agents:
 
 ```json
 {
