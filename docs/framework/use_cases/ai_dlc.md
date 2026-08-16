@@ -1,32 +1,36 @@
 # AI-Powered Development Lifecycle (AI-DLC)
 
-## Overview
+## What You Can Do
 
-ThothCTL Framework extends beyond CLI commands to provide a complete AI-powered development experience through:
+ThothCTL's AI-DLC lets you interact with your infrastructure lifecycle using AI assistants. Instead of memorizing CLI flags, you describe what you need — the AI executes the right commands and explains the results.
 
-- **MCP Server Integration** - Connect with AI assistants (Kiro CLI, Claude)
-- **Scaffold Templates** - Pre-built project structures with best practices
-- **Natural Language Interface** - Interact with IaC using conversational AI
-- **Automated Workflows** - AI-assisted DevSecOps automation
+| Use Case | What You'll Achieve | Time |
+|----------|--------------------|------|
+| [Generate infrastructure from intent](#use-case-1-generate-infrastructure-from-natural-language) | Working Terraform/Terragrunt from a description | 2 min |
+| [Security review with AI agents](#use-case-2-ai-powered-security-review) | Findings + auto-generated fixes + PR decision | 3 min |
+| [Full DevSecOps pipeline via AI](#use-case-3-run-devsecops-pipeline-via-ai) | Cost + security + blast radius in one conversation | 5 min |
+| [Analyze planned changes](#use-case-4-analyze-planned-changes-cost-blast-radius) | Cost estimate + risk assessment from plan files | 3 min |
+| [Detect and fix drift](#use-case-5-detect-and-fix-drift) | Drifted resources + remediation guidance | 2 min |
+| [Generate documentation](#use-case-6-generate-documentation) | README, dependency graphs, architecture diagrams | 1 min |
 
-## The AI-DLC Workflow
+### The AI-DLC Workflow
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3f51b5','primaryTextColor':'#fff','primaryBorderColor':'#303f9f','lineColor':'#536dfe','secondaryColor':'#536dfe','tertiaryColor':'#fff'}}}%%
 graph TB
-    A["🤖 Kiro CLI<br/>kiro-cli chat --agent thoth"] --> B{"Workflow Choice"}
+    A["🤖 AI Assistant<br/>Kiro · Claude · Copilot"] --> B{"Workflow Choice"}
     
-    B -->|"Option 1:<br/>AI Orchestrates"| C["📡 MCP Server<br/>AI calls ThothCTL"]
-    B -->|"Option 2:<br/>Manual + AI Analysis"| D["💻 Direct CLI<br/>User runs ThothCTL"]
+    B -->|"Option 1:<br/>AI Orchestrates"| C["📡 MCP Server<br/>AI calls ThothCTL tools"]
+    B -->|"Option 2:<br/>Manual + AI Analysis"| D["💻 Direct CLI<br/>Developer runs commands"]
     
-    C --> E["🎯 ThothCTL Commands<br/>scan, check, inventory, document"]
+    C --> E["⚙️ ThothCTL Engine<br/>generate, scan, check,<br/>ai-review, inventory, workflow"]
     D --> E
     
-    E --> F["📦 Results & Reports<br/>JSON, HTML, Logs"]
+    E --> F["📊 Results & Reports<br/>JSON, HTML, Findings, SBOM"]
     
-    F --> G["📊 AI Analysis via MCP<br/>Insights, Summaries, Recommendations"]
+    F --> G["🧠 AI Analysis<br/>Insights, Summaries,<br/>Fixes, Decisions"]
     
-    G --> H["☁️ Infrastructure Actions<br/>Deploy, Update, Monitor"]
+    G --> H["🚀 Action<br/>Deploy, Fix, Document,<br/>Create PR"]
     
     H --> A
     
@@ -34,804 +38,733 @@ graph TB
     classDef choiceStyle fill:#f57f17,stroke:#fbc02d,stroke-width:3px,color:#fff
     classDef mcpStyle fill:#0277bd,stroke:#039be5,stroke-width:3px,color:#fff
     classDef cliStyle fill:#2e7d32,stroke:#43a047,stroke-width:3px,color:#fff
-    classDef commandStyle fill:#ef6c00,stroke:#fb8c00,stroke-width:3px,color:#fff
+    classDef engineStyle fill:#ef6c00,stroke:#fb8c00,stroke-width:3px,color:#fff
     classDef resultsStyle fill:#c2185b,stroke:#e91e63,stroke-width:3px,color:#fff
     classDef analysisStyle fill:#7b1fa2,stroke:#9c27b0,stroke-width:3px,color:#fff
-    classDef infraStyle fill:#00695c,stroke:#00897b,stroke-width:3px,color:#fff
+    classDef actionStyle fill:#00695c,stroke:#00897b,stroke-width:3px,color:#fff
     
     class A aiStyle
     class B choiceStyle
     class C mcpStyle
     class D cliStyle
-    class E commandStyle
+    class E engineStyle
     class F resultsStyle
     class G analysisStyle
-    class H infraStyle
+    class H actionStyle
 ```
 
-### Two Ways to Use AI-DLC
+**Two ways to use it:**
 
-**Option 1: AI Orchestrates Everything**
-- Start: `kiro-cli chat --agent thoth`
-- Ask: "Run security scan with checkov"
-- AI executes ThothCTL commands via MCP
-- AI analyzes and presents results
-- Best for: Conversational, exploratory workflows
-
-**Option 2: Manual Execution + AI Analysis**
-- Run: `thothctl scan iac -t checkov`
-- Start: `kiro-cli chat --agent thoth`
-- Ask: "Analyze the scan results"
-- AI accesses results via MCP and provides insights
-- Best for: Scripted, CI/CD, controlled workflows
+- **Option 1 — AI Orchestrates**: Run `kiro-cli chat --agent thoth`, describe what you need in natural language, the agent executes ThothCTL commands via MCP and explains results.
+- **Option 2 — Manual + AI Analysis**: Run `thothctl` commands yourself, then start `kiro-cli chat --agent thoth` to analyze results, prioritize findings, and get fix suggestions.
 
 ---
 
-## Component 1: MCP Server Integration
+## Prerequisites
 
-### What is MCP?
-
-Model Context Protocol (MCP) is an open protocol that enables AI assistants to interact with external tools and services. ThothCTL implements an MCP server that exposes all DevSecOps capabilities to AI assistants.
-
-### Starting the MCP Server
+### 1. Install ThothCTL
 
 ```bash
-# Start MCP server on default port (8080)
-thothctl mcp server
+# Install with pip
+pip install thothctl
 
-# Start on custom port
-thothctl mcp server --port 3000
+# Or install with pipx (recommended — isolated environment, no conflicts)
+pipx install thothctl
 
-# Check server status
-thothctl mcp status
+# Already installed? Upgrade to latest version
+thothctl upgrade
+
+# Or with pip/pipx
+pip install --upgrade thothctl
+pipx upgrade thothctl
 ```
 
-### Register with Kiro CLI
+### 2. Configure MCP (for AI assistant integration)
 
-Kiro CLI uses JSON configuration files for MCP servers. Create or edit `.kiro/settings/mcp.json`:
+Add ThothCTL to your AI assistant's MCP configuration:
 
-```json
-{
-  "mcpServers": {
-    "thothctl": {
-      "command": "thothctl",
-      "args": ["mcp", "server"]
+=== "Kiro CLI (`~/.kiro/settings/mcp.json`)"
+
+    ```json
+    {
+      "mcpServers": {
+        "thothctl": {
+          "command": "thothctl",
+          "args": ["mcp", "server", "--stdio"]
+        }
+      }
     }
-  }
-}
-```
+    ```
 
-Or add to your global config at `~/.kiro/settings/mcp.json`.
+=== "Claude Code (`~/.claude/settings/mcp.json`)"
 
-Once configured, restart Kiro CLI and you can interact with ThothCTL:
-
-```bash
-kiro-cli chat "List all ThothCTL projects"
-```
-
-### Available MCP Tools
-
-ThothCTL exposes these capabilities through MCP:
-
-| Tool | Description | Example Usage |
-|------|-------------|---------------|
-| `init_project` | Initialize new IaC project | "Create a new Terraform project for AWS" |
-| `remove_project` | Remove a project | "Delete the old-project" |
-| `list_all_projects` | List managed projects | "Show me all my projects" |
-| `bootstrap_project` | Bootstrap project with configs | "Set up development environment" |
-| `cleanup_project` | Clean up project files | "Clean up temporary files" |
-| `convert_project` | Convert project to ThothCTL | "Convert my Terraform project" |
-| `upgrade_project` | Upgrade project to latest | "Upgrade my project templates" |
-| `init_space` | Create organizational space | "Set up a production space with GitHub" |
-| `remove_space` | Remove a space | "Delete the test space" |
-| `list_all_spaces` | List organizational spaces | "What spaces do I have?" |
-| `get_projects_in_space` | List projects in a space | "Show projects in production space" |
-| `scan_infrastructure` | Run security scans | "Scan my infrastructure for vulnerabilities" |
-| `create_inventory` | Generate component inventory | "Create an inventory of all modules" |
-| `generate_iac` | Generate IaC code | "Generate infrastructure code" |
-| `document_project` | Generate documentation | "Document all Terraform modules" |
-| `check_compliance` | Validate compliance | "Check if my IaC is compliant" |
-| `workflow_devsecops` | Run DevSecOps SDLC phases | "Run the full DevSecOps pipeline" / "Run security phase" |
-| `manage_project` | Manage project operations | "Manage my infrastructure project" |
-| `get_version` | Get ThothCTL version | "What version of ThothCTL is installed?" |
-| `upgrade_thothctl` | Upgrade ThothCTL | "Upgrade ThothCTL to latest version" |
-
-> 📖 The `workflow_devsecops` tool orchestrates the full DevSecOps SDLC pipeline. For detailed phase descriptions, enforcement modes, and configuration, see the [DevSecOps SDLC Guide](devsecops_sdlc.md).
-
----
-
-## Component 2: Scaffold Templates
-
-### Official Templates
-
-ThothCTL provides production-ready scaffold templates:
-
-#### 1. Terraform + Terragrunt Scaffold
-**Repository**: [terraform_terragrunt_scaffold_project](https://github.com/thothforge/terraform_terragrunt_scaffold_project)
-
-**Features**:
-
-- Multi-environment structure (dev, staging, prod)
-- Terragrunt configuration for DRY code
-- Pre-configured modules
-- CI/CD integration
-- Security scanning setup
-- Documentation templates
-
-**Structure**:
-```
-terraform_terragrunt_scaffold_project/
-├── .kiro/                    # Kiro CLI integration
-├── common/                   # Shared Terragrunt configurations
-├── docs/
-│   └── catalog/             # Backstage catalog integration
-├── environments/            # Environment-specific configs
-│   ├── dev/
-│   ├── staging/
-│   └── prod/
-├── stacks/                  # Terragrunt stacks
-├── .gitignore
-├── .pre-commit-config.yaml  # Pre-commit hooks
-├── .tflint.hcl             # TFLint configuration
-├── .thothcf.toml           # ThothCTL configuration
-├── README.md
-└── root.hcl                # Root Terragrunt config
-```
-
-### Using Templates with AI
-
-#### With Kiro CLI:
-```bash
-# Ask Kiro to create a project from template
-kiro-cli chat "Create a new Terraform project using the ThothForge scaffold template"
-
-# Kiro will:
-# 1. Call ThothCTL MCP server
-# 2. Clone the scaffold template
-# 3. Initialize the project
-# 4. Set up configuration
-```
-
-#### With Kiro CLI:
-```bash
-# Natural language project creation
-kiro-cli chat "I need a new AWS infrastructure project with Terragrunt"
-
-# Kiro will use ThothCTL MCP to:
-# - Select appropriate template
-# - Initialize project structure
-# - Configure for AWS
-# - Set up Terragrunt
-```
-
----
-
-## Component 3: AI-Assisted Workflows
-
-### Workflow 1: Project Initialization
-
-#### Traditional Way:
-```bash
-git clone https://github.com/thothforge/terraform_terragrunt_scaffold_project.git
-cd terraform_terragrunt_scaffold_project
-# Manual configuration...
-```
-
-#### ThothCTL Way:
-```bash
-# Initialize project (downloads template, prompts for values)
-thothctl init project -p my-aws-infra --project-type terraform-terragrunt
-
-# Now use Kiro CLI with ThothCTL agent for AI assistance
-kiro-cli chat --agent thoth
-```
-
-**In Kiro chat session:**
-```
-You: "Help me configure the VPC and subnets for this project"
-You: "Add an EKS cluster configuration"
-You: "Generate documentation for all modules"
-```
-
-**What happens:**
-1. ThothCTL downloads scaffold template
-2. Prompts for project-specific values (AWS region, environment, etc.)
-3. Sets up project structure
-4. Kiro CLI connects to ThothCTL via MCP
-5. AI assists with configuration and development
-
-### Workflow 2: Security Scanning
-
-#### Traditional Way:
-```bash
-thothctl scan iac -t checkov
-thothctl scan iac -t trivy
-thothctl scan iac -t trivy
-# Review multiple reports...
-```
-
-#### AI-Assisted Way (Option 1 - Direct execution):
-```bash
-kiro-cli chat --agent thoth
-```
-
-**In Kiro chat session:**
-```
-You: "Run a security scan with checkov on my infrastructure"
-You: "Scan with trivy and summarize the findings"
-```
-
-**The AI will:**
-1. Execute `thothctl scan iac` via MCP
-2. Aggregate and analyze results
-3. Prioritize findings by severity
-4. Suggest remediation steps
-
-#### AI-Assisted Way (Option 2 - Analysis of existing results):
-```bash
-# Run scans first
-thothctl scan iac -t checkov
-thothctl scan iac -t trivy
-
-# Then use Kiro for analysis
-kiro-cli chat --agent thoth
-```
-
-**In Kiro chat session:**
-```
-You: "Summarize the security scan findings"
-You: "What are the critical issues I need to fix?"
-You: "Help me remediate the S3 encryption issue"
-```
-
-### Workflow 3: Cost Optimization
-
-#### Traditional Way:
-```bash
-terraform plan -out=tfplan.binary
-terraform show -json tfplan.binary > tfplan.json
-thothctl check iac -type cost-analysis --plan-file tfplan.json
-# Analyze JSON output...
-```
-
-#### AI-Assisted Way (Option 1 - AI executes):
-```bash
-# Generate plan first
-terraform plan -out=tfplan.binary
-terraform show -json tfplan.binary > tfplan.json
-
-# Use Kiro to run cost analysis
-kiro-cli chat --agent thoth
-```
-
-**In Kiro chat session:**
-```
-You: "Run cost analysis on tfplan.json and suggest optimizations"
-You: "What's the most expensive resource and how can I reduce costs?"
-```
-
-**The AI will:**
-1. Execute `thothctl check iac -type cost-analysis` via MCP
-2. Analyze cost breakdown
-3. Identify expensive resources
-4. Suggest alternatives and optimizations
-5. Estimate potential savings
-
-#### AI-Assisted Way (Option 2 - Analysis of existing results):
-```bash
-# Run cost analysis first
-terraform plan -out=tfplan.binary
-terraform show -json tfplan.binary > tfplan.json
-thothctl check iac -type cost-analysis --plan-file tfplan.json
-
-# Use Kiro for insights
-kiro-cli chat --agent thoth
-```
-
-**In Kiro chat session:**
-```
-You: "Analyze the cost report and suggest optimizations"
-You: "How can I reduce costs by 30%?"
-```
-
-### Workflow 4: Compliance Validation
-
-#### ThothCTL + AI Workflow:
-```bash
-# Run compliance checks
-thothctl scan iac -t terraform-compliance --policy-dir ./policies/
-
-# Use Kiro for compliance review
-kiro-cli chat --agent thoth
-```
-
-**In Kiro chat session:**
-```
-You: "Review compliance scan results for SOC2"
-You: "What violations need immediate attention?"
-You: "Help me fix the tagging policy violations"
-```
-
-**AI Assistant will:**
-1. Access compliance scan results
-2. Explain policy violations
-3. Prioritize by severity
-4. Suggest fixes
-5. Generate compliance report
-
----
-
-## Component 4: Kiro CLI Integration
-
-### Setup Kiro with ThothCTL
-
-#### 1. Install Kiro CLI
-```bash
-# Install Kiro CLI using ThothCTL's environment bootstrap
-thothctl init env
-
-# This will install:
-# - Kiro CLI
-# - Terraform/OpenTofu
-# - Security scanners (Checkov, Trivy, Trivy)
-# - Other DevSecOps tools
-```
-
-#### 2. Register ThothCTL MCP Server
-```bash
-# Create Kiro MCP configuration
-mkdir -p ~/.kiro/settings
-cat > ~/.kiro/settings/mcp.json << 'EOF'
-{
-  "mcpServers": {
-    "thothctl": {
-      "command": "thothctl",
-      "args": ["mcp", "server"]
+    ```json
+    {
+      "mcpServers": {
+        "thothctl": {
+          "command": "thothctl",
+          "args": ["mcp", "server", "--stdio"]
+        }
+      }
     }
-  }
-}
-EOF
-```
+    ```
 
-#### 3. Verify Integration
+=== "Per-project (`.kiro/settings/mcp.json`)"
+
+    ```json
+    {
+      "mcpServers": {
+        "thothctl": {
+          "command": "thothctl",
+          "args": ["mcp", "server", "--stdio"]
+        }
+      }
+    }
+    ```
+
+### 3. (Optional) Install a local LLM for AI Review
+
 ```bash
-kiro-cli chat "List all available ThothCTL commands"
+# For local AI review without cloud costs
+# Install Ollama: https://ollama.ai
+ollama pull llama3.1:8b
 ```
 
-### Example Conversations
+### Verify Setup
 
-#### Example 1: Project Setup
-```
-You: "I need to set up a new AWS infrastructure project with Terraform"
-
-Kiro: "I'll help you create a new project using ThothCTL. Let me:
-1. Initialize a project from the scaffold template
-2. Configure it for AWS
-3. Set up the directory structure
-
-[Calls ThothCTL MCP: init_project]
-
-✅ Project created at: ./my-aws-infrastructure
-✅ Template: terraform_terragrunt_scaffold_project
-✅ Configured for: AWS
-✅ Ready for development
-
-Next steps:
-- cd my-aws-infrastructure
-- Review the README.md
-- Configure your AWS credentials
-- Run: terraform init"
-```
-
-#### Example 2: Security Review
-```
-You: "Review my infrastructure for security issues"
-
-Kiro: "I'll run a comprehensive security scan using ThothCTL.
-
-[Calls ThothCTL MCP: scan_infrastructure]
-
-📊 Security Scan Results:
-- Checkov: 3 HIGH, 5 MEDIUM, 12 LOW
-- Trivy: 1 CRITICAL, 2 HIGH
-- Trivy: 4 HIGH, 8 MEDIUM
-
-🔴 Critical Issues:
-1. S3 bucket without encryption (s3.tf:15)
-2. RDS instance publicly accessible (rds.tf:23)
-
-💡 Recommendations:
-1. Enable S3 bucket encryption:
-   aws_s3_bucket_server_side_encryption_configuration
-2. Set RDS publicly_accessible = false
-
-Would you like me to generate fixes for these issues?"
-```
-
-#### Example 3: Cost Analysis
-```
-You: "How much will this infrastructure cost?"
-
-Kiro: "Let me analyze the costs using ThothCTL.
-
-[Calls ThothCTL MCP: check_compliance with cost-analysis]
-
-💰 Cost Estimate:
-- Monthly: $2,847.50
-- Annual: $34,170.00
-
-📊 Breakdown by Service:
-- EC2 (t3.large x3): $1,234.50/mo
-- RDS (db.r5.xlarge): $876.00/mo
-- EKS Cluster: $432.00/mo
-- S3 Storage: $125.00/mo
-- Other: $180.00/mo
-
-💡 Optimization Opportunities:
-1. Switch EC2 to t3.medium: Save $412/mo
-2. Use RDS Reserved Instances: Save $263/mo
-3. Enable S3 Intelligent Tiering: Save ~$40/mo
-
-Potential savings: $715/mo ($8,580/year)
-
-Would you like me to apply these optimizations?"
+```bash
+thothctl --version         # Should show v0.27+
+thothctl mcp status        # Should show server available
+ollama list                # (optional) Shows local models
 ```
 
 ---
 
-## Component 5: Complete AI-DLC Example
+## Use Case 1: Generate Infrastructure from Natural Language
 
-### Scenario: Deploy Production Infrastructure
+**Goal**: Describe what you need → get working, compliant IaC code.
 
-#### Option 1: AI Orchestrates via MCP
+### Step 1: Initialize your project and start the AI agent
+
 ```bash
-# Initialize project first
-thothctl init project -p aws-prod-infra --project-type terraform-terragrunt
+# Initialize a project first (sets up scaffold + org rules)
+thothctl init project -p my-infrastructure --project-type terraform-terragrunt --space production
 
-# Start AI chat - AI will execute commands via MCP
+# Start Kiro CLI with the ThothCTL agent
+cd my-infrastructure
 kiro-cli chat --agent thoth
 ```
 
-**In Kiro chat session:**
+### Step 2: Describe your intent
+
+=== "Via Kiro CLI (AI Agent)"
+
+    Once inside the `kiro-cli chat --agent thoth` session:
+
+    ```
+    You: "Generate a VPC with 3 private subnets, NAT gateway, and flow logs 
+          for production in us-east-1"
+    ```
+
+    The agent uses ThothCTL MCP tools to generate, validate, and self-correct automatically.
+
+=== "Via CLI (no AI assistant)"
+
+    ```bash
+    thothctl generate iac \
+      --intent "VPC with 3 private subnets, NAT gateway, and flow logs" \
+      --project-type terraform-terragrunt \
+      --provider ollama \
+      --space production \
+      --apply
+    ```
+
+### Step 2: ThothCTL generates, validates, and self-corrects
+
 ```
-You: "Check my environment for required tools"
-You: "Create an inventory with version checking"
-You: "Generate documentation for all modules"
-You: "Run security scans with checkov and trivy"
-You: "Analyze costs from tfplan.json"
-You: "Assess blast radius from tfplan.json"
-You: "Create a deployment checklist based on all findings"
+🔄 Generating infrastructure code...
+   ├── Loading org rules from .thothcf.toml
+   ├── Using scaffold: terraform-terragrunt
+   ├── AI generating HCL code...
+   ├── Validating with Checkov...
+   │   └── ❌ 1 violation: VPC flow logs not enabled
+   ├── Self-correcting (iteration 2/5)...
+   ├── Re-validating...
+   │   └── ✅ 0 violations
+   └── Running terraform plan...
+       └── ✅ Plan succeeded (7 resources to create)
+
+✅ Generated files:
+   stacks/foundation/network/vpc/
+   ├── main.tf          (VPC + subnets + NAT + flow logs)
+   ├── variables.tf     (region, cidr, environment)
+   ├── outputs.tf       (vpc_id, subnet_ids, nat_gateway_ip)
+   └── terragrunt.hcl   (backend + provider config)
+
+📊 Estimated cost: $142/month
+📐 Architecture diagram: docs/vpc-architecture.mmd
 ```
 
-#### Option 2: Manual Execution + AI Analysis
+### Step 3: Review and deploy
+
 ```bash
-# Step 1: Initialize project
-thothctl init project -p aws-prod-infra --project-type terraform-terragrunt
+cd stacks/foundation/network/vpc
+terragrunt plan    # Verify the generated code
+terragrunt apply   # Deploy when satisfied
+```
 
-# Step 2: Check environment
-thothctl check environment
+### Supported Project Types
 
-# Step 3: Create inventory
-thothctl inventory iac --check-versions
+| Type | Flag | What Gets Generated |
+|------|------|---------------------|
+| **Terraform** | `--project-type terraform` | `main.tf`, `variables.tf`, `outputs.tf` |
+| **Terragrunt** | `--project-type terraform-terragrunt` | Multi-stack with `terragrunt.hcl` per stack |
+| **CloudFormation** | `--project-type cloudformation` | `template.yaml` with Parameters/Resources/Outputs |
+| **CDK v2** | `--project-type cdkv2` | TypeScript/Python CDK constructs |
 
-# Step 4: Generate documentation
-thothctl document iac --recursive
+### Try It
 
-# Step 5: Run security scans
-thothctl scan iac -t checkov
-thothctl scan iac -t trivy
-thothctl scan iac -t trivy
+```bash
+# Requires an AI provider. Choose one:
 
-# Step 6: Create Terraform plan
-terraform init
+# Option A: Local Ollama (free, private — install from https://ollama.ai)
+ollama pull llama3.1:8b
+thothctl generate iac \
+  --intent "S3 bucket with encryption and versioning" \
+  --project-type terraform \
+  --provider ollama
+
+# Option B: AWS Bedrock (requires AWS credentials with Bedrock access)
+thothctl generate iac \
+  --intent "S3 bucket with encryption and versioning" \
+  --project-type terraform \
+  --provider bedrock
+
+# Option C: OpenAI (requires OPENAI_API_KEY env var)
+thothctl generate iac \
+  --intent "S3 bucket with encryption and versioning" \
+  --project-type terraform \
+  --provider openai
+
+# Add --apply to write files to disk (dry-run by default)
+```
+
+!!! note "Provider Required"
+    `generate iac` requires an AI provider to produce code. Without `--provider`, 
+    ThothCTL will use the provider configured in `.thothcf.toml` or prompt you to set one up.
+
+---
+
+## Use Case 2: AI-Powered Security Review
+
+**Goal**: Get AI agents to analyze your IaC, find security issues, suggest fixes, and decide if a PR is safe.
+
+### Step 1: Run AI review on your code
+
+=== "Via Kiro CLI (AI Agent)"
+
+    ```bash
+    # Start Kiro CLI with the ThothCTL agent
+    kiro-cli chat --agent thoth
+    ```
+
+    Then in the chat session:
+    ```
+    You: "Review my Terraform code in ./stacks for security issues"
+    ```
+
+=== "Via CLI (direct)"
+
+    ```bash
+    # With local Ollama (free, private)
+    thothctl ai-review analyze -d ./stacks -p ollama
+
+    # With AWS Bedrock (Claude)
+    thothctl ai-review analyze -d ./stacks -p bedrock --model us.anthropic.claude-sonnet-4-20250514-v1:0
+
+    # With OpenAI
+    thothctl ai-review analyze -d ./stacks -p openai
+    ```
+
+### Step 2: Four AI agents analyze in parallel
+
+```
+🔒 Security Agent:
+   - IAM role has wildcard s3:* permissions (iam.tf:15) → HIGH
+   - S3 bucket allows public access (storage.tf:8) → HIGH
+   - RDS not encrypted at rest (database.tf:22) → MEDIUM
+
+🏗️ Architecture Agent:
+   - EKS on single AZ (cluster.tf:5) → Consider multi-AZ for HA
+   - No autoscaling on node group → Add cluster-autoscaler
+
+🔧 Fix Agent:
+   - Generated fix for iam.tf: Replace "s3:*" with ["s3:GetObject", "s3:PutObject"]
+   - Generated fix for storage.tf: Add aws_s3_bucket_public_access_block
+   - Generated fix for database.tf: Add storage_encrypted = true
+
+⚖️ Decision Agent:
+   Verdict: REQUEST_CHANGES (confidence: 0.91)
+   Reason: 2 HIGH security findings must be resolved before merge
+```
+
+### Step 3: Make a PR decision (optional)
+
+```bash
+# Dry-run — shows what decision would be posted
+thothctl ai-review decide -d ./stacks --pr-number 42 --dry-run
+
+# Post decision to PR (GitHub/GitLab/Azure DevOps)
+thothctl ai-review decide -d ./stacks --pr-number 42
+```
+
+### Available Providers
+
+| Provider | Flag | Cost | Best For |
+|----------|------|------|----------|
+| Ollama | `-p ollama` | Free | Local dev, privacy, testing |
+| AWS Bedrock | `-p bedrock` | Pay-per-token | Enterprise, Claude models |
+| OpenAI | `-p openai` | Pay-per-token | GPT-4o, broad availability |
+| Azure OpenAI | `-p azure` | Pay-per-token | Azure compliance requirements |
+
+### Try It
+
+```bash
+# Quickest test — uses local Ollama
+ollama pull llama3.1:8b
+thothctl ai-review analyze -d . -p ollama
+```
+
+---
+
+## Use Case 3: Run DevSecOps Pipeline via AI
+
+**Goal**: Execute the full DevSecOps lifecycle (cost → structure → inventory → security → blast radius → drift) in one conversation or one command.
+
+### Option A: Via Kiro CLI (conversational)
+
+```bash
+# Start Kiro CLI with the ThothCTL agent
+kiro-cli chat --agent thoth
+```
+
+Then in the chat session:
+```
+You: "Run the full DevSecOps pipeline on my infrastructure"
+
+AI: [Executes thothctl workflow devsecops --phase all]
+
+📋 Results:
+┌───────────┬──────────┬───────────────────────────────┐
+│ Phase     │ Status   │ Summary                       │
+├───────────┼──────────┼───────────────────────────────┤
+│ Plan      │ ✅ Pass  │ Cost: $2,847/mo               │
+│ Develop   │ ✅ Pass  │ Structure valid               │
+│ Build     │ ✅ Pass  │ 12 modules, 3 outdated        │
+│ Test      │ ✅ Pass  │ 0 plan errors                 │
+│ Secure    │ ⚠️ Warn  │ 3 HIGH, 5 MEDIUM findings     │
+│ Deploy    │ ✅ Pass  │ Blast radius: Medium          │
+│ Monitor   │ ✅ Pass  │ 0 drifted resources           │
+└───────────┴──────────┴───────────────────────────────┘
+
+⚠️ 3 HIGH severity findings in Secure phase.
+Would you like me to show details and fixes?
+```
+
+### Option B: Via CLI (for CI/CD)
+
+```bash
+# Full pipeline (soft enforcement — report only)
+thothctl workflow devsecops --phase all
+
+# Pre-deploy gate (hard enforcement — fails on violations)
+thothctl workflow devsecops --phase pre-deploy --enforcement hard
+
+# Single phase
+thothctl workflow devsecops --phase secure
+```
+
+### Option C: Custom YAML workflow
+
+```bash
+# Run a custom workflow DAG
+thothctl workflow run --file .thothcf_workflow.yaml
+
+# Dry-run to see execution plan
+thothctl workflow run --file .thothcf_workflow.yaml --dry-run
+```
+
+### Available Phases
+
+| Phase | What It Does | CLI Flag |
+|-------|-------------|----------|
+| **Plan** | Cost analysis + blast radius | `--phase plan` |
+| **Develop** | Environment check + project structure | `--phase develop` |
+| **Build** | Inventory + version checks (SBOM) | `--phase build` |
+| **Test** | Terraform plan validation | `--phase test` |
+| **Secure** | Multi-tool scanning (Checkov, Trivy, OPA) | `--phase secure` |
+| **Deploy** | Security gate (hard enforcement) | `--phase deploy` |
+| **Monitor** | Drift detection | `--phase monitor` |
+| **Pre-deploy** | Test + Secure combined (CI/CD gate) | `--phase pre-deploy` |
+| **All** | Full pipeline | `--phase all` |
+
+### Try It
+
+```bash
+# Quickest test — just the security phase
+thothctl workflow devsecops --phase secure
+
+# Full pipeline
+thothctl workflow devsecops --phase all
+```
+
+> 📖 For detailed phase descriptions, plan generation per framework, and CI/CD integration, see the [DevSecOps SDLC Guide](devsecops_sdlc.md).
+
+---
+
+## Use Case 4: Analyze Planned Changes (Cost + Blast Radius)
+
+**Goal**: Before deploying, understand what it will cost and what could break.
+
+### Step 1: Generate a plan file
+
+Plans are framework-specific. Generate one using your IaC tool:
+
+=== "Terragrunt (multi-stack)"
+
+    ```bash
+    terragrunt run \
+      --working-dir stacks/ \
+      --all \
+      --out-dir tfplan \
+      --json-out-dir tfplan \
+      -- plan -lock=false
+    ```
+
+    Output: `tfplan/` directory with JSON plans per stack.
+
+=== "Terraform / OpenTofu"
+
+    ```bash
+    terraform plan -out=tfplan.binary
+    terraform show -json tfplan.binary > tfplan.json
+    ```
+
+    Output: single `tfplan.json` file.
+
+=== "CloudFormation"
+
+    ```bash
+    # Create change set
+    aws cloudformation create-change-set \
+      --stack-name my-stack \
+      --template-body file://template.yaml \
+      --change-set-name analyze-changes
+    ```
+
+    Or analyze directly from template: `--template template.yaml`
+
+=== "CDK v2"
+
+    ```bash
+    cdk synth --output cdk.out
+    ```
+
+    Analyze the synthesized template: `--template cdk.out/MyStack.template.json`
+
+### Step 2: Ask AI to analyze
+
+=== "Via Kiro CLI (AI Agent)"
+
+    ```bash
+    kiro-cli chat --agent thoth
+    ```
+
+    Then in the chat session:
+    ```
+    You: "Analyze the cost and blast radius for my planned changes"
+
+    AI: [Calls cost_analysis + check_iac with blast-radius]
+
+    💰 Cost Impact: +$340/month across 5 stacks
+       - EKS node scaling: +$280/mo
+       - New RDS read replica: +$60/mo
+    
+    📊 Blast Radius: HIGH
+       - 14 resources affected
+       - 3 cross-stack dependencies
+       - EKS node group: rolling update (potential 5min downtime)
+    
+    Recommendation: Deploy foundation layer first, wait 10 min,
+    then deploy platform layer.
+    ```
+
+=== "Via CLI"
+
+    ```bash
+    # Cost analysis
+    thothctl check iac -type cost-analysis --plan-file tfplan/ --recursive
+
+    # Blast radius
+    thothctl check iac -type blast-radius --plan-file tfplan/ --recursive
+    ```
+
+### Try It
+
+```bash
+# Generate a plan and analyze it
 terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > tfplan.json
-
-# Step 7: Cost analysis
-thothctl check iac -type cost-analysis --plan-file tfplan.json
-
-# Step 8: Blast radius assessment
-thothctl check iac -type blast-radius --plan-file tfplan.json
-
-# Step 9: Start AI chat for insights
-kiro-cli chat --agent thoth
-```
-
-**In Kiro chat session:**
-```
-You: "Summarize all findings and prioritize issues"
-You: "What are the cost implications?"
-You: "Help me understand the blast radius"
-You: "Generate an executive summary for stakeholders"
-```
-
-**Both approaches leverage MCP:**
-- Option 1: AI executes ThothCTL commands directly
-- Option 2: AI analyzes results from manual execution
-- Choose based on your workflow preference
-
----
-
-## Benefits of AI-DLC
-
-### For Beginners
-
-| Traditional Approach | AI-DLC Approach |
-|---------------------|-----------------|
-| Learn complex CLI commands | Use natural language |
-| Read extensive documentation | Ask questions conversationally |
-| Manual configuration | AI-guided setup |
-| Trial and error | AI suggests best practices |
-
-### For Professionals
-
-| Traditional Approach | AI-DLC Approach |
-|---------------------|-----------------|
-| Context switching between tools | Unified AI interface |
-| Manual report aggregation | AI-generated summaries |
-| Sequential task execution | Parallel AI orchestration |
-| Manual optimization analysis | AI-powered recommendations |
-
-### For Teams
-
-| Traditional Approach | AI-DLC Approach |
-|---------------------|-----------------|
-| Knowledge silos | AI democratizes expertise |
-| Inconsistent practices | AI enforces standards |
-| Manual code reviews | AI-assisted reviews |
-| Delayed feedback | Real-time AI insights |
-
----
-
-## Advanced AI-DLC Patterns
-
-### Pattern 1: Continuous Monitoring
-
-```bash
-# Set up scheduled scans (cron or CI/CD)
-# Run scans regularly
-thothctl scan iac -t checkov --output json > scan-results.json
-thothctl check iac -type cost-analysis --plan-file tfplan.json
-
-# Use Kiro for analysis
-kiro-cli chat --agent thoth
-```
-
-**In chat:**
-```
-You: "Review the latest scan results and alert me of critical issues"
-You: "Compare costs with last week and identify anomalies"
-```
-
-### Pattern 2: AI-Assisted Remediation
-
-```bash
-# Run security scan
-thothctl scan iac -t checkov
-
-# Use Kiro for remediation guidance
-kiro-cli chat --agent thoth
-```
-
-**In chat:**
-```
-You: "Show me all HIGH severity issues"
-You: "Help me fix the S3 encryption vulnerability"
-You: "Generate the code to remediate IAM policy issues"
-```
-
-### Pattern 3: Documentation Maintenance
-
-```bash
-# Generate documentation after changes
-thothctl document iac --recursive
-
-# Use Kiro for documentation review
-kiro-cli chat --agent thoth
-```
-
-**In chat:**
-```
-You: "Review the generated documentation for completeness"
-You: "Add architecture diagrams for the new modules"
-You: "Create a changelog for infrastructure updates"
-```
-
-### Pattern 4: AI Code Review
-
-```bash
-# Run checks on PR changes
-thothctl scan iac -t checkov
 thothctl check iac -type cost-analysis --plan-file tfplan.json
 thothctl check iac -type blast-radius --plan-file tfplan.json
-
-# Use Kiro for comprehensive review
-kiro-cli chat --agent thoth
-```
-
-**In chat:**
-```
-You: "Review all findings and create a PR comment summary"
-You: "What security issues were introduced in this PR?"
-You: "Assess the cost impact and blast radius of these changes"
 ```
 
 ---
 
-## MCP Server Configuration
+## Use Case 5: Detect and Fix Drift
 
-### Basic Configuration
+**Goal**: Find resources that have drifted from your IaC definition and get remediation guidance.
 
-Start the MCP server with command-line options:
+### Step 1: Run drift detection
+
+=== "Via Kiro CLI (AI Agent)"
+
+    ```bash
+    kiro-cli chat --agent thoth
+    ```
+
+    Then in the chat session:
+    ```
+    You: "Check for drift in my production infrastructure"
+    ```
+
+=== "Via CLI (direct)"
+
+    ```bash
+    # Basic drift detection
+    thothctl check iac -type drift --recursive
+
+    # With AI-powered root cause analysis
+    thothctl check iac -type drift --recursive --ai-provider ollama
+    ```
+
+### Step 2: Review findings
+
+```
+🔍 Drift Detection Results:
+┌────────────────────────────┬──────────┬─────────────────────────┐
+│ Resource                   │ Severity │ What Changed            │
+├────────────────────────────┼──────────┼─────────────────────────┤
+│ aws_security_group.web     │ HIGH     │ Ingress rule added      │
+│ aws_s3_bucket.logs         │ MEDIUM   │ Lifecycle rule removed  │
+│ aws_iam_role.lambda        │ LOW      │ Tag modified            │
+└────────────────────────────┴──────────┴─────────────────────────┘
+
+🔴 HIGH: aws_security_group.web
+   Someone manually added an ingress rule allowing 0.0.0.0/0 on port 22.
+   Your IaC restricts SSH to VPN CIDR (10.0.0.0/8) only.
+   
+   Remediation: Run `terraform apply` to reconcile back to desired state.
+   This will REMOVE the dangerous rule.
+```
+
+### Step 3: Remediate
 
 ```bash
-# Start on default port (8080)
-thothctl mcp server
+# Preview what terraform would change
+terraform plan
 
-# Start on custom port
-thothctl mcp server --port 3000
-
-# Enable debug logging
-thothctl mcp server --log-level DEBUG
+# Apply to reconcile (removes manual drift)
+terraform apply
 ```
 
-### Available Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--port` | Server port | 8080 |
-| `--host` | Server host | localhost |
-| `--log-level` | Logging level (DEBUG, INFO, WARNING, ERROR) | INFO |
-
-> **Note**: Advanced configuration file support (`.thothctl-mcp.toml`) is planned for future releases.
-
----
-
-## Integration Examples
-
-### GitHub Actions with ThothCTL
-
-```yaml
-name: IaC DevSecOps Pipeline
-
-on: [pull_request]
-
-jobs:
-  devsecops:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup ThothCTL
-        run: pip install thothctl
-      
-      - name: Security Scan
-        run: |
-          thothctl scan iac -t checkov
-          thothctl scan iac -t trivy
-      
-      - name: Terraform Plan
-        run: |
-          terraform init
-          terraform plan -out=tfplan.binary
-          terraform show -json tfplan.binary > tfplan.json
-      
-      - name: Cost Analysis
-        run: thothctl check iac -type cost-analysis --plan-file tfplan.json
-      
-      - name: Blast Radius Assessment
-        run: thothctl check iac -type blast-radius --plan-file tfplan.json
-```
-
-### GitLab CI with ThothCTL
-
-```yaml
-devsecops:
-  stage: review
-  script:
-    - pip install thothctl
-    - thothctl scan iac -t checkov
-    - thothctl check iac -type cost-analysis --plan-file tfplan.json
-  artifacts:
-    reports:
-      - security-scan-report.html
-      - cost-analysis-report.json
-```
-
-> **Note**: AI-assisted CI/CD workflows with Kiro CLI integration are available when running in environments with Kiro CLI installed and configured.
-
----
-
-## Troubleshooting
-
-### MCP Server Issues
+### Try It
 
 ```bash
-# Check server status
-thothctl mcp status
-
-# View server logs
-thothctl mcp server --log-level DEBUG
-
-# Test MCP connection
-curl http://localhost:8080/health
+# Requires cloud credentials (reads actual state)
+thothctl check iac -type drift --recursive
 ```
 
-### Kiro Integration Issues
+---
+
+## Use Case 6: Generate Documentation
+
+**Goal**: Auto-generate README, dependency graphs, and architecture diagrams from your IaC code.
+
+### Step 1: Generate docs
+
+=== "Via Kiro CLI (AI Agent)"
+
+    ```bash
+    kiro-cli chat --agent thoth
+    ```
+
+    Then in the chat session:
+    ```
+    You: "Generate documentation for my infrastructure project"
+    ```
+
+=== "Via CLI (direct)"
+
+    ```bash
+    # Generate docs for all stacks
+    thothctl document iac --recursive
+
+    # Terragrunt dependency graph
+    thothctl document iac --framework terragrunt --graph-type mermaid
+    ```
+
+### Step 2: Review output
+
+```
+✅ Generated documentation:
+   ├── stacks/foundation/network/vpc/README.md
+   ├── stacks/foundation/iam/roles/README.md
+   ├── stacks/platform/eks/cluster/README.md
+   ├── docs/dependency-graph.mmd (Mermaid)
+   └── docs/topology.png (architecture diagram)
+```
+
+### Try It
 
 ```bash
-# Verify Kiro can see ThothCTL
-kiro mcp list
-
-# Test MCP call
-kiro-cli chat "Test ThothCTL connection"
-
-# Re-register if needed
-thothctl mcp register --client kiro --force
+thothctl document iac --recursive
 ```
 
 ---
 
-## Best Practices
+## How It All Works Together
 
-### 1. Security
-- Use API keys for MCP authentication in production
-- Limit MCP server access to localhost in development
-- Review AI-suggested changes before applying
+The complete AI-DLC flow connects generation, validation, review, and monitoring:
 
-### 2. Performance
-- Keep MCP server running for faster responses
-- Use caching for frequently accessed data
-- Set appropriate timeouts
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e3f2fd','primaryTextColor':'#1565c0','primaryBorderColor':'#1976d2','lineColor':'#42a5f5','secondaryColor':'#fff3e0','tertiaryColor':'#f3e5f5','fontSize':'14px'}}}%%
+graph TD
+    intent["<b>1. Developer Intent</b><br/><small>'I need a VPC with...'</small>"]:::startNode
+    gen["<b>2. Generate IaC</b><br/><small>generate iac → validated code</small>"]:::genNode
+    plan["<b>3. Plan & Analyze</b><br/><small>terraform plan → cost + blast radius</small>"]:::planNode
+    scan["<b>4. Scan & Review</b><br/><small>scan iac + ai-review → findings</small>"]:::scanNode
+    deploy["<b>5. Deploy</b><br/><small>terraform apply</small>"]:::deployNode
+    monitor["<b>6. Monitor</b><br/><small>drift detection + dashboard</small>"]:::monitorNode
 
-### 3. Collaboration
-- Share AI conversation logs with team
-- Document AI-assisted decisions
-- Use AI for knowledge transfer
+    intent --> gen
+    gen --> plan
+    plan --> scan
+    scan -->|"✅ Approved"| deploy
+    scan -->|"❌ Changes needed"| gen
+    deploy --> monitor
+    monitor -->|"Drift detected"| scan
 
-### 4. Governance
-- Audit AI-initiated changes
-- Require human approval for critical operations
-- Track AI usage metrics
+    classDef startNode fill:#7c4dff,stroke:#6200ea,stroke-width:2px,color:#fff
+    classDef genNode fill:#2196f3,stroke:#1565c0,stroke-width:2px,color:#fff
+    classDef planNode fill:#ff9800,stroke:#e65100,stroke-width:2px,color:#fff
+    classDef scanNode fill:#e91e63,stroke:#880e4f,stroke-width:2px,color:#fff
+    classDef deployNode fill:#4caf50,stroke:#2e7d32,stroke-width:2px,color:#fff
+    classDef monitorNode fill:#00bcd4,stroke:#006064,stroke-width:2px,color:#fff
+```
+
+Each step can be run:
+
+- **Manually** via individual CLI commands
+- **Automatically** via `thothctl workflow devsecops --phase all`
+- **Conversationally** via AI assistant + MCP
 
 ---
 
-## Resources
+## MCP Tools Reference
 
-### Official Templates
-- [Terraform + Terragrunt Scaffold](https://github.com/thothforge/terraform_terragrunt_scaffold_project)
-- More templates coming soon!
+ThothCTL exposes 26 tools via the Model Context Protocol. Your AI assistant can call any of these:
 
-### Documentation
-- [MCP Integration Guide](../commands/mcp/mcp.md)
-- [Kiro CLI Documentation](https://docs.aws.amazon.com/kiro/)
-- [ThothCTL API Reference](https://thothctl.readthedocs.io)
+| Category | Tool | What It Does |
+|----------|------|--------------|
+| **Generation** | `thothctl_generate_iac` | Natural language → governed IaC code |
+| | `thothctl_generate_stacks` | YAML-driven stack generation |
+| **Security** | `thothctl_scan_iac` | Multi-tool scanning (Checkov, Trivy, KICS, OPA) |
+| | `thothctl_ai_review` | Multi-agent AI security analysis + PR decisions |
+| **Analysis** | `thothctl_check_iac` | Cost analysis, blast radius, drift, compliance |
+| | `thothctl_cost_analysis` | AWS cost projections |
+| | `thothctl_drift_detection` | Infrastructure drift detection |
+| **Workflow** | `thothctl_workflow_devsecops` | Run DevSecOps SDLC phases |
+| | `thothctl_workflow_run` | Execute custom YAML DAG workflows |
+| **Inventory** | `thothctl_inventory_iac` | SBOM, dependencies, version checking |
+| **Project** | `thothctl_init_project` | Initialize project from scaffold |
+| | `thothctl_init_space` | Create organizational space |
+| | `thothctl_init_env` | Bootstrap development environment |
+| | `thothctl_remove_project` | Remove a project |
+| | `thothctl_remove_space` | Remove a space |
+| | `thothctl_list_projects` | List managed projects |
+| | `thothctl_list_spaces` | List organizational spaces |
+| | `thothctl_list_templates` | List available templates |
+| | `thothctl_project_cleanup` | Clean temporary files |
+| | `thothctl_project_convert` | Convert project ↔ template |
+| **Docs** | `thothctl_document_iac` | Auto-generate documentation |
+| **Ops** | `thothctl_check_project` | Project structure validation |
+| | `thothctl_check_environment` | Dev environment verification |
+| | `thothctl_quickstart` | Guided onboarding wizard |
+| | `thothctl_upgrade` | Upgrade ThothCTL |
+| | `thothctl_version` | Version info |
 
-### Community
-- [GitHub Discussions](https://github.com/thothforge/thothctl/discussions)
-- [Issue Tracker](https://github.com/thothforge/thothctl/issues)
+---
+
+## Configuration
+
+### AI Review Settings (`.thothcf.toml`)
+
+```toml
+[ai_review]
+provider = "ollama"           # ollama | bedrock | openai | azure
+model = "llama3.1:8b"         # Model name (provider-specific)
+
+[ai_review.budget]
+daily_limit_tokens = 1000000  # Daily token budget
+monthly_limit_usd = 50.00     # Monthly cost cap
+auto_fallback = true          # Fall back to offline on budget exceeded
+
+[ai_review.safety]
+require_human_approval = true # Require human for PR decisions
+min_confidence = 0.85         # Minimum confidence for auto-decisions
+```
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `OLLAMA_HOST` | Ollama server URL | `http://localhost:11434` |
+| `AWS_REGION` | AWS region for Bedrock | `us-east-1` |
+| `OPENAI_API_KEY` | OpenAI API key | — |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint | — |
+| `THOTH_ORG_POLICY` | Git URL for org policies (OPA/Rego) | — |
+
+---
+
+## When to Use What
+
+| Situation | Approach | Command |
+|-----------|----------|---------|
+| "I need new infrastructure" | Generate from intent | `generate iac --intent "..." --provider ollama` |
+| "Is this PR safe to merge?" | AI review + decide | `ai-review decide --pr-number 42` |
+| "Run all checks before deploy" | Workflow pipeline | `workflow devsecops --phase pre-deploy` |
+| "What will this cost?" | Cost analysis | `check iac -type cost-analysis` |
+| "Is production drifting?" | Drift detection | `check iac -type drift` |
+| "Explain findings and fix them" | AI assistant via MCP | Chat: "Review scan results and fix issues" |
+| "Full audit for compliance" | Workflow + scanning | `workflow devsecops --phase all --enforcement hard` |
 
 ---
 
 ## Next Steps
 
-1. **Install ThothCTL**: `pip install thothctl`
-2. **Bootstrap Environment** (includes Kiro CLI): `thothctl init env`
-3. **Configure Kiro MCP**: Add ThothCTL to `~/.kiro/settings/mcp.json`
-4. **Initialize Project**: `thothctl init project -p my-infra --project-type terraform`
-5. **Start AI Chat**: `kiro-cli chat --agent thoth`
-6. **Explore Templates**: Visit [ThothForge GitHub](https://github.com/thothforge)
+1. **Try generation**: `thothctl generate iac --intent "S3 bucket with encryption" --project-type terraform --provider ollama --apply`
+2. **Try AI review**: `thothctl ai-review analyze -d . -p ollama`
+3. **Try the pipeline**: `thothctl workflow devsecops --phase secure`
+4. **Launch dashboard**: `thothctl dashboard launch`
+5. **Explore interactively**: Configure MCP and ask your AI assistant "Scan my infrastructure"
 
 ---
 
-## Conclusion
+## Related Docs
 
-The AI-DLC approach transforms infrastructure development from a command-driven process to a conversational, AI-assisted experience. By combining ThothCTL's DevSecOps capabilities with AI assistants through MCP, teams can:
-
-- **Accelerate development** with natural language interfaces
-- **Improve quality** through AI-powered analysis
-- **Reduce errors** with AI validation
-- **Enhance collaboration** through shared AI insights
-- **Scale expertise** by democratizing best practices
-
-Welcome to the future of Infrastructure as Code! 🚀
+- [DevSecOps SDLC Guide](devsecops_sdlc.md) — Detailed phase-by-phase CLI reference with CI/CD examples
+- [MCP Command Reference](../commands/mcp/mcp.md) — Server configuration and troubleshooting
+- [AI Review Command](../commands/ai-review/README.md) — Multi-agent system details
+- [Generate IaC Command](../commands/generate/generate_iac.md) — Intent-to-IaC full reference
+- [Concepts: AI Workflows](../concepts.md#ai-workflows) — How the three AI workflows relate
