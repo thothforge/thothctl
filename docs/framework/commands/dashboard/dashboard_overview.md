@@ -55,6 +55,7 @@ Displays project metadata, type (Terraform/Terragrunt/CDK), and available ThothC
 ### 🔒 Security Findings
 
 Shows aggregated scan results from Checkov, Trivy, KICS, and OPA:
+
 - Severity breakdown (critical, high, medium, low)
 - Findings per tool
 - Trend over time (from scan history)
@@ -62,6 +63,7 @@ Shows aggregated scan results from Checkov, Trivy, KICS, and OPA:
 ### 📦 Inventory
 
 Module and provider catalog:
+
 - Current vs latest versions
 - Source URLs
 - Outdated dependency alerts
@@ -70,6 +72,7 @@ Module and provider catalog:
 ### 💰 Cost Analysis
 
 AWS cost projections from tfplan analysis:
+
 - Monthly/annual estimates
 - Per-service breakdown
 - Optimization recommendations
@@ -77,6 +80,7 @@ AWS cost projections from tfplan analysis:
 ### 💥 Blast Radius
 
 Change impact visualization:
+
 - Resources affected by plan
 - Create/update/delete breakdown
 - Risk assessment
@@ -84,6 +88,7 @@ Change impact visualization:
 ### 🔄 Drift Detection
 
 Infrastructure drift status:
+
 - Resources with state mismatch
 - Drift history and trends
 - Coverage metrics
@@ -91,12 +96,14 @@ Infrastructure drift status:
 ### 🗺️ Topology
 
 Infrastructure topology visualization:
+
 - Resource dependency graph
 - Network architecture diagram
 
 ### 🤖 AI Usage
 
 AI-powered analysis history:
+
 - Decisions made by AI review
 - Cost tracking per provider
 - Session history

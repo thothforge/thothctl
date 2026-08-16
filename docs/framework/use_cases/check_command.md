@@ -39,6 +39,7 @@ thothctl check iac [OPTIONS]
 | `stack-optimizer` | DAG dependency optimization for Terragrunt |
 
 This command can validate:
+
 - Project structure against defined rules
 - Terraform plans for security and compliance
 - Cost impact of planned changes

@@ -1145,6 +1145,7 @@ kiro-cli chat --agent thoth
 | "Is there drift in production?" | `workflow devsecops --phase monitor` |
 
 The AI agent adds intelligence on top:
+
 - **Adapts** commands based on project type (Terraform vs Terragrunt vs CDK)
 - **Explains** findings in context with specific remediation steps
 - **Remembers** previous results to track improvement over time

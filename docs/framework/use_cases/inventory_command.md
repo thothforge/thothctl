@@ -80,6 +80,7 @@ thothctl inventory iac --check-versions --report-type all
 ```
 
 The CycloneDX SBOM includes:
+
 - Formulation (how components are assembled)
 - Evidence (proof of component presence)
 - Standards mapping
@@ -182,6 +183,7 @@ The command generates detailed reports about your infrastructure components:
 ### HTML Report
 
 The HTML report includes:
+
 - Project overview and framework type
 - Module list with versions and sources
 - Dependency graph visualization

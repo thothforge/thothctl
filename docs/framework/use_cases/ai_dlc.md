@@ -150,6 +150,7 @@ ThothCTL provides production-ready scaffold templates:
 **Repository**: [terraform_terragrunt_scaffold_project](https://github.com/thothforge/terraform_terragrunt_scaffold_project)
 
 **Features**:
+
 - Multi-environment structure (dev, staging, prod)
 - Terragrunt configuration for DRY code
 - Pre-configured modules

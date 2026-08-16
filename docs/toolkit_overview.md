@@ -86,6 +86,7 @@ thothctl workflow devsecops --phase secure
 ```
 
 That's it. You get:
+
 - Checkov scan (CIS benchmarks, AWS best practices)
 - Trivy scan (CVEs in modules)
 - OPA policy check (organization rules)

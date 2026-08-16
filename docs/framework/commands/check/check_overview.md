@@ -15,6 +15,7 @@ thothctl check environment
 ```
 
 This command validates:
+
 - Tool versions (Terraform, OpenTofu, Terragrunt, etc.)
 - Current vs recommended versions
 - Tool availability and installation status
@@ -28,6 +29,7 @@ thothctl check space --space-name <space_name>
 ```
 
 This command validates:
+
 - Space configuration and directory structure
 - VCS settings and connectivity
 - Credential status and security
@@ -46,12 +48,14 @@ thothctl check project iac -p module
 ```
 
 This command validates:
+
 - Root project structure (folders and files)
 - Module structure within subfolders
 - Template-based configuration compliance
 - Required vs optional components
 
 **Project Types**:
+
 - `stack` - Full project with modules, environments, etc. (default)
 - `module` - Single reusable Terraform module
 
@@ -85,6 +89,7 @@ thothctl check iac -type tfplan --recursive --post-to-pr
 ```
 
 Available check types:
+
 - **tfplan**: Analyze terraform plan files (tfplan.json)
 - **deps**: Visualize dependency graph and relationships
 - **blast-radius**: ITIL v4 compliant risk assessment combining dependency analysis with planned changes
@@ -103,6 +108,7 @@ thothctl check iac -type blast-radius --recursive --plan-file tfplan.json
 ```
 
 Features:
+
 - Risk scoring based on component complexity and dependencies
 - ITIL v4 change type classification (STANDARD, NORMAL, EMERGENCY)
 - Automated approval workflow recommendations
@@ -118,6 +124,7 @@ thothctl check iac -type drift --recursive --filter-tags "env=prod"
 ```
 
 Features:
+
 - Classifies drift as changed, deleted, or unmanaged resources
 - Severity-based prioritisation (critical, high, medium, low)
 - Tag-based filtering (`--filter-tags "env=prod,team=*"`)
@@ -151,6 +158,7 @@ Most check commands support the following options:
 ## Professional Output
 
 All check commands provide Rich-formatted output with:
+
 - Color-coded status indicators (✅ Pass, ❌ Fail)
 - Professional tables with clear categorization
 - Detailed summary panels with actionable guidance
