@@ -38,13 +38,17 @@ class LambdaPricingProvider(BasePricingProvider):
             return self.get_offline_estimate(resource_change, region)
 
         try:
-            # Lambda pricing: $0.20 per 1M requests + GB-second pricing
-            # Estimate: 1M requests/month, actual duration
-            monthly_requests = 1000000
-            duration_seconds = timeout
-            gb_seconds = (memory_size / 1024) * duration_seconds * monthly_requests
+            # Lambda pricing is usage-dependent — invocations are NOT defined in IaC.
+            # Use moderate defaults to avoid inflated estimates:
+            # - 100K requests/month (conservative baseline, not 1M)
+            # - 50% of timeout as avg duration (most functions finish early)
+            monthly_requests = 100000
+            avg_duration_seconds = timeout * 0.5
+            gb_seconds = (
+                (memory_size / 1024) * avg_duration_seconds * monthly_requests
+            )
 
-            # Standard Lambda pricing (simplified)
+            # Standard Lambda pricing
             request_cost = 0.0000002  # $0.20 per 1M requests
             gb_second_cost = 0.0000166667  # $0.00001667 per GB-second
 
@@ -54,7 +58,16 @@ class LambdaPricingProvider(BasePricingProvider):
             hourly_cost = monthly_cost / (24 * 30)
 
             return self._create_resource_cost(
-                resource_change, f"{memory_size}MB", region, hourly_cost, "high"
+                resource_change,
+                f"{memory_size}MB",
+                region,
+                hourly_cost,
+                "low",
+                note=(
+                    f"Usage-dependent estimate: {monthly_requests:,} invocations/month "
+                    f"× {avg_duration_seconds:.1f}s avg duration. "
+                    f"Actual cost depends on invocation volume (not defined in IaC)."
+                ),
             )
         except Exception as e:
             logger.warning(f"API pricing failed for Lambda: {e}")
@@ -69,9 +82,11 @@ class LambdaPricingProvider(BasePricingProvider):
         memory_size = config.get("memory_size", 128)  # MB
         timeout = config.get("timeout", 3)  # seconds
 
-        # Estimate: 1000 executions per month
-        executions_per_month = 1000
-        gb_seconds = (memory_size / 1024) * timeout * executions_per_month
+        # Moderate estimate: 100K executions/month, 50% of timeout as avg duration
+        # Invocations are usage-dependent and NOT defined in IaC
+        executions_per_month = 100000
+        avg_duration = timeout * 0.5
+        gb_seconds = (memory_size / 1024) * avg_duration * executions_per_month
 
         monthly_cost = (gb_seconds * self.gb_second_cost) + (
             executions_per_month * self.request_cost
@@ -79,7 +94,16 @@ class LambdaPricingProvider(BasePricingProvider):
         hourly_cost = monthly_cost / (24 * 30)
 
         return self._create_resource_cost(
-            resource_change, f"{memory_size}MB", region, hourly_cost, "low"
+            resource_change,
+            f"{memory_size}MB",
+            region,
+            hourly_cost,
+            "low",
+            note=(
+                f"Usage-dependent estimate: {executions_per_month:,} invocations/month "
+                f"× {avg_duration:.1f}s avg duration. "
+                f"Actual cost depends on invocation volume (not defined in IaC)."
+            ),
         )
 
     def _create_resource_cost(
@@ -106,7 +130,9 @@ class LambdaPricingProvider(BasePricingProvider):
             annual_cost=hourly_cost * 24 * 365,
             pricing_details={
                 "memory_config": memory_config,
-                "note": note or "Estimated at 1000 executions/month",
+                "cost_type": "usage-dependent",
+                "note": note
+                or "Usage-dependent: actual cost depends on invocation volume (not defined in IaC)",
             },
             confidence_level=confidence,
         )
