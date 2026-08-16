@@ -201,7 +201,371 @@ class TestLambdaCostWarnings:
 
         assert result is not None
         assert result.confidence_level == "low"
-        assert "executions/month" in result.pricing_details.get("note", "")
+        assert "invocations/month" in result.pricing_details.get("note", "")
+
+    def test_lambda_uses_moderate_invocations(self):
+        """Test Lambda uses 100K (not 1M) invocations as default."""
+        from thothctl.services.check.project.cost.pricing.providers.lambda_pricing import (
+            LambdaPricingProvider,
+        )
+
+        pricing_client = Mock()
+        pricing_client.is_available.return_value = False
+        provider = LambdaPricingProvider(pricing_client)
+
+        resource_change = {
+            "address": "aws_lambda_function.test",
+            "type": "aws_lambda_function",
+            "change": {
+                "actions": ["create"],
+                "after": {"memory_size": 128, "timeout": 3},
+            },
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        # With 100K invocations at 128MB and 1.5s avg (50% of 3s timeout):
+        # GB-seconds = (128/1024) * 1.5 * 100000 = 18750
+        # Cost = 18750 * 0.0000166667 + 100000 * 0.0000002 = $0.3125 + $0.02 = ~$0.33/month
+        assert result.monthly_cost < 1.0  # Should be well under $1/month
+        assert "100,000" in result.pricing_details.get("note", "")
+        assert "not defined in IaC" in result.pricing_details.get("note", "")
+
+    def test_lambda_uses_half_timeout_as_duration(self):
+        """Test Lambda uses 50% of timeout as estimated avg duration."""
+        from thothctl.services.check.project.cost.pricing.providers.lambda_pricing import (
+            LambdaPricingProvider,
+        )
+
+        pricing_client = Mock()
+        pricing_client.is_available.return_value = False
+        provider = LambdaPricingProvider(pricing_client)
+
+        resource_change = {
+            "address": "aws_lambda_function.test",
+            "type": "aws_lambda_function",
+            "change": {
+                "actions": ["create"],
+                "after": {"memory_size": 256, "timeout": 60},
+            },
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        # Note should show 30.0s (50% of 60s timeout)
+        assert "30.0s" in result.pricing_details.get("note", "")
+
+    def test_lambda_online_uses_moderate_defaults(self):
+        """Test Lambda online estimate also uses moderate defaults."""
+        from thothctl.services.check.project.cost.pricing.providers.lambda_pricing import (
+            LambdaPricingProvider,
+        )
+
+        pricing_client = Mock()
+        pricing_client.is_available.return_value = True
+        provider = LambdaPricingProvider(pricing_client)
+
+        resource_change = {
+            "address": "aws_lambda_function.test",
+            "type": "aws_lambda_function",
+            "change": {
+                "actions": ["create"],
+                "after": {"memory_size": 128, "timeout": 3},
+            },
+        }
+
+        result = provider.calculate_cost(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.confidence_level == "low"
+        assert "usage-dependent" in result.pricing_details.get("note", "").lower()
+
+    def test_lambda_marks_cost_type_usage_dependent(self):
+        """Test Lambda pricing includes cost_type: usage-dependent."""
+        from thothctl.services.check.project.cost.pricing.providers.lambda_pricing import (
+            LambdaPricingProvider,
+        )
+
+        pricing_client = Mock()
+        pricing_client.is_available.return_value = False
+        provider = LambdaPricingProvider(pricing_client)
+
+        resource_change = {
+            "address": "aws_lambda_function.test",
+            "type": "aws_lambda_function",
+            "change": {
+                "actions": ["create"],
+                "after": {"memory_size": 128, "timeout": 3},
+            },
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.pricing_details.get("cost_type") == "usage-dependent"
+
+
+class TestECRPricingProvider:
+    """Test ECR repository pricing provider."""
+
+    @pytest.fixture
+    def pricing_client(self):
+        return Mock()
+
+    @pytest.fixture
+    def provider(self, pricing_client):
+        from thothctl.services.check.project.cost.pricing.providers.ecr_pricing import (
+            ECRPricingProvider,
+        )
+
+        return ECRPricingProvider(pricing_client)
+
+    def test_supported_resources(self, provider):
+        """Test ECR supported resources."""
+        resources = provider.get_supported_resources()
+        assert "aws_ecr_repository" in resources
+
+    def test_ecr_repository_cost(self, provider):
+        """Test ECR repository cost estimation."""
+        resource_change = {
+            "address": "aws_ecr_repository.app",
+            "type": "aws_ecr_repository",
+            "change": {
+                "actions": ["create"],
+                "after": {"image_tag_mutability": "IMMUTABLE"},
+            },
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.service_name == "ECR"
+        # 5GB * $0.10/GB = $0.50/month
+        assert result.monthly_cost == pytest.approx(0.50, abs=0.01)
+        assert result.confidence_level == "low"
+
+    def test_ecr_marks_usage_dependent(self, provider):
+        """Test ECR pricing is marked as usage-dependent."""
+        resource_change = {
+            "address": "aws_ecr_repository.app",
+            "type": "aws_ecr_repository",
+            "change": {
+                "actions": ["create"],
+                "after": {},
+            },
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.pricing_details.get("cost_type") == "usage-dependent"
+        assert "not defined in IaC" in result.pricing_details.get("note", "")
+
+    def test_ecr_shows_storage_estimate_in_note(self, provider):
+        """Test ECR note explains the storage estimate."""
+        resource_change = {
+            "address": "aws_ecr_repository.app",
+            "type": "aws_ecr_repository",
+            "change": {
+                "actions": ["create"],
+                "after": {"image_tag_mutability": "MUTABLE"},
+            },
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert "5GB" in result.pricing_details.get("note", "")
+        assert "$0.1/GB" in result.pricing_details.get("note", "")
+
+
+class TestCloudFormationMapper:
+    """Test CloudFormation to Terraform resource mapper."""
+
+    @pytest.fixture
+    def mapper(self):
+        from thothctl.services.check.project.cost.models.cloudformation_mapper import (
+            CloudFormationResourceMapper,
+        )
+
+        return CloudFormationResourceMapper()
+
+    def test_kms_key_mapping(self, mapper):
+        """Test AWS::KMS::Key maps to aws_kms_key."""
+        assert mapper.get_terraform_equivalent("AWS::KMS::Key") == "aws_kms_key"
+        assert mapper.is_supported("AWS::KMS::Key")
+
+    def test_kms_alias_mapping(self, mapper):
+        """Test AWS::KMS::Alias maps to aws_kms_alias."""
+        assert mapper.get_terraform_equivalent("AWS::KMS::Alias") == "aws_kms_alias"
+        assert mapper.is_supported("AWS::KMS::Alias")
+
+    def test_iam_role_mapping(self, mapper):
+        """Test AWS::IAM::Role maps to aws_iam_role."""
+        assert mapper.get_terraform_equivalent("AWS::IAM::Role") == "aws_iam_role"
+        assert mapper.is_supported("AWS::IAM::Role")
+
+    def test_iam_policy_mapping(self, mapper):
+        """Test AWS::IAM::Policy maps to aws_iam_policy."""
+        assert mapper.get_terraform_equivalent("AWS::IAM::Policy") == "aws_iam_policy"
+        assert mapper.is_supported("AWS::IAM::Policy")
+
+    def test_iam_managed_policy_mapping(self, mapper):
+        """Test AWS::IAM::ManagedPolicy maps to aws_iam_policy."""
+        assert (
+            mapper.get_terraform_equivalent("AWS::IAM::ManagedPolicy")
+            == "aws_iam_policy"
+        )
+        assert mapper.is_supported("AWS::IAM::ManagedPolicy")
+
+    def test_ecr_repository_mapping(self, mapper):
+        """Test AWS::ECR::Repository maps to aws_ecr_repository."""
+        assert (
+            mapper.get_terraform_equivalent("AWS::ECR::Repository")
+            == "aws_ecr_repository"
+        )
+        assert mapper.is_supported("AWS::ECR::Repository")
+
+    def test_ssm_parameter_mapping(self, mapper):
+        """Test AWS::SSM::Parameter maps to aws_ssm_parameter."""
+        assert (
+            mapper.get_terraform_equivalent("AWS::SSM::Parameter")
+            == "aws_ssm_parameter"
+        )
+        assert mapper.is_supported("AWS::SSM::Parameter")
+
+    def test_s3_bucket_policy_mapping(self, mapper):
+        """Test AWS::S3::BucketPolicy maps to aws_s3_bucket_policy."""
+        assert (
+            mapper.get_terraform_equivalent("AWS::S3::BucketPolicy")
+            == "aws_s3_bucket_policy"
+        )
+        assert mapper.is_supported("AWS::S3::BucketPolicy")
+
+    def test_unsupported_resource_returns_none(self, mapper):
+        """Test unsupported resource type returns None."""
+        assert mapper.get_terraform_equivalent("AWS::Custom::Unknown") is None
+        assert not mapper.is_supported("AWS::Custom::Unknown")
+
+    def test_all_previously_unsupported_now_mapped(self, mapper):
+        """Test all resources from the reported warnings are now supported."""
+        previously_unsupported = [
+            "AWS::KMS::Key",
+            "AWS::KMS::Alias",
+            "AWS::S3::BucketPolicy",
+            "AWS::ECR::Repository",
+            "AWS::IAM::Role",
+            "AWS::IAM::Policy",
+            "AWS::IAM::ManagedPolicy",
+            "AWS::SSM::Parameter",
+        ]
+
+        for resource_type in previously_unsupported:
+            assert mapper.is_supported(resource_type), (
+                f"{resource_type} should be supported"
+            )
+
+
+class TestExpandedFreeResources:
+    """Test newly added free resources."""
+
+    @pytest.fixture
+    def pricing_client(self):
+        return Mock()
+
+    @pytest.fixture
+    def provider(self, pricing_client):
+        return FreeResourcesPricingProvider(pricing_client)
+
+    def test_s3_bucket_policy_is_free(self, provider):
+        """Test S3 bucket policy has no cost."""
+        resource_change = {
+            "address": "aws_s3_bucket_policy.test",
+            "type": "aws_s3_bucket_policy",
+            "change": {"actions": ["create"], "after": {}},
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.service_name == "S3"
+        assert result.monthly_cost == 0.0
+
+    def test_ssm_parameter_is_free(self, provider):
+        """Test SSM parameter (standard tier) has no cost."""
+        resource_change = {
+            "address": "aws_ssm_parameter.test",
+            "type": "aws_ssm_parameter",
+            "change": {"actions": ["create"], "after": {}},
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.service_name == "SSM"
+        assert result.monthly_cost == 0.0
+
+    def test_ecr_lifecycle_policy_is_free(self, provider):
+        """Test ECR lifecycle policy has no cost."""
+        resource_change = {
+            "address": "aws_ecr_lifecycle_policy.test",
+            "type": "aws_ecr_lifecycle_policy",
+            "change": {"actions": ["create"], "after": {}},
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.service_name == "ECR"
+        assert result.monthly_cost == 0.0
+
+    def test_iam_role_policy_attachment_is_free(self, provider):
+        """Test IAM role policy attachment has no cost."""
+        resource_change = {
+            "address": "aws_iam_role_policy_attachment.test",
+            "type": "aws_iam_role_policy_attachment",
+            "change": {"actions": ["create"], "after": {}},
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.service_name == "IAM"
+        assert result.monthly_cost == 0.0
+
+    def test_s3_encryption_config_is_free(self, provider):
+        """Test S3 encryption configuration has no cost."""
+        resource_change = {
+            "address": "aws_s3_bucket_server_side_encryption_configuration.test",
+            "type": "aws_s3_bucket_server_side_encryption_configuration",
+            "change": {"actions": ["create"], "after": {}},
+        }
+
+        result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+        assert result is not None
+        assert result.service_name == "S3"
+        assert result.monthly_cost == 0.0
+
+    def test_vpc_security_group_rule_is_free(self, provider):
+        """Test VPC security group ingress/egress rules are free."""
+        for resource_type in [
+            "aws_vpc_security_group_ingress_rule",
+            "aws_vpc_security_group_egress_rule",
+        ]:
+            resource_change = {
+                "address": f"{resource_type}.test",
+                "type": resource_type,
+                "change": {"actions": ["create"], "after": {}},
+            }
+
+            result = provider.get_offline_estimate(resource_change, "us-east-1")
+
+            assert result is not None, f"{resource_type} should be supported"
+            assert result.service_name == "VPC"
+            assert result.monthly_cost == 0.0
 
 
 class TestUnifiedCostReport:
