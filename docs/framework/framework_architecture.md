@@ -96,10 +96,13 @@ Unlike traditional configuration management (Chef, Puppet, Ansible) where a cent
 
 ```
 Organization Git Repos (Source of Truth)
-├── org-iac-policies/          ← OPA/Rego rules (security, compliance)
-├── terraform-scaffold/        ← Blessed project structures
-├── terraform-module-scaffold/ ← Approved module patterns
-└── per-project .thothcf.toml  ← Local overrides within org bounds
+├── org-iac-policies/              ← OPA/Rego rules (security, compliance)
+├── terraform-scaffold/            ← Terraform project structure
+├── terragrunt-scaffold/           ← Multi-environment Terragrunt
+├── terraform-module-scaffold/     ← Reusable module patterns
+├── cdk-scaffold/                  ← AWS CDK v2 (TypeScript/Python)
+├── cloudformation-scaffold/       ← CloudFormation / SAM
+└── per-project .thothcf.toml      ← Local overrides within org bounds
 
 ThothCTL (Reconciler)
 ├── Reads org policies from Git (THOTH_ORG_POLICY env var)
