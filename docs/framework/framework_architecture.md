@@ -113,6 +113,7 @@ ThothCTL (Reconciler)
 ```
 
 This means:
+
 - **No central server** — ThothCTL runs locally or in CI/CD, pulling configuration from Git on demand
 - **Offline capable** — all policies cached locally after first fetch
 - **Auditable** — every rule change is a Git commit with author, timestamp, and diff
