@@ -185,7 +185,7 @@ graph LR
 | **Terraform** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **OpenTofu** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Terragrunt** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **CDK v2** | ✅ | ✅ | ✅ | ✅ | — |
+| **CDK v2** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 **Requirements**: Python 3.10+ · Linux, macOS, or Windows (WSL)
 
