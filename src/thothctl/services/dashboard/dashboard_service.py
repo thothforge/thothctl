@@ -215,15 +215,26 @@ class DashboardService:
             limit: int = 50,
             offset: int = 0,
             success_only: bool = False,
+            all_projects: bool = False,
         ):
-            """API endpoint for intent-to-IaC generation history."""
+            """API endpoint for intent-to-IaC generation history.
+
+            By default, returns only runs scoped to the current project directory.
+            Pass all_projects=true to see global history across all projects.
+            """
             try:
                 from thothctl.services.generate.intent.generation_history import (
                     get_generation_history,
                 )
 
+                # Scope to current project unless explicitly requesting all
+                project_dir = None if all_projects else str(Path.cwd())
+
                 return get_generation_history(
-                    limit=limit, offset=offset, success_only=success_only
+                    limit=limit,
+                    offset=offset,
+                    success_only=success_only,
+                    project_dir=project_dir,
                 )
             except Exception as e:
                 logger.error(f"Generation history API error: {e}")

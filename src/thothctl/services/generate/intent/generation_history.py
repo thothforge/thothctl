@@ -199,18 +199,40 @@ def get_generation_history(
     limit: int = 50,
     offset: int = 0,
     success_only: bool = False,
+    project_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Get generation run history with pagination.
+
+    Args:
+        limit: Max number of runs to return.
+        offset: Pagination offset.
+        success_only: Only return successful runs.
+        project_dir: If provided, only return runs whose output_dir
+                     starts with this path (project-scoped view).
 
     Returns:
         Dict with 'runs' list, 'total' count, and 'metrics' summary.
     """
     conn = _get_conn()
     try:
+        # Build WHERE clause
+        conditions = []
+        params: List[Any] = []
+
+        if success_only:
+            conditions.append("success = 1")
+
+        if project_dir:
+            # Match runs that output to this project directory or its subdirectories
+            resolved = str(Path(project_dir).resolve())
+            conditions.append("output_dir LIKE ?")
+            params.append(f"{resolved}%")
+
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
         # Count total
-        where = "WHERE success = 1" if success_only else ""
         total = conn.execute(
-            f"SELECT COUNT(*) FROM generation_runs {where}"
+            f"SELECT COUNT(*) FROM generation_runs {where}", params
         ).fetchone()[0]
 
         # Fetch runs
@@ -222,13 +244,13 @@ def get_generation_history(
             FROM generation_runs {where}
             ORDER BY timestamp DESC
             LIMIT ? OFFSET ?""",
-            (limit, offset),
+            params + [limit, offset],
         ).fetchall()
 
         runs = [dict(row) for row in rows]
 
-        # Compute metrics
-        metrics = _compute_metrics(conn)
+        # Compute metrics (scoped to same filter)
+        metrics = _compute_metrics(conn, where, params)
 
         return {
             "runs": runs,
@@ -284,9 +306,24 @@ def get_generation_result(run_id: str) -> Optional[Dict[str, Any]]:
         conn.close()
 
 
-def _compute_metrics(conn: sqlite3.Connection) -> Dict[str, Any]:
-    """Compute aggregate metrics from generation history."""
-    total = conn.execute("SELECT COUNT(*) FROM generation_runs").fetchone()[0]
+def _compute_metrics(
+    conn: sqlite3.Connection,
+    where: str = "",
+    params: Optional[List[Any]] = None,
+) -> Dict[str, Any]:
+    """Compute aggregate metrics from generation history.
+
+    Args:
+        conn: SQLite connection.
+        where: WHERE clause (e.g. "WHERE output_dir LIKE ?").
+        params: Parameters for the WHERE clause.
+    """
+    if params is None:
+        params = []
+
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM generation_runs {where}", params
+    ).fetchone()[0]
     if total == 0:
         return {
             "total_runs": 0,
@@ -297,34 +334,45 @@ def _compute_metrics(conn: sqlite3.Connection) -> Dict[str, Any]:
             "avg_files": 0,
         }
 
+    # Add success condition to existing WHERE
+    success_where = (
+        f"{where} AND success = 1" if where else "WHERE success = 1"
+    )
+
     success = conn.execute(
-        "SELECT COUNT(*) FROM generation_runs WHERE success = 1"
+        f"SELECT COUNT(*) FROM generation_runs {success_where}", params
     ).fetchone()[0]
 
     avg_duration = conn.execute(
-        "SELECT AVG(duration_seconds) FROM generation_runs WHERE success = 1"
+        f"SELECT AVG(duration_seconds) FROM generation_runs {success_where}",
+        params,
     ).fetchone()[0] or 0
 
     avg_iterations = conn.execute(
-        "SELECT AVG(iterations) FROM generation_runs WHERE success = 1"
+        f"SELECT AVG(iterations) FROM generation_runs {success_where}",
+        params,
     ).fetchone()[0] or 0
 
     total_tokens = conn.execute(
-        "SELECT SUM(context_tokens + generation_tokens) FROM generation_runs"
+        f"SELECT SUM(context_tokens + generation_tokens) FROM generation_runs {where}",
+        params,
     ).fetchone()[0] or 0
 
     avg_files = conn.execute(
-        "SELECT AVG(files_count) FROM generation_runs WHERE success = 1"
+        f"SELECT AVG(files_count) FROM generation_runs {success_where}",
+        params,
     ).fetchone()[0] or 0
 
     # Composition breakdown
     compositions = conn.execute(
-        "SELECT composition, COUNT(*) as count FROM generation_runs GROUP BY composition"
+        f"SELECT composition, COUNT(*) as count FROM generation_runs {where} GROUP BY composition",
+        params,
     ).fetchall()
 
     # Provider breakdown
     providers = conn.execute(
-        "SELECT provider, COUNT(*) as count FROM generation_runs GROUP BY provider"
+        f"SELECT provider, COUNT(*) as count FROM generation_runs {where} GROUP BY provider",
+        params,
     ).fetchall()
 
     return {
