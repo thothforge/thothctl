@@ -82,6 +82,7 @@ class DocumentIaCCommand(ClickCommand):
                 ),
                 framework=framework,
                 graph_type=kwargs.get("graph_type", "dot"),
+                verbose=kwargs.get("verbose", False),
             )
 
             self.logger.debug("Documentation generated successfully")
@@ -100,6 +101,7 @@ class DocumentIaCCommand(ClickCommand):
         exclude: List[str] = None,
         framework: str = "terraform-terragrunt",
         graph_type: str = "dot",
+        verbose: bool = False,
     ) -> None:
         """Internal method to generate the documentation"""
         try:
@@ -112,6 +114,7 @@ class DocumentIaCCommand(ClickCommand):
                     exclude=exclude,
                     framework=framework,
                     graph_type=graph_type,
+                    verbose=verbose,
                 )
 
                 if success:
@@ -172,5 +175,11 @@ cli = DocumentIaCCommand.as_click_command(
         type=click.Choice(["dot", "mermaid"], case_sensitive=False),
         default="dot",
         help="Graph format: dot (SVG) or mermaid (with dependency details)",
+    ),
+    click.option(
+        "--verbose",
+        is_flag=True,
+        default=False,
+        help="Include dependency inputs/outputs in mermaid diagrams (edge labels and node details)",
     ),
 )

@@ -79,6 +79,7 @@ class GraphConfig:
     project_root: Optional[Path] = None
     replace_path: Optional[Path] = None
     graph_type: str = "dot"
+    verbose: bool = False
 
 
 @dataclass
@@ -108,7 +109,7 @@ class DependencyGraphGenerator:
 
             if config.graph_type == "mermaid":
                 # Generate mermaid diagram
-                return self._generate_mermaid(dir_path)
+                return self._generate_mermaid(dir_path, verbose=config.verbose)
             else:
                 # Generate DOT/SVG graph
                 processed_output = self._generate_graph(dir_path)
@@ -120,7 +121,7 @@ class DependencyGraphGenerator:
             self.logger.error("Unexpected error: %s", e)
             return GraphResult(success=False, error=str(e))
 
-    def _generate_mermaid(self, directory: Path) -> GraphResult:
+    def _generate_mermaid(self, directory: Path, verbose: bool = False) -> GraphResult:
         """Generate mermaid diagram with dependency details."""
         try:
             # Resolve the best directory to run terragrunt dag graph from
@@ -158,7 +159,9 @@ class DependencyGraphGenerator:
             self.logger.debug(f"Final dep_info structure: {dep_info}")
 
             # Generate mermaid content
-            mermaid_content = self._create_mermaid_content(nodes, edges, dep_info)
+            mermaid_content = self._create_mermaid_content(
+                nodes, edges, dep_info, verbose=verbose
+            )
 
             # Save to file
             mermaid_path = directory / "graph.mmd"
@@ -193,8 +196,17 @@ class DependencyGraphGenerator:
 
         return list(nodes), edges
 
-    def _create_mermaid_content(self, nodes: list, edges: list, dep_info: dict) -> str:
-        """Create professional mermaid diagram with ThothCTL styling."""
+    def _create_mermaid_content(
+        self, nodes: list, edges: list, dep_info: dict, verbose: bool = False
+    ) -> str:
+        """Create professional mermaid diagram with ThothCTL styling.
+
+        Args:
+            nodes: List of node names.
+            edges: List of (source, target) tuples.
+            dep_info: Dict mapping node names to their dependency configurations.
+            verbose: If True, include dependency inputs in node labels and edge annotations.
+        """
         lines = [
             "%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e3f2fd','primaryTextColor':'#1565c0','primaryBorderColor':'#1976d2','lineColor':'#42a5f5','secondaryColor':'#fff3e0','tertiaryColor':'#f3e5f5','fontSize':'14px'}}}%%",
             "graph LR",
@@ -211,8 +223,8 @@ class DependencyGraphGenerator:
             node_id = node.replace("-", "_").replace("/", "_")
             label_parts = [f"<b>{node}</b>"]
 
-            # Add dependency details if available
-            if node in dep_info and dep_info[node]:
+            # Add dependency details only in verbose mode
+            if verbose and node in dep_info and dep_info[node]:
                 dep_labels = []
                 for dep_name, dep_config in dep_info[node].items():
                     mock_keys = (
@@ -248,7 +260,7 @@ class DependencyGraphGenerator:
                 # Many dependencies
                 lines.append(f'    {node_id}["{label}"]:::complexNode')
 
-        # Add edges with input labels
+        # Add edges (with input labels only in verbose mode)
         for source, target in edges:
             source_id = source.replace("-", "_").replace("/", "_")
             target_id = target.replace("-", "_").replace("/", "_")
@@ -256,7 +268,7 @@ class DependencyGraphGenerator:
             # Find what inputs the source gets from target
             # source depends on target, so check source's dependencies
             edge_label = ""
-            if source in dep_info:
+            if verbose and source in dep_info:
                 self.logger.debug(f"Checking edge {source} -> {target}")
                 for dep_name, dep_config in dep_info[source].items():
                     # Match dependency name with target node
@@ -373,37 +385,62 @@ class DependencyGraphGenerator:
     def _resolve_graph_directory(self, directory: Path) -> Path:
         """Determine the best directory to run `terragrunt dag graph` from.
 
-        For a leaf stack directory (e.g., stacks/foundation/network/vpc/),
-        we walk up until we find a directory that contains multiple terragrunt
-        child directories — that gives us the scoped subgraph for that layer
-        rather than the entire project.
+        Strategy:
+        - If this directory has child stacks (it's already a stacks root), use it.
+        - If this is a leaf stack WITHOUT dependencies (no `dependency` blocks
+          in terragrunt.hcl), return directory itself — produces "." which
+          gets filtered out (no graph for isolated stacks).
+        - If this is a leaf stack WITH dependencies, walk up to find the
+          immediate layer parent that has sibling stacks (max 2 levels).
 
-        Returns the directory itself if it already contains child stacks.
+        Returns the directory to run `terragrunt dag graph` from.
         """
         resolved = directory.resolve()
 
         # Check if this directory already has child stacks (it's a stacks root)
-        child_hcl_files = list(resolved.rglob("terragrunt.hcl"))
-        # Exclude .terragrunt-cache
         child_hcl_files = [
-            f for f in child_hcl_files if ".terragrunt-cache" not in str(f)
+            f
+            for f in resolved.rglob("terragrunt.hcl")
+            if ".terragrunt-cache" not in str(f)
         ]
         # If there are multiple terragrunt.hcl files below this dir, it's a good root
         if len(child_hcl_files) > 1:
             return resolved
 
-        # Walk up to find the nearest layer/group directory
+        # This is a leaf stack — check if it has dependencies
+        hcl_file = resolved / "terragrunt.hcl"
+        if hcl_file.exists():
+            try:
+                content = hcl_file.read_text()
+                if "dependency" not in content:
+                    # No dependencies — return self (will produce "." → skip)
+                    return resolved
+            except Exception:
+                pass
+
+        # Has dependencies — walk up to the immediate layer parent
         current = resolved.parent
-        for _ in range(5):  # Max 5 levels up
+        for _ in range(2):
             if current == current.parent:
                 break
-            # Check if this parent has multiple child stacks
-            sibling_hcl = [
+            # Check for sibling stacks at this level
+            direct_children_with_hcl = [
+                d
+                for d in current.iterdir()
+                if d.is_dir()
+                and (d / "terragrunt.hcl").exists()
+                and ".terragrunt-cache" not in str(d)
+            ]
+            if len(direct_children_with_hcl) > 1:
+                return current
+            # Check nested children
+            nested_hcl = [
                 f
                 for f in current.rglob("terragrunt.hcl")
                 if ".terragrunt-cache" not in str(f)
+                and f.parent != resolved
             ]
-            if len(sibling_hcl) > 1:
+            if len(nested_hcl) >= 2:
                 return current
             current = current.parent
 
@@ -672,6 +709,7 @@ def graph_dependencies(
     project_root: Optional[Path] = None,
     replace_path: Optional[Path] = None,
     graph_type: str = "dot",
+    verbose: bool = False,
 ) -> Optional[GraphResult]:
     """
     Generate dependency graph for the specified directory.
@@ -681,6 +719,8 @@ def graph_dependencies(
         suffix: Suffix for resource paths (default: "resources")
         project_root: Optional project root path
         replace_path: Optional path to replace in the graph
+        graph_type: Graph format: "dot" (SVG) or "mermaid"
+        verbose: Include dependency inputs in mermaid diagrams
 
     Returns:
         Optional[GraphResult]: Graph generation result or None if failed
@@ -704,6 +744,7 @@ def graph_dependencies(
             project_root=project_root,
             replace_path=replace_path,
             graph_type=graph_type,
+            verbose=verbose,
         )
 
         # Generate graph
@@ -772,6 +813,7 @@ def process_single_directory(
     project_root: Optional[Path] = None,
     replace_path: Optional[Path] = None,
     graph_type: str = "dot",
+    verbose: bool = False,
 ) -> RecursiveGraphResult:
     """
     Process a single directory for graph generation.
@@ -781,6 +823,8 @@ def process_single_directory(
         suffix: Suffix for resource paths
         project_root: Optional project root path
         replace_path: Optional path to replace
+        graph_type: Graph format
+        verbose: Include dependency inputs in mermaid diagrams
 
     Returns:
         RecursiveGraphResult containing the results or error
@@ -792,6 +836,7 @@ def process_single_directory(
             project_root=project_root,
             replace_path=replace_path,
             graph_type=graph_type,
+            verbose=verbose,
         )
         return RecursiveGraphResult(directory=directory, result=result)
     except Exception as e:
@@ -806,6 +851,7 @@ def graph_dependencies_recursive(
     exclude_patterns: List[str] = None,
     max_workers: int = 4,
     graph_type: str = "dot",
+    verbose: bool = False,
 ) -> List[RecursiveGraphResult]:
     """
     Recursively generate dependency graphs for all terragrunt.hcl files.
@@ -817,6 +863,8 @@ def graph_dependencies_recursive(
         replace_path: Optional path to replace
         exclude_patterns: List of patterns to exclude from search
         max_workers: Maximum number of parallel workers
+        graph_type: Graph format: "dot" or "mermaid"
+        verbose: Include dependency inputs in mermaid diagrams
 
     Returns:
         List of RecursiveGraphResult objects containing results for each directory
@@ -853,6 +901,7 @@ def graph_dependencies_recursive(
                 project_root=project_root,
                 replace_path=replace_path,
                 graph_type=graph_type,
+                verbose=verbose,
             ): d
             for d in terragrunt_dirs
         }

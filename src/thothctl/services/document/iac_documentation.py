@@ -419,6 +419,7 @@ def create_terraform_docs(
     exclude: List[str] = None,
     framework: str = "terraform-terragrunt",
     graph_type: str = "dot",
+    verbose: bool = False,
 ) -> bool:
     """Backward-compatible function for generating Terraform documentation."""
     logger = logging.getLogger("TerraformDocs")
@@ -442,6 +443,7 @@ def create_terraform_docs(
                 directory=Path(directory).absolute(),
                 suffix="resources",
                 graph_type=graph_type,
+                verbose=verbose,
             )
 
             if graph_result and graph_result.success:
@@ -456,6 +458,7 @@ def create_terraform_docs(
                 exclude_patterns=exclude,
                 max_workers=4,
                 graph_type=graph_type,
+                verbose=verbose,
             )
 
             if framework.lower() == "terragrunt":
