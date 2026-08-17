@@ -114,7 +114,9 @@ class DependencyGraphGenerator:
                 # Generate DOT/SVG graph
                 processed_output = self._generate_graph(dir_path)
                 if not processed_output:
-                    return GraphResult(success=False, error="Failed to generate graph")
+                    # No graph content — stack has no dependencies or is isolated
+                    # This is not an error, just nothing to render
+                    return GraphResult(success=True, content=None, path=None)
                 return self._create_svg(dir_path, processed_output)
 
         except Exception as e:
@@ -136,7 +138,7 @@ class DependencyGraphGenerator:
                 return GraphResult(success=False, error=stderr)
 
             # Process DOT content same as SVG generation (replace paths, handle ".")
-            processed_stdout = self._process_graph_paths(stdout, directory)
+            processed_stdout = self._process_graph_paths(stdout, graph_dir)
 
             # Parse DOT graph to get nodes and edges
             nodes, edges = self._parse_dot_for_mermaid(processed_stdout)
@@ -146,7 +148,7 @@ class DependencyGraphGenerator:
             # Parse terragrunt.hcl files for dependency details
             dep_info = {}
             for node in nodes:
-                node_path = directory / node
+                node_path = graph_dir / node
                 hcl_file = node_path / "terragrunt.hcl"
                 self.logger.debug(f"Looking for HCL at: {hcl_file}")
                 if hcl_file.exists():
@@ -208,76 +210,142 @@ class DependencyGraphGenerator:
             verbose: If True, include dependency inputs in node labels and edge annotations.
         """
         lines = [
-            "%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e3f2fd','primaryTextColor':'#1565c0','primaryBorderColor':'#1976d2','lineColor':'#42a5f5','secondaryColor':'#fff3e0','tertiaryColor':'#f3e5f5','fontSize':'14px'}}}%%",
+            "%%{init: {'theme':'base', 'themeVariables': { "
+            "'primaryColor':'#1e293b','primaryTextColor':'#f8fafc',"
+            "'primaryBorderColor':'#334155','lineColor':'#64748b',"
+            "'secondaryColor':'#0f172a','tertiaryColor':'#1e293b',"
+            "'fontSize':'13px','fontFamily':'Inter, system-ui, sans-serif'"
+            "}}}%%",
             "graph LR",
         ]
 
-        # Classify nodes by dependency count
-        node_deps = {}
+        # Classify nodes into layers by path prefix
+        layers = {}
         for node in nodes:
-            dep_count = len(dep_info.get(node, {}))
-            node_deps[node] = dep_count
-
-        # Add nodes with professional styling
-        for node in nodes:
-            node_id = node.replace("-", "_").replace("/", "_")
-            label_parts = [f"<b>{node}</b>"]
-
-            # Add dependency details only in verbose mode
-            if verbose and node in dep_info and dep_info[node]:
-                dep_labels = []
-                for dep_name, dep_config in dep_info[node].items():
-                    mock_keys = (
-                        list(dep_config["mock_outputs"].keys())
-                        if dep_config["mock_outputs"]
-                        else []
-                    )
-                    if mock_keys:
-                        keys_str = ", ".join(mock_keys[:3])
-                        if len(mock_keys) > 3:
-                            keys_str += "..."
-                        dep_labels.append(f"📥 {dep_name}: {keys_str}")
-
-                if dep_labels:
-                    label_parts.append(
-                        "<br/><small>" + "<br/>".join(dep_labels[:2]) + "</small>"
-                    )
-                    if len(dep_labels) > 2:
-                        label_parts.append(
-                            f"<br/><small>+{len(dep_labels) - 2} more...</small>"
-                        )
-
-            label = "".join(label_parts)
-
-            # Style based on dependency count
-            if node_deps[node] == 0:
-                # No dependencies - root node
-                lines.append(f'    {node_id}["{label}"]:::rootNode')
-            elif node_deps[node] <= 2:
-                # Few dependencies
-                lines.append(f'    {node_id}["{label}"]:::normalNode')
+            parts = node.split("/")
+            # Skip common prefixes like "stacks/"
+            meaningful_parts = [p for p in parts if p not in ("stacks", "")]
+            if len(meaningful_parts) >= 2:
+                layer = meaningful_parts[0]  # foundation, platform, application
+            elif len(meaningful_parts) == 1:
+                layer = "_root"
             else:
-                # Many dependencies
-                lines.append(f'    {node_id}["{label}"]:::complexNode')
+                layer = "_root"
+            layers.setdefault(layer, []).append(node)
 
-        # Add edges (with input labels only in verbose mode)
+        # Determine short label for each node
+        def short_label(node: str) -> str:
+            """Extract the meaningful short name from a node path."""
+            parts = node.split("/")
+            # Use last 1-2 meaningful parts
+            if len(parts) >= 2:
+                return "/".join(parts[-2:]) if len(parts[-1]) < 4 else parts[-1]
+            return parts[-1]
+
+        def node_id(node: str) -> str:
+            """Create a valid mermaid node ID."""
+            return node.replace("-", "_").replace("/", "_").replace(".", "_")
+
+        # Layer color palette (professional, dark mode friendly)
+        layer_styles = {
+            "foundation": {
+                "title": "🏗️ Foundation",
+                "bg": "#1e3a5f",
+                "border": "#2563eb",
+            },
+            "platform": {
+                "title": "⚙️ Platform",
+                "bg": "#1e3b3b",
+                "border": "#0d9488",
+            },
+            "application": {
+                "title": "🚀 Application",
+                "bg": "#3b1e3b",
+                "border": "#a855f7",
+            },
+            "stacks": {
+                "title": "📦 Stacks",
+                "bg": "#1e293b",
+                "border": "#64748b",
+            },
+            "_root": {
+                "title": "📦 Infrastructure",
+                "bg": "#1e293b",
+                "border": "#64748b",
+            },
+        }
+
+        # Classify node dependency count for styling
+        node_dep_count = {}
+        for node in nodes:
+            node_dep_count[node] = len(dep_info.get(node, {}))
+
+        # Use subgraphs only when there are multiple layers
+        use_subgraphs = len(layers) > 1
+
+        # Generate nodes grouped by layer
+        for layer_name, layer_nodes in sorted(layers.items()):
+            style = layer_styles.get(
+                layer_name, {"title": f"📦 {layer_name.title()}", "bg": "#1e293b", "border": "#64748b"}
+            )
+
+            if use_subgraphs:
+                lines.append(f"    subgraph {layer_name}[\"{style['title']}\"]")
+                lines.append("        direction LR")
+
+            for node in sorted(layer_nodes):
+                nid = node_id(node)
+                label = short_label(node)
+                indent = "        " if use_subgraphs else "    "
+
+                # Build node label
+                if verbose and node in dep_info and dep_info[node]:
+                    # Verbose: include dependency inputs
+                    dep_labels = []
+                    for dep_name, dep_config in dep_info[node].items():
+                        mock_keys = (
+                            list(dep_config["mock_outputs"].keys())
+                            if dep_config["mock_outputs"]
+                            else []
+                        )
+                        if mock_keys:
+                            keys_str = ", ".join(mock_keys[:3])
+                            if len(mock_keys) > 3:
+                                keys_str += "…"
+                            dep_labels.append(f"← {dep_name}: {keys_str}")
+
+                    if dep_labels:
+                        deps_text = "<br/>".join(dep_labels[:2])
+                        if len(dep_labels) > 2:
+                            deps_text += f"<br/>+{len(dep_labels) - 2} more"
+                        lines.append(
+                            f'{indent}{nid}["{label}<br/><small>{deps_text}</small>"]:::{self._node_class(node_dep_count[node])}'
+                        )
+                    else:
+                        lines.append(
+                            f'{indent}{nid}["{label}"]:::{self._node_class(node_dep_count[node])}'
+                        )
+                else:
+                    # Clean mode: just the name
+                    lines.append(
+                        f'{indent}{nid}["{label}"]:::{self._node_class(node_dep_count[node])}'
+                    )
+
+            if use_subgraphs:
+                lines.append("    end")
+                lines.append("")
+
+        # Add edges
+        lines.append("")
         for source, target in edges:
-            source_id = source.replace("-", "_").replace("/", "_")
-            target_id = target.replace("-", "_").replace("/", "_")
+            source_id = node_id(source)
+            target_id = node_id(target)
 
-            # Find what inputs the source gets from target
-            # source depends on target, so check source's dependencies
             edge_label = ""
             if verbose and source in dep_info:
-                self.logger.debug(f"Checking edge {source} -> {target}")
                 for dep_name, dep_config in dep_info[source].items():
-                    # Match dependency name with target node
                     target_clean = target.replace("/", "").replace("-", "").lower()
                     dep_clean = dep_name.replace("/", "").replace("-", "").lower()
-
-                    self.logger.debug(
-                        f"  Comparing dep '{dep_name}' (clean: {dep_clean}) with target '{target}' (clean: {target_clean})"
-                    )
 
                     if dep_clean in target_clean or target_clean in dep_clean:
                         mock_keys = (
@@ -285,31 +353,47 @@ class DependencyGraphGenerator:
                             if dep_config["mock_outputs"]
                             else []
                         )
-                        self.logger.debug(f"  Match found! Mock keys: {mock_keys}")
                         if mock_keys:
                             edge_label = ", ".join(mock_keys[:2])
                             if len(mock_keys) > 2:
-                                edge_label += "..."
+                                edge_label += "…"
                         break
 
             if edge_label:
-                self.logger.debug(f"Edge label: {edge_label}")
                 lines.append(f"    {source_id} -->|{edge_label}| {target_id}")
             else:
-                self.logger.debug(f"No edge label found for {source} -> {target}")
                 lines.append(f"    {source_id} --> {target_id}")
 
-        # Add professional styling classes
+        # Professional styling
         lines.extend(
             [
                 "",
-                "    classDef rootNode fill:#4caf50,stroke:#2e7d32,stroke-width:3px,color:#fff",
-                "    classDef normalNode fill:#2196f3,stroke:#1565c0,stroke-width:2px,color:#fff",
-                "    classDef complexNode fill:#ff9800,stroke:#e65100,stroke-width:2px,color:#fff",
+                "    classDef independent fill:#065f46,stroke:#10b981,stroke-width:2px,color:#ecfdf5",
+                "    classDef standard fill:#1e40af,stroke:#3b82f6,stroke-width:2px,color:#eff6ff",
+                "    classDef connected fill:#92400e,stroke:#f59e0b,stroke-width:2px,color:#fffbeb",
             ]
         )
 
+        # Subgraph styling
+        if use_subgraphs:
+            lines.extend(
+                [
+                    "    style foundation fill:#0f172a,stroke:#2563eb,stroke-width:2px,color:#93c5fd",
+                    "    style platform fill:#0f172a,stroke:#0d9488,stroke-width:2px,color:#5eead4",
+                    "    style application fill:#0f172a,stroke:#a855f7,stroke-width:2px,color:#c4b5fd",
+                ]
+            )
+
         return "\n".join(lines)
+
+    def _node_class(self, dep_count: int) -> str:
+        """Return CSS class based on dependency count."""
+        if dep_count == 0:
+            return "independent"
+        elif dep_count <= 2:
+            return "standard"
+        else:
+            return "connected"
 
     def _prepare_paths(self, config: GraphConfig) -> Optional[Path]:
         """Prepare and validate paths."""

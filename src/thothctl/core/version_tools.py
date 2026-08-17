@@ -7,11 +7,11 @@ version_tools = """[
   },
   {
     "name": "tofu",
-    "version": "1.11.5"
+    "version": "1.12.5"
   },
   {
     "name": "terragrunt",
-    "version": "0.99.5"
+    "version": "1.1.3"
   },
   {
     "name": "thothctl",
