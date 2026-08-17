@@ -123,9 +123,12 @@ class DependencyGraphGenerator:
     def _generate_mermaid(self, directory: Path) -> GraphResult:
         """Generate mermaid diagram with dependency details."""
         try:
+            # Resolve the best directory to run terragrunt dag graph from
+            graph_dir = self._resolve_graph_directory(directory)
+
             # Run terragrunt dag graph to get dependencies
             command = ["terragrunt", "dag", "graph", "--non-interactive"]
-            stdout, stderr, return_code = self.executor.execute(command, directory)
+            stdout, stderr, return_code = self.executor.execute(command, graph_dir)
 
             if return_code != 0:
                 self.logger.error("Terragrunt command failed: %s", stderr)
@@ -332,12 +335,15 @@ class DependencyGraphGenerator:
     def _generate_graph(self, directory: Path) -> Optional[str]:
         """Generate graph using terragrunt.
 
-        Runs `terragrunt dag graph` from the project root (where root.hcl is),
-        not from the individual stack directory. Per-stack directories only show
-        "." when run locally, which produces an empty graph.
+        Strategy for choosing the working directory:
+        - If `directory` itself contains multiple terragrunt stacks (e.g., stacks/),
+          run from there — produces the full project graph.
+        - If `directory` is a leaf stack (contains terragrunt.hcl but no subdirs
+          with their own terragrunt.hcl), run from the nearest parent that has
+          sibling stacks — produces a scoped subgraph for that layer.
+        - Falls back to `directory` itself if no better option found.
         """
-        # Find project root (where root.hcl lives)
-        graph_dir = self._find_terragrunt_root(directory)
+        graph_dir = self._resolve_graph_directory(directory)
 
         command = ["terragrunt", "dag", "graph", "--non-interactive"]
 
@@ -363,6 +369,46 @@ class DependencyGraphGenerator:
         )
 
         return enhanced_content
+
+    def _resolve_graph_directory(self, directory: Path) -> Path:
+        """Determine the best directory to run `terragrunt dag graph` from.
+
+        For a leaf stack directory (e.g., stacks/foundation/network/vpc/),
+        we walk up until we find a directory that contains multiple terragrunt
+        child directories — that gives us the scoped subgraph for that layer
+        rather than the entire project.
+
+        Returns the directory itself if it already contains child stacks.
+        """
+        resolved = directory.resolve()
+
+        # Check if this directory already has child stacks (it's a stacks root)
+        child_hcl_files = list(resolved.rglob("terragrunt.hcl"))
+        # Exclude .terragrunt-cache
+        child_hcl_files = [
+            f for f in child_hcl_files if ".terragrunt-cache" not in str(f)
+        ]
+        # If there are multiple terragrunt.hcl files below this dir, it's a good root
+        if len(child_hcl_files) > 1:
+            return resolved
+
+        # Walk up to find the nearest layer/group directory
+        current = resolved.parent
+        for _ in range(5):  # Max 5 levels up
+            if current == current.parent:
+                break
+            # Check if this parent has multiple child stacks
+            sibling_hcl = [
+                f
+                for f in current.rglob("terragrunt.hcl")
+                if ".terragrunt-cache" not in str(f)
+            ]
+            if len(sibling_hcl) > 1:
+                return current
+            current = current.parent
+
+        # Fallback: use directory itself
+        return resolved
 
     def _find_terragrunt_root(self, directory: Path) -> Path:
         """Find the terragrunt project root by looking for root.hcl upward.
