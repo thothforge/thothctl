@@ -1,3 +1,3 @@
 """Version module."""
 
-__version__ = "0.27.10"
+__version__ = "0.27.11"
