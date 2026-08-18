@@ -41,6 +41,7 @@ class CodeGenerator:
             from ...ai_review.config.ai_settings import AISettings
             from ...ai_review.providers.azure_provider import AzureOpenAIProvider
             from ...ai_review.providers.bedrock_provider import BedrockProvider
+            from ...ai_review.providers.kiro_provider import KiroProvider
             from ...ai_review.providers.ollama_provider import OllamaProvider
             from ...ai_review.providers.openai_provider import OpenAIProvider
 
@@ -50,6 +51,7 @@ class CodeGenerator:
                 "openai": OpenAIProvider,
                 "bedrock": BedrockProvider,
                 "azure": AzureOpenAIProvider,
+                "kiro": KiroProvider,
             }
 
             cls = providers.get(provider_name)

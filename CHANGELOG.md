@@ -5,6 +5,24 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.12] - 2026-08-18
+
+### Added
+
+- **Kiro CLI as AI provider** for Intent-to-IaC generation (`--provider kiro`)
+  - Uses Kiro headless mode (`kiro-cli chat --no-interactive --trust-all-tools`)
+  - Tool-augmented generation: reads project files, searches docs, validates output
+  - Custom agent support: `--model <agent-name>` maps to `.kiro/agents/<name>.yaml`
+  - 5-strategy JSON extraction for robust parsing of mixed agent output
+  - Recursion guard via `THOTHCTL_KIRO_PROVIDER_ACTIVE` env var prevents infinite loops
+- New provider registered in `code_generator.py` factory alongside ollama/bedrock/openai/azure
+- Updated `generate iac` CLI to accept `kiro` as a valid provider choice
+
+### Docs
+
+- Updated `generate_iac.md` with Kiro provider section, setup guide, and tradeoffs
+- Added v0.27.12 entry to What's New
+
 ## [0.27.7] - 2026-08-14
 
 ### Fixed

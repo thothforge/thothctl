@@ -389,10 +389,10 @@ cli = GenerateIaCCommand.as_click_command(
         "-p",
         "--provider",
         type=click.Choice(
-            ["ollama", "bedrock", "openai", "azure"], case_sensitive=False
+            ["ollama", "bedrock", "openai", "azure", "kiro"], case_sensitive=False
         ),
         default="ollama",
-        help="AI provider to use for code generation",
+        help="AI provider to use for code generation (kiro: uses Kiro CLI headless with tool access)",
     ),
     click.option(
         "-m",

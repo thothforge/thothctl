@@ -13,6 +13,9 @@ thothctl generate iac -i "EKS cluster with managed node groups" --apply -o ./sta
 
 # Use AWS Bedrock instead of local Ollama
 thothctl generate iac -i "S3 bucket with versioning and encryption" -p bedrock
+
+# Use Kiro CLI for tool-augmented generation (reads docs, validates, self-corrects)
+thothctl generate iac -i "RDS Aurora cluster with read replicas and failover" -p kiro
 ```
 
 ## How It Works
@@ -39,8 +42,8 @@ The AI produces compliant code because your organizational rules are injected di
 |------|-------|---------|-------------|
 | `--intent` | `-i` | (required) | What infrastructure to create |
 | `--project-type` | `-pt` | auto | `terraform`, `terraform-terragrunt`, `terragrunt`, `cloudformation`, `cdkv2` |
-| `--provider` | `-p` | ollama | AI provider: `ollama`, `bedrock`, `openai`, `azure` |
-| `--model` | `-m` | (provider default) | Model override (e.g., `llama3`, `us.anthropic.claude-sonnet-4-6`) |
+| `--provider` | `-p` | ollama | AI provider: `ollama`, `bedrock`, `openai`, `azure`, `kiro` |
+| `--model` | `-m` | (provider default) | Model override or Kiro agent name (e.g., `llama3`, `us.anthropic.claude-sonnet-4-6`, `iac-expert`) |
 | `--output-dir` | `-o` | current dir | Where to write generated files |
 | `--dry-run / --no-dry-run` | | dry-run | Preview without writing |
 | `--apply` | | off | Write files to disk |
@@ -304,6 +307,64 @@ If none of these files exist, the command still works — it generates standard 
 | AWS Bedrock | `-p bedrock` | AWS credentials | Production quality, Claude models |
 | OpenAI | `-p openai` | `OPENAI_API_KEY` | GPT-4 Turbo |
 | Azure OpenAI | `-p azure` | Azure endpoint configured | Enterprise Azure environments |
+| Kiro CLI | `-p kiro` | `kiro-cli` installed | Complex generation with tool access |
+
+### Kiro Provider (v0.27.12+)
+
+Kiro CLI in headless mode acts as a **tool-augmented AI agent** — unlike raw LLM providers that only see the prompt, Kiro can:
+
+- Read your project structure and existing code
+- Search Terraform/AWS documentation in real-time
+- Look up CloudFormation/CDK resource schemas
+- Access web search for module examples
+- Self-correct using its built-in validation tools
+
+This makes it the best choice for **complex multi-resource generation** where the AI needs to understand your codebase deeply.
+
+```bash
+# Use Kiro as the generation engine
+thothctl generate iac -i "EKS cluster with Karpenter and IRSA" -p kiro
+
+# Use a custom Kiro agent optimized for IaC
+thothctl generate iac -i "VPC with Transit Gateway" -p kiro -m iac-expert
+```
+
+**Custom Kiro Agent Setup (optional):**
+
+Create `.kiro/agents/iac-expert.yaml` for specialized IaC generation:
+
+```yaml
+name: iac-expert
+model: auto
+allowedTools:
+  - read
+  - write
+  - grep
+  - glob
+  - shell
+  - web_search
+  - web_fetch
+  - aws___search_documentation
+  - aws___read_documentation
+  - resolveProviderDocID
+  - getProviderDocs
+  - search_cloudformation_documentation
+  - search_cdk_documentation
+steering:
+  - .kiro/steering/iac-generation-rules.md
+```
+
+**Tradeoffs:**
+
+| | Kiro | Direct LLM (Ollama/Bedrock) |
+|---|---|---|
+| Latency | 15-60s (tool access overhead) | 3-15s |
+| Context richness | Full (reads files, docs, web) | Prompt-only (what thothctl injects) |
+| Self-correction | Built-in + thothctl loop | ThothCTL loop only |
+| Cost visibility | Not tracked by thothctl | Full token/cost tracking |
+| Offline | Needs kiro-cli binary | Ollama works fully offline |
+
+**Recursion protection:** When thothctl runs as an MCP tool inside Kiro, the `--provider kiro` option is automatically blocked to prevent infinite loops.
 
 ### Recommended Models
 
@@ -394,3 +455,32 @@ Check provider configuration:
 - Ollama: ensure `ollama serve` is running
 - Bedrock: ensure AWS credentials are configured
 - OpenAI: ensure `OPENAI_API_KEY` is set
+- Kiro: ensure `kiro-cli` is installed and in PATH
+
+### Kiro: "Recursive invocation detected"
+
+```
+RuntimeError: Recursive invocation detected
+```
+
+This means thothctl is running inside a Kiro session (as an MCP tool) and tried to use `--provider kiro`. Use a different provider:
+
+```bash
+# Inside Kiro MCP context, use ollama or bedrock instead
+thothctl generate iac -i "..." -p ollama
+```
+
+### Kiro: "kiro-cli not found"
+
+Install Kiro CLI or specify the binary path in your AI config (`~/.thothctl/ai_config.yaml`):
+
+```yaml
+ai_review:
+  providers:
+    kiro:
+      endpoint: /path/to/kiro-cli
+```
+
+### Kiro: Slow generation
+
+Kiro headless mode is slower (15-60s) than direct API calls because it uses tools (reads files, searches docs). For quick iterations, use `-p ollama`. Reserve `-p kiro` for complex tasks where context richness matters.

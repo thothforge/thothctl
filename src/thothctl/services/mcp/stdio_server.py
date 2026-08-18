@@ -122,6 +122,8 @@ async def thothctl_generate_iac(
         return "Error: intent is required (non-empty description of infrastructure)"
 
     # Security: MCP NEVER writes to disk (always dry-run)
+    # Note: recursion guard for --provider kiro is handled in KiroProvider.__init__()
+    # via THOTHCTL_KIRO_PROVIDER_ACTIVE env var (inherited by subprocess).
     cmd = ["thothctl", "generate", "iac", "--intent", intent, "--dry-run"]
 
     if project_type != "auto":

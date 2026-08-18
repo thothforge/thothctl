@@ -1,5 +1,25 @@
 # What's New
 
+## v0.27.12 — Kiro CLI as AI Provider (August 2026)
+
+### Highlights
+
+!!! success "Tool-augmented IaC generation with Kiro CLI"
+    ```bash
+    thothctl generate iac \
+      -i "EKS cluster with Karpenter, IRSA, and cluster autoscaler" \
+      -p kiro --apply
+    ```
+
+- **Kiro CLI provider** — use `--provider kiro` to leverage Kiro's headless mode as a generation engine with full tool access (file reading, doc search, web search, Terraform registry lookup)
+- **Custom Kiro agents** — use `--model <agent-name>` to invoke a specialized `.kiro/agents/<name>.yaml` for IaC generation tasks
+- **Recursion protection** — automatic detection and prevention of infinite loops when thothctl is used as an MCP tool inside Kiro
+- **Robust JSON extraction** — 5-strategy parser handles mixed output (tool artifacts + JSON) from agent responses
+
+**Why Kiro as a provider?** Unlike raw LLM API calls where the model only sees the prompt, Kiro has tool access — it can read your project structure, look up Terraform docs, and validate its own output. This produces significantly better results for complex multi-resource generation tasks.
+
+---
+
 ## v0.27 — Intent-to-IaC: Production Ready (August 2026)
 
 The v0.27 series completes **Phase 1: Intent-to-IaC Generation** with plan validation, blueprint/project modes, and MCP exposure.
