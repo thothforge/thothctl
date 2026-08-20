@@ -431,13 +431,10 @@ class DependencyGraphGenerator:
     def _generate_graph(self, directory: Path) -> Optional[str]:
         """Generate graph using terragrunt.
 
-        Strategy for choosing the working directory:
-        - If `directory` itself contains multiple terragrunt stacks (e.g., stacks/),
-          run from there — produces the full project graph.
-        - If `directory` is a leaf stack (contains terragrunt.hcl but no subdirs
-          with their own terragrunt.hcl), run from the nearest parent that has
-          sibling stacks — produces a scoped subgraph for that layer.
-        - Falls back to `directory` itself if no better option found.
+        Runs `terragrunt dag graph` from the resolved directory:
+        - For a leaf stack: runs from the stack itself, showing only its
+          direct dependencies (scoped relative graph).
+        - For a stacks root: runs from the root, showing the full DAG.
         """
         graph_dir = self._resolve_graph_directory(directory)
 
@@ -449,10 +446,18 @@ class DependencyGraphGenerator:
             self.logger.error("Terragrunt command failed: %s", stderr)
             return None
 
-        # If output is just "." (empty single-node graph), skip
-        if stdout.strip() in ('digraph {\n\t"." ;\n}', 'digraph {\n}', ''):
+        # Skip truly empty graphs (no edges, only a single "." node)
+        stripped = stdout.strip()
+        if stripped in ('digraph {\n\t"." ;\n}', 'digraph {\n}', ''):
             self.logger.debug(
                 "Empty graph from %s (no dependencies visible)", directory
+            )
+            return None
+
+        # Also skip if the only node is "." with no edges (isolated stack)
+        if '"."' in stripped and "->" not in stripped:
+            self.logger.debug(
+                "Isolated stack %s (no dependencies), skipping graph", directory
             )
             return None
 
@@ -470,12 +475,11 @@ class DependencyGraphGenerator:
         """Determine the best directory to run `terragrunt dag graph` from.
 
         Strategy:
-        - If this directory has child stacks (it's already a stacks root), use it.
-        - If this is a leaf stack WITHOUT dependencies (no `dependency` blocks
-          in terragrunt.hcl), return directory itself — produces "." which
-          gets filtered out (no graph for isolated stacks).
-        - If this is a leaf stack WITH dependencies, walk up to find the
-          immediate layer parent that has sibling stacks (max 2 levels).
+        - If this directory has child stacks (it's already a stacks root), use it
+          → produces the full project/layer graph (correct for non-leaf contexts).
+        - If this is a leaf stack, ALWAYS run from the leaf itself
+          → produces only the current stack and its direct dependencies.
+          This avoids showing unrelated sibling stacks in the graph.
 
         Returns the directory to run `terragrunt dag graph` from.
         """
@@ -485,50 +489,15 @@ class DependencyGraphGenerator:
         child_hcl_files = [
             f
             for f in resolved.rglob("terragrunt.hcl")
-            if ".terragrunt-cache" not in str(f)
+            if ".terragrunt-cache" not in str(f) and f.parent != resolved
         ]
         # If there are multiple terragrunt.hcl files below this dir, it's a good root
         if len(child_hcl_files) > 1:
             return resolved
 
-        # This is a leaf stack — check if it has dependencies
-        hcl_file = resolved / "terragrunt.hcl"
-        if hcl_file.exists():
-            try:
-                content = hcl_file.read_text()
-                if "dependency" not in content:
-                    # No dependencies — return self (will produce "." → skip)
-                    return resolved
-            except Exception:
-                pass
-
-        # Has dependencies — walk up to the immediate layer parent
-        current = resolved.parent
-        for _ in range(2):
-            if current == current.parent:
-                break
-            # Check for sibling stacks at this level
-            direct_children_with_hcl = [
-                d
-                for d in current.iterdir()
-                if d.is_dir()
-                and (d / "terragrunt.hcl").exists()
-                and ".terragrunt-cache" not in str(d)
-            ]
-            if len(direct_children_with_hcl) > 1:
-                return current
-            # Check nested children
-            nested_hcl = [
-                f
-                for f in current.rglob("terragrunt.hcl")
-                if ".terragrunt-cache" not in str(f)
-                and f.parent != resolved
-            ]
-            if len(nested_hcl) >= 2:
-                return current
-            current = current.parent
-
-        # Fallback: use directory itself
+        # This is a leaf stack — always run from the leaf itself.
+        # terragrunt dag graph from a leaf shows only its direct dependencies,
+        # which is the correct scoped view for per-stack documentation.
         return resolved
 
     def _find_terragrunt_root(self, directory: Path) -> Path:
