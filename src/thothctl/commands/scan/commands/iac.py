@@ -49,6 +49,7 @@ class RestoredIaCScanCommand(ClickCommand):
         self._vcs_provider = kwargs.get("vcs_provider", "auto")
         self._space = kwargs.get("space")
         self._enforcement = kwargs.get("enforcement", "soft")
+        self._publish_to = kwargs.get("publish_to")
         self._scan_results = None
 
         try:
@@ -209,6 +210,16 @@ class RestoredIaCScanCommand(ClickCommand):
                 border_style="green",
             )
             self.console.print(completion_panel)
+
+            # Publish scan results to external platform if requested
+            if self._publish_to:
+                self._publish_scan_results(
+                    publish_target=self._publish_to,
+                    results=results,
+                    reports_dir=reports_dir,
+                    project_name=project_name,
+                    code_directory=code_directory,
+                )
 
             # Exit with code 1 if hard enforcement failed
             if has_violations:
@@ -737,6 +748,159 @@ class RestoredIaCScanCommand(ClickCommand):
             "tools": tools,
         }
 
+    def _publish_scan_results(
+        self,
+        publish_target: str,
+        results: dict,
+        reports_dir: str,
+        project_name: str,
+        code_directory: str,
+    ) -> None:
+        """Publish scan results to an external vulnerability management platform.
+
+        Publishes each tool's native report using the scan type that DefectDojo
+        knows how to parse natively.
+
+        Args:
+            publish_target: Target platform ('defectdojo').
+            results: Scan results dict from scan_service.
+            reports_dir: Directory containing scan reports.
+            project_name: Project name for the product in DefectDojo.
+            code_directory: Source directory for .thothcf.toml config.
+        """
+        if publish_target != "defectdojo":
+            self.console.print(
+                f"[yellow]Unknown publish target: {publish_target}. Skipping.[/yellow]"
+            )
+            return
+
+        try:
+            from thothctl.services.inventory.defectdojo_publisher import (
+                DefectDojoConfig,
+                DefectDojoPublisher,
+            )
+
+            config = DefectDojoConfig.from_toml(code_directory)
+            if project_name and project_name != "Security Scan":
+                config.product_name = project_name
+            elif not config.product_name:
+                # Use directory name as fallback
+                config.product_name = os.path.basename(
+                    os.path.abspath(code_directory)
+                )
+
+            publisher = DefectDojoPublisher(config)
+
+            # Map ThothCTL tool names to DefectDojo scan types and report files
+            tool_mapping = {
+                "checkov": {
+                    "scan_type": "Checkov Scan",
+                    "pattern": "checkov/**/results_json.json",
+                    "engagement": "IaC SAST - Checkov",
+                },
+                "trivy": {
+                    "scan_type": "Trivy Scan",
+                    "pattern": "trivy/**/results.json",
+                    "engagement": "IaC SAST - Trivy",
+                },
+                "kics": {
+                    "scan_type": "KICS Scan",
+                    "pattern": "kics-results.json",
+                    "engagement": "IaC SAST - KICS",
+                },
+                "opa": {
+                    "scan_type": "SARIF",
+                    "pattern": "opa/**/*.sarif",
+                    "engagement": "IaC Policy - OPA",
+                },
+            }
+
+            from pathlib import Path
+
+            reports_path = Path(reports_dir)
+            published_count = 0
+
+            for tool_name, tool_result in results.items():
+                if tool_name == "summary" or not isinstance(tool_result, dict):
+                    continue
+
+                mapping = tool_mapping.get(tool_name)
+                if not mapping:
+                    continue
+
+                # Find the report file(s) for this tool
+                report_files = list(reports_path.rglob(mapping["pattern"].replace("**", "*")))
+
+                # Also try direct pattern
+                if not report_files:
+                    report_files = list(reports_path.glob(mapping["pattern"]))
+
+                # For checkov, find the first available results_json.json
+                if not report_files and tool_name == "checkov":
+                    report_files = list(reports_path.rglob("results_json.json"))
+
+                # For trivy, find any results.json under trivy/
+                if not report_files and tool_name == "trivy":
+                    report_files = list(
+                        (reports_path / "trivy").rglob("results.json")
+                        if (reports_path / "trivy").exists()
+                        else []
+                    )
+
+                # For kics, check root level
+                if not report_files and tool_name == "kics":
+                    kics_json = reports_path / "kics-results.json"
+                    if kics_json.exists():
+                        report_files = [kics_json]
+
+                if not report_files:
+                    self.console.print(
+                        f"[dim]  ⏭️  {tool_name}: no report file found, skipping[/dim]"
+                    )
+                    continue
+
+                # Use the first (or most recent) report file
+                report_file = sorted(
+                    report_files, key=lambda f: f.stat().st_mtime
+                )[-1]
+
+                self.console.print(
+                    f"  📤 Publishing {tool_name} results to DefectDojo..."
+                )
+
+                result = publisher.publish(
+                    sbom_path=report_file,
+                    product_name=config.product_name,
+                    engagement_name=mapping["engagement"],
+                    scan_type=mapping["scan_type"],
+                )
+
+                if result.success:
+                    self.console.print(
+                        f"  [green]✅ {tool_name}[/green] → "
+                        f"{result.engagement_name} (test #{result.test_id})"
+                    )
+                    published_count += 1
+                else:
+                    self.console.print(
+                        f"  [red]❌ {tool_name}: {result.error}[/red]"
+                    )
+
+            if published_count > 0:
+                self.console.print(
+                    f"\n[green]📊 Published {published_count} scan report(s) to DefectDojo[/green]"
+                )
+                product_url = f"{config.url.rstrip('/')}/product/{config.product_name}"
+                self.console.print(f"   🔗 {product_url}")
+
+        except ValueError as e:
+            self.console.print(f"[red]❌ DefectDojo config error: {e}[/red]")
+        except Exception as e:
+            self.console.print(
+                f"[red]❌ Failed to publish to DefectDojo: {e}[/red]"
+            )
+            self.logger.exception("Scan publish to DefectDojo failed")
+
     def post_execute(self, **kwargs) -> None:
         """Post scan summary to PR if --post-to-pr flag is set."""
         if not getattr(self, "_post_to_pr", False):
@@ -862,5 +1026,11 @@ cli = RestoredIaCScanCommand.as_click_command(
         is_flag=True,
         default=False,
         help="Only scan directories with git changes (vs HEAD~1)",
+    ),
+    click.option(
+        "--publish-to",
+        type=click.Choice(["defectdojo"], case_sensitive=False),
+        default=None,
+        help="Publish scan findings to an external platform after scanning",
     ),
 )
