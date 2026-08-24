@@ -810,8 +810,9 @@ class RestoredIaCScanCommand(ClickCommand):
                 },
                 "opa": {
                     "scan_type": "SARIF",
-                    "pattern": "opa/**/*.sarif",
+                    "pattern": "scan_results.sarif",
                     "engagement": "IaC Policy - OPA",
+                    "generate_sarif": True,
                 },
             }
 
@@ -819,6 +820,20 @@ class RestoredIaCScanCommand(ClickCommand):
 
             reports_path = Path(reports_dir)
             published_count = 0
+
+            # Generate SARIF if needed (for OPA/Conftest which don't have native DefectDojo parsers)
+            sarif_path = None
+            if any(
+                tool_mapping.get(t, {}).get("generate_sarif")
+                for t in results.keys()
+                if t != "summary"
+            ):
+                try:
+                    from thothctl.services.scan.sarif_output import save_sarif
+
+                    sarif_path = save_sarif(results, code_directory, reports_dir)
+                except Exception as e:
+                    self.logger.debug(f"SARIF generation for DefectDojo failed: {e}")
 
             for tool_name, tool_result in results.items():
                 if tool_name == "summary" or not isinstance(tool_result, dict):
@@ -828,41 +843,59 @@ class RestoredIaCScanCommand(ClickCommand):
                 if not mapping:
                     continue
 
-                # Find the report file(s) for this tool
-                report_files = list(reports_path.rglob(mapping["pattern"].replace("**", "*")))
+                # For tools that need SARIF, use the generated SARIF file
+                if mapping.get("generate_sarif"):
+                    if sarif_path and Path(sarif_path).exists():
+                        report_file = Path(sarif_path)
+                    else:
+                        # Fallback: try to find conftest_results.json
+                        conftest_files = list(
+                            reports_path.rglob("conftest_results.json")
+                        )
+                        if conftest_files:
+                            report_file = conftest_files[-1]
+                            mapping["scan_type"] = "Generic Findings Import"
+                        else:
+                            self.console.print(
+                                f"[dim]  ⏭️  {tool_name}: no SARIF or report file found, skipping[/dim]"
+                            )
+                            continue
+                else:
+                    # Find the report file(s) for this tool
+                    report_files = list(reports_path.rglob(mapping["pattern"].replace("**", "*")))
 
-                # Also try direct pattern
-                if not report_files:
-                    report_files = list(reports_path.glob(mapping["pattern"]))
+                    # Also try direct pattern
+                    if not report_files:
+                        report_files = list(reports_path.glob(mapping["pattern"]))
 
-                # For checkov, find the first available results_json.json
-                if not report_files and tool_name == "checkov":
-                    report_files = list(reports_path.rglob("results_json.json"))
+                    # For checkov, find the first available results_json.json
+                    if not report_files and tool_name == "checkov":
+                        report_files = list(reports_path.rglob("results_json.json"))
 
-                # For trivy, find any results.json under trivy/
-                if not report_files and tool_name == "trivy":
-                    report_files = list(
-                        (reports_path / "trivy").rglob("results.json")
-                        if (reports_path / "trivy").exists()
-                        else []
-                    )
+                    # For trivy, find any results.json under trivy/
+                    if not report_files and tool_name == "trivy":
+                        report_files = list(
+                            (reports_path / "trivy").rglob("results.json")
+                            if (reports_path / "trivy").exists()
+                            else []
+                        )
 
-                # For kics, check root level
-                if not report_files and tool_name == "kics":
-                    kics_json = reports_path / "kics-results.json"
-                    if kics_json.exists():
-                        report_files = [kics_json]
+                    # For kics, check root level
+                    if not report_files and tool_name == "kics":
+                        kics_json = reports_path / "kics-results.json"
+                        if kics_json.exists():
+                            report_files = [kics_json]
 
-                if not report_files:
-                    self.console.print(
-                        f"[dim]  ⏭️  {tool_name}: no report file found, skipping[/dim]"
-                    )
-                    continue
+                    if not report_files:
+                        self.console.print(
+                            f"[dim]  ⏭️  {tool_name}: no report file found, skipping[/dim]"
+                        )
+                        continue
 
-                # Use the first (or most recent) report file
-                report_file = sorted(
-                    report_files, key=lambda f: f.stat().st_mtime
-                )[-1]
+                    # Use the most recent report file
+                    report_file = sorted(
+                        report_files, key=lambda f: f.stat().st_mtime
+                    )[-1]
 
                 self.console.print(
                     f"  📤 Publishing {tool_name} results to DefectDojo..."
