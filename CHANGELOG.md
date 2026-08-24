@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Deduplication and close-old-findings support
   - Config via env vars (`DEFECTDOJO_URL`, `DEFECTDOJO_TOKEN`) or `.thothcf.toml`
   - 21 unit tests covering all paths
+- **SecObserve SBOM + scan publishing** (`--publish-sbom secobserve` / `--publish-to secobserve`)
+  - CycloneDX SBOM → license component tracking via `/api/import/file_upload_sbom_by_name/`
+  - Scan findings → observations via SARIF through `/api/import/file_upload_observations_by_name/`
+  - APIToken authentication (SecObserve's custom format)
+  - Auto-creates product, .localhost domain resolution for Traefik setups
+  - Supports all scanners: Checkov, Trivy, KICS, OPA/Conftest (all via SARIF)
+  - Config via env vars (`SECOBSERVE_URL`, `SECOBSERVE_API_TOKEN`) or `.thothcf.toml`
 - **Kiro CLI as AI provider** for Intent-to-IaC generation (`--provider kiro`)
   - Uses Kiro headless mode (`kiro-cli chat --no-interactive --trust-all-tools`)
   - Tool-augmented generation: reads project files, searches docs, validates output

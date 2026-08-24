@@ -27,6 +27,7 @@
 - **Dependency-Track integration** — `--publish-sbom dependency-track` publishes CycloneDX SBOM directly to OWASP Dependency-Track after inventory generation (auto-creates project, supports parent hierarchy)
 - **DefectDojo integration** — `--publish-sbom defectdojo` publishes CycloneDX SBOM to OWASP DefectDojo (auto-creates product/engagement, deduplicates findings, Token auth)
 - **Scan results to DefectDojo** — `thothctl scan iac --publish-to defectdojo` publishes Checkov, Trivy, KICS, and OPA findings directly to DefectDojo with native parsers
+- **SecObserve integration** — `--publish-sbom secobserve` for license tracking + `--publish-to secobserve` for scan findings via SARIF (supports all scanners including OPA/Conftest)
 - **Custom Kiro agents** — use `--model <agent-name>` to invoke a specialized `.kiro/agents/<name>.yaml` for IaC generation tasks
 - **Recursion protection** — automatic detection and prevention of infinite loops when thothctl is used as an MCP tool inside Kiro
 - **Per-stack dependency graphs** — `document iac` now generates correct scoped graphs for leaf terragrunt stacks (not the full layer graph)

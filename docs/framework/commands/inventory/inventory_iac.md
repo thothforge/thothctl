@@ -272,6 +272,83 @@ deduplication_on_engagement = true        # Deduplicate within engagement
 - Closes findings no longer present in the SBOM (configurable)
 - Supports CycloneDX Scan type for IaC component tracking
 
+### SecObserve Integration 🔍
+
+Publish your CycloneDX SBOM and scan results to [SecObserve](https://github.com/SecObserve/SecObserve) for unified vulnerability and license management:
+
+#### Prerequisites
+
+1. **SecObserve instance** running (v1.50+) — [install guide](https://secobserve.github.io/SecObserve/getting_started/installation/)
+2. **API token** — generate at: **User menu** → **Settings** → **API Tokens**
+3. Token format: `APIToken <your-token>` (ThothCTL handles the prefix)
+4. **Product** in SecObserve (auto-created if `auto_create_product = true`)
+
+#### Usage
+
+```bash
+# Publish SBOM for license tracking
+thothctl inventory iac --check-versions --publish-sbom secobserve
+
+# Publish scan findings (all scanners supported via SARIF)
+thothctl scan iac -t checkov -t trivy -t kics -t opa --publish-to secobserve
+```
+
+**Configuration** (priority: env vars > `.thothcf.toml`):
+
+```bash
+# Environment variables
+export SECOBSERVE_URL="http://secobserve-backend.localhost"
+export SECOBSERVE_API_TOKEN="api_token_..."
+export SECOBSERVE_PRODUCT_NAME="my-project"     # Optional (uses --project-name)
+export SECOBSERVE_BRANCH_NAME="main"             # Optional (for multi-branch tracking)
+```
+
+Or in `.thothcf.toml`:
+
+```toml
+[integrations.secobserve]
+url = "http://secobserve-backend.localhost"
+api_token = "api_token_..."
+product_name = "my-platform-infra"
+branch_name = "main"
+origin_service = "thothctl"
+auto_create_product = true
+```
+
+**CI/CD Integration**:
+
+```yaml
+# GitHub Actions
+- name: Scan + Publish to SecObserve
+  env:
+    SECOBSERVE_URL: ${{ secrets.SECOBSERVE_URL }}
+    SECOBSERVE_API_TOKEN: ${{ secrets.SECOBSERVE_API_TOKEN }}
+  run: |
+    thothctl inventory iac --check-versions \
+      --publish-sbom secobserve \
+      --project-name "${{ github.event.repository.name }}"
+
+    thothctl scan iac -t checkov -t trivy -t kics -t opa \
+      --publish-to secobserve \
+      -p "${{ github.event.repository.name }}"
+```
+
+**Supported scanners** (all published via SARIF):
+
+| Scanner | Notes |
+|---------|-------|
+| Checkov | SARIF generated from scan results |
+| Trivy | SARIF generated from scan results |
+| KICS | Native `.sarif` output used directly |
+| OPA/Conftest | SARIF generated from policy violations |
+
+**Features**:
+- CycloneDX SBOM → license component tracking
+- SARIF → vulnerability observations with deduplication
+- Auto-creates product if it doesn't exist
+- Branch-aware imports for multi-branch tracking
+- `.localhost` domain resolution (Traefik/Docker setups)
+
 ### **Professional Design**
 - **Inter Font Family**: Modern, readable typography
 - **Gradient Headers**: Professional blue gradient styling
