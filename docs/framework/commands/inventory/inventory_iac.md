@@ -138,6 +138,21 @@ The CycloneDX report includes:
 
 Publish your CycloneDX SBOM directly to [OWASP Dependency-Track](https://dependencytrack.org/) for centralized vulnerability management:
 
+#### Prerequisites
+
+1. **Dependency-Track instance** running (v4.x or v5.x) — [install guide](https://docs.dependencytrack.org/getting-started/deploy-docker/)
+2. **API key** with the following permissions:
+   - `BOM_UPLOAD` (required)
+   - `VIEW_PORTFOLIO` (recommended — allows project lookup)
+   - `PROJECT_CREATION_UPLOAD` (only if `auto_create = true`)
+
+   To create an API key: **Administration** → **Access Management** → **Teams** → select team → **API Keys** → Generate
+
+3. **Project** in Dependency-Track (either pre-created or use `auto_create = true`)
+   - If using an existing project, set `DTRACK_PROJECT_UUID` to skip auto-creation and avoid needing `PROJECT_CREATION_UPLOAD` permission
+
+#### Usage
+
 ```bash
 # Generate SBOM and publish to Dependency-Track in one command
 thothctl inventory iac --check-versions --publish-sbom dependency-track
@@ -155,6 +170,7 @@ export DTRACK_URL="https://dtrack.example.com"
 export DTRACK_API_KEY="your-api-key"
 export DTRACK_PROJECT_NAME="my-project"     # Optional (auto-detected from SBOM)
 export DTRACK_PROJECT_VERSION="latest"       # Optional (default: latest)
+export DTRACK_PROJECT_UUID="uuid-here"       # Optional (use existing project, skips auto-create)
 ```
 
 Or in `.thothcf.toml`:
@@ -166,6 +182,7 @@ api_key = "your-api-key"
 project_name = "my-platform-infra"
 project_version = "latest"
 auto_create = true              # Create project if it doesn't exist
+project_uuid = ""               # Optional: use existing project UUID (skips auto-create)
 parent_project = "org-parent"   # Optional: nest under parent project
 ```
 
