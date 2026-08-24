@@ -768,10 +768,14 @@ class RestoredIaCScanCommand(ClickCommand):
             project_name: Project name for the product in DefectDojo.
             code_directory: Source directory for .thothcf.toml config.
         """
-        if publish_target != "defectdojo":
+        if publish_target != "defectdojo" and publish_target != "secobserve":
             self.console.print(
                 f"[yellow]Unknown publish target: {publish_target}. Skipping.[/yellow]"
             )
+            return
+
+        if publish_target == "secobserve":
+            self._publish_scan_to_secobserve(results, reports_dir, project_name, code_directory)
             return
 
         try:
@@ -934,6 +938,105 @@ class RestoredIaCScanCommand(ClickCommand):
             )
             self.logger.exception("Scan publish to DefectDojo failed")
 
+    def _publish_scan_to_secobserve(
+        self,
+        results: dict,
+        reports_dir: str,
+        project_name: str,
+        code_directory: str,
+    ) -> None:
+        """Publish scan results to SecObserve via SARIF format.
+
+        SecObserve uses SARIF as the universal import format for scan findings.
+        We generate a combined SARIF from all scan results and upload it.
+        """
+        try:
+            from thothctl.services.inventory.secobserve_publisher import (
+                SecObserveConfig,
+                SecObservePublisher,
+            )
+
+            config = SecObserveConfig.from_toml(code_directory)
+            if project_name and project_name != "Security Scan":
+                config.product_name = project_name
+            elif not config.product_name:
+                config.product_name = os.path.basename(os.path.abspath(code_directory))
+
+            publisher = SecObservePublisher(config)
+
+            self.console.print(
+                f"  📤 Publishing scan results to SecObserve ({config.url})..."
+            )
+
+            from pathlib import Path
+
+            reports_path = Path(reports_dir)
+            published_count = 0
+
+            # Strategy: upload SARIF files (KICS produces .sarif natively)
+            sarif_files = list(reports_path.rglob("*.sarif"))
+            for sarif_file in sarif_files:
+                service_name = sarif_file.stem.replace("-results", "")
+                result = publisher.publish_observations(
+                    sarif_file,
+                    product_name=config.product_name,
+                    parser_name="SARIF",
+                    service_name=service_name,
+                )
+                if result.success:
+                    self.console.print(
+                        f"  [green]✅ {sarif_file.name}[/green] → "
+                        f"{result.observations_new} new, "
+                        f"{result.observations_updated} updated"
+                    )
+                    published_count += 1
+                else:
+                    self.console.print(
+                        f"  [red]❌ {sarif_file.name}: {result.error}[/red]"
+                    )
+
+            # If no SARIF files found, generate one from results
+            if not sarif_files:
+                try:
+                    from thothctl.services.scan.sarif_output import save_sarif
+
+                    sarif_path = save_sarif(results, code_directory, reports_dir)
+                    if sarif_path:
+                        result = publisher.publish_observations(
+                            Path(sarif_path),
+                            product_name=config.product_name,
+                            parser_name="SARIF",
+                            service_name="thothctl-scan",
+                        )
+                        if result.success:
+                            self.console.print(
+                                f"  [green]✅ Combined SARIF[/green] → "
+                                f"{result.observations_new} new, "
+                                f"{result.observations_updated} updated"
+                            )
+                            published_count += 1
+                        else:
+                            self.console.print(
+                                f"  [red]❌ SARIF upload: {result.error}[/red]"
+                            )
+                except Exception as e:
+                    self.console.print(
+                        f"  [red]❌ SARIF generation failed: {e}[/red]"
+                    )
+
+            if published_count > 0:
+                self.console.print(
+                    f"\n[green]📊 Published {published_count} report(s) to SecObserve[/green]"
+                )
+
+        except ValueError as e:
+            self.console.print(f"[red]❌ SecObserve config error: {e}[/red]")
+        except Exception as e:
+            self.console.print(
+                f"[red]❌ Failed to publish to SecObserve: {e}[/red]"
+            )
+            self.logger.exception("Scan publish to SecObserve failed")
+
     def post_execute(self, **kwargs) -> None:
         """Post scan summary to PR if --post-to-pr flag is set."""
         if not getattr(self, "_post_to_pr", False):
@@ -1062,7 +1165,7 @@ cli = RestoredIaCScanCommand.as_click_command(
     ),
     click.option(
         "--publish-to",
-        type=click.Choice(["defectdojo"], case_sensitive=False),
+        type=click.Choice(["defectdojo", "secobserve"], case_sensitive=False),
         default=None,
         help="Publish scan findings to an external platform after scanning",
     ),
