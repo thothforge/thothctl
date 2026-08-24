@@ -206,6 +206,72 @@ parent_project = "org-parent"   # Optional: nest under parent project
 - Supports parent project hierarchy for multi-project organizations
 - Returns processing token for async status verification
 
+### DefectDojo Integration 🛡️
+
+Publish your CycloneDX SBOM to [OWASP DefectDojo](https://www.defectdojo.com/) for vulnerability management and security orchestration:
+
+#### Prerequisites
+
+1. **DefectDojo instance** running (v2.x+) — [install guide](https://github.com/DefectDojo/django-DefectDojo)
+2. **API token** — generate at: **User menu** → **API v2 Key**
+3. Token format: `Token <your-api-key>` (ThothCTL handles the prefix)
+
+#### Usage
+
+```bash
+# Generate SBOM and publish to DefectDojo
+thothctl inventory iac --check-versions --publish-sbom defectdojo
+
+# With custom product name
+thothctl inventory iac --check-versions --publish-sbom defectdojo \
+  --project-name "my-platform-infra"
+```
+
+**Configuration** (priority: env vars > `.thothcf.toml`):
+
+```bash
+# Environment variables
+export DEFECTDOJO_URL="http://defectdojo.example.com:8090"
+export DEFECTDOJO_TOKEN="your-api-token"
+export DEFECTDOJO_PRODUCT_NAME="my-project"         # Optional (uses --project-name)
+export DEFECTDOJO_ENGAGEMENT_NAME="IaC Inventory"   # Optional (default: "IaC Supply Chain Inventory")
+```
+
+Or in `.thothcf.toml`:
+
+```toml
+[integrations.defectdojo]
+url = "http://defectdojo.example.com:8090"
+token = "your-api-token"
+product_name = "my-platform-infra"
+product_type_name = "Infrastructure"      # Product type category
+engagement_name = "IaC Supply Chain Inventory"
+auto_create = true                        # Create product/engagement if they don't exist
+close_old_findings = true                 # Close findings no longer in SBOM
+deduplication_on_engagement = true        # Deduplicate within engagement
+```
+
+**CI/CD Integration**:
+
+```yaml
+# GitHub Actions
+- name: Inventory + Publish to DefectDojo
+  env:
+    DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
+    DEFECTDOJO_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
+  run: |
+    thothctl inventory iac --check-versions \
+      --publish-sbom defectdojo \
+      --project-name "${{ github.event.repository.name }}"
+```
+
+**Features**:
+- Uses `/api/v2/reimport-scan/` endpoint (idempotent — safe to run repeatedly)
+- Auto-creates product, product type, and engagement if they don't exist
+- Deduplicates findings across runs (only new/changed findings reported)
+- Closes findings no longer present in the SBOM (configurable)
+- Supports CycloneDX Scan type for IaC component tracking
+
 ### **Professional Design**
 - **Inter Font Family**: Modern, readable typography
 - **Gradient Headers**: Professional blue gradient styling

@@ -629,18 +629,27 @@ class IaCInvCommand(ClickCommand):
         """Publish the generated CycloneDX SBOM to an external platform.
 
         Args:
-            publish_target: Target platform (currently: 'dependency-track').
+            publish_target: Target platform ('dependency-track' or 'defectdojo').
             reports_dir: Directory where reports were generated.
             project_name: Project name override.
             code_directory: Source directory (for .thothcf.toml resolution).
         """
-        if publish_target != "dependency-track":
+        if publish_target == "dependency-track":
+            self._publish_to_dependency_track(reports_dir, project_name, code_directory)
+        elif publish_target == "defectdojo":
+            self._publish_to_defectdojo(reports_dir, project_name, code_directory)
+        else:
             self.ui.print_warning(
                 f"Unknown publish target: {publish_target}. Skipping."
             )
-            return
 
-        # Find the most recent CycloneDX SBOM file
+    def _publish_to_dependency_track(
+        self,
+        reports_dir: Optional[str],
+        project_name: Optional[str],
+        code_directory: str,
+    ) -> None:
+        """Publish SBOM to OWASP Dependency-Track."""
         from pathlib import Path
 
         reports_path = Path(reports_dir or "./Reports")
@@ -654,9 +663,8 @@ class IaCInvCommand(ClickCommand):
             )
             return
 
-        sbom_path = sbom_files[-1]  # Most recent
+        sbom_path = sbom_files[-1]
 
-        # Initialize publisher with config from env + toml
         try:
             from thothctl.services.inventory.dtrack_publisher import (
                 DependencyTrackPublisher,
@@ -697,6 +705,69 @@ class IaCInvCommand(ClickCommand):
                 f"❌ Failed to publish SBOM to Dependency-Track: {e}"
             )
             logger.exception("SBOM publish failed")
+
+    def _publish_to_defectdojo(
+        self,
+        reports_dir: Optional[str],
+        project_name: Optional[str],
+        code_directory: str,
+    ) -> None:
+        """Publish SBOM to OWASP DefectDojo."""
+        from pathlib import Path
+
+        reports_path = Path(reports_dir or "./Reports")
+        sbom_files = sorted(
+            reports_path.rglob("*cyclonedx*.json"), key=lambda f: f.stat().st_mtime
+        )
+
+        if not sbom_files:
+            self.ui.print_warning(
+                "No CycloneDX SBOM file found. Cannot publish to DefectDojo."
+            )
+            return
+
+        sbom_path = sbom_files[-1]
+
+        try:
+            from thothctl.services.inventory.defectdojo_publisher import (
+                DefectDojoConfig,
+                DefectDojoPublisher,
+            )
+
+            config = DefectDojoConfig.from_toml(code_directory)
+            if project_name:
+                config.product_name = project_name
+
+            publisher = DefectDojoPublisher(config)
+
+            self.ui.print_info(
+                f"📤 Publishing SBOM to DefectDojo ({config.url})..."
+            )
+            result = publisher.publish(sbom_path, product_name=project_name)
+
+            if result.success:
+                self.ui.print_success(
+                    f"✅ SBOM published to DefectDojo: "
+                    f"{result.product_name} / {result.engagement_name}"
+                )
+                if result.url:
+                    self.ui.print_info(f"   🔗 {result.url}")
+                if result.findings_count:
+                    self.ui.print_info(
+                        f"   📊 Findings: {result.findings_count}"
+                    )
+            else:
+                self.ui.print_error(
+                    f"❌ Failed to publish SBOM: {result.error}"
+                )
+
+        except ValueError as e:
+            self.ui.print_error(f"❌ DefectDojo config error: {e}")
+        except Exception as e:
+            self.ui.print_error(
+                f"❌ Failed to publish SBOM to DefectDojo: {e}"
+            )
+            logger.exception("SBOM publish to DefectDojo failed")
 
 
 # Create the Click command
@@ -813,7 +884,7 @@ cli = IaCInvCommand.as_click_command(
     ),
     click.option(
         "--publish-sbom",
-        type=click.Choice(["dependency-track"], case_sensitive=False),
+        type=click.Choice(["dependency-track", "defectdojo"], case_sensitive=False),
         default=None,
         help="Publish CycloneDX SBOM to an external platform after generation",
     ),

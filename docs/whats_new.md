@@ -17,8 +17,15 @@
       --publish-sbom dependency-track
     ```
 
+!!! success "Publish SBOM to DefectDojo in one command"
+    ```bash
+    thothctl inventory iac --check-versions \
+      --publish-sbom defectdojo
+    ```
+
 - **Kiro CLI provider** — use `--provider kiro` to leverage Kiro's headless mode as a generation engine with full tool access (file reading, doc search, web search, Terraform registry lookup)
 - **Dependency-Track integration** — `--publish-sbom dependency-track` publishes CycloneDX SBOM directly to OWASP Dependency-Track after inventory generation (auto-creates project, supports parent hierarchy)
+- **DefectDojo integration** — `--publish-sbom defectdojo` publishes CycloneDX SBOM to OWASP DefectDojo (auto-creates product/engagement, deduplicates findings, Token auth)
 - **Custom Kiro agents** — use `--model <agent-name>` to invoke a specialized `.kiro/agents/<name>.yaml` for IaC generation tasks
 - **Recursion protection** — automatic detection and prevention of infinite loops when thothctl is used as an MCP tool inside Kiro
 - **Per-stack dependency graphs** — `document iac` now generates correct scoped graphs for leaf terragrunt stacks (not the full layer graph)

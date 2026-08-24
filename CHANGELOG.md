@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - BOM sanitization for DTRACK v5.x compatibility (strips unsupported CycloneDX 1.6 fields)
   - Resolves project name from SBOM metadata when not configured
   - 31 unit tests covering all paths
+- **DefectDojo SBOM publishing** (`--publish-sbom defectdojo`)
+  - Publishes CycloneDX SBOM to OWASP DefectDojo via /api/v2/reimport-scan/
+  - Token-based authentication
+  - Auto-creates product, product type, and engagement
+  - Deduplication and close-old-findings support
+  - Config via env vars (`DEFECTDOJO_URL`, `DEFECTDOJO_TOKEN`) or `.thothcf.toml`
+  - 21 unit tests covering all paths
 - **Kiro CLI as AI provider** for Intent-to-IaC generation (`--provider kiro`)
   - Uses Kiro headless mode (`kiro-cli chat --no-interactive --trust-all-tools`)
   - Tool-augmented generation: reads project files, searches docs, validates output
