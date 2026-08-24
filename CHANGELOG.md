@@ -5,7 +5,7 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.27.13] - 2026-08-22
+## [0.28.0] - 2026-08-23
 
 ### Added
 
@@ -33,12 +33,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Recursion guard via `THOTHCTL_KIRO_PROVIDER_ACTIVE` env var prevents infinite loops
 - New provider registered in `code_generator.py` factory alongside ollama/bedrock/openai/azure
 - Updated `generate iac` CLI to accept `kiro` as a valid provider choice
+- **DefectDojo scan results publishing** (`thothctl scan iac --publish-to defectdojo`)
+  - Publishes Checkov, Trivy, KICS findings with native scan types
+  - OPA/Conftest results published via SARIF format
+  - Auto-creates product and per-tool engagements
+  - 80 unit tests total across all new features
 
 ### Docs
 
 - Updated `generate_iac.md` with Kiro provider section, setup guide, and tradeoffs
-- Updated `inventory_iac.md` with Dependency-Track integration section
-- Added v0.27.13 entry to What's New
+- Updated `inventory_iac.md` with Dependency-Track and DefectDojo integration sections
+- Added prerequisites documentation for both platforms
+- Updated What's New for v0.28.0
 
 ### Fixed
 

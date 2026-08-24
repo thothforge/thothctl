@@ -1,6 +1,6 @@
 # What's New
 
-## v0.27.13 — Kiro CLI Provider + Dependency-Track Integration (August 2026)
+## v0.28.0 — Security Platform Integrations (August 2026)
 
 ### Highlights
 
@@ -26,6 +26,7 @@
 - **Kiro CLI provider** — use `--provider kiro` to leverage Kiro's headless mode as a generation engine with full tool access (file reading, doc search, web search, Terraform registry lookup)
 - **Dependency-Track integration** — `--publish-sbom dependency-track` publishes CycloneDX SBOM directly to OWASP Dependency-Track after inventory generation (auto-creates project, supports parent hierarchy)
 - **DefectDojo integration** — `--publish-sbom defectdojo` publishes CycloneDX SBOM to OWASP DefectDojo (auto-creates product/engagement, deduplicates findings, Token auth)
+- **Scan results to DefectDojo** — `thothctl scan iac --publish-to defectdojo` publishes Checkov, Trivy, KICS, and OPA findings directly to DefectDojo with native parsers
 - **Custom Kiro agents** — use `--model <agent-name>` to invoke a specialized `.kiro/agents/<name>.yaml` for IaC generation tasks
 - **Recursion protection** — automatic detection and prevention of infinite loops when thothctl is used as an MCP tool inside Kiro
 - **Per-stack dependency graphs** — `document iac` now generates correct scoped graphs for leaf terragrunt stacks (not the full layer graph)
