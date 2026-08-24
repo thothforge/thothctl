@@ -85,6 +85,7 @@ class IaCInvCommand(ClickCommand):
             self._post_to_pr = kwargs.get("post_to_pr", False)
             self._space = kwargs.get("space")
             self._vcs_provider = kwargs.get("vcs_provider", "auto")
+            self._publish_sbom = kwargs.get("publish_sbom")
             self._inventory = None
 
             action = InventoryAction(inventory_action.lower())
@@ -108,6 +109,15 @@ class IaCInvCommand(ClickCommand):
                         terragrunt_args=terragrunt_args,
                     )
                 )
+
+                # Publish SBOM to external platform if requested
+                if self._publish_sbom and self._inventory:
+                    self._publish_sbom_to_platform(
+                        publish_target=self._publish_sbom,
+                        reports_dir=inventory_path,
+                        project_name=project_name,
+                        code_directory=config["code_directory"],
+                    )
             elif action in (InventoryAction.UPDATE, InventoryAction.RESTORE):
                 self.update_inventory(
                     inventory_path=inventory_path,
@@ -609,6 +619,85 @@ class IaCInvCommand(ClickCommand):
             )
         )
 
+    def _publish_sbom_to_platform(
+        self,
+        publish_target: str,
+        reports_dir: Optional[str],
+        project_name: Optional[str],
+        code_directory: str,
+    ) -> None:
+        """Publish the generated CycloneDX SBOM to an external platform.
+
+        Args:
+            publish_target: Target platform (currently: 'dependency-track').
+            reports_dir: Directory where reports were generated.
+            project_name: Project name override.
+            code_directory: Source directory (for .thothcf.toml resolution).
+        """
+        if publish_target != "dependency-track":
+            self.ui.print_warning(
+                f"Unknown publish target: {publish_target}. Skipping."
+            )
+            return
+
+        # Find the most recent CycloneDX SBOM file
+        from pathlib import Path
+
+        reports_path = Path(reports_dir or "./Reports")
+        sbom_files = sorted(
+            reports_path.glob("*cyclonedx*.json"), key=lambda f: f.stat().st_mtime
+        )
+
+        if not sbom_files:
+            self.ui.print_warning(
+                "No CycloneDX SBOM file found. Cannot publish to Dependency-Track."
+            )
+            return
+
+        sbom_path = sbom_files[-1]  # Most recent
+
+        # Initialize publisher with config from env + toml
+        try:
+            from ...services.inventory.dtrack_publisher import (
+                DependencyTrackPublisher,
+                DTrackConfig,
+            )
+
+            config = DTrackConfig.from_toml(code_directory)
+            if project_name:
+                config.project_name = project_name
+
+            publisher = DependencyTrackPublisher(config)
+
+            self.ui.print_info(
+                f"📤 Publishing SBOM to Dependency-Track ({config.url})..."
+            )
+            result = publisher.publish(sbom_path, project_name=project_name)
+
+            if result.success:
+                self.ui.print_success(
+                    f"✅ SBOM published to Dependency-Track: "
+                    f"{result.project_name}:{result.project_version}"
+                )
+                if result.project_url:
+                    self.ui.print_info(f"   🔗 {result.project_url}")
+                if result.token:
+                    self.ui.print_info(
+                        f"   📋 Processing token: {result.token}"
+                    )
+            else:
+                self.ui.print_error(
+                    f"❌ Failed to publish SBOM: {result.error}"
+                )
+
+        except ValueError as e:
+            self.ui.print_error(f"❌ Dependency-Track config error: {e}")
+        except Exception as e:
+            self.ui.print_error(
+                f"❌ Failed to publish SBOM to Dependency-Track: {e}"
+            )
+            logger.exception("SBOM publish failed")
+
 
 # Create the Click command
 cli = IaCInvCommand.as_click_command(
@@ -721,6 +810,12 @@ cli = IaCInvCommand.as_click_command(
         is_flag=True,
         default=False,
         help="Post inventory summary as a PR comment (Azure DevOps or GitHub)",
+    ),
+    click.option(
+        "--publish-sbom",
+        type=click.Choice(["dependency-track"], case_sensitive=False),
+        default=None,
+        help="Publish CycloneDX SBOM to an external platform after generation",
     ),
     click.option(
         "--vcs-provider",

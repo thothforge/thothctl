@@ -1,6 +1,6 @@
 # What's New
 
-## v0.27.12 — Kiro CLI as AI Provider (August 2026)
+## v0.27.13 — Kiro CLI Provider + Dependency-Track Integration (August 2026)
 
 ### Highlights
 
@@ -11,10 +11,17 @@
       -p kiro --apply
     ```
 
+!!! success "Publish SBOM to Dependency-Track in one command"
+    ```bash
+    thothctl inventory iac --check-versions \
+      --publish-sbom dependency-track
+    ```
+
 - **Kiro CLI provider** — use `--provider kiro` to leverage Kiro's headless mode as a generation engine with full tool access (file reading, doc search, web search, Terraform registry lookup)
+- **Dependency-Track integration** — `--publish-sbom dependency-track` publishes CycloneDX SBOM directly to OWASP Dependency-Track after inventory generation (auto-creates project, supports parent hierarchy)
 - **Custom Kiro agents** — use `--model <agent-name>` to invoke a specialized `.kiro/agents/<name>.yaml` for IaC generation tasks
 - **Recursion protection** — automatic detection and prevention of infinite loops when thothctl is used as an MCP tool inside Kiro
-- **Robust JSON extraction** — 5-strategy parser handles mixed output (tool artifacts + JSON) from agent responses
+- **Per-stack dependency graphs** — `document iac` now generates correct scoped graphs for leaf terragrunt stacks (not the full layer graph)
 
 **Why Kiro as a provider?** Unlike raw LLM API calls where the model only sees the prompt, Kiro has tool access — it can read your project structure, look up Terraform docs, and validate its own output. This produces significantly better results for complex multi-resource generation tasks.
 

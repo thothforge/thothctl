@@ -5,10 +5,17 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.27.12] - 2026-08-18
+## [0.27.13] - 2026-08-22
 
 ### Added
 
+- **Dependency-Track SBOM publishing** (`--publish-sbom dependency-track`)
+  - Publishes CycloneDX SBOM to OWASP Dependency-Track via PUT /api/v1/bom
+  - Auto-creates project if it doesn't exist (autoCreate=true)
+  - Config via env vars (`DTRACK_URL`, `DTRACK_API_KEY`) or `.thothcf.toml`
+  - Supports parent project hierarchy for multi-project orgs
+  - Resolves project name from SBOM metadata when not configured
+  - 31 unit tests covering all paths
 - **Kiro CLI as AI provider** for Intent-to-IaC generation (`--provider kiro`)
   - Uses Kiro headless mode (`kiro-cli chat --no-interactive --trust-all-tools`)
   - Tool-augmented generation: reads project files, searches docs, validates output

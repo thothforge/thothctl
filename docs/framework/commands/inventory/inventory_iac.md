@@ -6,6 +6,7 @@ The `thothctl inventory iac` command creates, updates, and manages an inventory 
 
 ## Recent Improvements ✨
 
+- **🚀 Dependency-Track Integration**: Publish CycloneDX SBOMs directly to OWASP Dependency-Track (`--publish-sbom dependency-track`)
 - **🎯 Independent Version Checking**: Separate flags for module versions (`-cv`) and provider versions (`-cpv`) — check what you need
 - **🎨 Modern HTML Reports**: Professional styling with Inter font, gradients, and responsive design
 - **📊 Enhanced Provider Analysis**: Comprehensive provider version tracking with status indicators
@@ -26,6 +27,8 @@ Options:
                                   Framework type to analyze (auto for automatic detection)
   -r, --report-type [html|json|cyclonedx|all]
                                   Type of report to generate
+  --publish-sbom [dependency-track]
+                                  Publish CycloneDX SBOM to external platform after generation
   -iact, --inventory-action [create|update|restore]
                                   Action for inventory tasks
   -iph, --inventory-path PATH     Path for saving inventory reports
@@ -130,6 +133,61 @@ The CycloneDX report includes:
 - Version information and update status
 - Source URLs and external references
 - Custom properties for ThothCTL-specific metadata
+
+### Dependency-Track Integration 🚀
+
+Publish your CycloneDX SBOM directly to [OWASP Dependency-Track](https://dependencytrack.org/) for centralized vulnerability management:
+
+```bash
+# Generate SBOM and publish to Dependency-Track in one command
+thothctl inventory iac --check-versions --publish-sbom dependency-track
+
+# With custom project name
+thothctl inventory iac --check-versions --publish-sbom dependency-track \
+  --project-name "my-platform-infra"
+```
+
+**Configuration** (priority: env vars > `.thothcf.toml`):
+
+```bash
+# Environment variables
+export DTRACK_URL="https://dtrack.example.com"
+export DTRACK_API_KEY="your-api-key"
+export DTRACK_PROJECT_NAME="my-project"     # Optional (auto-detected from SBOM)
+export DTRACK_PROJECT_VERSION="latest"       # Optional (default: latest)
+```
+
+Or in `.thothcf.toml`:
+
+```toml
+[integrations.dependency_track]
+url = "https://dtrack.example.com"
+api_key = "your-api-key"
+project_name = "my-platform-infra"
+project_version = "latest"
+auto_create = true              # Create project if it doesn't exist
+parent_project = "org-parent"   # Optional: nest under parent project
+```
+
+**CI/CD Integration**:
+
+```yaml
+# GitHub Actions
+- name: Inventory + Publish to Dependency-Track
+  env:
+    DTRACK_URL: ${{ secrets.DTRACK_URL }}
+    DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
+  run: |
+    thothctl inventory iac --check-versions \
+      --publish-sbom dependency-track \
+      --project-name "${{ github.event.repository.name }}"
+```
+
+**Features**:
+- Auto-creates the project in Dependency-Track if it doesn't exist
+- Resolves project name from SBOM metadata, config, or `--project-name`
+- Supports parent project hierarchy for multi-project organizations
+- Returns processing token for async status verification
 
 ### **Professional Design**
 - **Inter Font Family**: Modern, readable typography
