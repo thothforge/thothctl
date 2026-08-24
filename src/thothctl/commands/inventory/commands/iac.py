@@ -645,7 +645,7 @@ class IaCInvCommand(ClickCommand):
 
         reports_path = Path(reports_dir or "./Reports")
         sbom_files = sorted(
-            reports_path.glob("*cyclonedx*.json"), key=lambda f: f.stat().st_mtime
+            reports_path.rglob("*cyclonedx*.json"), key=lambda f: f.stat().st_mtime
         )
 
         if not sbom_files:
@@ -658,7 +658,7 @@ class IaCInvCommand(ClickCommand):
 
         # Initialize publisher with config from env + toml
         try:
-            from ...services.inventory.dtrack_publisher import (
+            from thothctl.services.inventory.dtrack_publisher import (
                 DependencyTrackPublisher,
                 DTrackConfig,
             )

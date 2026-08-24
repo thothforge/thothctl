@@ -41,6 +41,7 @@ class DTrackConfig:
     api_key: str = ""
     project_name: Optional[str] = None
     project_version: str = "latest"
+    project_uuid: Optional[str] = None
     auto_create: bool = True
     parent_project: Optional[str] = None
 
@@ -54,6 +55,7 @@ class DTrackConfig:
             api_key=os.environ.get("DTRACK_API_KEY", ""),
             project_name=os.environ.get("DTRACK_PROJECT_NAME"),
             project_version=os.environ.get("DTRACK_PROJECT_VERSION", "latest"),
+            project_uuid=os.environ.get("DTRACK_PROJECT_UUID"),
             auto_create=os.environ.get("DTRACK_AUTO_CREATE", "true").lower() == "true",
         )
 
@@ -80,6 +82,8 @@ class DTrackConfig:
                         config.api_key = dtrack.get("api_key", "")
                     if not config.project_name:
                         config.project_name = dtrack.get("project_name")
+                    if not config.project_uuid:
+                        config.project_uuid = dtrack.get("project_uuid")
                     config.project_version = dtrack.get(
                         "project_version", config.project_version
                     )
@@ -184,6 +188,11 @@ class DependencyTrackPublisher:
         # Read and encode the SBOM
         try:
             sbom_content = sbom_path.read_bytes()
+
+            # Sanitize BOM for Dependency-Track compatibility
+            # DTRACK v5.x may not support all CycloneDX 1.6 lifecycle phases
+            sbom_content = self._sanitize_bom(sbom_content)
+
             sbom_b64 = base64.b64encode(sbom_content).decode("utf-8")
         except Exception as e:
             return PublishResult(
@@ -221,12 +230,20 @@ class DependencyTrackPublisher:
             "bom": sbom_b64,
         }
 
-        # Include parent project if configured (for hierarchical project structure)
-        if self.config.parent_project:
-            # Look up parent project UUID
-            parent_uuid = self._lookup_project_uuid(self.config.parent_project)
-            if parent_uuid:
-                payload["parentUUID"] = parent_uuid
+        # If project UUID is provided, use it directly (avoids needing
+        # PROJECT_CREATION_UPLOAD permission — only needs BOM_UPLOAD)
+        if self.config.project_uuid:
+            payload = {
+                "project": self.config.project_uuid,
+                "bom": sbom_b64,
+            }
+        else:
+            # Include parent project if configured (for hierarchical project structure)
+            if self.config.parent_project:
+                # Look up parent project UUID
+                parent_uuid = self._lookup_project_uuid(self.config.parent_project)
+                if parent_uuid:
+                    payload["parentUUID"] = parent_uuid
 
         # Upload BOM
         url = f"{self.config.base_url}/bom"
@@ -300,6 +317,48 @@ class DependencyTrackPublisher:
                 success=False,
                 error=f"Unexpected error during upload: {e}",
             )
+
+    def _sanitize_bom(self, content: bytes) -> bytes:
+        """Sanitize CycloneDX BOM for Dependency-Track compatibility.
+
+        Dependency-Track v5.x may not support all CycloneDX 1.6 fields.
+        This method removes or adjusts fields that cause schema validation
+        errors without losing critical supply chain data.
+
+        Known issues with DTRACK v5.0.x:
+        - lifecycle phase "deploy" not in accepted enumeration
+        - "attestations" field not recognized (CycloneDX 1.6 addition)
+        - "definitions" field not recognized (CycloneDX 1.6 addition)
+        - "formulation" may have unsupported sub-fields
+        """
+        try:
+            data = json.loads(content)
+
+            # Fix lifecycle phases
+            valid_phases = {
+                "design", "pre-build", "build", "post-build",
+                "operations", "discovery", "decommission",
+            }
+            lifecycles = data.get("metadata", {}).get("lifecycles", [])
+            if lifecycles:
+                data["metadata"]["lifecycles"] = [
+                    lc for lc in lifecycles
+                    if lc.get("phase") in valid_phases
+                ]
+                # Ensure at least one lifecycle remains
+                if not data["metadata"]["lifecycles"]:
+                    data["metadata"]["lifecycles"] = [{"phase": "build"}]
+
+            # Remove CycloneDX 1.6 fields not supported by DTRACK v5.0.x
+            unsupported_fields = ["attestations", "definitions", "formulation"]
+            for field in unsupported_fields:
+                data.pop(field, None)
+
+            return json.dumps(data, separators=(",", ":")).encode("utf-8")
+
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.debug(f"BOM sanitization skipped: {e}")
+            return content
 
     def _lookup_project_uuid(self, project_name: str) -> Optional[str]:
         """Look up a project UUID by name.

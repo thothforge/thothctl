@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Publishes CycloneDX SBOM to OWASP Dependency-Track via PUT /api/v1/bom
   - Auto-creates project if it doesn't exist (autoCreate=true)
   - Config via env vars (`DTRACK_URL`, `DTRACK_API_KEY`) or `.thothcf.toml`
+  - Supports project UUID (`DTRACK_PROJECT_UUID`) for existing projects
   - Supports parent project hierarchy for multi-project orgs
+  - BOM sanitization for DTRACK v5.x compatibility (strips unsupported CycloneDX 1.6 fields)
   - Resolves project name from SBOM metadata when not configured
   - 31 unit tests covering all paths
 - **Kiro CLI as AI provider** for Intent-to-IaC generation (`--provider kiro`)
@@ -28,7 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs
 
 - Updated `generate_iac.md` with Kiro provider section, setup guide, and tradeoffs
-- Added v0.27.12 entry to What's New
+- Updated `inventory_iac.md` with Dependency-Track integration section
+- Added v0.27.13 entry to What's New
+
+### Fixed
+
+- **CycloneDX SBOM: populate `group` field** for module components
+  - Registry modules: group = namespace (e.g., `terraform-aws-modules`)
+  - Local modules: group = `local`
+  - Providers: group = publisher (e.g., `hashicorp`)
+- **CycloneDX SBOM: recursive file search** — find SBOM in `Reports/inventory/` subdirectory
+- **Dependency-Track compatibility** — sanitize BOM to remove CycloneDX 1.6 fields unsupported by DTRACK v5.0.x (`attestations`, `definitions`, `formulation`, lifecycle phase `deploy`)
 
 ## [0.27.7] - 2026-08-14
 

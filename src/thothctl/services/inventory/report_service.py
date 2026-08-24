@@ -1427,6 +1427,25 @@ class ReportService:
                         "scope": "required",
                     }
 
+                    # Group: extract namespace/organization from source
+                    # e.g., "terraform-aws-modules/vpc/aws" → "terraform-aws-modules"
+                    # e.g., "hashicorp/consul/aws" → "hashicorp"
+                    # e.g., "../modules/my-mod" → "local"
+                    if source and source != "Null":
+                        if source.startswith("./") or source.startswith("../"):
+                            cyclonedx_component["group"] = "local"
+                        elif "/" in source:
+                            # First path segment is the organization/namespace
+                            group = source.split("/")[0]
+                            if group:
+                                cyclonedx_component["group"] = group
+                        elif source.startswith("git::"):
+                            # Git URL: extract org from URL
+                            # git::https://github.com/org/repo → org
+                            parts = source.replace("git::", "").split("/")
+                            if len(parts) >= 4:
+                                cyclonedx_component["group"] = parts[3]
+
                     # Package URL
                     if source and source != "Null":
                         cyclonedx_component[
@@ -1551,10 +1570,21 @@ class ReportService:
                         f"{stack_name}/provider-{provider.get('name', 'unknown')}"
                     )
 
+                    # Extract provider group from source
+                    # e.g., "hashicorp/aws" → "hashicorp"
+                    # e.g., "registry.terraform.io/hashicorp/aws" → "hashicorp"
+                    prov_source = provider.get("source", provider.get("name", ""))
+                    prov_group = "hashicorp"  # default for most providers
+                    if prov_source and "/" in prov_source:
+                        parts = prov_source.split("/")
+                        # Skip "registry.terraform.io" prefix if present
+                        prov_group = parts[-2] if len(parts) >= 2 else parts[0]
+
                     cyclonedx_provider = {
                         "type": "library",
                         "bom-ref": prov_bom_ref,
                         "name": f"terraform-provider-{provider.get('name', 'unknown')}",
+                        "group": prov_group,
                         "version": provider.get("version", "latest"),
                         "scope": "required",
                         "purl": f"pkg:terraform-provider/{provider.get('source', provider.get('name', ''))}@{provider.get('version', 'latest')}",
