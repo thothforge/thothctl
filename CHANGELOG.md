@@ -5,6 +5,32 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-09-15
+
+### Added
+
+- **Agent Autonomy Model** (Phase 2.5.1) — a graduated 4-level governance framework
+  for AI agents, aligned with the industry-standard "4 Levels of Agentic Development"
+  (Weave Intelligence), replacing the previous binary auto-decision switch.
+  - New `services/ai_review/config/autonomy.py`: `AutonomyLevel` / `AutonomyConfig`,
+    `.thothcf.toml [agent.autonomy]` loader with per-level tool allow/deny lists
+  - **Deny-beats-allow** tool resolution with `*` wildcard support
+  - Action-to-level gating (read-only → L1, PR decisions → L2, auto-merge → L3,
+    apply/destroy → L4)
+  - **Safe-by-default**: Level 1 (read-only) when unconfigured; malformed config
+    never escalates privilege
+  - Enforced as the first check in `SafetyGuard.can_take_action` (optional
+    `autonomy_level` param — fully backward compatible)
+  - New `--autonomy [suggest|draft|validate|execute]` flag on `ai-review decide`
+  - 27 unit tests; design spec at `docs/framework/specs/phase2.5.1_autonomy_model.md`
+
+### Documentation
+
+- Aligned the GitHub README with the current v0.28 state (Intent-to-IaC, workflow
+  engine, MCP v2.0, security-platform publishing, Kiro provider) and pointed docs
+  to the official ReadTheDocs site
+- Added an **Agent Autonomy Levels** section to the AI Review command docs
+
 ## [0.28.0] - 2026-08-23
 
 ### Added
