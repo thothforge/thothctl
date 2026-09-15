@@ -243,7 +243,16 @@ thothctl ai-review decide \
   --repository owner/repo \
   --provider bedrock_agent \
   --platform github
+
+# Restrict what the agent may do with an autonomy level
+thothctl ai-review decide -d ./terraform --pr-number 123 \
+  --repository owner/repo --autonomy draft
 ```
+
+**Autonomy:** `--autonomy [suggest|draft|validate|execute]` (default `suggest`)
+gates which actions the agent may perform (see
+[Agent Autonomy Levels](#agent-autonomy-levels) below). At `suggest` (Level 1)
+the agent is read-only and cannot post PR decisions.
 
 ### `thothctl ai-review serve`
 
@@ -346,6 +355,61 @@ thothctl ai-review override --repository owner/repo --pr-number 42 --action appr
 # Record and publish to PR
 thothctl ai-review override --repository owner/repo --pr-number 42 --action approve --publish
 ```
+
+## Agent Autonomy Levels
+
+*(v0.28.1+ — Phase 2.5.1)*
+
+Autonomy levels are a **graduated trust dial** for the agent, aligned with the
+industry-standard 4 Levels of Agentic Development. Instead of a binary "AI on/off",
+each level defines which actions the agent may perform. The `--autonomy` flag on
+`ai-review decide` selects the level (default `suggest`):
+
+| Level | CLI value | Human role | Agent may... |
+|-------|-----------|-----------|-------------|
+| 1 | `suggest` (default) | Execution engine | Analyze, scan, report — **read-only** |
+| 2 | `draft` | Verifier | Post approve/reject/request-changes, create PRs; **not** apply/destroy |
+| 3 | `validate` | Orchestrator | Auto-merge low-risk changes (subject to gates) |
+| 4 | `execute` | System designer | Self-initiate remediation within guardrails (break-glass) |
+
+At Level 1 an auto-`approve`/`reject` is blocked by the autonomy gate before any
+other safety check runs, so a `suggest`-level run never posts a PR decision.
+
+### Configuration (`.thothcf.toml`)
+
+Levels and their per-level tool allow/deny lists are configurable. If the
+`[agent.autonomy]` table is absent, the agent runs at **Level 1** (safe by default);
+a malformed config never escalates privilege.
+
+```toml
+[agent.autonomy]
+default_level = 1                    # 1=suggest 2=draft 3=validate 4=execute
+
+[agent.autonomy.levels.2]            # Human-on-the-loop
+allowed_tools = ["read-file", "write-file", "scan", "git-commit", "git-push", "create-pr"]
+denied_tools  = ["terraform-apply", "terraform-destroy"]
+
+[agent.autonomy.levels.3]            # Human-as-orchestrator
+allowed_tools = ["*"]
+denied_tools  = ["terraform-apply", "terraform-destroy"]
+requires_validation = true
+auto_merge_risk_max = 20             # auto-merge only when risk score <= 20
+
+[agent.autonomy.levels.4]            # Autonomous
+allowed_tools = ["*"]
+requires_approval = ["named-approver"]
+max_blast_radius = 10                # enforced with the Phase 5 resource graph
+```
+
+**Resolution rules:**
+
+- **deny-beats-allow** — a tool in both lists is denied; `"*"` allows everything not explicitly denied.
+- **safe-by-default** — no config → Level 1; parse errors fall back to built-in safe defaults.
+- **action gating** — each action has a minimum level (read-only → 1, PR decisions → 2, auto-merge → 3, apply/destroy → 4).
+
+> **Note:** `--autonomy` currently governs the `ai-review decide` action gate. MCP
+> tool-call enforcement (via the MCP Gateway) and Level 3/4 gate wiring land in
+> subsequent Phase 2.5 tasks.
 
 ## AI Providers
 

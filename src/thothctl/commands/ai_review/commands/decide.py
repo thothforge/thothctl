@@ -8,6 +8,7 @@ from rich.table import Table
 from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
 from ....services.ai_review.ai_agent import AIReviewAgent
+from ....services.ai_review.config.autonomy import AutonomyConfig
 from ....services.ai_review.config.decision_rules import DecisionRules
 from ....services.ai_review.decision_engine import Decision, DecisionEngine
 from ....services.ai_review.pr_decision_publisher import (
@@ -41,6 +42,7 @@ class DecideCommand(ClickCommand):
         repository=None,
         platform=None,
         dry_run=False,
+        autonomy="suggest",
         **kwargs,
     ):
         ctx = click.get_current_context()
@@ -55,6 +57,13 @@ class DecideCommand(ClickCommand):
             self.ui.print_info("  thothctl ai-review configure-decisions --enable")
             return
 
+        # Resolve autonomy level (Phase 2.5.1) from CLI flag + .thothcf.toml
+        autonomy_config = AutonomyConfig.load(code_directory)
+        autonomy_level = autonomy_config.resolve_level(autonomy)
+        self.ui.print_info(
+            f"Autonomy level: {autonomy_level.level} ({autonomy_level.name})"
+        )
+
         # Run AI analysis
         self.ui.print_info(f"Analyzing {target}...")
         agent = AIReviewAgent(provider=provider, model=model)
@@ -66,7 +75,7 @@ class DecideCommand(ClickCommand):
                 analysis = agent.analyze_directory(target)
 
         # Evaluate decision
-        engine = DecisionEngine(rules)
+        engine = DecisionEngine(rules, autonomy_level=autonomy_level)
         result = engine.evaluate(
             analysis=analysis,
             repository=repository or "",
@@ -154,5 +163,14 @@ cli = DecideCommand.as_click_command(name="decide")(
     ),
     click.option(
         "--dry-run", is_flag=True, help="Preview decision without taking action"
+    ),
+    click.option(
+        "--autonomy",
+        type=click.Choice(["suggest", "draft", "validate", "execute"]),
+        default="suggest",
+        help=(
+            "Agent autonomy level: suggest (L1, read-only), draft (L2, may "
+            "post PR decisions), validate (L3), execute (L4, break-glass)"
+        ),
     ),
 )

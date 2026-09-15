@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from ..config.autonomy import AutonomyConfig, AutonomyLevel
 from ..config.decision_rules import SafetyConfig
 
 logger = logging.getLogger(__name__)
@@ -28,10 +29,31 @@ class ActionRecord:
 class SafetyGuard:
     """Unified safety controls for auto-decisions."""
 
-    def __init__(self, config: SafetyConfig):
+    def __init__(
+        self,
+        config: SafetyConfig,
+        autonomy_level: Optional[AutonomyLevel] = None,
+    ):
         self.config = config
+        # Autonomy gate (Phase 2.5.1). Optional for backward compatibility:
+        # when None, no autonomy restriction is applied and behavior is
+        # identical to pre-autonomy callers.
+        self.autonomy_level = autonomy_level
+        self._autonomy = AutonomyConfig.default()
         self._today_actions: List[ActionRecord] = []
         self._load_today_actions()
+
+    # -- Autonomy --
+
+    def check_autonomy(self, action: str) -> Tuple[bool, str]:
+        """Check whether the current autonomy level permits ``action``.
+
+        Returns (True, reason) when no autonomy level is configured
+        (backward-compatible no-op).
+        """
+        if self.autonomy_level is None:
+            return True, "No autonomy restriction configured"
+        return self._autonomy.is_action_allowed(action, self.autonomy_level)
 
     # -- Confidence --
 
@@ -114,7 +136,12 @@ class SafetyGuard:
         pr_context: Optional[Dict] = None,
     ) -> Tuple[bool, str]:
         """Run all safety checks. Returns (allowed, reason)."""
-        # Override check first
+        # Autonomy gate first — does the current level even permit this action?
+        ok, reason = self.check_autonomy(action)
+        if not ok:
+            return False, reason
+
+        # Override check
         if pr_context:
             overridden, reason = self.check_override(pr_context)
             if overridden:

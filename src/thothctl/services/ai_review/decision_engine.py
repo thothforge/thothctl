@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from .config.autonomy import AutonomyLevel
 from .config.decision_rules import DecisionRules
 from .safety.safety_guard import SafetyGuard
 from .tracing import span
@@ -34,9 +35,13 @@ class DecisionResult:
 class DecisionEngine:
     """Evaluates AI analysis results and determines the PR action."""
 
-    def __init__(self, rules: Optional[DecisionRules] = None):
+    def __init__(
+        self,
+        rules: Optional[DecisionRules] = None,
+        autonomy_level: Optional[AutonomyLevel] = None,
+    ):
         self.rules = rules or DecisionRules.load()
-        self.safety = SafetyGuard(self.rules.safety)
+        self.safety = SafetyGuard(self.rules.safety, autonomy_level=autonomy_level)
 
     def evaluate(
         self,
