@@ -1,5 +1,5 @@
 [![Publish Python Package](https://github.com/thothforge/thothctl/actions/workflows/python-publish.yml/badge.svg)](https://github.com/thothforge/thothctl/actions/workflows/python-publish.yml)
-[![Documentation](https://github.com/thothforge/thothctl/actions/workflows/docs.yml/badge.svg)](https://thothforge.github.io/thothctl/)
+[![Documentation Status](https://readthedocs.org/projects/thothctl/badge/?version=latest)](https://thothctl.readthedocs.io/en/latest/)
 [![PyPI version](https://img.shields.io/pypi/v/thothctl)](https://pypi.org/project/thothctl/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
@@ -232,7 +232,7 @@ devcontainer up --workspace-folder .
 
 ## Documentation
 
-📖 **Full docs**: [thothforge.github.io/thothctl](https://thothforge.github.io/thothctl/)
+📖 **Full docs**: [thothctl.readthedocs.io](https://thothctl.readthedocs.io/)
 
 - [What's New](docs/whats_new.md)
 - [Quick Start](docs/quick_start.md)
