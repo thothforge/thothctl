@@ -20,7 +20,7 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional
 
-from .models import GeneratedFile, ValidationResult, Violation
+from .models import GeneratedFile, PlanMode, ValidationResult, Violation
 
 logger = logging.getLogger(__name__)
 
@@ -104,12 +104,21 @@ class GenerationValidator:
             # terraform validate misses: invalid attribute combos, provider
             # constraints, cross-resource reference issues)
             if not skip_plan and self._plan_validator:
-                plan_violations = self._plan_validator.validate_per_stack(
-                    files=files,
-                    project_dir=project_dir or ".",
-                    stack_path=stack_path,
-                    temp_dir=temp_dir,
-                )
+                # Route by mode: full-project runs a DAG-aware/filtered plan over
+                # the real project on disk; otherwise validate the single stack
+                # (temp workspace for terraform; skipped for terragrunt without a
+                # stack_path — see PlanValidator.validate_per_stack guard).
+                if self._plan_validator.mode == PlanMode.FULL_PROJECT:
+                    plan_violations = self._plan_validator.validate_full_project(
+                        project_dir=project_dir or ".",
+                    )
+                else:
+                    plan_violations = self._plan_validator.validate_per_stack(
+                        files=files,
+                        project_dir=project_dir or ".",
+                        stack_path=stack_path,
+                        temp_dir=temp_dir,
+                    )
                 violations.extend(plan_violations)
 
             # Step 3: Run Checkov (security best practices)
@@ -127,10 +136,7 @@ class GenerationValidator:
                 rules_violations = self._run_compiled_rules(temp_dir, project_dir)
                 violations.extend(rules_violations)
 
-            passed = not any(
-                v.severity in ("CRITICAL", "HIGH")
-                for v in violations
-            )
+            passed = not any(v.severity in ("CRITICAL", "HIGH") for v in violations)
 
             # Count per tool
             checkov_failed = sum(1 for v in violations if v.tool == "checkov")

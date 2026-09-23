@@ -13,7 +13,7 @@ import logging
 import shutil
 from typing import Dict, List, Optional
 
-from .models import GeneratedFile, PlanContext, PlanMode, PlanResult, Violation
+from .models import GeneratedFile, PlanContext, PlanMode, Violation
 from .plan_runner import PlanRunner
 from .state_resolver import StateResolver
 
@@ -115,6 +115,19 @@ class PlanValidator:
         if not self._check_binary_available():
             return []
 
+        # Guard: for terragrunt projects, per-stack plan requires a real stack
+        # subdirectory. An empty stack_path would resolve to the project root
+        # (which holds root.hcl, not a deployable stack) — running plan there
+        # and writing stray .tf files into the root is wrong. Skip instead.
+        is_terragrunt = self.project_type in ("terraform-terragrunt", "terragrunt")
+        if is_terragrunt and not stack_path:
+            logger.info(
+                "Per-stack plan validation skipped: terragrunt project with no "
+                "stack_path (single-stack generation). Use composition mode or a "
+                "stack subdirectory for plan validation."
+            )
+            return []
+
         # Resolve execution context
         context = self.state_resolver.resolve(
             project_dir=project_dir,
@@ -177,6 +190,10 @@ class PlanValidator:
         Runs `terragrunt run --all -- plan --graph` for terragrunt projects.
         Runs `terraform plan` for plain terraform projects.
 
+        If a `stack_filter` is configured (via --plan-filter / THOTH_PLAN_FILTER
+        / [generation.plan].stack_filter), validation is scoped to matching
+        stacks via validate_filtered().
+
         Best used AFTER all stacks are generated and written to disk.
 
         Args:
@@ -187,6 +204,12 @@ class PlanValidator:
         """
         if not self.is_enabled:
             return []
+
+        # Route to filtered validation when a filter is configured
+        stack_filter = self.config.get("stack_filter")
+        if stack_filter:
+            logger.info(f"Plan validation scoped by filter: {stack_filter}")
+            return self.validate_filtered(project_dir, stack_filter)
 
         if not self._check_binary_available():
             return []
@@ -262,8 +285,14 @@ class PlanValidator:
 
         try:
             result = subprocess.run(
-                ["terragrunt", "find", "--format", "json",
-                 "--working-dir", project_dir],
+                [
+                    "terragrunt",
+                    "find",
+                    "--format",
+                    "json",
+                    "--working-dir",
+                    project_dir,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=30,

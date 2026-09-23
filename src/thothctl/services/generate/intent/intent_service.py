@@ -6,6 +6,7 @@ This is the main entry point called by the CLI command and MCP tool.
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import List, Optional
 
@@ -115,6 +116,7 @@ class IntentToIaCService:
                 success=False,
                 error=f"AI returned no files. Raw: {generation.raw_response[:500] if generation.raw_response else 'empty'}",
                 context_tokens=context_payload.total_tokens_estimate,
+                raw_response=generation.raw_response,
             )
 
         # Step 3: Validate + self-correct loop
@@ -123,50 +125,36 @@ class IntentToIaCService:
 
         if not skip_validation:
             org_policy_dir = self._resolve_org_policy_dir(directory)
-            previous_violation_count = float("inf")
-            stagnation_counter = 0
 
-            for i in range(max_iterations if self_correct else 1):
-                iterations = i + 1
-                validation = self.validator.validate(
-                    files=generation.files,
+            def _validate(gen):
+                return self.validator.validate(
+                    files=gen.files,
                     project_type=resolved_type,
                     project_dir=directory,
                     org_policy_dir=org_policy_dir,
                 )
 
-                if validation.passed:
-                    logger.info(f"Validation passed (iteration {iterations})")
-                    break
-
-                logger.info(
-                    f"Validation failed: {validation.total_violations} violations "
-                    f"(iteration {iterations}/{max_iterations})"
-                )
-
-                # Convergence detection: stop if violations aren't improving
-                current_count = validation.total_violations
-                if current_count >= previous_violation_count:
-                    stagnation_counter += 1
-                    if stagnation_counter >= 3:
-                        logger.info(
-                            "Self-correction stagnated (no improvement in 3 iterations)"
-                            " — stopping"
-                        )
-                        break
-                else:
-                    stagnation_counter = 0
-                previous_violation_count = current_count
-
-                # Self-correct if enabled and not on last iteration
-                if self_correct and i < max_iterations - 1:
-                    generation = self.code_generator.fix(
-                        generation, validation, context_text
-                    )
-                    if not generation.files:
-                        break  # Fix produced nothing — stop
+            generation, validation, iterations = self._run_correction_loop(
+                generation=generation,
+                validate_fn=_validate,
+                max_iterations=max_iterations,
+                self_correct=self_correct,
+                context_text=context_text,
+            )
         else:
             iterations = 0
+
+        # Step 3.5: Resolve #{...}# placeholders when mode=project
+        # (single-stack generations may also emit template placeholders)
+        if output_mode == "project" and generation.files:
+            resolved = self._resolve_placeholders(
+                files=generation.files,
+                intent=intent,
+                space=space,
+                project_name=self._derive_project_name(output_dir, intent),
+                scaffold_dir=None,  # single mode has no ScaffoldLoader; uses default
+            )
+            generation.files = resolved
 
         # Step 4: Write to disk if --apply
         if apply and generation.files:
@@ -193,9 +181,86 @@ class IntentToIaCService:
             modules_used=generation.modules_used,
             estimated_resources=generation.estimated_resources,
             context_tokens=context_payload.total_tokens_estimate,
-            generation_tokens=0,  # Provider doesn't expose this cleanly yet
+            # Estimate from output size (~4 chars/token), consistent with the
+            # composition path — the providers don't expose token counts cleanly.
+            generation_tokens=sum(len(f.content) // 4 for f in generation.files),
             diagram=diagram,
         )
+
+    # ------------------------------------------------------------------
+    # Shared self-correction loop
+    # ------------------------------------------------------------------
+
+    def _run_correction_loop(
+        self,
+        generation,
+        validate_fn,
+        max_iterations: int,
+        self_correct: bool,
+        context_text: str,
+        label: str = "",
+    ):
+        """Run a validate → fix → re-validate loop with stagnation detection.
+
+        Shared by both the single-stack path and the composition per-stack path
+        so they behave identically (same convergence/stagnation semantics).
+
+        Args:
+            generation: Current GenerationOutput (has .files).
+            validate_fn: Callable(generation) -> ValidationResult for the current files.
+            max_iterations: Maximum correction attempts.
+            self_correct: If False, validate once and never re-prompt the AI.
+            context_text: Compiled org context passed to code_generator.fix().
+            label: Optional label for log lines (e.g. a stack path).
+
+        Returns:
+            Tuple of (generation, validation, iterations).
+        """
+        tag = f"[{label}] " if label else ""
+        validation = ValidationResult(passed=True)
+        iterations = 0
+        previous_violation_count = float("inf")
+        stagnation_counter = 0
+
+        total = max_iterations if self_correct else 1
+        for i in range(total):
+            iterations = i + 1
+            validation = validate_fn(generation)
+
+            if validation.passed:
+                logger.info(f"{tag}Validation passed (iteration {iterations})")
+                break
+
+            logger.info(
+                f"{tag}Validation failed: {validation.total_violations} violations "
+                f"(iteration {iterations}/{max_iterations})"
+            )
+
+            # Convergence detection: stop if violations aren't improving
+            current_count = validation.total_violations
+            if current_count >= previous_violation_count:
+                stagnation_counter += 1
+                if stagnation_counter >= 3:
+                    logger.info(
+                        f"{tag}Self-correction stagnated (no improvement in 3 "
+                        f"iterations) — stopping"
+                    )
+                    break
+            else:
+                stagnation_counter = 0
+            previous_violation_count = current_count
+
+            # Self-correct if enabled and not on the last iteration
+            if self_correct and i < max_iterations - 1:
+                generation = self.code_generator.fix(
+                    generation, validation, context_text
+                )
+                if not generation.files:
+                    break  # Fix produced nothing — stop
+            else:
+                break
+
+        return generation, validation, iterations
 
     # ------------------------------------------------------------------
     # File output
@@ -457,159 +522,95 @@ class IntentToIaCService:
 
         return "\n".join(lines)
 
-    def _load_scaffold_example(self, project_type: str, stack) -> str:
-        """Load a real scaffold example as few-shot context for per-stack generation.
+    @staticmethod
+    def _build_stack_diagram(ordered_stacks) -> str:
+        """Build a Mermaid diagram of the real multi-stack dependency graph.
 
-        Fetches the official scaffold from GitHub (cached locally) and uses its
-        real stack files as examples the AI should follow. The scaffold IS the
-        source of truth for code structure.
+        Unlike _build_mermaid_diagram (which infers edges from resource-type
+        keywords), this renders the actual composition: one node per stack,
+        grouped into layer subgraphs, with edges taken directly from each
+        stack's declared depends_on.
 
-        Resolution order:
-        1. Local cache (~/.thothcf/<scaffold_name>/)
-        2. Auto-clone from GitHub (thothforge org) on first use
+        Args:
+            ordered_stacks: List of StackPlan in topological order.
+
+        Returns:
+            Mermaid graph definition string. Empty string if no stacks.
         """
-        from pathlib import Path
+        if not ordered_stacks:
+            return ""
 
-        # Official scaffolds per project type
-        scaffold_registry = {
-            "terraform-terragrunt": {
-                "name": "terraform_terragrunt_scaffold_project",
-                "repo": "thothforge/terraform_terragrunt_scaffold_project",
-            },
-            "terragrunt": {
-                "name": "terraform_terragrunt_scaffold_project",
-                "repo": "thothforge/terraform_terragrunt_scaffold_project",
-            },
-            "terraform": {
-                "name": "terraform_project_scaffold",
-                "repo": "thothforge/terraform_project_scaffold",
-            },
-            "cdkv2": {
-                "name": "cdkv2_typescript_scaffold",
-                "repo": "thothforge/cdkv2_typescript_scaffold",
-            },
-        }
+        def _node_id(name: str) -> str:
+            # Mermaid node ids must be identifier-safe
+            safe = re.sub(r"[^A-Za-z0-9_]", "_", name)
+            return f"stack_{safe}"
 
-        scaffold_info = scaffold_registry.get(project_type)
-        if not scaffold_info:
-            return self._default_composition_rules()
+        # Only draw edges to stacks that exist in this plan
+        known_names = {s.name for s in ordered_stacks}
 
-        scaffold_cache = Path.home() / ".thothcf"
-        scaffold_dir = scaffold_cache / scaffold_info["name"]
+        # Group stacks by layer, preserving canonical layer order
+        from .composition_models import LAYER_ORDER
 
-        # Auto-fetch scaffold from GitHub if not cached
-        if not scaffold_dir.exists() or not list(scaffold_dir.rglob("*.tf")):
-            scaffold_dir = self._fetch_scaffold(scaffold_info["repo"], scaffold_dir)
+        layers: dict = {}
+        for stack in ordered_stacks:
+            layers.setdefault(stack.layer, []).append(stack)
 
-        example_parts = []
-
-        if scaffold_dir.exists():
-            # Find a matching or similar stack in the scaffold
-            stacks_dir = scaffold_dir / "stacks"
-            if stacks_dir.exists():
-                # Try exact match first, then same domain, then any from same layer
-                candidates = list(stacks_dir.rglob("main.tf"))
-                best_match = None
-
-                for candidate in candidates:
-                    rel = str(candidate.relative_to(stacks_dir))
-                    if stack.domain in rel or stack.name in rel:
-                        best_match = candidate.parent
-                        break
-
-                if not best_match and candidates:
-                    # Take first example from the same layer
-                    for candidate in candidates:
-                        rel = str(candidate.relative_to(stacks_dir))
-                        if stack.layer in rel:
-                            best_match = candidate.parent
-                            break
-
-                if best_match:
-                    # Load the example files
-                    for tf_file in sorted(best_match.glob("*.tf")):
-                        content = tf_file.read_text(encoding="utf-8", errors="ignore")
-                        if content.strip():
-                            example_parts.append(
-                                f"### Scaffold example: {tf_file.name}\n```hcl\n{content.strip()}\n```"
-                            )
-                    tg_file = best_match / "terragrunt.hcl"
-                    if tg_file.exists():
-                        content = tg_file.read_text(encoding="utf-8", errors="ignore")
-                        if content.strip():
-                            example_parts.append(
-                                f"### Scaffold example: terragrunt.hcl\n```hcl\n{content.strip()}\n```"
-                            )
-
-        # Always include the composition rules (whether scaffold found or not)
-        rules = (
-            "COMPOSITION RULES (from scaffold):\n"
-            "- Generate EXACTLY these files with STRICT content separation:\n"
-            "  * variables.tf — ONLY variable blocks (all inputs for this stack)\n"
-            "  * main.tf — ONLY resources, modules, data sources, locals\n"
-            "  * outputs.tf — ONLY output blocks (values for dependent stacks)\n"
-            "- NEVER put variable blocks in main.tf\n"
-            "- NEVER put output blocks in main.tf\n"
-            "- NEVER include terraform{}, provider{}, or backend{} blocks "
-            "(managed by root.hcl)\n"
-            "- Use var.tags for tags (passed from terragrunt inputs)\n"
-            "- Use var.project and var.environment for naming\n"
-            "- File paths must be flat (just filename, no subdirectories)\n"
+        ordered_layers = sorted(
+            layers.keys(), key=lambda layer_key: LAYER_ORDER.get(layer_key, 99)
         )
 
-        if example_parts:
-            return (
-                "FOLLOW THIS SCAFFOLD PATTERN (from your org's official scaffold):\n\n"
-                + "\n\n".join(example_parts[:3])  # Max 3 files as example
-                + f"\n\n{rules}"
+        lines = ["graph TB"]
+
+        for layer in ordered_layers:
+            layer_id = re.sub(r"[^A-Za-z0-9_]", "_", layer)
+            lines.append(f'    subgraph {layer_id}["{layer.title()} Layer"]')
+            for stack in layers[layer]:
+                label = f"{stack.name}"
+                if stack.domain:
+                    label = f"{stack.domain}/{stack.name}"
+                lines.append(f'        {_node_id(stack.name)}["{label}"]')
+            lines.append("    end")
+
+        # Real dependency edges: dep --> stack (dependency points to dependent)
+        for stack in ordered_stacks:
+            for dep in stack.depends_on:
+                if dep in known_names:
+                    lines.append(f"    {_node_id(dep)} --> {_node_id(stack.name)}")
+
+        return "\n".join(lines)
+
+    def _process_stack_files(
+        self, stack_generation, stack, resolved_type: str
+    ) -> List[GeneratedFile]:
+        """Convert a stack's raw generation output into prefixed stack files.
+
+        Filters to IaC/doc files, drops any AI-regenerated terragrunt.hcl
+        (the assembler owns it), strips terraform/provider/backend blocks for
+        terragrunt projects, and prefixes each filename with the stack path.
+
+        Args:
+            stack_generation: GenerationOutput for the stack.
+            stack: StackPlan being generated (provides .path).
+            resolved_type: Resolved project type.
+
+        Returns:
+            List of GeneratedFile with stack-prefixed flat paths.
+        """
+        processed: List[GeneratedFile] = []
+        for f in stack_generation.files:
+            filename = Path(f.path).name
+            if not filename.endswith((".tf", ".tfvars", ".hcl", ".md")):
+                continue
+            # Assembler already produced terragrunt.hcl
+            if filename == "terragrunt.hcl":
+                continue
+            content = f.content
+            if resolved_type in ("terraform-terragrunt", "terragrunt"):
+                content = self._strip_terraform_block(content)
+            processed.append(
+                GeneratedFile(path=f"{stack.path}/{filename}", content=content)
             )
-        else:
-            return rules
-
-    @staticmethod
-    def _fetch_scaffold(repo: str, target_dir) -> "Path":
-        """Fetch official scaffold from GitHub via gh CLI (cached locally)."""
-        import shutil
-        import subprocess
-        from pathlib import Path
-
-        target = Path(target_dir)
-
-        if shutil.which("gh"):
-            try:
-                logger.info(f"Fetching scaffold from github.com/{repo}...")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                result = subprocess.run(
-                    ["gh", "repo", "clone", repo, str(target), "--", "--depth=1"],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                )
-                if result.returncode == 0:
-                    logger.info(f"Scaffold cached at {target}")
-                    return target
-                else:
-                    logger.warning(f"Failed to fetch scaffold: {result.stderr[:200]}")
-            except Exception as e:
-                logger.warning(f"Scaffold fetch failed: {e}")
-
-        return target
-
-    @staticmethod
-    def _default_composition_rules() -> str:
-        """Fallback composition rules when no scaffold is available."""
-        return (
-            "COMPOSITION RULES:\n"
-            "- Generate EXACTLY these files with STRICT content separation:\n"
-            "  * variables.tf — ONLY variable blocks (all inputs)\n"
-            "  * main.tf — ONLY resources, modules, data sources, locals\n"
-            "  * outputs.tf — ONLY output blocks\n"
-            "- NEVER put variable or output blocks in main.tf\n"
-            "- NEVER include terraform{}, provider{}, or backend{} blocks\n"
-            "- Provider and backend are managed by root.hcl (terragrunt generates them)\n"
-            "- Use var.tags for tags (passed from terragrunt inputs)\n"
-            "- Use var.project and var.environment for naming\n"
-        )
+        return processed
 
     @staticmethod
     def _strip_terraform_block(content: str) -> str:
@@ -617,29 +618,101 @@ class IntentToIaCService:
 
         In terragrunt projects, root.hcl handles provider and backend config.
         Per-stack .tf files should only contain resources, data sources, and locals.
+
+        This is HCL-aware: it locates block headers with a regex, then finds the
+        matching closing brace via a brace-depth scanner that ignores braces
+        inside strings ("...", including escapes) and comments (#, //, /* */).
+        This correctly removes arbitrarily nested blocks such as
+        `terraform { backend "s3" { ... } }` and
+        `provider "aws" { assume_role { ... } default_tags { tags = {...} } }`.
         """
-        import re
-
-        # Remove terraform { ... } block (multi-line, handles nested braces)
-        content = re.sub(
-            r"terraform\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}\s*\n?",
-            "",
-            content,
-            flags=re.DOTALL,
+        # Header patterns for top-level blocks to remove.
+        # \bterraform\s*\{  and  \bprovider\s+"name"\s*\{
+        header_re = re.compile(
+            r'\bterraform\s*\{|\bprovider\s+"[^"]*"\s*\{',
+            re.MULTILINE,
         )
 
-        # Remove provider "aws" { ... } block
-        content = re.sub(
-            r'provider\s+"[^"]+"\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}\s*\n?',
-            "",
-            content,
-            flags=re.DOTALL,
-        )
+        while True:
+            match = header_re.search(content)
+            if not match:
+                break
+
+            open_brace = content.index("{", match.start())
+            end = IntentToIaCService._find_matching_brace(content, open_brace)
+            if end == -1:
+                # Unbalanced braces — leave the rest untouched to avoid corruption
+                logger.debug(
+                    "Unbalanced braces while stripping HCL block — leaving as-is"
+                )
+                break
+
+            # Remove the block (and a trailing newline if present)
+            tail = content[end + 1 :]
+            if tail.startswith("\n"):
+                tail = tail[1:]
+            content = content[: match.start()] + tail
 
         # Clean up excessive blank lines left behind
         content = re.sub(r"\n{3,}", "\n\n", content)
 
         return content.strip() + "\n"
+
+    @staticmethod
+    def _find_matching_brace(text: str, open_index: int) -> int:
+        """Return the index of the brace matching the '{' at open_index.
+
+        String/comment-aware so braces inside "..." strings, # or // line
+        comments, and /* */ block comments are not counted. Returns -1 if no
+        matching brace is found (unbalanced input).
+        """
+        depth = 0
+        i = open_index
+        n = len(text)
+        in_string = False
+        in_line_comment = False
+        in_block_comment = False
+        escape = False
+
+        while i < n:
+            c = text[i]
+            nxt = text[i + 1] if i + 1 < n else ""
+
+            if in_line_comment:
+                if c == "\n":
+                    in_line_comment = False
+            elif in_block_comment:
+                if c == "*" and nxt == "/":
+                    in_block_comment = False
+                    i += 1
+            elif in_string:
+                if escape:
+                    escape = False
+                elif c == "\\":
+                    escape = True
+                elif c == '"':
+                    in_string = False
+            else:
+                # Not in string/comment
+                if c == '"':
+                    in_string = True
+                elif c == "#":
+                    in_line_comment = True
+                elif c == "/" and nxt == "/":
+                    in_line_comment = True
+                    i += 1
+                elif c == "/" and nxt == "*":
+                    in_block_comment = True
+                    i += 1
+                elif c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if depth == 0:
+                        return i
+            i += 1
+
+        return -1
 
     # ------------------------------------------------------------------
     # Composition generation (multi-stack)
@@ -690,6 +763,13 @@ class IntentToIaCService:
             f"boilerplate={len(scaffold.boilerplate)}, "
             f"examples={len(scaffold.examples)})"
         )
+        if not scaffold.examples:
+            logger.warning(
+                "No scaffold examples available (gh CLI missing or scaffold repo "
+                "unreachable) — generating from composition rules only. "
+                "Output quality may be reduced; install the 'gh' CLI and authenticate "
+                "to enable few-shot scaffold grounding."
+            )
 
         # Step 2: Build context
         context_payload = self.context_builder.build_context(directory, project_type)
@@ -753,82 +833,53 @@ class IntentToIaCService:
             )
 
             if stack_generation.files:
-                # Prefix file paths with stack path
-                # Strip any nested path from AI output — keep only filename
-                stack_tf_files = []
-                for f in stack_generation.files:
-                    # AI sometimes returns full paths or nested structures
-                    # We only want the filename (main.tf, variables.tf, etc.)
-                    filename = Path(f.path).name
-                    # Skip files that aren't Terraform files
-                    if not filename.endswith((".tf", ".tfvars", ".hcl", ".md")):
-                        continue
-                    # Skip if AI regenerated a terragrunt.hcl (assembler already made one)
-                    if filename == "terragrunt.hcl":
-                        continue
-                    # Strip terraform/provider/backend blocks from .tf files
-                    # (root.hcl handles these in terragrunt projects)
-                    content = f.content
-                    if resolved_type in ("terraform-terragrunt", "terragrunt"):
-                        content = self._strip_terraform_block(content)
-                    prefixed_path = f"{stack.path}/{filename}"
-                    stack_tf_files.append(
-                        GeneratedFile(path=prefixed_path, content=content)
-                    )
+                # Prefix file paths with stack path, strip provider/backend
+                # blocks, and drop non-IaC files (see _process_stack_files).
+                stack_tf_files = self._process_stack_files(
+                    stack_generation, stack, resolved_type
+                )
 
-                # Per-stack plan validation (if enabled)
-                # Validates this stack via `terragrunt plan` before moving to next
+                # Per-stack plan validation (if enabled).
+                # Validates this stack via `terragrunt plan` before moving to
+                # the next, using the SAME correction-loop semantics as single
+                # mode (stagnation detection, fix-produced-nothing handling).
                 if (
                     not skip_validation
                     and self.validator._plan_validator
                     and stack_tf_files
                 ):
                     max_plan_retries = min(max_iterations, 3)
-                    for plan_attempt in range(max_plan_retries):
+
+                    def _validate_stack(gen, _stack=stack):
+                        # Reprocess the (possibly fixed) generation into stack files
+                        processed = self._process_stack_files(
+                            gen, _stack, resolved_type
+                        )
+                        gen.files = processed  # keep processed files on the gen
                         plan_violations = (
                             self.validator._plan_validator.validate_per_stack(
-                                files=stack_tf_files,
+                                files=processed,
                                 project_dir=target_dir,
-                                stack_path=stack.path,
+                                stack_path=_stack.path,
                             )
                         )
-                        if not plan_violations:
-                            break  # Plan passed
+                        return ValidationResult(
+                            passed=not plan_violations,
+                            violations=plan_violations,
+                        )
 
-                        if not self_correct or plan_attempt >= max_plan_retries - 1:
-                            break  # Can't fix or last attempt
-
-                        logger.info(
-                            f"Plan validation failed for {stack.path}: "
-                            f"{len(plan_violations)} violations "
-                            f"(attempt {plan_attempt + 1}/{max_plan_retries})"
-                        )
-                        # Build a ValidationResult for the fix() method
-                        plan_vr = ValidationResult(
-                            passed=False, violations=plan_violations
-                        )
-                        # Re-generate with violation feedback
-                        stack_generation = self.code_generator.fix(
-                            stack_generation, plan_vr, context_text
-                        )
-                        # Re-process the fixed files
-                        stack_tf_files = []
-                        for f in stack_generation.files:
-                            filename = Path(f.path).name
-                            if not filename.endswith((".tf", ".tfvars")):
-                                continue
-                            if filename == "terragrunt.hcl":
-                                continue
-                            content = f.content
-                            if resolved_type in (
-                                "terraform-terragrunt",
-                                "terragrunt",
-                            ):
-                                content = self._strip_terraform_block(content)
-                            prefixed_path = f"{stack.path}/{filename}"
-                            stack_tf_files.append(
-                                GeneratedFile(path=prefixed_path, content=content)
-                            )
+                    stack_generation, _stack_vr, _ = self._run_correction_loop(
+                        generation=stack_generation,
+                        validate_fn=_validate_stack,
+                        max_iterations=max_plan_retries,
+                        self_correct=self_correct,
+                        context_text=context_text,
+                        label=stack.path,
+                    )
+                    # Use the final processed files from the loop
+                    stack_tf_files = self._process_stack_files(
+                        stack_generation, stack, resolved_type
+                    )
 
                 all_files.extend(stack_tf_files)
 
@@ -864,7 +915,7 @@ class IntentToIaCService:
                 intent=intent,
                 space=space,
                 project_name=self._derive_project_name(output_dir, intent),
-                scaffold_dir=scaffold_loader.scaffold_dir if hasattr(scaffold_loader, 'scaffold_dir') else None,
+                scaffold_dir=scaffold_loader.scaffold_dir,
             )
 
         # Step 8: Write to disk if --apply
@@ -872,13 +923,21 @@ class IntentToIaCService:
             self._write_files(all_files, target_dir)
             logger.info(f"Project written to: {target_dir}")
 
-        # Step 9: Generate diagram
+        # Step 9: Generate diagram from the real stack dependency graph
         diagram = None
         if include_diagram and all_files:
-            resources = []
-            for stack in ordered_stacks:
-                resources.append(f"stack_{stack.layer}_{stack.name}")
-            diagram = self._build_mermaid_diagram(resources)
+            diagram = self._build_stack_diagram(ordered_stacks)
+            # Persist alongside code when writing to disk
+            if apply and diagram:
+                try:
+                    diagram_path = Path(target_dir) / "architecture.md"
+                    diagram_path.write_text(
+                        f"# Architecture Diagram\n\n```mermaid\n{diagram}\n```\n",
+                        encoding="utf-8",
+                    )
+                    logger.info(f"Architecture diagram written to {diagram_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to write architecture diagram: {e}")
 
         return IntentResult(
             success=True,
@@ -997,14 +1056,10 @@ class IntentToIaCService:
                         required_file, stack.name, stack.domain
                     )
                     added.append(GeneratedFile(path=expected_path, content=placeholder))
-                    logger.info(
-                        f"Scaffold completeness: added missing {expected_path}"
-                    )
+                    logger.info(f"Scaffold completeness: added missing {expected_path}")
 
         if added:
-            logger.info(
-                f"Post-processing added {len(added)} missing required files"
-            )
+            logger.info(f"Post-processing added {len(added)} missing required files")
 
         return files + added
 
@@ -1026,15 +1081,15 @@ class IntentToIaCService:
                 f"# Generated placeholder — populate with required inputs\n\n"
                 f'variable "project" {{\n'
                 f'  description = "Project name"\n'
-                f'  type        = string\n'
+                f"  type        = string\n"
                 f"}}\n\n"
                 f'variable "environment" {{\n'
                 f'  description = "Environment name"\n'
-                f'  type        = string\n'
+                f"  type        = string\n"
                 f"}}\n\n"
                 f'variable "tags" {{\n'
                 f'  description = "Common tags for all resources"\n'
-                f'  type        = map(string)\n'
+                f"  type        = map(string)\n"
                 f"  default     = {{}}\n"
                 f"}}\n"
             )
@@ -1103,24 +1158,22 @@ class IntentToIaCService:
         values = resolver.resolve_all()
 
         if not values:
-            logger.debug("No parameter values resolved — skipping placeholder resolution")
+            logger.debug(
+                "No parameter values resolved — skipping placeholder resolution"
+            )
             return files
 
         # Resolve placeholders in all file contents
         resolved_files = []
         for f in files:
             resolved_content = resolver.resolve_content(f.content, values)
-            resolved_files.append(
-                GeneratedFile(path=f.path, content=resolved_content)
-            )
+            resolved_files.append(GeneratedFile(path=f.path, content=resolved_content))
 
         # Log any remaining unresolved placeholders
         for f in resolved_files:
             unresolved = resolver.has_unresolved(f.content, values)
             if unresolved:
-                logger.warning(
-                    f"Unresolved placeholders in {f.path}: {unresolved}"
-                )
+                logger.warning(f"Unresolved placeholders in {f.path}: {unresolved}")
 
         logger.info(
             f"Resolved placeholders in {len(resolved_files)} files "
@@ -1130,9 +1183,7 @@ class IntentToIaCService:
         return resolved_files
 
     @staticmethod
-    def _derive_project_name(
-        output_dir: Optional[str], intent: str
-    ) -> Optional[str]:
+    def _derive_project_name(output_dir: Optional[str], intent: str) -> Optional[str]:
         """Derive project name from output directory or intent.
 
         Priority:
@@ -1146,6 +1197,7 @@ class IntentToIaCService:
 
         # Simple extraction from intent: take first 2-3 meaningful words
         import re
+
         words = re.findall(r"[a-z]+", intent.lower())
         # Skip common filler words
         skip = {"create", "a", "an", "the", "with", "for", "and", "in", "my", "our"}
@@ -1170,6 +1222,7 @@ class IntentToIaCService:
 
         try:
             import toml
+
             data = toml.load(toml_path)
             return data.get("template_input_parameters", {})
         except Exception:

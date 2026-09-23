@@ -66,6 +66,11 @@ class ScaffoldLoader:
         self.project_type = project_type
         self._scaffold_dir: Optional[Path] = None
 
+    @property
+    def scaffold_dir(self) -> Optional[str]:
+        """Resolved scaffold directory path (populated after load()), or None."""
+        return str(self._scaffold_dir) if self._scaffold_dir else None
+
     def load(self) -> ScaffoldStructure:
         """Load scaffold structure from cache or GitHub.
 

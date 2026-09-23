@@ -6,8 +6,6 @@ and generated file listings. Powers the dashboard Generation tab.
 Database: ~/.thothcf/generation_history.db
 """
 
-import json
-import os
 import sqlite3
 import uuid
 from datetime import datetime
@@ -37,7 +35,8 @@ CREATE TABLE IF NOT EXISTS generation_runs (
     violations_initial INTEGER DEFAULT 0,
     violations_final INTEGER DEFAULT 0,
     output_dir TEXT DEFAULT '',
-    plan_validation TEXT DEFAULT 'disabled'
+    plan_validation TEXT DEFAULT 'disabled',
+    raw_response TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS generation_files (
@@ -82,7 +81,24 @@ def _get_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Apply lightweight, idempotent migrations for pre-existing databases.
+
+    CREATE TABLE IF NOT EXISTS does not add columns to an already-existing
+    table, so newly introduced columns are added here via ALTER TABLE.
+    """
+    existing = {
+        row[1] for row in conn.execute("PRAGMA table_info(generation_runs)").fetchall()
+    }
+    if "raw_response" not in existing:
+        conn.execute(
+            "ALTER TABLE generation_runs ADD COLUMN raw_response TEXT DEFAULT ''"
+        )
+        conn.commit()
 
 
 def save_generation_run(
@@ -126,8 +142,9 @@ def save_generation_run(
             (id, timestamp, intent, project_type, composition, output_mode, 
              space, provider, model, success, error, files_count, iterations,
              context_tokens, generation_tokens, duration_seconds,
-             violations_initial, violations_final, output_dir, plan_validation)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             violations_initial, violations_final, output_dir, plan_validation,
+             raw_response)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 run_id,
                 datetime.now().isoformat(),
@@ -149,6 +166,8 @@ def save_generation_run(
                 result.validation.total_violations if result.validation else 0,
                 output_dir or "",
                 plan_validation,
+                # Only persisted on failed parses; truncate defensively.
+                (getattr(result, "raw_response", None) or "")[:10000],
             ),
         )
 
@@ -188,7 +207,7 @@ def save_generation_run(
         conn.commit()
         return run_id
 
-    except Exception as e:
+    except Exception:
         conn.rollback()
         raise
     finally:
@@ -335,33 +354,43 @@ def _compute_metrics(
         }
 
     # Add success condition to existing WHERE
-    success_where = (
-        f"{where} AND success = 1" if where else "WHERE success = 1"
-    )
+    success_where = f"{where} AND success = 1" if where else "WHERE success = 1"
 
     success = conn.execute(
         f"SELECT COUNT(*) FROM generation_runs {success_where}", params
     ).fetchone()[0]
 
-    avg_duration = conn.execute(
-        f"SELECT AVG(duration_seconds) FROM generation_runs {success_where}",
-        params,
-    ).fetchone()[0] or 0
+    avg_duration = (
+        conn.execute(
+            f"SELECT AVG(duration_seconds) FROM generation_runs {success_where}",
+            params,
+        ).fetchone()[0]
+        or 0
+    )
 
-    avg_iterations = conn.execute(
-        f"SELECT AVG(iterations) FROM generation_runs {success_where}",
-        params,
-    ).fetchone()[0] or 0
+    avg_iterations = (
+        conn.execute(
+            f"SELECT AVG(iterations) FROM generation_runs {success_where}",
+            params,
+        ).fetchone()[0]
+        or 0
+    )
 
-    total_tokens = conn.execute(
-        f"SELECT SUM(context_tokens + generation_tokens) FROM generation_runs {where}",
-        params,
-    ).fetchone()[0] or 0
+    total_tokens = (
+        conn.execute(
+            f"SELECT SUM(context_tokens + generation_tokens) FROM generation_runs {where}",
+            params,
+        ).fetchone()[0]
+        or 0
+    )
 
-    avg_files = conn.execute(
-        f"SELECT AVG(files_count) FROM generation_runs {success_where}",
-        params,
-    ).fetchone()[0] or 0
+    avg_files = (
+        conn.execute(
+            f"SELECT AVG(files_count) FROM generation_runs {success_where}",
+            params,
+        ).fetchone()[0]
+        or 0
+    )
 
     # Composition breakdown
     compositions = conn.execute(

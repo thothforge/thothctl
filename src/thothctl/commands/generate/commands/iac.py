@@ -1,11 +1,14 @@
 """CLI command: thothctl generate iac — Generate IaC from natural language intent."""
 
+import logging
 from typing import Optional
 
 import click
 
 from ....core.cli_ui import CliUI
 from ....core.commands import ClickCommand
+
+logger = logging.getLogger(__name__)
 
 
 class GenerateIaCCommand(ClickCommand):
@@ -65,6 +68,7 @@ class GenerateIaCCommand(ClickCommand):
             plan_iam_role=plan_iam_role,
             plan_profile=plan_profile,
             project_type=project_type,
+            plan_filter=plan_filter,
         )
 
         # Show intent
@@ -149,11 +153,21 @@ class GenerateIaCCommand(ClickCommand):
         # Display results
         if not result.success:
             self.ui.print_error(f"Generation failed: {result.error}")
+            if result.raw_response:
+                self.ui.print_info(
+                    "The raw AI response was saved to generation history for "
+                    "debugging (view via the dashboard Generation tab or "
+                    "generation_history.db)."
+                )
             # Still record failed runs to history
             try:
                 import time as _time
 
-                _elapsed = _time.time() - self._start_time if hasattr(self, "_start_time") else 0
+                _elapsed = (
+                    _time.time() - self._start_time
+                    if hasattr(self, "_start_time")
+                    else 0
+                )
                 from ....services.generate.intent.generation_history import (
                     save_generation_run,
                 )
@@ -308,6 +322,7 @@ class GenerateIaCCommand(ClickCommand):
         plan_iam_role: Optional[str],
         plan_profile: Optional[str],
         project_type: str,
+        plan_filter: Optional[str] = None,
     ) -> Optional[dict]:
         """Build plan validation config from CLI flags + .thothcf.toml.
 
@@ -345,6 +360,12 @@ class GenerateIaCCommand(ClickCommand):
             config["aws_profile"] = plan_profile
         elif os.environ.get("THOTH_PLAN_AWS_PROFILE"):
             config["aws_profile"] = os.environ["THOTH_PLAN_AWS_PROFILE"]
+
+        # Stack filter for targeted plan validation
+        if plan_filter:
+            config["stack_filter"] = plan_filter
+        elif os.environ.get("THOTH_PLAN_FILTER"):
+            config["stack_filter"] = os.environ["THOTH_PLAN_FILTER"]
 
         # Always pass project type for routing
         config["project_type"] = project_type
@@ -492,6 +513,8 @@ cli = GenerateIaCCommand.as_click_command(
     click.option(
         "--plan-filter",
         default=None,
-        help="Terragrunt filter pattern for targeted plan validation",
+        help="Terragrunt filter pattern for targeted plan validation "
+        "(scopes 'full-project' plan validation to matching stacks). "
+        "Also settable via THOTH_PLAN_FILTER or [generation.plan].stack_filter.",
     ),
 )

@@ -203,7 +203,9 @@ class ValidationResult:
             )
 
         # Missing required attribute
-        if "required" in msg_lower and ("attribute" in msg_lower or "argument" in msg_lower):
+        if "required" in msg_lower and (
+            "attribute" in msg_lower or "argument" in msg_lower
+        ):
             return "Add the missing required attribute to the resource block."
 
         # Reference errors
@@ -258,6 +260,7 @@ class IntentResult:
     generation_tokens: int = 0
     error: Optional[str] = None
     diagram: Optional[str] = None
+    raw_response: Optional[str] = None  # AI response when parsing failed (debugging)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -277,6 +280,7 @@ class IntentResult:
             "generation_tokens": self.generation_tokens,
             "diagram": self.diagram,
             "error": self.error,
+            "raw_response": self.raw_response,
         }
 
 
