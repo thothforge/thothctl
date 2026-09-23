@@ -5,6 +5,43 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.0] - 2026-09-22
+
+### Fixed
+
+- **Intent-to-IaC plan validation** — per-stack plan validation is now skipped for
+  terragrunt projects when no `stack_path` is given (previously it wrote stray `.tf`
+  files into the project root and ran `terragrunt plan` against `root.hcl`).
+  Single-mode validation now routes `full-project` mode to `validate_full_project`.
+- **HCL-aware block stripping** — `terraform {}` / `provider {}` removal now uses a
+  string/comment-aware brace scanner that correctly handles arbitrarily nested
+  blocks (e.g. `backend`, `assume_role`, `default_tags`) and braces inside strings
+  or comments, replacing the previous single-level regex.
+- Added a missing module logger in `generate iac` CLI (undefined `logger` in the
+  history-save error handler).
+
+### Added
+
+- **`--plan-filter` wiring** — the flag (plus `THOTH_PLAN_FILTER` env and
+  `[generation.plan].stack_filter`) is now honored end-to-end; `validate_full_project`
+  routes to `validate_filtered` when set.
+- **Real dependency-graph diagrams** — composition-mode architecture diagrams now
+  render actual `depends_on` edges and layer subgraphs (new `_build_stack_diagram`)
+  instead of inferred/hardcoded edges.
+- **Raw-response debugging** — the raw AI response is persisted to generation history
+  on parse failure (new `raw_response` column + idempotent migration) and surfaced in
+  the CLI.
+- Single-mode `--mode project` now resolves `#{...}#` placeholders (previously only
+  the composition path did).
+
+### Changed
+
+- Unified self-correction into a shared loop (with stagnation detection) used by both
+  single and composition paths; deduplicated stack file processing.
+- `generation_tokens` is now estimated consistently across single and composition modes.
+- Removed dead scaffold helpers; added a public `ScaffoldLoader.scaffold_dir` property;
+  warn when scaffold examples are unavailable (missing `gh` CLI).
+
 ## [0.29.0] - 2026-09-15
 
 ### Added

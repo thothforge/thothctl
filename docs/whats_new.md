@@ -1,5 +1,40 @@
 # What's New
 
+## v0.30.0 — Intent-to-IaC Hardening (September 2026)
+
+### Highlights
+
+!!! success "Accurate dependency-graph diagrams for multi-stack generation"
+    Composition-mode diagrams now render the real stack dependency graph
+    (from each stack's `depends_on`) grouped by layer — no more inferred edges.
+
+!!! success "Targeted plan validation with --plan-filter"
+    ```bash
+    thothctl generate iac -i "add an RDS stack" \
+      --composition incremental \
+      --plan-validation full-project \
+      --plan-filter "stacks/platform/data/*"
+    ```
+
+- **Safer plan validation** — per-stack plan validation no longer runs against the
+  terragrunt project root (`root.hcl`); single-stack + `full-project` mode is routed
+  correctly
+- **`--plan-filter` wired end-to-end** — also settable via `THOTH_PLAN_FILTER` or
+  `[generation.plan].stack_filter`
+- **HCL-aware block stripping** — `terraform {}` / `provider {}` blocks are removed
+  with a string/comment-aware scanner that handles nested blocks (`backend`,
+  `assume_role`, `default_tags`) reliably
+- **Single-mode placeholder resolution** — `--mode project` now resolves `#{...}#`
+  placeholders for single-stack generation too
+- **Raw-response debugging** — when the AI returns unparseable output, the raw
+  response is saved to generation history for troubleshooting
+- **Unified self-correction** — single and composition paths now share the same
+  validate → fix → re-validate loop with stagnation detection
+- Consistent `generation_tokens` metrics across modes; clearer warning when scaffold
+  examples are unavailable (missing `gh` CLI)
+
+---
+
 ## v0.28.0 — Security Platform Integrations (August 2026)
 
 ### Highlights
