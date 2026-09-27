@@ -82,7 +82,7 @@ thothctl mcp register
 This command will internally use the correct MCP registration syntax:
 
 ```bash
-q mcp add --name thothctl --command "thothctl mcp server"
+kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
 ```
 
 Register the MCP server running on a custom port:
@@ -209,7 +209,7 @@ This tool generates governed Infrastructure as Code from natural language. It su
 
 **Example via AI Assistant**:
 ```
-q chat "Generate a VPC with 3 private subnets and NAT gateway for production in us-east-1 using terraform-terragrunt composition full mode"
+kiro-cli chat "Generate a VPC with 3 private subnets and NAT gateway for production in us-east-1 using terraform-terragrunt composition full mode"
 ```
 
 ## Integration with AI Assistants
@@ -217,7 +217,7 @@ q chat "Generate a VPC with 3 private subnets and NAT gateway for production in 
 After starting the MCP server and registering it with your AI assistant, you can interact with ThothCTL using natural language:
 
 ```bash
-q chat "List all ThothCTL projects"
+kiro-cli chat "List all ThothCTL projects"
 ```
 
 Example interactions:
@@ -264,33 +264,37 @@ This typically means one of the following:
 3. **Wrong command in registration**: Verify your registration command.
    ```bash
    # List your registered MCP servers
-   q mcp list
+   kiro-cli mcp list
    
    # Remove incorrect registration if needed
-   q mcp remove thothctl
+   kiro-cli mcp remove --name thothctl
    
    # Register correctly
-   q mcp add --name thothctl --command "thothctl mcp server"
+   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
    ```
 
 4. **MCP configuration file is missing or corrupted**: Your AI assistant stores MCP server configurations in JSON files.
    
-   **Configuration file locations**:
-   - Global Configuration: `~/.aws/amazonq/mcp.json` - Applies to all workspaces
-   - Workspace Configuration: `.amazonq/mcp.json` - Specific to the current workspace
+   **Configuration file locations (Kiro CLI)**:
+   - Global Configuration: `~/.kiro/settings/mcp.json` - Applies to all workspaces
+   - Workspace Configuration: `.kiro/settings/mcp.json` - Specific to the current workspace (takes precedence over global)
+
+   For **Claude Desktop**, MCP servers are configured in:
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
    
    ```bash
-   # Check if the configuration files exist
-   ls -la ~/.aws/amazonq/mcp.json  # Global config (Linux/macOS)
-   ls -la .amazonq/mcp.json        # Workspace config (Linux/macOS)
+   # Check if the configuration files exist (Kiro CLI)
+   ls -la ~/.kiro/settings/mcp.json  # Global config (Linux/macOS)
+   ls -la .kiro/settings/mcp.json    # Workspace config (Linux/macOS)
    
    # View the current configuration
-   cat ~/.aws/amazonq/mcp.json     # Global config (Linux/macOS)
-   cat .amazonq/mcp.json           # Workspace config (Linux/macOS)
+   cat ~/.kiro/settings/mcp.json     # Global config (Linux/macOS)
+   cat .kiro/settings/mcp.json       # Workspace config (Linux/macOS)
    
    # If missing or corrupted, recreate it
-   q mcp remove thothctl
-   q mcp add --name thothctl --command "thothctl mcp server"
+   kiro-cli mcp remove --name thothctl
+   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
    ```
 
    The MCP configuration file (`mcp.json`) should have the following structure:
@@ -307,14 +311,11 @@ This typically means one of the following:
    }
    ```
 
-   You can manually create or edit this file if needed, but it's recommended to use the `q mcp add` command to ensure proper formatting.
+   You can manually create or edit this file if needed, but it's recommended to use the `kiro-cli mcp add` command to ensure proper formatting.
 
-5. **Detailed debugging**: Run with increased logging as suggested in the error message.
+5. **Detailed debugging**: Run with increased logging.
    ```bash
-   Q_LOG_LEVEL=trace q chat "List ThothCTL projects"
-   
-   # Then check the logs
-   cat $TMPDIR/qchat/latest.log
+   kiro-cli chat --verbose "List ThothCTL projects"
    ```
 
 #### Port Already in Use
@@ -334,8 +335,8 @@ thothctl mcp server -p 8081
 And update your registration accordingly:
 
 ```bash
-q mcp remove thothctl
-q mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --args "-p" --args "8081"
+kiro-cli mcp remove --name thothctl
+kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --args "-p" --args "8081"
 ```
 
 ## Architecture

@@ -39,13 +39,13 @@ This will start the MCP server on port 8080 (default).
 To use ThothCTL with Kiro CLI or Claude, you need to register the MCP server:
 
 ```bash
-kiro mcp add thothctl --command "thothctl mcp server"
+kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
 ```
 
 Once registered, you can interact with ThothCTL through Kiro CLI using natural language:
 
 ```bash
-kiro chat "List all ThothCTL projects using the MCP integration"
+kiro-cli chat "List all ThothCTL projects using the MCP integration"
 ```
 
 ### Checking Server Status
@@ -88,11 +88,15 @@ This typically means one of the following:
    ```
 
 3. **MCP configuration file is missing or corrupted**: Your AI assistant stores MCP server configurations in JSON files.
-   
-   **Configuration file locations**:
-   - Global Configuration: `~/.aws/amazonq/mcp.json` - Applies to all workspaces
-   - Workspace Configuration: `.amazonq/mcp.json` - Specific to the current workspace
-   
+
+   **Configuration file locations (Kiro CLI)**:
+   - Global Configuration: `~/.kiro/settings/mcp.json` - Applies to all workspaces
+   - Workspace Configuration: `.kiro/settings/mcp.json` - Specific to the current workspace (takes precedence over global)
+
+   For **Claude Desktop**, MCP servers are configured in:
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
    The MCP configuration file should have this structure:
    ```json
    {
@@ -109,8 +113,8 @@ This typically means one of the following:
 
    To recreate the configuration:
    ```bash
-   q mcp remove thothctl
-   q mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
+   kiro-cli mcp remove --name thothctl
+   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
    ```
 
 For more detailed troubleshooting, see the [MCP Command Documentation](./framework/commands/mcp/mcp.md#troubleshooting).
