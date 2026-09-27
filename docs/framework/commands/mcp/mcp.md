@@ -82,7 +82,7 @@ thothctl mcp register
 This command will internally use the correct MCP registration syntax:
 
 ```bash
-kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
+kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --args "--stdio"
 ```
 
 Register the MCP server running on a custom port:
@@ -270,7 +270,7 @@ This typically means one of the following:
    kiro-cli mcp remove --name thothctl
    
    # Register correctly
-   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
+   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --args "--stdio"
    ```
 
 4. **MCP configuration file is missing or corrupted**: Your AI assistant stores MCP server configurations in JSON files.
@@ -292,26 +292,29 @@ This typically means one of the following:
    cat ~/.kiro/settings/mcp.json     # Global config (Linux/macOS)
    cat .kiro/settings/mcp.json       # Workspace config (Linux/macOS)
    
-   # If missing or corrupted, recreate it
+   # If missing or corrupted, recreate it (stdio is the default)
+   thothctl mcp register
+   # ...or register manually with the Kiro CLI (note the required --stdio flag)
    kiro-cli mcp remove --name thothctl
-   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
+   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --args "--stdio"
    ```
 
-   The MCP configuration file (`mcp.json`) should have the following structure:
+   The MCP configuration file (`mcp.json`) should have the following structure.
+   The `--stdio` flag is required — Kiro CLI and Claude talk to the server over
+   stdin/stdout, so stdio mode must be enabled explicitly. Without it,
+   `thothctl mcp server` starts in HTTP mode and the assistant cannot connect:
    ```json
    {
      "mcpServers": {
        "thothctl": {
          "command": "thothctl",
-         "args": ["mcp", "server"],
-         "env": {},
-         "timeout": 60000
+         "args": ["mcp", "server", "--stdio"]
        }
      }
    }
    ```
 
-   You can manually create or edit this file if needed, but it's recommended to use the `kiro-cli mcp add` command to ensure proper formatting.
+   You can manually create or edit this file if needed, but it's recommended to use `thothctl mcp register` (or `kiro-cli mcp add`) to ensure proper formatting.
 
 5. **Detailed debugging**: Run with increased logging.
    ```bash

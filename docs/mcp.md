@@ -36,10 +36,19 @@ This will start the MCP server on port 8080 (default).
 
 ### Registering with Kiro CLI
 
-To use ThothCTL with Kiro CLI or Claude, you need to register the MCP server:
+To use ThothCTL with Kiro CLI or Claude, you need to register the MCP server.
+The easiest way is the built-in command, which writes a stdio-mode config to
+`~/.kiro/settings/mcp.json` (or `.kiro/settings/mcp.json` with `--scope workspace`):
 
 ```bash
-kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
+thothctl mcp register
+```
+
+Alternatively, register it directly with the Kiro CLI. Note the `--stdio` flag —
+it is required so the server speaks MCP over stdin/stdout instead of HTTP:
+
+```bash
+kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --args "--stdio"
 ```
 
 Once registered, you can interact with ThothCTL through Kiro CLI using natural language:
@@ -97,24 +106,32 @@ This typically means one of the following:
    - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-   The MCP configuration file should have this structure:
+   The MCP configuration file should have this structure. Note the `--stdio`
+   flag — Kiro CLI and Claude communicate with the server over stdin/stdout,
+   so stdio mode must be enabled explicitly (without it, `thothctl mcp server`
+   starts in HTTP mode and the assistant cannot connect):
    ```json
    {
      "mcpServers": {
        "thothctl": {
          "command": "thothctl",
-         "args": ["mcp", "server"],
-         "env": {},
-         "timeout": 60000
+         "args": ["mcp", "server", "--stdio"]
        }
      }
    }
    ```
 
-   To recreate the configuration:
+   To recreate the configuration, the simplest way is the built-in registration
+   command (stdio is the default and writes to `~/.kiro/settings/mcp.json`):
+   ```bash
+   thothctl mcp register              # global scope, stdio mode
+   thothctl mcp register --scope workspace   # writes .kiro/settings/mcp.json
+   ```
+
+   Or register it manually via the Kiro CLI:
    ```bash
    kiro-cli mcp remove --name thothctl
-   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server"
+   kiro-cli mcp add --name thothctl --command "thothctl" --args "mcp" --args "server" --args "--stdio"
    ```
 
 For more detailed troubleshooting, see the [MCP Command Documentation](./framework/commands/mcp/mcp.md#troubleshooting).

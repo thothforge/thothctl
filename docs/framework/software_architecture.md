@@ -578,7 +578,7 @@ Model Context Protocol server for AI integration.
   "mcpServers": {
     "thothctl": {
       "command": "thothctl",
-      "args": ["mcp", "server"]
+      "args": ["mcp", "server", "--stdio"]
     }
   }
 }
