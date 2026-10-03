@@ -220,11 +220,37 @@ def install_pre_commit(version):
 
 
 def install_tflint():
-    """Install tflint tool."""
+    """Install tflint tool.
+
+    The upstream ``install_linux.sh`` script was removed from the repository,
+    so the previous ``curl | bash`` approach piped a GitHub "404: Not Found"
+    page into bash (producing ``bash: line 1: 404:: command not found``).
+
+    Instead, download the latest release archive directly and install the
+    binary, matching the method documented in the tflint README. ``curl -fL``
+    fails on HTTP errors so a 404 surfaces as a real error instead of being
+    executed, and ``set -euo pipefail`` aborts the pipeline on any failure.
+    """
     print(f"{Fore.MAGENTA}Installing tflint {Fore.RESET}")
-    _exit = os.system(
-        "sudo curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | sudo bash"
+
+    # Map Python machine arch to tflint release asset suffix.
+    machine = os.uname().machine.lower()
+    arch = "arm64" if machine in ("aarch64", "arm64") else "amd64"
+    asset = f"tflint_linux_{arch}.zip"
+    url = (
+        "https://github.com/terraform-linters/tflint/releases/latest/download/"
+        f"{asset}"
     )
+
+    script = (
+        "set -euo pipefail; "
+        'tmp="$(mktemp -d)"; '
+        'trap \'rm -rf "$tmp"\' EXIT; '
+        f'curl -fsSL -o "$tmp/{asset}" "{url}"; '
+        f'unzip -o "$tmp/{asset}" -d "$tmp" >/dev/null; '
+        'sudo install -c -m 0755 "$tmp/tflint" /usr/local/bin/tflint'
+    )
+    _exit = os.system(f"bash -c '{script}'")
 
     check_result(
         result=_exit,
