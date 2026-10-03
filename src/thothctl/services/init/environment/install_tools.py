@@ -2,6 +2,7 @@
 
 import logging
 import os
+import subprocess
 import sys
 
 import inquirer
@@ -242,18 +243,20 @@ def install_tflint():
         f"{asset}"
     )
 
+    # Passed as a single argv element to bash -c, so there is no outer shell
+    # re-parsing and no nested-quote fragility. Cleanup is explicit (no trap).
     script = (
-        "set -euo pipefail; "
+        "set -eu; "
         'tmp="$(mktemp -d)"; '
-        'trap \'rm -rf "$tmp"\' EXIT; '
-        f'curl -fsSL -o "$tmp/{asset}" "{url}"; '
-        f'unzip -o "$tmp/{asset}" -d "$tmp" >/dev/null; '
-        'sudo install -c -m 0755 "$tmp/tflint" /usr/local/bin/tflint'
+        f'curl -fsSL -o "$tmp/{asset}" "{url}" '
+        f'&& unzip -o "$tmp/{asset}" -d "$tmp" >/dev/null '
+        '&& sudo install -c -m 0755 "$tmp/tflint" /usr/local/bin/tflint; '
+        'rc=$?; rm -rf "$tmp"; exit $rc'
     )
-    _exit = os.system(f"bash -c '{script}'")
+    result = subprocess.run(["bash", "-c", script])
 
     check_result(
-        result=_exit,
+        result=result.returncode,
         tool="tflint",
     )
 
