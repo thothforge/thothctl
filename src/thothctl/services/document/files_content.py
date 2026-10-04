@@ -50,7 +50,7 @@ content: |-
   
 output:
   file: "README.md"
-  mode: replace
+  mode: inject
   template: |-
     <!-- BEGIN_TF_DOCS -->
     {{ .Content }}
