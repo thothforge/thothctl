@@ -431,16 +431,23 @@ class DependencyGraphGenerator:
     def _generate_graph(self, directory: Path) -> Optional[str]:
         """Generate graph using terragrunt.
 
-        Runs `terragrunt dag graph` from the resolved directory:
-        - For a leaf stack: runs from the stack itself, showing only its
-          direct dependencies (scoped relative graph).
-        - For a stacks root: runs from the root, showing the full DAG.
+        To show the COMPLETE dependency DAG (full blast radius) for the stack
+        being documented, `terragrunt dag graph` is run from the terragrunt
+        project root (where ``root.hcl`` lives). Running from a leaf only
+        reports that unit's *direct* dependencies, which hides transitive
+        dependencies (dependencies-of-dependencies).
+
+        The full-project DAG from the root is then filtered down to only the
+        nodes reachable from the current stack (its transitive dependency
+        closure), so each stack's graph shows its complete hierarchy without
+        unrelated sibling stacks.
         """
-        graph_dir = self._resolve_graph_directory(directory)
+        resolved = directory.resolve()
+        run_dir, stack_key = self._compute_run_context(resolved)
 
         command = ["terragrunt", "dag", "graph", "--non-interactive"]
 
-        stdout, stderr, return_code = self.executor.execute(command, graph_dir)
+        stdout, stderr, return_code = self.executor.execute(command, run_dir)
 
         if return_code != 0:
             self.logger.error("Terragrunt command failed: %s", stderr)
@@ -454,8 +461,26 @@ class DependencyGraphGenerator:
             )
             return None
 
+        # If we ran from the terragrunt root for a specific stack, filter the
+        # full DAG down to that stack's transitive dependency closure.
+        if stack_key is not None:
+            filtered = self._filter_dag_to_stack(stdout, stack_key)
+            if filtered is None:
+                # Stack not found in DAG or has no dependencies — nothing to render
+                self.logger.debug(
+                    "Stack %s not found in DAG or has no dependencies", stack_key
+                )
+                return None
+            stdout = filtered
+            # Re-check for emptiness after filtering (isolated stack)
+            if "->" not in stdout.strip():
+                self.logger.debug(
+                    "Isolated stack %s (no dependencies), skipping graph", stack_key
+                )
+                return None
+
         # Also skip if the only node is "." with no edges (isolated stack)
-        if '"."' in stripped and "->" not in stripped:
+        if '"."' in stdout.strip() and "->" not in stdout.strip():
             self.logger.debug(
                 "Isolated stack %s (no dependencies), skipping graph", directory
             )
@@ -515,6 +540,113 @@ class DependencyGraphGenerator:
                 break
             current = parent
         return directory
+
+    def _compute_run_context(self, directory: Path):
+        """Decide where to run `terragrunt dag graph` and which node to focus.
+
+        Returns a tuple ``(run_dir, stack_key)``:
+        - ``run_dir``: directory to run ``terragrunt dag graph`` from.
+        - ``stack_key``: the current stack's node key as it appears in the DAG
+          produced from ``run_dir`` (i.e. the stack path relative to the
+          terragrunt root), or ``None`` when ``directory`` is itself a
+          stacks root and the full DAG should be rendered as-is.
+
+        For a leaf stack we run from the terragrunt root so the DAG includes
+        transitive dependencies, then filter to this stack's closure.
+        """
+        resolved = directory.resolve()
+
+        # Is this directory itself a stacks root (has multiple child units)?
+        child_hcl_files = [
+            f
+            for f in resolved.rglob("terragrunt.hcl")
+            if ".terragrunt-cache" not in str(f) and f.parent != resolved
+        ]
+        if len(child_hcl_files) > 1:
+            # Already a root/aggregate context — render the full DAG as-is.
+            return resolved, None
+
+        # Leaf stack: run from the terragrunt root for the complete DAG.
+        root = self._find_terragrunt_root(resolved)
+        if root == resolved:
+            # No root.hcl found above — fall back to running from the leaf.
+            return resolved, None
+
+        try:
+            stack_key = str(resolved.relative_to(root))
+        except ValueError:
+            # resolved is not under root — fall back to leaf behavior.
+            return resolved, None
+
+        return root, stack_key
+
+    def _filter_dag_to_stack(self, dot_content: str, stack_key: str):
+        """Filter a full-project DAG to a stack's transitive dependency closure.
+
+        Parses the DOT graph, performs a DFS from ``stack_key`` following
+        dependency edges, and emits a new DOT containing only the reachable
+        nodes/edges. The focal stack's node is relabeled to ``"."`` so the
+        downstream path-simplification (which maps ``"."`` to the stack name)
+        continues to work.
+
+        Returns the filtered DOT string, or ``None`` if the stack has no
+        node in the graph or no dependency edges.
+        """
+        import re
+
+        # Normalize key (strip any trailing slash)
+        stack_key = stack_key.rstrip("/")
+
+        # Parse edges: source -> target
+        adjacency = {}
+        all_nodes = set()
+        edge_re = re.compile(r'"([^"]+)"\s*->\s*"([^"]+)"')
+        node_re = re.compile(r'^\s*"([^"]+)"\s*;')
+        for line in dot_content.split("\n"):
+            m = edge_re.search(line)
+            if m:
+                src, dst = m.group(1), m.group(2)
+                adjacency.setdefault(src, set()).add(dst)
+                all_nodes.add(src)
+                all_nodes.add(dst)
+                continue
+            nm = node_re.match(line)
+            if nm:
+                all_nodes.add(nm.group(1))
+
+        if stack_key not in all_nodes:
+            return None
+
+        # DFS from the stack following dependency edges (transitive closure).
+        reachable = set()
+        stack = [stack_key]
+        while stack:
+            node = stack.pop()
+            if node in reachable:
+                continue
+            reachable.add(node)
+            for nxt in adjacency.get(node, ()):  # dependencies of node
+                if nxt not in reachable:
+                    stack.append(nxt)
+
+        # If the stack has no outgoing dependency edges, there is nothing
+        # meaningful to render.
+        if not adjacency.get(stack_key):
+            return None
+
+        def relabel(node: str) -> str:
+            return "." if node == stack_key else node
+
+        # Rebuild DOT with only reachable nodes/edges.
+        lines = ["digraph {"]
+        for node in sorted(reachable):
+            lines.append(f'\t"{relabel(node)}" ;')
+        for src in sorted(reachable):
+            for dst in sorted(adjacency.get(src, ())):
+                if dst in reachable:
+                    lines.append(f'\t"{relabel(src)}" -> "{relabel(dst)}";')
+        lines.append("}")
+        return "\n".join(lines)
 
     def _parse_terragrunt_hcl(self, hcl_path: Path) -> dict:
         """Parse a terragrunt.hcl file to extract dependency information."""
