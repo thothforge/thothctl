@@ -29,6 +29,7 @@ terraform_template = [
                         "name": "catalog",
                         "contents": [
                             {"type": "file", "name": "mkdocs.yaml"},
+                            {"type": "file", "name": "zensical.toml"},
                             {"type": "file", "name": "catalog-info.yaml"},
                             {
                                 "type": "directory",
@@ -126,6 +127,7 @@ terragrunt_template = [
                         "name": "catalog",
                         "contents": [
                             {"type": "file", "name": "mkdocs.yaml"},
+                            {"type": "file", "name": "zensical.toml"},
                             {"type": "file", "name": "catalog-info.yaml"},
                             {
                                 "type": "directory",
@@ -213,6 +215,7 @@ terraform_module_template = [
                         "name": "catalog",
                         "contents": [
                             {"type": "file", "name": "mkdocs.yaml"},
+                            {"type": "file", "name": "zensical.toml"},
                             {"type": "file", "name": "catalog-info.yaml"},
                             {
                                 "type": "directory",

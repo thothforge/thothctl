@@ -40,6 +40,7 @@ def replace_template_placeholders(
         ".terraform.lock.hcl",
         "catalog-info.yaml",
         "mkdocs.yaml",
+        "zensical.toml",
         "pdf",
         "dot",
         "gif",

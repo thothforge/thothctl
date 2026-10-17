@@ -93,6 +93,7 @@ class ProjectInitCommand(ClickCommand):
         language: str = None,
         ai_tools: Optional[str] = None,
         with_aidlc: bool = False,
+        with_skills: Optional[str] = "all",
         **kwargs,
     ) -> None:
         """Execute project initialization"""
@@ -212,6 +213,23 @@ class ProjectInitCommand(ClickCommand):
             from ....services.init.environment.install_tools import install_aidlc_rules
 
             install_aidlc_rules(target_dir=str(project_path))
+
+        # Dynamically install AI agent skills from their upstream repos.
+        # Skills live under .kiro/skills/, so only install when Kiro is kept.
+        if with_skills and (project_path / ".kiro").exists():
+            from ....services.init.environment.install_skills import (
+                install_skills,
+                resolve_requested_skills,
+            )
+
+            names = resolve_requested_skills(with_skills)
+            if names:
+                self.ui.print_info(f"🧠 Installing skill(s): {', '.join(names)}")
+                install_skills(names, target_dir=str(project_path))
+        elif with_skills:
+            self.ui.print_warning(
+                "Skipping skill install — .kiro/ was not kept (requires Kiro)."
+            )
 
         self.ui.print_success(f"✨ Project '{project_name}' initialized successfully!")
 
@@ -709,5 +727,14 @@ cli = ProjectInitCommand.as_click_command(help="Initialize a new project")(
         default=False,
         help="Install AI-DLC workflow rules for Kiro (.kiro/steering/). "
         "Provides structured requirement → design → implementation workflows.",
+    ),
+    click.option(
+        "--with-skills",
+        default="all",
+        help="Dynamically install AI agent skills from their upstream repos into "
+        ".kiro/skills/ (keeps canonical skills in sync, avoids scaffold drift). "
+        "Defaults to 'all' distributable skills. Use a comma-separated list "
+        "(e.g. 'devsecops') to select, or 'none' to opt out. Only skills with an "
+        "upstream repo are installable; scaffold-bundled skills are left untouched.",
     ),
 )

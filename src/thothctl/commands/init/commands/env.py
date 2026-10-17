@@ -30,17 +30,24 @@ class EnvInitCommand(ClickCommand):
         operation_system: str,
         project_type: Optional[str] = None,
         with_aidlc: bool = False,
+        with_skills: Optional[str] = "all",
         **kwargs,
     ) -> None:
         """Execute environment initialization."""
         if project_type:
-            self._init_env_with_pack(operation_system, project_type, with_aidlc)
+            self._init_env_with_pack(
+                operation_system, project_type, with_aidlc, with_skills
+            )
         else:
             # Legacy behavior: show all tools for manual selection
             bootstrap_env(so=operation_system)
 
     def _init_env_with_pack(
-        self, operation_system: str, project_type: str, with_aidlc: bool = False
+        self,
+        operation_system: str,
+        project_type: str,
+        with_aidlc: bool = False,
+        with_skills: Optional[str] = "all",
     ) -> None:
         """Initialize environment using project-type tool pack."""
         from colorama import Fore
@@ -162,6 +169,36 @@ class EnvInitCommand(ClickCommand):
         # AI-DLC workflow rules (optional)
         self._handle_aidlc_installation(console, project_type, with_aidlc)
 
+        # AI agent skills (dynamic install from upstream repos)
+        self._handle_skills_installation(console, with_skills)
+
+    def _handle_skills_installation(self, console, with_skills: Optional[str]) -> None:
+        """Dynamically install AI agent skills into ./.kiro/skills/.
+
+        Skills require Kiro, so only install when a .kiro/ directory exists in the
+        current working directory.
+        """
+        from ....services.init.environment.install_skills import (
+            install_skills,
+            resolve_requested_skills,
+        )
+
+        names = resolve_requested_skills(with_skills or "")
+        if not names:
+            return
+
+        kiro_dir = Path.cwd() / ".kiro"
+        if not kiro_dir.exists():
+            console.print(
+                "[yellow]⏭️  Skipping skill install — no .kiro/ in current "
+                "directory (skills require Kiro).[/yellow]"
+            )
+            return
+
+        console.print()
+        console.print(f"[bold]🧠 Installing skill(s): {', '.join(names)}[/bold]")
+        install_skills(names, target_dir=str(Path.cwd()))
+
     def _handle_aidlc_installation(
         self, console, project_type: str, with_aidlc: bool
     ) -> None:
@@ -267,5 +304,13 @@ cli = EnvInitCommand.as_click_command(
         default=False,
         help="Install AI-DLC workflow rules for Kiro (.kiro/steering/). "
         "Non-interactive; in interactive mode, you'll be prompted.",
+    ),
+    click.option(
+        "--with-skills",
+        default="all",
+        help="Dynamically install AI agent skills from their upstream repos into "
+        "./.kiro/skills/ (requires a .kiro/ directory). Defaults to 'all' "
+        "distributable skills. Use a comma-separated list (e.g. 'devsecops') to "
+        "select, or 'none' to opt out.",
     ),
 )

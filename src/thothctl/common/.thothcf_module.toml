@@ -33,7 +33,8 @@ name = "catalog"
 mandatory = false
 content = [
     "catalog-info.yaml",
-    "mkdocs.yaml"
+    "mkdocs.yaml",
+    "zensical.toml"
 ]
 type= "child"
 [[project_structure.folders]]
