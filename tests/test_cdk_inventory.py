@@ -478,3 +478,100 @@ class TestCDKCompatibilityChecker:
         ]
         reports = self.checker.check_compatibility(comps)
         assert "breaking" in reports[0]["recommendations"][0].lower()
+
+
+# ── Technical Debt Scoring (severity-weighted) ─────────────────────────────────
+
+
+class TestCdkTechnicalDebt:
+    """Severity-weighted technical-debt scoring.
+
+    A flat outdated/total ratio wrongly reports 100% CRITICAL when every
+    dependency is only trivially behind. The weighted model scales debt by the
+    semver gap (patch << minor << major).
+    """
+
+    from thothctl.services.inventory.inventory_service import InventoryService
+
+    def _debt(self, comps):
+        return self.InventoryService._calculate_cdk_technical_debt(comps)
+
+    @staticmethod
+    def _c(name, current, latest, status="Outdated"):
+        return {
+            "name": name,
+            "type": "cdk_construct",
+            "version": [current],
+            "latest_version": latest,
+            "status": status,
+        }
+
+    def test_semver_gap_weights(self):
+        w = self.InventoryService._semver_gap_weight
+        assert w("2.266.0", "2.268.0") == 0.4  # minor position bump (CDK cadence)
+        assert w("1.2.3", "1.2.9") == 0.1  # patch
+        assert w("1.0.0", "2.0.0") == 1.0  # major
+        assert w("1.0.0", "1.0.0") == 0.1  # equal
+        assert w("bad", "worse") == 0.4  # unparseable -> minor fallback
+
+    def test_user_scenario_not_critical(self):
+        # Reproduces the reported case: 3/3 outdated but only minor-behind.
+        comps = [
+            self._c("aws-cdk-lib", "2.266.0", "2.268.0"),
+            self._c("constructs", "10.5.0", "10.8.1"),
+            self._c("aws-cdk", "2.1139.0", "2.1141.0"),
+        ]
+        debt = self._debt(comps)
+        assert debt["outdated_modules"] == 3
+        assert debt["total_components"] == 3
+        # (0.4*3)/3 * 100 = 40% -> medium, NOT 100%/critical
+        assert round(debt["debt_score"], 1) == 40.0
+        assert debt["risk_level"] == "medium"
+        assert debt["outdated_minor"] == 3
+
+    def test_pure_patch_drift_is_low(self):
+        comps = [
+            self._c("a", "1.2.3", "1.2.9"),
+            self._c("b", "2.0.0", "2.0.1"),
+        ]
+        debt = self._debt(comps)
+        assert debt["risk_level"] == "low"
+        assert debt["outdated_patch"] == 2
+
+    def test_major_drift_is_critical(self):
+        comps = [
+            self._c("a", "1.0.0", "2.0.0"),
+            self._c("b", "1.0.0", "5.0.0"),
+        ]
+        debt = self._debt(comps)
+        assert debt["debt_score"] == 100.0
+        assert debt["risk_level"] == "critical"
+        assert debt["outdated_major"] == 2
+        assert debt["modules_with_breaking_changes"] == 2
+
+    def test_all_current_is_zero(self):
+        comps = [
+            self._c("a", "1.0.0", "1.0.0", status="Updated"),
+            self._c("b", "2.0.0", "2.0.0", status="Updated"),
+        ]
+        debt = self._debt(comps)
+        assert debt["debt_score"] == 0.0
+        assert debt["risk_level"] == "low"
+        assert debt["outdated_modules"] == 0
+
+    def test_empty_returns_none(self):
+        assert self._debt([]) is None
+
+    def test_version_as_plain_string(self):
+        # version may be a bare string rather than a list in some paths.
+        comps = [
+            {
+                "name": "x",
+                "type": "cdk_construct",
+                "version": "1.0.0",
+                "latest_version": "2.0.0",
+                "status": "Outdated",
+            }
+        ]
+        debt = self._debt(comps)
+        assert debt["risk_level"] == "critical"

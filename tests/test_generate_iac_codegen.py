@@ -29,6 +29,8 @@ def generator(mock_provider):
     gen.provider_name = "ollama"
     gen.model_name = "llama3"
     gen._provider = mock_provider
+    gen._ai_call_count = 0
+    gen._system_prompt_cache = {}
     return gen
 
 

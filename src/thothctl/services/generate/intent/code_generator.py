@@ -11,7 +11,12 @@ import re
 from typing import Any, Dict, Optional
 
 from .models import GeneratedFile, GenerationOutput, ValidationResult
-from .prompts import build_fix_prompt, build_generation_prompt, format_previous_files
+from .prompts import (
+    build_fix_system_prompt,
+    build_fix_user_message,
+    build_generation_prompt,
+    format_previous_files,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +38,10 @@ class CodeGenerator:
         self.model_name = model
         self._provider = None
         self._ai_call_count = 0
+        # Cache the stable system prompt per (project_type, context) so the
+        # org context is built once and reused across generate + fix iterations
+        # instead of being re-templated (and re-sent) 2-3x per run.
+        self._system_prompt_cache: Dict[tuple, str] = {}
         self._init_ai_provider(provider, model)
 
     def _init_ai_provider(self, provider_name: str, model: str = None) -> None:
@@ -88,6 +97,20 @@ class CodeGenerator:
     # Public API
     # ------------------------------------------------------------------
 
+    def _get_system_prompt(self, project_type: str, context: str) -> str:
+        """Return the stable system prompt for (project_type, context), cached.
+
+        Built once per unique (project_type, context) pair. The same string is
+        reused for the initial generation and every fix iteration of the run,
+        so the org context is not re-templated or re-sent each time.
+        """
+        key = (project_type, context)
+        cached = self._system_prompt_cache.get(key)
+        if cached is None:
+            cached = build_generation_prompt(project_type, context)
+            self._system_prompt_cache[key] = cached
+        return cached
+
     def generate(
         self, intent: str, context: str, project_type: str
     ) -> GenerationOutput:
@@ -101,7 +124,7 @@ class CodeGenerator:
         Returns:
             GenerationOutput with generated files and metadata
         """
-        system_prompt = build_generation_prompt(project_type, context)
+        system_prompt = self._get_system_prompt(project_type, context)
 
         logger.info(f"Generating IaC: intent='{intent[:80]}...', type={project_type}")
         logger.debug(f"System prompt length: {len(system_prompt)} chars")
@@ -131,35 +154,49 @@ class CodeGenerator:
         previous_output: GenerationOutput,
         validation: ValidationResult,
         context: str,
+        project_type: str = None,
     ) -> GenerationOutput:
         """Re-generate code with violation fixes (self-correction).
+
+        Reuses the SAME stable system prompt as generation (org context is not
+        re-sent); only the dynamic user message (violations + the violating
+        files) changes between iterations.
 
         Args:
             previous_output: The previously generated code
             validation: Validation result with violations to fix
             context: Organizational context (same as generation)
+            project_type: Target project type (for stable system-prompt reuse).
+                When omitted, reuses the single cached system prompt if present.
 
         Returns:
             GenerationOutput with corrected files
         """
         violations_text = validation.format_for_ai()
-        previous_files_text = format_previous_files(previous_output.files)
 
-        system_prompt = build_fix_prompt(
-            context=context,
-            violations=violations_text,
-            previous_files=previous_files_text,
+        # Send only the files that actually have violations (fall back to all).
+        violating_paths = {
+            v.file_path for v in validation.violations if getattr(v, "file_path", "")
+        }
+        previous_files_text = format_previous_files(
+            previous_output.files, only_paths=violating_paths or None
         )
 
-        user_content = (
-            f"Fix all {validation.total_violations} violation(s) listed above. "
-            f"Critical: {validation.critical_count}, High: {validation.high_count}. "
-            f"Return the corrected files in JSON format."
-        )
+        # Reuse the stable system prompt built during generation.
+        if project_type is not None:
+            system_prompt = self._get_system_prompt(project_type, context)
+        elif len(self._system_prompt_cache) == 1:
+            system_prompt = next(iter(self._system_prompt_cache.values()))
+        else:
+            # No unambiguous cached prompt — build the fix system prompt directly.
+            system_prompt = build_fix_system_prompt("terraform", context)
+
+        user_content = build_fix_user_message(violations_text, previous_files_text)
 
         logger.info(
             f"Self-correcting: {validation.total_violations} violations "
-            f"({validation.critical_count} critical, {validation.high_count} high)"
+            f"({validation.critical_count} critical, {validation.high_count} high); "
+            f"sending {len(violating_paths) or len(previous_output.files)} file(s)"
         )
 
         try:

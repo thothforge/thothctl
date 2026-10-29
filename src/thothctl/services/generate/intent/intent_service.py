@@ -140,6 +140,7 @@ class IntentToIaCService:
                 max_iterations=max_iterations,
                 self_correct=self_correct,
                 context_text=context_text,
+                project_type=resolved_type,
             )
         else:
             iterations = 0
@@ -199,6 +200,7 @@ class IntentToIaCService:
         self_correct: bool,
         context_text: str,
         label: str = "",
+        project_type: str = None,
     ):
         """Run a validate → fix → re-validate loop with stagnation detection.
 
@@ -212,6 +214,8 @@ class IntentToIaCService:
             self_correct: If False, validate once and never re-prompt the AI.
             context_text: Compiled org context passed to code_generator.fix().
             label: Optional label for log lines (e.g. a stack path).
+            project_type: Target project type, forwarded to fix() so the stable
+                cached system prompt is reused across iterations.
 
         Returns:
             Tuple of (generation, validation, iterations).
@@ -253,7 +257,7 @@ class IntentToIaCService:
             # Self-correct if enabled and not on the last iteration
             if self_correct and i < max_iterations - 1:
                 generation = self.code_generator.fix(
-                    generation, validation, context_text
+                    generation, validation, context_text, project_type=project_type
                 )
                 if not generation.files:
                     break  # Fix produced nothing — stop
@@ -875,6 +879,7 @@ class IntentToIaCService:
                         self_correct=self_correct,
                         context_text=context_text,
                         label=stack.path,
+                        project_type="terraform",  # matches per-stack generate()
                     )
                     # Use the final processed files from the loop
                     stack_tf_files = self._process_stack_files(

@@ -13,12 +13,11 @@ For plain terraform/tofu projects:
 """
 
 import logging
-import os
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from .models import GeneratedFile, PlanContext, PlanMode, StateConfig
+from .models import GeneratedFile, PlanContext, PlanMode
 
 logger = logging.getLogger(__name__)
 

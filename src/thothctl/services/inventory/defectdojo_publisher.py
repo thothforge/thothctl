@@ -17,7 +17,6 @@ API Reference:
     https://docs.defectdojo.com/import_data/import_scan_files/api_pipeline_modelling/
 """
 
-import json
 import logging
 from dataclasses import dataclass
 from datetime import date

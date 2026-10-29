@@ -1203,34 +1203,22 @@ class InventoryService:
             registry = "npm" if cdk_language == "typescript" else "pypi"
             inventory_dict = await self._check_cdk_versions(inventory_dict, registry)
 
-            # Calculate technical debt
-            total = 0
-            outdated = 0
-            for group in inventory_dict.get("components", []):
-                for comp in group.get("components", []):
-                    if comp.get("type") in ("cdk_construct", "cdk-construct"):
-                        total += 1
-                        if comp.get("status") == "Outdated":
-                            outdated += 1
-            if total > 0:
-                debt_score = (outdated / total) * 100
-                risk = (
-                    "critical"
-                    if debt_score >= 70
-                    else "high"
-                    if debt_score >= 50
-                    else "medium"
-                    if debt_score >= 30
-                    else "low"
-                )
-                inventory_dict["technical_debt"] = {
-                    "debt_score": debt_score,
-                    "risk_level": risk,
-                    "outdated_modules": outdated,
-                    "total_components": total,
-                    "modules_with_breaking_changes": 0,
-                    "providers_with_breaking_changes": 0,
-                }
+            # Calculate technical debt.
+            # A flat outdated/total ratio treats a one-patch drift the same as a
+            # multi-major drift, producing misleading "100% CRITICAL" scores when
+            # every dependency is only trivially behind. Weight each outdated
+            # component by the magnitude of its version gap (patch << minor << major)
+            # so the debt score reflects real upgrade risk. See
+            # _calculate_cdk_technical_debt.
+            cdk_comps = [
+                comp
+                for group in inventory_dict.get("components", [])
+                for comp in group.get("components", [])
+                if comp.get("type") in ("cdk_construct", "cdk-construct")
+            ]
+            tech_debt = self._calculate_cdk_technical_debt(cdk_comps)
+            if tech_debt is not None:
+                inventory_dict["technical_debt"] = tech_debt
 
         # CDK compatibility analysis
         if check_schema_compatibility and check_versions:
@@ -1526,6 +1514,90 @@ class InventoryService:
             except Exception as e:
                 logger.debug(f"Could not parse {f}: {e}")
         return stacks
+
+    @staticmethod
+    def _semver_gap_weight(current: str, latest: str) -> float:
+        """Return a technical-debt weight based on the semver gap.
+
+        Weights reflect real upgrade risk rather than a flat outdated/total ratio:
+        - major gap -> 1.0 (likely breaking)
+        - minor gap -> 0.4 (new features / possible deprecations)
+        - patch gap (or equal/behind) -> 0.1 (bug fixes, trivial)
+        Unparseable versions fall back to a minor-level (0.4) unknown gap.
+        """
+        try:
+            cur = [int(x) for x in str(current).split(".")[:3]]
+            lat = [int(x) for x in str(latest).split(".")[:3]]
+            while len(cur) < 3:
+                cur.append(0)
+            while len(lat) < 3:
+                lat.append(0)
+        except (ValueError, AttributeError):
+            return 0.4
+        if lat[0] > cur[0]:
+            return 1.0
+        if lat[0] == cur[0] and lat[1] > cur[1]:
+            return 0.4
+        return 0.1
+
+    @classmethod
+    def _calculate_cdk_technical_debt(cls, cdk_components: list) -> Optional[dict]:
+        """Compute severity-weighted technical-debt metrics for CDK components.
+
+        Args:
+            cdk_components: flat list of cdk_construct component dicts, each with
+                ``status`` and ``version``/``latest_version`` fields.
+
+        Returns:
+            Technical-debt metrics dict, or None when there are no components.
+        """
+        total = len(cdk_components)
+        if total == 0:
+            return None
+
+        outdated = 0
+        weighted_debt = 0.0
+        by_severity = {"major": 0, "minor": 0, "patch": 0}
+        for comp in cdk_components:
+            if comp.get("status") != "Outdated":
+                continue
+            outdated += 1
+            current_ver = (
+                comp.get("version", [""])[0]
+                if isinstance(comp.get("version"), list)
+                else comp.get("version", "")
+            )
+            latest_ver = comp.get("latest_version", current_ver)
+            weight = cls._semver_gap_weight(current_ver, latest_ver)
+            weighted_debt += weight
+            if weight >= 1.0:
+                by_severity["major"] += 1
+            elif weight >= 0.4:
+                by_severity["minor"] += 1
+            else:
+                by_severity["patch"] += 1
+
+        debt_score = (weighted_debt / total) * 100
+        risk = (
+            "critical"
+            if debt_score >= 70
+            else "high"
+            if debt_score >= 50
+            else "medium"
+            if debt_score >= 30
+            else "low"
+        )
+        return {
+            "debt_score": debt_score,
+            "risk_level": risk,
+            "outdated_modules": outdated,
+            "total_components": total,
+            "outdated_major": by_severity["major"],
+            "outdated_minor": by_severity["minor"],
+            "outdated_patch": by_severity["patch"],
+            "modules_with_breaking_changes": by_severity["major"],
+            "providers_with_breaking_changes": 0,
+        }
 
     async def _check_cdk_versions(
         self, inventory_dict: Dict[str, Any], registry: str

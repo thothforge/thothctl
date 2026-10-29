@@ -607,10 +607,10 @@ code{{background:#f3f4f6;padding:2px 4px;border-radius:3px;font-size:0.8rem}}
         # 5. THOTH_ORG_POLICY env → <cached_repo>/policy/
         org_policy_url = os.environ.get("THOTH_ORG_POLICY")
         if org_policy_url:
-            from .....services.check.org_policy_loader import (
+            from ....services.check.org_policy_loader import (
                 get_org_policy_path,
             )
-            from .....services.check.org_policy_loader import (
+            from ....services.check.org_policy_loader import (
                 resolve_policy_dir as _resolve_org_policy,
             )
 

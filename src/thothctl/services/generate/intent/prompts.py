@@ -2,14 +2,23 @@
 
 These prompts are injected with organizational context to produce governed IaC.
 The AI follows your rules because they're in the prompt — not because of a runtime engine.
+
+Token strategy: the SYSTEM prompt is a *stable* block (role + org context +
+project hints + output format) that is byte-identical across the initial
+generation and every self-correction ("fix") iteration of a run. All dynamic,
+per-call content (the intent, validation violations, the code being fixed) goes
+into the USER message. Keeping the system prefix stable means the org context is
+built once per run instead of 2-3x, and lets providers reuse a cached prefix.
 """
 
 # --------------------------------------------------------------------------
-# Generation prompt — produces IaC from natural language intent
+# Stable system prompt — shared by generation AND self-correction
 # --------------------------------------------------------------------------
 
-SYSTEM_IAC_GENERATOR = """You are an expert Infrastructure as Code generator.
+SYSTEM_IAC_GENERATOR = """You are an expert Infrastructure as Code generator and fixer.
 Generate complete, deployable {project_type} code following organizational standards.
+When given existing code plus validation violations, correct the violations while
+preserving the architecture.
 
 {context}
 
@@ -29,59 +38,32 @@ INSTRUCTIONS:
 10. Match the style of the existing patterns shown above
 11. CRITICAL: Each file must contain ONLY its designated content type. Never mix variables/outputs into main.tf.
 
+WHEN FIXING VIOLATIONS (a "VIOLATIONS TO FIX" section is present in the user message):
+- Fix ALL listed violations while maintaining the same architecture
+- Do NOT remove functionality — only add missing security configurations
+- Keep all existing resources, tags, and naming intact
+- Ensure the fix doesn't break dependencies between resources
+- Common fixes: CKV_AWS_130/CKV2_AWS_11 (add aws_flow_log for VPC flow logs);
+  CKV_AWS_178 (one NAT gateway per AZ); CKV_AWS_260/CKV_AWS_23 (add description to
+  security group rules); CKV_AWS_145 (S3 server_side_encryption_configuration);
+  CKV_AWS_18 (S3 logging); CKV_AWS_144 (S3 replication if required)
+
 OUTPUT FORMAT — respond with ONLY this JSON (no markdown fences, no explanation outside JSON):
 {{
   "files": [
     {{"path": "relative/path/to/file", "content": "full file content here"}},
     ...
   ],
-  "explanation": "brief explanation of architecture decisions made",
+  "explanation": "brief explanation of architecture decisions (or what was fixed)",
   "modules_used": ["source@version", ...],
   "estimated_resources": ["aws_resource_type", ...]
 }}"""
 
 
-# --------------------------------------------------------------------------
-# Self-correction prompt — fixes validation violations
-# --------------------------------------------------------------------------
-
-SYSTEM_IAC_FIXER = """You are an expert IaC code fixer.
-The previously generated code has security/compliance violations that must be fixed.
-
-ORGANIZATIONAL RULES (still apply):
-{context}
-
-VIOLATIONS TO FIX:
-{violations}
-
-PREVIOUS CODE:
-{previous_files}
-
-INSTRUCTIONS:
-1. Fix ALL listed violations while maintaining the same architecture
-2. Do NOT remove functionality — only add missing security configurations
-3. Common fixes:
-   - CKV_AWS_130 (VPC flow logs): Add aws_flow_log resource
-   - CKV_AWS_178 (NAT HA): Use one NAT gateway per AZ
-   - CKV_AWS_260 (SG rules): Add description to security group rules
-   - CKV2_AWS_11 (VPC flow logs): Enable flow logs on VPC
-   - CKV_AWS_145 (S3 encryption): Add server_side_encryption_configuration
-   - CKV_AWS_18 (S3 logging): Add logging configuration
-   - CKV_AWS_144 (S3 replication): Add replication_configuration (if required)
-   - CKV_AWS_23 (SG description): Add description field to security groups
-4. Keep all existing resources, tags, and naming intact
-5. Ensure the fix doesn't break dependencies between resources
-
-OUTPUT FORMAT — respond with ONLY this JSON (no markdown fences):
-{{
-  "files": [
-    {{"path": "relative/path/to/file", "content": "corrected full file content"}},
-    ...
-  ],
-  "explanation": "what was fixed and why",
-  "modules_used": ["source@version", ...],
-  "estimated_resources": ["aws_resource_type", ...]
-}}"""
+# Kept for backward compatibility (older callers / tests may import it).
+# The fixer instructions now live in the shared SYSTEM_IAC_GENERATOR so the
+# system prefix is identical across generation and fix.
+SYSTEM_IAC_FIXER = SYSTEM_IAC_GENERATOR
 
 
 # --------------------------------------------------------------------------
@@ -146,7 +128,11 @@ CDK-SPECIFIC RULES:
 def build_generation_prompt(
     project_type: str, context: str, language: str = "typescript"
 ) -> str:
-    """Assemble the system prompt with project-type hints and context."""
+    """Assemble the stable system prompt with project-type hints and context.
+
+    This is the same static block used for both generation and self-correction,
+    so the system prefix stays byte-identical across a run's iterations.
+    """
     hints = _get_project_hints(project_type, language=language)
     full_context = context
     if hints:
@@ -158,19 +144,69 @@ def build_generation_prompt(
     )
 
 
-def build_fix_prompt(context: str, violations: str, previous_files: str) -> str:
-    """Assemble the self-correction prompt."""
-    return SYSTEM_IAC_FIXER.format(
-        context=context,
-        violations=violations,
-        previous_files=previous_files,
+def build_fix_system_prompt(
+    project_type: str, context: str, language: str = "typescript"
+) -> str:
+    """Return the system prompt for a fix call.
+
+    Identical to build_generation_prompt — the fixer instructions live in the
+    shared static block, so generation and fix send the exact same system
+    prompt (org context is not re-templated per iteration).
+    """
+    return build_generation_prompt(project_type, context, language=language)
+
+
+def build_fix_user_message(violations: str, previous_files: str) -> str:
+    """Build the DYNAMIC user message for a self-correction call.
+
+    Only this changes between iterations — the system prompt stays stable.
+
+    Args:
+        violations: Formatted violation list (ValidationResult.format_for_ai()).
+        previous_files: The code to fix (ideally only the violating files).
+    """
+    return (
+        "The generated code has validation violations that must be fixed.\n\n"
+        "VIOLATIONS TO FIX:\n"
+        f"{violations}\n\n"
+        "CODE TO FIX:\n"
+        f"{previous_files}\n\n"
+        "Return the corrected files in the JSON format specified in the system prompt."
     )
 
 
-def format_previous_files(files: list) -> str:
-    """Format previously generated files for the fix prompt (abbreviated)."""
+def build_fix_prompt(context: str, violations: str, previous_files: str) -> str:
+    """Deprecated: assemble a combined fix prompt (context + violations + files).
+
+    Retained for backward compatibility. New callers should use
+    build_fix_system_prompt() for the (stable) system prompt and
+    build_fix_user_message() for the (dynamic) user content, so the org context
+    is not re-sent on every correction iteration.
+    """
+    return (
+        f"{SYSTEM_IAC_GENERATOR.format(project_type='terraform', context=context)}\n\n"
+        f"{build_fix_user_message(violations, previous_files)}"
+    )
+
+
+def format_previous_files(files: list, only_paths: set = None) -> str:
+    """Format previously generated files for the fix prompt (abbreviated).
+
+    Args:
+        files: Generated files.
+        only_paths: If provided, include only files whose path is in this set
+            (the files that actually have violations). Falls back to all files
+            when the filter would exclude everything (e.g. violations without
+            file paths), so the fixer always has something to work with.
+    """
+    selected = files
+    if only_paths:
+        filtered = [f for f in files if f.path in only_paths]
+        if filtered:
+            selected = filtered
+
     parts = []
-    for f in files:
+    for f in selected:
         content = f.content
         # Truncate large files to save tokens
         if len(content) > 1500:

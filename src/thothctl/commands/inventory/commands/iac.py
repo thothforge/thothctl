@@ -314,10 +314,25 @@ class IaCInvCommand(ClickCommand):
 
     def _display_summary(self, inventory: dict) -> None:
         """Display inventory summary."""
-        total_components = len(inventory["components"])
-        outdated_components = sum(
-            1 for comp in inventory["components"] if comp.get("status") == "Outdated"
-        )
+        # Components are nested: inventory["components"] is a list of stack/group
+        # entries, each with an inner "components" list holding the actual
+        # packages/modules. Count the leaf items so totals match the detail table
+        # and the technical-debt metrics. Fall back to the group level for any
+        # entry that has no inner list (keeps legacy/terraform paths working).
+        groups = inventory["components"]
+        leaf_components = [
+            c for grp in groups for c in grp.get("components", [])
+        ]
+        if leaf_components:
+            total_components = len(leaf_components)
+            outdated_components = sum(
+                1 for c in leaf_components if c.get("status") == "Outdated"
+            )
+        else:
+            total_components = len(groups)
+            outdated_components = sum(
+                1 for comp in groups if comp.get("status") == "Outdated"
+            )
 
         # Count local modules based on source, not status
         local_modules = 0

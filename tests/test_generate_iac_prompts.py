@@ -1,6 +1,7 @@
 """Unit tests for Intent-to-IaC prompts."""
 
 import pytest
+
 from thothctl.services.generate.intent.models import GeneratedFile
 from thothctl.services.generate.intent.prompts import (
     CDK_HINTS,
@@ -9,6 +10,8 @@ from thothctl.services.generate.intent.prompts import (
     TERRAGRUNT_STACK_HINTS,
     _get_project_hints,
     build_fix_prompt,
+    build_fix_system_prompt,
+    build_fix_user_message,
     build_generation_prompt,
     format_previous_files,
 )
@@ -126,6 +129,47 @@ class TestFormatPreviousFiles:
         result = format_previous_files(files)
         assert "truncated" in result
         assert len(result) < 3000
+
+    def test_only_paths_filters_to_violating_files(self):
+        files = [
+            GeneratedFile("main.tf", "resource {}"),
+            GeneratedFile("variables.tf", 'variable "name" {}'),
+            GeneratedFile("outputs.tf", 'output "o" {}'),
+        ]
+        result = format_previous_files(files, only_paths={"main.tf"})
+        assert "### main.tf" in result
+        assert "### variables.tf" not in result
+        assert "### outputs.tf" not in result
+
+    def test_only_paths_empty_match_falls_back_to_all(self):
+        # If the filter matches nothing (e.g. violations without file paths),
+        # fall back to all files so the fixer still has code to work with.
+        files = [
+            GeneratedFile("main.tf", "resource {}"),
+            GeneratedFile("variables.tf", 'variable "name" {}'),
+        ]
+        result = format_previous_files(files, only_paths={"does-not-exist.tf"})
+        assert "### main.tf" in result
+        assert "### variables.tf" in result
+
+
+class TestStableSystemPrompt:
+    """Regression: system prompt must be stable across generation and fix."""
+
+    def test_fix_system_prompt_matches_generation(self):
+        ctx = "ORG CONTEXT: naming must be team-{env}"
+        gen = build_generation_prompt("terraform", ctx)
+        fix = build_fix_system_prompt("terraform", ctx)
+        assert gen == fix, "system prompt must be byte-identical for prefix reuse"
+
+    def test_fix_user_message_carries_dynamic_content_only(self):
+        msg = build_fix_user_message(
+            violations="- [HIGH] CKV_AWS_130", previous_files="### main.tf\n```\nx\n```"
+        )
+        assert "CKV_AWS_130" in msg
+        assert "main.tf" in msg
+        # The system-prompt org context must NOT be embedded in the user message
+        assert "You are an expert" not in msg
 
 
 class TestProjectHints:
