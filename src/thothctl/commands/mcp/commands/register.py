@@ -75,6 +75,8 @@ class MCPRegisterCommand(ClickCommand):
                         "command": "thothctl",
                         "args": ["mcp", "server", "--stdio"],
                         "env": {},
+                        "disabled": False,
+                        "autoApprove": [],
                     }
                 else:
                     # HTTP mode configuration
@@ -82,6 +84,8 @@ class MCPRegisterCommand(ClickCommand):
                         "url": f"http://localhost:{port}/mcp/v1",
                         "headers": {},
                         "env": {},
+                        "disabled": False,
+                        "autoApprove": [],
                     }
 
                 # Add the new server to existing configuration

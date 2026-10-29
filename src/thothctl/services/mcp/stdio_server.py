@@ -6,6 +6,8 @@ from typing import Optional
 
 from mcp.server import MCPServer
 
+from ...version import __version__
+
 
 def _run_cmd(cmd: list, timeout: int = 180) -> str:
     """Execute a thothctl command and return output."""
@@ -15,7 +17,7 @@ def _run_cmd(cmd: list, timeout: int = 180) -> str:
     return f"Error (exit {result.returncode}): {result.stderr.strip() or result.stdout.strip()}"
 
 
-server = MCPServer("thothctl")
+server = MCPServer("thothctl", version=__version__)
 
 
 # --- Version ---
