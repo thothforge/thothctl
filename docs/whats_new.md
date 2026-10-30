@@ -1,5 +1,81 @@
 # What's New
 
+## v0.33.0 — SecObserve Product Groups (October 2026)
+
+### Highlights
+
+!!! success "Create SecObserve products inside a product group"
+    ```bash
+    thothctl scan iac -t checkov -p network-stack \
+      --publish-to secobserve --product-group platform-team
+
+    thothctl inventory iac --check-versions \
+      --publish-sbom secobserve --product-group platform-team
+    ```
+
+- **`--product-group`** for `scan iac` (with `--publish-to secobserve`) and `inventory iac`
+  (with `--publish-sbom secobserve`). It can also be set with `SECOBSERVE_PRODUCT_GROUP` or
+  `product_group` in `[integrations.secobserve]`.
+- New products are created in the group, and the group is created if it doesn't exist.
+  **Existing products are never moved**, because the group decides which security gate
+  applies; a warning is shown instead.
+- SecObserve only: using the option with another platform, or without publishing, is a
+  usage error.
+- **Fix:** SBOM uploads now send the configured `origin_service` as the SecObserve service.
+- SecObserve has no free-form tags or labels, so ThothCTL doesn't offer them.
+
+See [Product groups](framework/commands/scan/scan_iac.md#product-groups).
+
+---
+
+## v0.32.0 — SecObserve Security Gate (October 2026)
+
+### Highlights
+
+!!! success "Let SecObserve's security gate decide pass/fail"
+    ```bash
+    thothctl scan iac -t checkov -t kics -p my-infra \
+      --publish-to secobserve --gate-source secobserve --enforcement hard
+    ```
+
+- **`--gate-source local|secobserve|both`**:
+    - `local` (default) keeps today's behaviour;
+    - `secobserve` reads the product's security gate after publishing;
+    - `both` fails if either gate fails.
+- **Fails closed:** under `--enforcement hard`, a gate that can't be evaluated (server
+  unreachable, product or branch not found) fails the pipeline.
+- **Same rules as SecObserve:** the group overrides the product, unset thresholds count as
+  0, and global settings are the fallback. Feature branches are evaluated from branch
+  counts, because SecObserve only gates the default branch.
+- **A new "SecObserve Security Gate" panel** shows the status, open counts, thresholds and a
+  link to the product.
+- **Fixed findings close automatically:** each tool is uploaded in its own stable file
+  (`kics-results.sarif`, `thothctl-<tool>.sarif`), and a completed tool is re-uploaded even
+  with no findings. Skipped or failed tools aren't uploaded, so their history is kept.
+- Usage errors now exit with code 2 across `ClickCommand`-based commands.
+
+!!! warning "Changed service name"
+    Checkov and other non-KICS findings now use the tool name as the SecObserve service
+    (previously `thothctl-scan`). Findings stored under the old service aren't resolved
+    automatically.
+
+See [Security Gate Source](framework/commands/scan/scan_iac.md#security-gate-source).
+
+---
+
+## v0.31 — Fixes & MCP Compatibility (October 2026)
+
+- **v0.31.3** — `scan iac --publish-to secobserve` publishes every tool, not just KICS, and
+  findings are linked to a SecObserve service.
+- **v0.31.2** — fixed an `ImportError` in the OPA scanner when `THOTH_ORG_POLICY` is set;
+  CDK technical-debt scoring is weighted by semver gap; `generate iac` reuses its system
+  prompt across self-correction rounds.
+- **v0.31.1** — the MCP server reports its version, and `mcp register` writes the keys used
+  by Kiro CLI v3.
+- **v0.31.0** — `init` installs AI agent skills from upstream repositories.
+
+---
+
 ## v0.30.0 — Intent-to-IaC Hardening (September 2026)
 
 ### Highlights

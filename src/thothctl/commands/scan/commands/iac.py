@@ -65,12 +65,18 @@ class RestoredIaCScanCommand(ClickCommand):
         self._enforcement = kwargs.get("enforcement", "soft")
         self._publish_to = kwargs.get("publish_to")
         self._gate_source = (kwargs.get("gate_source") or "local").lower()
+        self._product_group = kwargs.get("product_group")
         self._scan_results = None
 
         if self._gate_source != "local" and (self._publish_to or "").lower() != "secobserve":
             raise click.UsageError(
                 f"--gate-source {self._gate_source} requires --publish-to secobserve "
                 "(the SecObserve gate must be evaluated on the results just published)."
+            )
+        if self._product_group and (self._publish_to or "").lower() != "secobserve":
+            raise click.UsageError(
+                "--product-group requires --publish-to secobserve "
+                "(product groups are a SecObserve feature)."
             )
 
         try:
@@ -1068,6 +1074,9 @@ class RestoredIaCScanCommand(ClickCommand):
                 config.product_name = project_name
             elif not config.product_name:
                 config.product_name = os.path.basename(os.path.abspath(code_directory))
+            product_group = getattr(self, "_product_group", None)
+            if product_group:
+                config.product_group = product_group
 
             publisher = SecObservePublisher(config)
             outcome["publisher"] = publisher
@@ -1150,6 +1159,9 @@ class RestoredIaCScanCommand(ClickCommand):
                     )
 
             outcome["ok"] = outcome["published"] == outcome["attempted"]
+
+            for warning in publisher.pop_warnings():
+                self.console.print(f"  [yellow]⚠️ {warning}[/yellow]")
 
             if outcome["published"] > 0:
                 self.console.print(
@@ -1386,5 +1398,12 @@ cli = RestoredIaCScanCommand.as_click_command(
         "security gate, read after publishing), or 'both' (fail if either fails). "
         "'secobserve'/'both' require --publish-to secobserve and fail closed if "
         "the gate cannot be evaluated.",
+    ),
+    click.option(
+        "--product-group",
+        default=None,
+        help="SecObserve product group for a newly created product (requires "
+        "--publish-to secobserve). Overrides SECOBSERVE_PRODUCT_GROUP and "
+        "[integrations.secobserve].product_group. Existing products are not moved.",
     ),
 )

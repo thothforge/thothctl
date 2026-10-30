@@ -25,7 +25,7 @@ API Reference:
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import requests
 
@@ -39,6 +39,7 @@ class SecObserveConfig:
     url: str = ""
     api_token: str = ""
     product_name: Optional[str] = None
+    product_group: Optional[str] = None
     branch_name: Optional[str] = None
     origin_service: Optional[str] = None
     auto_create_product: bool = True
@@ -52,6 +53,7 @@ class SecObserveConfig:
             url=os.environ.get("SECOBSERVE_URL", ""),
             api_token=os.environ.get("SECOBSERVE_API_TOKEN", ""),
             product_name=os.environ.get("SECOBSERVE_PRODUCT_NAME"),
+            product_group=os.environ.get("SECOBSERVE_PRODUCT_GROUP"),
             branch_name=os.environ.get("SECOBSERVE_BRANCH_NAME"),
             origin_service=os.environ.get("SECOBSERVE_ORIGIN_SERVICE"),
             auto_create_product=os.environ.get(
@@ -82,6 +84,8 @@ class SecObserveConfig:
                         config.api_token = so.get("api_token", "")
                     if not config.product_name:
                         config.product_name = so.get("product_name")
+                    if not config.product_group:
+                        config.product_group = so.get("product_group")
                     if not config.branch_name:
                         config.branch_name = so.get("branch_name")
                     if not config.origin_service:
@@ -184,6 +188,10 @@ class SecObservePublisher:
         """
         config.validate()
         self.config = config
+        # Non-fatal notices (e.g. product group mismatch) for the caller to show.
+        self.warnings: List[str] = []
+        # product name -> id, so setup checks run once per publisher.
+        self._ensured_products: Dict[str, int] = {}
         self._session = requests.Session()
         self._session.headers.update(
             {
@@ -332,6 +340,8 @@ class SecObservePublisher:
             data = {"product_name": effective_product}
             if self.config.branch_name:
                 data["branch_name"] = self.config.branch_name
+            if self.config.origin_service:
+                data["service"] = self.config.origin_service
 
             with open(sbom_path, "rb") as f:
                 files = {"file": (sbom_path.name, f, "application/json")}
@@ -394,27 +404,113 @@ class SecObservePublisher:
     def _ensure_product(self, product_name: str) -> Optional[int]:
         """Ensure product exists in SecObserve. Creates if needed.
 
+        When ``product_group`` is configured, a newly created product is put in
+        that group (the group is created too). Existing products are never
+        moved, because the group decides which security gate applies; a
+        mismatch is reported in ``self.warnings`` instead.
+
         Returns product ID or None.
         """
+        if product_name in self._ensured_products:
+            return self._ensured_products[product_name]
+
         url = f"{self._api_base}/api/products/"
+        product_id = None
         try:
             product = self._find_product(product_name)
             if product:
-                return product.get("id")
-
-            # Create product
-            response = self._session.post(
-                url,
-                json={"name": product_name, "description": f"IaC project: {product_name}"},
-                timeout=10,
-            )
-            if response.status_code in (200, 201):
-                return response.json().get("id")
+                product_id = product.get("id")
+                self._check_product_group(product)
+            else:
+                payload = {
+                    "name": product_name,
+                    "description": f"IaC project: {product_name}",
+                }
+                group_id = self._resolve_product_group()
+                if group_id is not None:
+                    payload["product_group"] = group_id
+                response = self._session.post(url, json=payload, timeout=10)
+                if response.status_code in (200, 201):
+                    product_id = response.json().get("id")
+                else:
+                    self.warnings.append(
+                        f"Could not create product '{product_name}' "
+                        f"(HTTP {response.status_code}): {response.text[:200]}"
+                    )
 
         except Exception as e:
             logger.debug(f"Product ensure failed: {e}")
 
+        if product_id is not None:
+            self._ensured_products[product_name] = product_id
+        return product_id
+
+    def _find_product_group(self, group_name: str) -> Optional[dict]:
+        """Return the product group with exactly this name, or None."""
+        response = self._session.get(
+            f"{self._api_base}/api/product_groups/",
+            params={"name": group_name},
+            timeout=10,
+        )
+        response.raise_for_status()
+        for group in response.json().get("results", []):
+            if group.get("name") == group_name:
+                return group
         return None
+
+    def _resolve_product_group(self) -> Optional[int]:
+        """Return the id of the configured product group, creating it if allowed."""
+        group_name = self.config.product_group
+        if not group_name:
+            return None
+
+        group = self._find_product_group(group_name)
+        if group:
+            return group.get("id")
+
+        if not self.config.auto_create_product:
+            self.warnings.append(
+                f"Product group '{group_name}' not found and auto-create is "
+                "disabled; product created without a group"
+            )
+            return None
+
+        response = self._session.post(
+            f"{self._api_base}/api/product_groups/",
+            json={
+                "name": group_name,
+                "description": "Product group managed by ThothCTL",
+            },
+            timeout=10,
+        )
+        if response.status_code in (200, 201):
+            return response.json().get("id")
+        self.warnings.append(
+            f"Could not create product group '{group_name}' "
+            f"(HTTP {response.status_code}): {response.text[:200]}; "
+            "product created without a group"
+        )
+        return None
+
+    def _check_product_group(self, product: dict) -> None:
+        """Warn when an existing product is not in the configured group."""
+        group_name = self.config.product_group
+        if not group_name:
+            return
+        group = self._find_product_group(group_name)
+        if group is not None and product.get("product_group") == group.get("id"):
+            return
+        current = product.get("product_group_name") or "no group"
+        self.warnings.append(
+            f"Product '{product.get('name')}' is in {current!r}, not "
+            f"'{group_name}'. It was left unchanged, because moving it would "
+            "change which security gate applies; move it in SecObserve if intended."
+        )
+
+    def pop_warnings(self) -> List[str]:
+        """Return and clear the collected warnings."""
+        warnings, self.warnings = self.warnings, []
+        return warnings
 
     # ── Security gate (read-only) ────────────────────────────────────────
 

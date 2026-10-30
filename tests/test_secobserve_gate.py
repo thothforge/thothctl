@@ -64,11 +64,21 @@ def _product(**fields):
 
 
 class FakeSession:
-    """Minimal stand-in for requests.Session routing GETs by URL path."""
+    """Minimal stand-in for requests.Session routing GETs/POSTs by URL path."""
 
-    def __init__(self, routes):
+    def __init__(self, routes, post_routes=None):
         self.routes = routes  # path -> payload | (payload, status) | Exception
+        self.post_routes = post_routes or {}  # path -> (payload, status)
+        self.posts = []  # (path, json) for every POST
         self.headers = {}
+
+    def post(self, url, json=None, data=None, files=None, timeout=None):
+        path = url.replace(BASE, "")
+        self.posts.append((path, json if json is not None else data))
+        payload, status = self.post_routes.get(path, ({"detail": "not found"}, 404))
+        resp = _response(payload, status)
+        resp.text = str(payload)
+        return resp
 
     def get(self, url, params=None, timeout=None):
         path = url.replace(BASE, "")
@@ -84,12 +94,19 @@ class FakeSession:
         return _response(route)
 
 
-def _publisher(routes, branch_name=None):
+def _publisher(routes, branch_name=None, post_routes=None, product_group=None,
+               auto_create=True, origin_service=None):
     config = SecObserveConfig(
-        url=BASE, api_token="token", product_name="infra", branch_name=branch_name
+        url=BASE,
+        api_token="token",
+        product_name="infra",
+        branch_name=branch_name,
+        product_group=product_group,
+        auto_create_product=auto_create,
+        origin_service=origin_service,
     )
     pub = SecObservePublisher(config)
-    pub._session = FakeSession(routes)
+    pub._session = FakeSession(routes, post_routes)
     pub._api_base = BASE
     return pub
 
@@ -631,3 +648,226 @@ class TestGateSourceDecision:
         assert result.exit_code == 0
         publish.assert_called_once()
         evaluate.assert_not_called()
+
+
+# ── Product group ─────────────────────────────────────────────────────────────
+
+
+def _groups_route(*groups):
+    return {"/api/product_groups/": {"results": list(groups)}}
+
+
+class TestProductGroupConfig:
+    def test_from_env(self, monkeypatch):
+        monkeypatch.setenv("SECOBSERVE_PRODUCT_GROUP", "platform")
+        assert SecObserveConfig.from_env().product_group == "platform"
+
+    def test_from_toml(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("SECOBSERVE_PRODUCT_GROUP", raising=False)
+        (tmp_path / ".thothcf.toml").write_text(
+            '[integrations.secobserve]\nproduct_group = "from-toml"\n'
+        )
+        assert SecObserveConfig.from_toml(str(tmp_path)).product_group == "from-toml"
+
+    def test_env_overrides_toml(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SECOBSERVE_PRODUCT_GROUP", "from-env")
+        (tmp_path / ".thothcf.toml").write_text(
+            '[integrations.secobserve]\nproduct_group = "from-toml"\n'
+        )
+        assert SecObserveConfig.from_toml(str(tmp_path)).product_group == "from-env"
+
+
+class TestEnsureProductGroup:
+    def test_new_product_joins_existing_group(self):
+        pub = _publisher(
+            {**_products_route(), **_groups_route({"id": 5, "name": "platform"})},
+            post_routes={"/api/products/": ({"id": 42}, 201)},
+            product_group="platform",
+        )
+        assert pub._ensure_product("infra") == 42
+        assert pub._session.posts == [
+            ("/api/products/", {"name": "infra", "description": "IaC project: infra", "product_group": 5})
+        ]
+        assert pub.warnings == []
+
+    def test_group_name_is_exact_match(self):
+        # The ?name= filter on product groups is a contains match too.
+        pub = _publisher(
+            {**_products_route(), **_groups_route({"id": 5, "name": "platform-legacy"})},
+            post_routes={
+                "/api/product_groups/": ({"id": 8}, 201),
+                "/api/products/": ({"id": 42}, 201),
+            },
+            product_group="platform",
+        )
+        pub._ensure_product("infra")
+        assert pub._session.posts[0][0] == "/api/product_groups/"
+        assert pub._session.posts[1][1]["product_group"] == 8
+
+    def test_missing_group_is_created(self):
+        pub = _publisher(
+            {**_products_route(), **_groups_route()},
+            post_routes={
+                "/api/product_groups/": ({"id": 8}, 201),
+                "/api/products/": ({"id": 42}, 201),
+            },
+            product_group="platform",
+        )
+        assert pub._ensure_product("infra") == 42
+        group_post, product_post = pub._session.posts
+        assert group_post == (
+            "/api/product_groups/",
+            {"name": "platform", "description": "Product group managed by ThothCTL"},
+        )
+        assert product_post[1]["product_group"] == 8
+
+    def test_group_not_created_without_auto_create(self):
+        pub = _publisher(
+            {**_products_route(), **_groups_route()},
+            post_routes={"/api/products/": ({"id": 42}, 201)},
+            product_group="platform",
+            auto_create=False,
+        )
+        pub._ensure_product("infra")
+        assert [p for p, _ in pub._session.posts] == ["/api/products/"]
+        assert "product_group" not in pub._session.posts[0][1]
+        assert "not found" in pub.warnings[0]
+
+    def test_group_create_failure_creates_product_without_group(self):
+        pub = _publisher(
+            {**_products_route(), **_groups_route()},
+            post_routes={
+                "/api/product_groups/": ({"message": "Name: product with this name already exists."}, 400),
+                "/api/products/": ({"id": 42}, 201),
+            },
+            product_group="platform",
+        )
+        assert pub._ensure_product("infra") == 42
+        assert "product_group" not in pub._session.posts[1][1]
+        assert "Could not create product group 'platform'" in pub.warnings[0]
+
+    def test_existing_product_in_other_group_is_not_moved(self):
+        product = _product(name="infra", product_group=2, product_group_name="legacy")
+        pub = _publisher(
+            {**_products_route(product), **_groups_route({"id": 5, "name": "platform"})},
+            product_group="platform",
+        )
+        assert pub._ensure_product("infra") == 3
+        assert pub._session.posts == []  # no create, no move
+        assert len(pub.warnings) == 1
+        assert "'legacy'" in pub.warnings[0] and "left unchanged" in pub.warnings[0]
+
+    def test_existing_product_without_group_is_not_moved(self):
+        pub = _publisher(
+            {**_products_route(_product(name="infra")), **_groups_route({"id": 5, "name": "platform"})},
+            product_group="platform",
+        )
+        pub._ensure_product("infra")
+        assert pub._session.posts == []
+        assert "'no group'" in pub.warnings[0]
+
+    def test_existing_product_in_same_group_has_no_warning(self):
+        product = _product(name="infra", product_group=5, product_group_name="platform")
+        pub = _publisher(
+            {**_products_route(product), **_groups_route({"id": 5, "name": "platform"})},
+            product_group="platform",
+        )
+        pub._ensure_product("infra")
+        assert pub.warnings == []
+
+    def test_setup_runs_once_per_product(self):
+        product = _product(name="infra", product_group=2, product_group_name="legacy")
+        pub = _publisher(
+            {**_products_route(product), **_groups_route({"id": 5, "name": "platform"})},
+            product_group="platform",
+        )
+        pub._ensure_product("infra")
+        pub._ensure_product("infra")
+        assert len(pub.warnings) == 1  # one warning per run, not per upload
+
+    def test_pop_warnings_clears(self):
+        pub = _publisher({})
+        pub.warnings.append("w")
+        assert pub.pop_warnings() == ["w"]
+        assert pub.warnings == []
+
+
+class TestPublishSbomService:
+    def test_sbom_sends_configured_service(self, tmp_path):
+        sbom = tmp_path / "sbom_cyclonedx.json"
+        sbom.write_text("{}")
+        pub = _publisher(
+            {},
+            post_routes={"/api/import/file_upload_sbom_by_name/": ({"license_components_new": 1}, 200)},
+            auto_create=False,
+            origin_service="platform-svc",
+        )
+        result = pub.publish_sbom(sbom)
+        assert result.success is True
+        _, data = pub._session.posts[0]
+        assert data["service"] == "platform-svc"
+        assert data["product_name"] == "infra"
+
+    def test_sbom_without_service_omits_field(self, tmp_path):
+        sbom = tmp_path / "sbom_cyclonedx.json"
+        sbom.write_text("{}")
+        pub = _publisher(
+            {},
+            post_routes={"/api/import/file_upload_sbom_by_name/": ({}, 200)},
+            auto_create=False,
+        )
+        pub.publish_sbom(sbom)
+        assert "service" not in pub._session.posts[0][1]
+
+
+class TestProductGroupFlag:
+    def test_scan_requires_publish_to_secobserve(self, run_scan):
+        result, publish = run_scan(["--product-group", "platform"])
+        assert result.exit_code == 2
+        assert "--product-group requires --publish-to secobserve" in result.output
+        publish.assert_not_called()
+
+    def test_scan_rejects_other_platform(self, run_scan):
+        result, _ = run_scan(["--publish-to", "defectdojo", "--product-group", "platform"])
+        assert result.exit_code == 2
+
+    def test_scan_flag_overrides_config_and_warnings_are_shown(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SECOBSERVE_PRODUCT_GROUP", "from-env")
+        seen = {}
+
+        def make_publisher(config):
+            seen["group"] = config.product_group
+            pub = MagicMock()
+            pub.publish_observations.return_value = MagicMock(
+                success=True, observations_new=0, observations_updated=0, observations_resolved=0
+            )
+            pub.pop_warnings.return_value = ["Product 'infra' is in 'legacy', not 'from-flag'"]
+            return pub
+
+        cmd = RestoredIaCScanCommand()
+        cmd._product_group = "from-flag"
+        cmd.console = MagicMock()
+        with patch(
+            "thothctl.services.inventory.secobserve_publisher.SecObservePublisher",
+            side_effect=make_publisher,
+        ), patch.dict(
+            "os.environ", {"SECOBSERVE_URL": BASE, "SECOBSERVE_API_TOKEN": "t"}
+        ):
+            cmd._publish_scan_to_secobserve(
+                {"checkov": _tool(findings=[FINDING])}, str(tmp_path), "infra", str(tmp_path)
+            )
+        assert seen["group"] == "from-flag"
+        printed = " ".join(str(c.args[0]) for c in cmd.console.print.call_args_list)
+        assert "is in 'legacy'" in printed
+
+    def test_inventory_requires_publish_sbom_secobserve(self, tmp_path):
+        from thothctl.commands.inventory.commands.iac import cli as inventory_cli
+
+        for extra in ([], ["--publish-sbom", "defectdojo"]):
+            result = CliRunner().invoke(
+                inventory_cli,
+                ["--product-group", "platform", *extra],
+                obj={"CODE_DIRECTORY": str(tmp_path), "DEBUG": False},
+            )
+            assert result.exit_code == 2, result.output
+            assert "--product-group requires --publish-sbom secobserve" in result.output

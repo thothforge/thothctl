@@ -74,6 +74,14 @@ class IaCInvCommand(ClickCommand):
             project_name: Custom project name for the inventory report
             terragrunt_args: Additional arguments to pass to terragrunt commands
         """
+        product_group = kwargs.get("product_group")
+        if product_group and (kwargs.get("publish_sbom") or "").lower() != "secobserve":
+            raise click.UsageError(
+                "--product-group requires --publish-sbom secobserve "
+                "(product groups are a SecObserve feature)."
+            )
+        self._product_group = product_group
+
         try:
             ctx = click.get_current_context()
             config = {
@@ -817,6 +825,9 @@ class IaCInvCommand(ClickCommand):
             config = SecObserveConfig.from_toml(code_directory)
             if project_name:
                 config.product_name = project_name
+            product_group = getattr(self, "_product_group", None)
+            if product_group:
+                config.product_group = product_group
 
             publisher = SecObservePublisher(config)
 
@@ -824,6 +835,8 @@ class IaCInvCommand(ClickCommand):
                 f"📤 Publishing SBOM to SecObserve ({config.url})..."
             )
             result = publisher.publish_sbom(sbom_path, product_name=project_name)
+            for warning in publisher.pop_warnings():
+                self.ui.print_warning(f"⚠️ {warning}")
 
             if result.success:
                 self.ui.print_success(
@@ -964,6 +977,13 @@ cli = IaCInvCommand.as_click_command(
         type=click.Choice(["dependency-track", "defectdojo", "secobserve"], case_sensitive=False),
         default=None,
         help="Publish CycloneDX SBOM to an external platform after generation",
+    ),
+    click.option(
+        "--product-group",
+        default=None,
+        help="SecObserve product group for a newly created product (requires "
+        "--publish-sbom secobserve). Overrides SECOBSERVE_PRODUCT_GROUP and "
+        "[integrations.secobserve].product_group. Existing products are not moved.",
     ),
     click.option(
         "--vcs-provider",

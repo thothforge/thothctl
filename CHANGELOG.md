@@ -5,6 +5,22 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.0] - 2026-10-30
+
+### Added
+
+- **SecObserve product groups** — new `--product-group` option for `scan iac`
+  (with `--publish-to secobserve`) and `inventory iac` (with `--publish-sbom secobserve`),
+  plus `SECOBSERVE_PRODUCT_GROUP` and `[integrations.secobserve].product_group`.
+  Products created by ThothCTL are placed in the group, which is created if needed.
+  Existing products are never moved; a warning is shown instead. Using the option
+  without SecObserve is a usage error.
+
+### Fixed
+
+- SBOM uploads to SecObserve now send the configured `origin_service` as the
+  SecObserve `service` (previously only scan uploads did).
+
 ## [0.32.0] - 2026-10-30
 
 ### Added

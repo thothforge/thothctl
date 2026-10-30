@@ -21,6 +21,7 @@ thothctl scan iac [OPTIONS]
 | `--enforcement [soft\|hard]` | Enforcement mode: `soft` reports violations (exit 0), `hard` fails the pipeline (exit 1) |
 | `--publish-to [defectdojo\|secobserve]` | Publish findings to a vulnerability management platform after scanning |
 | `--gate-source [local\|secobserve\|both]` | Which security gate decides pass/fail (default: `local`). See [Security Gate Source](#security-gate-source) |
+| `--product-group TEXT` | SecObserve product group for a newly created product (requires `--publish-to secobserve`). See [Product groups](#product-groups) |
 | `--post-to-pr` | Post scan summary as a PR comment (Azure DevOps or GitHub) |
 | `--vcs-provider [auto\|azure_repos\|github]` | VCS provider for PR comments (default: auto-detect) |
 | `--space TEXT` | Space name for credential resolution (Azure DevOps) |
@@ -463,6 +464,23 @@ Example output:
 ✅ thothctl-checkov.sarif → 0 new, 9 updated, 1 resolved
 📊 Published 2/2 report(s) to SecObserve
 ```
+
+### Product groups
+
+SecObserve product groups bundle related products. Settings on a group, such as the security gate, apply to every product in it, and override the product's own settings. Use `--product-group` to put a product that ThothCTL creates into a group:
+
+```bash
+thothctl scan iac -t checkov -p network-stack \
+  --publish-to secobserve --product-group platform-team
+```
+
+- **Where to set it:** `--product-group` > `SECOBSERVE_PRODUCT_GROUP` > `product_group` in `[integrations.secobserve]`. The same setting applies to `inventory iac --publish-sbom secobserve`.
+- **New products** are created in the group. ThothCTL creates the group first if it doesn't exist and `auto_create_product` is enabled, which is the default. Group names are matched exactly.
+- **Existing products are never moved.** If the product is in another group, or in none, ThothCTL prints a warning and leaves it unchanged, because moving it would change which security gate applies. Move it in SecObserve if that's intended.
+- **SecObserve only.** Using `--product-group` without `--publish-to secobserve` is a usage error (exit code 2).
+
+!!! note
+    SecObserve has no free-form tags or labels for products or findings, so ThothCTL doesn't offer them. The `issue_tracker_labels` setting on a product only labels the issues SecObserve opens in its issue-tracker integration.
 
 ## Report Output
 

@@ -27,8 +27,10 @@ Options:
                                   Framework type to analyze (auto for automatic detection)
   -r, --report-type [html|json|cyclonedx|all]
                                   Type of report to generate
-  --publish-sbom [dependency-track]
+  --publish-sbom [dependency-track|defectdojo|secobserve]
                                   Publish CycloneDX SBOM to external platform after generation
+  --product-group TEXT            SecObserve product group for a newly created product
+                                  (requires --publish-sbom secobserve)
   -iact, --inventory-action [create|update|restore]
                                   Action for inventory tasks
   -iph, --inventory-path PATH     Path for saving inventory reports
@@ -292,6 +294,10 @@ thothctl inventory iac --check-versions --publish-sbom secobserve
 # Publish scan findings (all scanners supported via SARIF)
 thothctl scan iac -t checkov -t trivy -t kics -t opa --publish-to secobserve
 
+# Create new products inside a product group (SBOM and scans)
+thothctl inventory iac --check-versions --publish-sbom secobserve --product-group platform-team
+thothctl scan iac -t checkov --publish-to secobserve --product-group platform-team
+
 # Publish and let the SecObserve security gate decide pass/fail
 thothctl scan iac -t checkov -t kics --publish-to secobserve \
   --gate-source secobserve --enforcement hard
@@ -304,8 +310,9 @@ thothctl scan iac -t checkov -t kics --publish-to secobserve \
 export SECOBSERVE_URL="http://secobserve-backend.localhost"
 export SECOBSERVE_API_TOKEN="api_token_..."
 export SECOBSERVE_PRODUCT_NAME="my-project"     # Optional (uses --project-name)
+export SECOBSERVE_PRODUCT_GROUP="platform-team"  # Optional (group for new products; --product-group overrides)
 export SECOBSERVE_BRANCH_NAME="main"             # Recommended (see note below)
-export SECOBSERVE_ORIGIN_SERVICE="my-service"    # Optional (overrides per-tool service)
+export SECOBSERVE_ORIGIN_SERVICE="my-service"    # Optional (service for scans and SBOMs)
 export SECOBSERVE_AUTO_CREATE="true"             # Optional (default: true)
 ```
 
@@ -316,6 +323,7 @@ Or in `.thothcf.toml`:
 url = "http://secobserve-backend.localhost"
 api_token = "api_token_..."
 product_name = "my-platform-infra"
+product_group = "platform-team" # optional; group for products ThothCTL creates
 branch_name = "main"
 origin_service = "thothctl"     # optional; sent as SecObserve "service"
 auto_create_product = true
@@ -325,7 +333,10 @@ auto_create_product = true
     The first branch imported for a product becomes its default branch, and SecObserve computes the security gate only for that branch. Always set `SECOBSERVE_BRANCH_NAME` in CI (for example `main`, or the PR branch). Without it, a product that already has a default branch can't be gated (`--gate-source secobserve` reports `UNKNOWN`).
 
 !!! note "Service name"
-    By default each tool's findings are attributed to a service with the tool's name (`kics`, `checkov`, ...). Setting `origin_service` sends that value as the SecObserve `service` for **all** tools instead. Findings are still tracked separately per tool, because each tool uses its own upload file.
+    By default each tool's scan findings are attributed to a service with the tool's name (`kics`, `checkov`, ...). Setting `origin_service` sends that value as the SecObserve `service` for **all** tools, and for SBOM uploads, instead. Findings are still tracked separately per tool, because each tool uses its own upload file. SBOMs get no service unless `origin_service` is set.
+
+!!! note "Product group"
+    `--product-group` (or `product_group`) only applies to products that ThothCTL **creates**. Existing products are never moved between groups; a warning is shown instead. See [Product groups](../scan/scan_iac.md#product-groups).
 
 **CI/CD Integration**:
 
@@ -362,7 +373,7 @@ auto_create_product = true
 - SARIF → vulnerability observations with deduplication
 - Fixed findings are resolved automatically: each completed tool is re-uploaded every run, even with no findings
 - Tools that didn't complete (skipped/failed) aren't uploaded, so their history is kept
-- Auto-creates product if it doesn't exist (exact product-name match)
+- Auto-creates product if it doesn't exist (exact product-name match), optionally inside a product group (`--product-group`)
 - Branch-aware imports for multi-branch tracking
 - Security gate enforcement with `--gate-source secobserve|both` — see [Security Gate Source](../scan/scan_iac.md#security-gate-source)
 - `.localhost` domain resolution (Traefik/Docker setups)
