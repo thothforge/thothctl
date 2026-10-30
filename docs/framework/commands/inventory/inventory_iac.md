@@ -278,10 +278,10 @@ Publish your CycloneDX SBOM and scan results to [SecObserve](https://github.com/
 
 #### Prerequisites
 
-1. **SecObserve instance** running (v1.50+) — [install guide](https://secobserve.github.io/SecObserve/getting_started/installation/)
+1. **SecObserve instance** running (tested with v1.41.1) — [install guide](https://secobserve.github.io/SecObserve/getting_started/installation/)
 2. **API token** — generate at: **User menu** → **Settings** → **API Tokens**
 3. Token format: `APIToken <your-token>` (ThothCTL handles the prefix)
-4. **Product** in SecObserve (auto-created if `auto_create_product = true`)
+4. **Product** in SecObserve (auto-created if `auto_create_product = true`). Products can be placed in a **product group** to share security gate settings
 
 #### Usage
 
@@ -291,6 +291,10 @@ thothctl inventory iac --check-versions --publish-sbom secobserve
 
 # Publish scan findings (all scanners supported via SARIF)
 thothctl scan iac -t checkov -t trivy -t kics -t opa --publish-to secobserve
+
+# Publish and let the SecObserve security gate decide pass/fail
+thothctl scan iac -t checkov -t kics --publish-to secobserve \
+  --gate-source secobserve --enforcement hard
 ```
 
 **Configuration** (priority: env vars > `.thothcf.toml`):
@@ -300,7 +304,9 @@ thothctl scan iac -t checkov -t trivy -t kics -t opa --publish-to secobserve
 export SECOBSERVE_URL="http://secobserve-backend.localhost"
 export SECOBSERVE_API_TOKEN="api_token_..."
 export SECOBSERVE_PRODUCT_NAME="my-project"     # Optional (uses --project-name)
-export SECOBSERVE_BRANCH_NAME="main"             # Optional (for multi-branch tracking)
+export SECOBSERVE_BRANCH_NAME="main"             # Recommended (see note below)
+export SECOBSERVE_ORIGIN_SERVICE="my-service"    # Optional (overrides per-tool service)
+export SECOBSERVE_AUTO_CREATE="true"             # Optional (default: true)
 ```
 
 Or in `.thothcf.toml`:
@@ -311,9 +317,15 @@ url = "http://secobserve-backend.localhost"
 api_token = "api_token_..."
 product_name = "my-platform-infra"
 branch_name = "main"
-origin_service = "thothctl"
+origin_service = "thothctl"     # optional; sent as SecObserve "service"
 auto_create_product = true
 ```
+
+!!! note "Branch name"
+    The first branch imported for a product becomes its default branch, and SecObserve computes the security gate only for that branch. Always set `SECOBSERVE_BRANCH_NAME` in CI (for example `main`, or the PR branch). Without it, a product that already has a default branch can't be gated (`--gate-source secobserve` reports `UNKNOWN`).
+
+!!! note "Service name"
+    By default each tool's findings are attributed to a service with the tool's name (`kics`, `checkov`, ...). Setting `origin_service` sends that value as the SecObserve `service` for **all** tools instead. Findings are still tracked separately per tool, because each tool uses its own upload file.
 
 **CI/CD Integration**:
 
@@ -323,6 +335,7 @@ auto_create_product = true
   env:
     SECOBSERVE_URL: ${{ secrets.SECOBSERVE_URL }}
     SECOBSERVE_API_TOKEN: ${{ secrets.SECOBSERVE_API_TOKEN }}
+    SECOBSERVE_BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
   run: |
     thothctl inventory iac --check-versions \
       --publish-sbom secobserve \
@@ -330,23 +343,28 @@ auto_create_product = true
 
     thothctl scan iac -t checkov -t trivy -t kics -t opa \
       --publish-to secobserve \
+      --gate-source secobserve --enforcement hard \
       -p "${{ github.event.repository.name }}"
 ```
 
-**Supported scanners** (all published via SARIF):
+**Supported scanners** (all published via SARIF, one file per tool):
 
-| Scanner | Notes |
-|---------|-------|
-| Checkov | SARIF generated from scan results |
-| Trivy | SARIF generated from scan results |
-| KICS | Native `.sarif` output used directly |
-| OPA/Conftest | SARIF generated from policy violations |
+| Scanner | Uploaded file | Notes |
+|---------|---------------|-------|
+| Checkov | `thothctl-checkov.sarif` | SARIF generated from scan results |
+| Trivy | `thothctl-trivy.sarif` | SARIF generated from scan results |
+| KICS | `kics-results.sarif` | Native `.sarif` output used directly |
+| OPA/Conftest | `thothctl-opa.sarif` | SARIF generated from policy violations |
+| terraform-compliance | `thothctl-terraform-compliance.sarif` | SARIF generated from scan results |
 
 **Features**:
 - CycloneDX SBOM → license component tracking
 - SARIF → vulnerability observations with deduplication
-- Auto-creates product if it doesn't exist
+- Fixed findings are resolved automatically: each completed tool is re-uploaded every run, even with no findings
+- Tools that didn't complete (skipped/failed) aren't uploaded, so their history is kept
+- Auto-creates product if it doesn't exist (exact product-name match)
 - Branch-aware imports for multi-branch tracking
+- Security gate enforcement with `--gate-source secobserve|both` — see [Security Gate Source](../scan/scan_iac.md#security-gate-source)
 - `.localhost` domain resolution (Traefik/Docker setups)
 
 ### **Professional Design**

@@ -138,6 +138,18 @@ thothctl workflow devsecops -p secure \
 
 **Gate logic:** If any scan finds failures and `--enforcement hard` is set, the pipeline blocks.
 
+!!! note "SecObserve security gate"
+    The built-in `secure` and `deploy` phases always use the **local** gate (this run's scanner findings). They don't publish to SecObserve or read its gate. To gate on SecObserve, run `scan iac` with `--gate-source` from a [custom workflow](workflow_overview.md) step:
+
+    ```yaml
+    steps:
+      - name: security-gate
+        command: scan iac -t checkov -t kics -p my-infra --publish-to secobserve --gate-source secobserve --enforcement hard
+        on_failure: block
+    ```
+
+    See [Security Gate Source](../scan/scan_iac.md#security-gate-source).
+
 ---
 
 ### 🚀 Deploy

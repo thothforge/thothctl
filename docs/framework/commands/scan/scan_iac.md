@@ -19,6 +19,8 @@ thothctl scan iac [OPTIONS]
 | `--tftool [terraform\|tofu]` | Specify which Terraform tool to use (default: tofu) |
 | `--output [text\|json\|sarif]` | Output format: text (default), json, or sarif |
 | `--enforcement [soft\|hard]` | Enforcement mode: `soft` reports violations (exit 0), `hard` fails the pipeline (exit 1) |
+| `--publish-to [defectdojo\|secobserve]` | Publish findings to a vulnerability management platform after scanning |
+| `--gate-source [local\|secobserve\|both]` | Which security gate decides pass/fail (default: `local`). See [Security Gate Source](#security-gate-source) |
 | `--post-to-pr` | Post scan summary as a PR comment (Azure DevOps or GitHub) |
 | `--vcs-provider [auto\|azure_repos\|github]` | VCS provider for PR comments (default: auto-detect) |
 | `--space TEXT` | Space name for credential resolution (Azure DevOps) |
@@ -390,6 +392,77 @@ thothctl scan iac -t checkov -t trivy -t opa --enforcement hard --post-to-pr
 
 !!! tip
     Use `--enforcement hard` in CI/CD pipelines to gate deployments on security compliance. Use `--enforcement soft` (default) during local development for informational scanning.
+
+### Security Gate Source
+
+By default the gate is **local**: the decision comes only from this scan's findings. When you publish to [SecObserve](https://github.com/SecObserve/SecObserve), you can let SecObserve's **product security gate** decide instead. That gate includes your thresholds, assessments, risk acceptances and false-positive decisions.
+
+| `--gate-source` | Pass/fail is decided by | Requires |
+|-----------------|-------------------------|----------|
+| `local` (default) | Local scanner findings (any failed check or error fails the gate) | — |
+| `secobserve` | SecObserve security gate, read **after** publishing this scan | `--publish-to secobserve` |
+| `both` | Fails if **either** the local or the SecObserve gate fails | `--publish-to secobserve` |
+
+`--enforcement` keeps its meaning for every gate source: `hard` exits with code 1 when the selected gate fails, `soft` only reports it.
+
+```bash
+# Let SecObserve thresholds decide (e.g. critical <= 0, high <= 5)
+thothctl scan iac -t checkov -t kics -p my-infra \
+  --publish-to secobserve --gate-source secobserve --enforcement hard
+
+# Strictest: local findings AND the SecObserve gate must both pass
+thothctl scan iac -t checkov -t trivy -p my-infra \
+  --publish-to secobserve --gate-source both --enforcement hard
+```
+
+After publishing, a **SecObserve Security Gate** panel shows the status (`PASSED`, `FAILED`, `INACTIVE` or `UNKNOWN`), the open observations per severity, the effective thresholds and a link to the product.
+
+| SecObserve gate state | `--enforcement hard` exit code |
+|-----------------------|-------------------------------|
+| `PASSED` | 0 |
+| `FAILED` | 1 |
+| `INACTIVE` (no gate applies to the product) | 0 |
+| `UNKNOWN` (unreachable, product/branch not found, settings unreadable) | 1 — the gate **fails closed** |
+
+**How the SecObserve gate is resolved**
+
+- **Thresholds:** they follow SecObserve's own rule. The product group's setting takes precedence over the product's. If neither is set, the global settings apply. An unset threshold on an active product or group counts as `0`. A gate fails when an open count is greater than its threshold.
+- **Branches:** SecObserve only computes the gate for the product's **default branch**.
+    - No branch configured and no default branch on the product, or `SECOBSERVE_BRANCH_NAME` is the default branch: ThothCTL uses SecObserve's own result.
+    - `SECOBSERVE_BRANCH_NAME` is any other branch (for example a feature branch): ThothCTL evaluates that branch's open counts against the effective thresholds. The panel notes this.
+    - No branch configured, but the product has a default branch: imports without a branch don't update the gate, so the result is `UNKNOWN`. Set `SECOBSERVE_BRANCH_NAME`.
+- **Fresh data:** the gate is read after the upload, and SecObserve recalculates it during the import. If any upload failed, the panel warns that the gate may reflect earlier data.
+
+!!! note
+    The first branch imported for a product becomes its default branch. In CI, set `SECOBSERVE_BRANCH_NAME` on every run (for example `main` for the main pipeline and the PR branch name for pull requests). That way the default-branch gate only ever reflects your main line.
+
+!!! warning
+    `--gate-source secobserve|both` without `--publish-to secobserve` is a usage error (exit code 2). The SecObserve gate must be evaluated against the results that were just published.
+
+## Publishing to SecObserve
+
+`--publish-to secobserve` uploads findings as SARIF. For connection settings (`SECOBSERVE_URL`, `SECOBSERVE_API_TOKEN`, product, branch), see [SecObserve Integration](../inventory/inventory_iac.md#secobserve-integration).
+
+SecObserve tracks findings per **product, branch, parser, upload filename and service**. To keep each tool's history separate, and to let fixed findings close automatically, ThothCTL uploads one file per tool with a stable name:
+
+| Tool | Uploaded file | Service (unless `origin_service` is set) |
+|------|---------------|-------------------------------------------|
+| KICS | `kics-results.sarif` (native SARIF) | `kics` |
+| Checkov, Trivy, OPA, terraform-compliance | `Reports/thothctl-<tool>.sarif` (generated) | `<tool>` |
+
+- **Fixed findings close:** when a tool completes, its file is always uploaded, even with no findings. Anything missing from the new upload is marked resolved in SecObserve.
+- **Failed tools keep their history:** a tool with status `SKIPPED`, `FAIL` or `TIMEOUT` is **not** uploaded, so its earlier findings are not wrongly resolved.
+- **No stale uploads:** native SARIF files left by earlier runs of tools that didn't run this time are ignored. The `--output sarif` file (`scan_results.sarif`) is never uploaded.
+- **Best-effort publishing:** a failed upload is reported but doesn't change the exit code on its own. Use `--gate-source secobserve|both` if a failed upload should block the pipeline (the gate then fails closed).
+
+Example output:
+
+```
+📤 Publishing scan results to SecObserve (https://secobserve.example.com)...
+✅ kics-results.sarif → 0 new, 3 updated, 3 resolved
+✅ thothctl-checkov.sarif → 0 new, 9 updated, 1 resolved
+📊 Published 2/2 report(s) to SecObserve
+```
 
 ## Report Output
 

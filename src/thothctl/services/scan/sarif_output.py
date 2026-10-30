@@ -24,8 +24,16 @@ SEVERITY_TO_LEVEL = {
 }
 
 
-def build_sarif(results: dict, directory: str) -> dict:
-    """Build a SARIF 2.1.0 document from scan results."""
+def build_sarif(results: dict, directory: str, include_empty: bool = False) -> dict:
+    """Build a SARIF 2.1.0 document from scan results.
+
+    Args:
+        results: Scan results dict (tool name -> tool data).
+        directory: Scanned source directory.
+        include_empty: Also emit a run (with no results) for tools that have no
+            findings. Vulnerability managers such as SecObserve need this to
+            resolve findings that were fixed since the previous import.
+    """
     runs = []
 
     for tool_name, tool_data in results.items():
@@ -33,7 +41,7 @@ def build_sarif(results: dict, directory: str) -> dict:
             continue
 
         findings = tool_data.get("findings", [])
-        if not findings:
+        if not findings and not include_empty:
             continue
 
         # Collect unique rules

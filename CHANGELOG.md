@@ -5,6 +5,74 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.0] - 2026-10-30
+
+### Added
+
+- **SecObserve security gate enforcement** — new `scan iac --gate-source local|secobserve|both`
+  option (default `local`). With `secobserve`, the product security gate is read after
+  publishing and decides pass/fail under `--enforcement hard`. With `both`, the scan fails if
+  either the local or the SecObserve gate fails. A new "SecObserve Security Gate" panel shows
+  the status, open counts, thresholds and a product link.
+  - The gate fails closed: if it can't be evaluated (unreachable, product/branch not found),
+    it counts as failed.
+  - Thresholds follow SecObserve's own rule: the product group overrides the product, then
+    global settings apply, and unset thresholds count as 0.
+  - Non-default branches are evaluated by ThothCTL from branch counts, because SecObserve
+    only gates the default branch.
+  - Requires `--publish-to secobserve`; using it without that is a usage error.
+
+### Changed
+
+- **SecObserve publishing is per tool.** Each tool is uploaded in its own stable file
+  (`kics-results.sarif`, `thothctl-<tool>.sarif`) with the tool name as service, unless
+  `origin_service` is set. Previously checkov and other non-KICS tools used service
+  `thothctl-scan`; existing findings under that service are not resolved automatically.
+- Completed tools are always uploaded, even with no findings, so fixed findings are resolved
+  in SecObserve. Tools that were skipped, failed or timed out are not uploaded, so their
+  history is kept.
+- `build_sarif()` has a new `include_empty` option to emit runs for tools with no findings.
+
+### Fixed
+
+- SecObserve product lookup now matches the exact name. The API's `name` filter matches
+  substrings, so a product could be confused with another one whose name contains it.
+- Click usage errors raised by `ClickCommand`-based commands now exit with code 2
+  instead of being wrapped as a generic error (exit 1).
+
+## [0.31.3] - 2026-10-30
+
+### Fixed
+
+- `scan iac --publish-to secobserve`: when KICS ran with other tools, only KICS findings
+  were published. Now all tools are published without duplicates.
+- Native SARIF is only uploaded for tools that ran in the current scan. Stale files and the
+  `--output sarif` file are ignored, and the user's `--output sarif` file is no longer
+  overwritten.
+- The SecObserve publisher sent the service in the `origin_service` form field, which the API
+  ignores. It now uses `service`, so observations are linked to a service.
+
+## [0.31.2] - 2026-10-29
+
+### Fixed
+
+- OPA scanner: wrong relative import of `org_policy_loader` raised `ImportError` when
+  `THOTH_ORG_POLICY` was set.
+
+### Changed
+
+- CDK technical-debt score is now weighted by semver gap (patch < minor < major) instead of a
+  flat outdated/total ratio. The inventory summary counts nested components.
+- `generate iac` caches the system prompt and reuses it across generation and self-correction.
+  Only the files with violations are sent back for fixing.
+
+## [0.31.1] - 2026-10-28
+
+### Fixed
+
+- MCP server reports its version in `serverInfo`, and `mcp register` writes the
+  `disabled`/`autoApprove` keys used by Kiro CLI v3 `mcp.json`.
+
 ## [0.30.0] - 2026-09-22
 
 ### Fixed

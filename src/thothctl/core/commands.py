@@ -87,6 +87,9 @@ class ClickCommand(ABC):
                         result = cmd_instance.execute(**kwargs)
                         cmd_instance.post_execute(**kwargs)
                         return result
+                except click.ClickException:
+                    # Keep Click's own errors intact (e.g. UsageError -> exit 2).
+                    raise
                 except Exception as e:
                     cmd_instance.logger.error(str(e))
                     raise click.ClickException(str(e))

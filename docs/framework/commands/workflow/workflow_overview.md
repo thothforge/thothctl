@@ -112,6 +112,11 @@ steps:
     command: scan iac -t checkov -t trivy --stacks {{changed_stacks}}
     on_failure: block
 
+  # Optional: let the SecObserve security gate decide (needs SECOBSERVE_* env)
+  - name: secobserve-gate
+    command: scan iac -t checkov -t kics -p {{project}} --publish-to secobserve --gate-source secobserve --enforcement hard
+    on_failure: block
+
   - name: cost-analysis
     command: check iac -type cost-analysis --recursive
     on_failure: warn
