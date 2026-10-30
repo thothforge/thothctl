@@ -217,7 +217,10 @@ class SecObservePublisher:
             if self.config.branch_name:
                 data["branch_name"] = self.config.branch_name
             if service_name or self.config.origin_service:
-                data["origin_service"] = service_name or self.config.origin_service
+                # SecObserve's upload API names this form field "service"
+                # (FileUploadObservationsByNameRequest); "origin_service" is
+                # silently ignored and leaves observations without a service.
+                data["service"] = service_name or self.config.origin_service
 
             with open(file_path, "rb") as f:
                 files = {"file": (file_path.name, f, "application/json")}
