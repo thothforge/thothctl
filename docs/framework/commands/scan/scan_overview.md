@@ -11,7 +11,8 @@ The scan command helps DevSecOps teams and developers to:
 - Enforce custom organizational policies using OPA/Rego
 - Generate detailed reports in various formats (HTML, Markdown, JSON, SARIF)
 - Track scan trends over time with local SQLite history
-- Gate CI/CD pipelines with hard enforcement mode
+- Gate CI/CD pipelines with hard enforcement mode, using local findings or the SecObserve security gate
+- Publish findings to DefectDojo or SecObserve
 - Post scan summaries to pull requests
 - Integrate with GitHub Code Scanning via SARIF output
 
@@ -46,6 +47,9 @@ thothctl scan iac -t checkov --output sarif
 |--------|-------------|
 | `-t, --tools` | Specify scanning tools: `checkov`, `trivy`, `kics`, `terraform-compliance`, `opa` |
 | `--enforcement [soft\|hard]` | Exit 0 (soft) or exit 1 on violations (hard) |
+| `--gate-source [local\|secobserve\|both]` | Which gate decides pass/fail: local findings (default), the SecObserve security gate, or both |
+| `--publish-to [defectdojo\|secobserve]` | Publish findings to a vulnerability management platform |
+| `--product-group TEXT` | SecObserve product group for new products (requires `--publish-to secobserve`) |
 | `--output [text\|json\|sarif]` | Output format (default: text) |
 | `--reports-dir` | Directory to store scan reports |
 | `--post-to-pr` | Post scan summary to pull request |
@@ -241,6 +245,25 @@ Per-tool violations: checkov=5, opa=3, trivy=1
 ❌ Enforcement HARD: 9 deny-level violations found.
    Fix the findings above or add suppressions to proceed.
 ```
+
+### SecObserve Security Gate (v0.32.0)
+
+By default the gate uses this scan's findings (`--gate-source local`). When you publish to SecObserve, the product's security gate can decide instead. That gate includes thresholds, assessments and risk acceptances:
+
+```bash
+# SecObserve thresholds decide
+thothctl scan iac -t checkov -t kics -p my-infra \
+  --publish-to secobserve --gate-source secobserve --enforcement hard
+
+# Both the local findings and the SecObserve gate must pass
+thothctl scan iac -t checkov -p my-infra \
+  --publish-to secobserve --gate-source both --enforcement hard
+```
+
+- The SecObserve gate is read after publishing and fails closed: if it can't be evaluated, `--enforcement hard` exits 1.
+- New products can be placed in a SecObserve product group with `--product-group` (v0.33.0).
+
+See [Security Gate Source](scan_iac.md#security-gate-source) and [Product groups](scan_iac.md#product-groups) for the full rules.
 
 ## HTML Reports (v0.19.0)
 
