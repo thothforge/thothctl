@@ -66,6 +66,7 @@ def build_sarif(results: dict, directory: str, include_empty: bool = False) -> d
             file_path = f.get("file", "")
             line = f.get("line", 1) or 1
 
+            resource = f.get("resource", "")
             sarif_result = {
                 "ruleId": rule_id,
                 "level": SEVERITY_TO_LEVEL.get(f.get("severity", "MEDIUM"), "warning"),
@@ -78,12 +79,28 @@ def build_sarif(results: dict, directory: str, include_empty: bool = False) -> d
                                 "uriBaseId": "%SRCROOT%",
                             },
                             "region": {"startLine": line},
-                        }
+                        },
+                        # Carry the resource so tools that key on logical
+                        # locations keep per-resource granularity.
+                        **(
+                            {"logicalLocations": [{"name": resource, "kind": "resource"}]}
+                            if resource
+                            else {}
+                        ),
                     }
                 ],
+                # Distinct resources that violate the same rule at the same
+                # file/line must not collapse into one finding. SecObserve (and
+                # other SARIF consumers) fold partialFingerprints into the
+                # observation identity, so include the resource there.
+                "partialFingerprints": {
+                    "thothctl/v1": "|".join(
+                        [rule_id, file_path, str(line), resource]
+                    )
+                },
             }
-            if f.get("resource"):
-                sarif_result["message"]["text"] += f" (resource: {f['resource']})"
+            if resource:
+                sarif_result["message"]["text"] += f" (resource: {resource})"
 
             sarif_results.append(sarif_result)
 

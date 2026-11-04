@@ -24,6 +24,11 @@
 - **Fix:** SBOM uploads now send the configured `origin_service` as the SecObserve service.
 - SecObserve has no free-form tags or labels, so ThothCTL doesn't offer them.
 
+**v0.33.1 fix:** multi-stack Checkov findings published to SecObserve now keep their
+real per-stack path (`stacks/<name>/main.tf`) instead of a generic `/main.tf`, so
+distinct resources and stacks that share a rule are no longer collapsed into one
+observation.
+
 See [Product groups](framework/commands/scan/scan_iac.md#product-groups).
 
 ---

@@ -132,8 +132,73 @@ def parse_tool_result(tool: str, raw_result: Dict) -> ToolReport:
     return report
 
 
+def _derive_scan_root(checkov_dir: str, json_path: str, check: dict) -> str:
+    """Best-effort absolute path of the scan root, to relativize finding paths.
+
+    Checkov records ``file_path`` relative to the directory it scanned (often
+    just ``/main.tf`` for a single stack), which loses the stack identity in a
+    multi-stack repo. ``file_abs_path``/``repo_file_path`` carry the full path;
+    combined with ``file_path`` we can recover the stack directory.
+    """
+    abs_path = check.get("file_abs_path") or check.get("repo_file_path") or ""
+    rel = check.get("file_path") or ""
+    if abs_path and rel and abs_path.replace("\\", "/").endswith(rel.replace("\\", "/")):
+        # scan root = abs_path with the trailing rel segment removed
+        trimmed = abs_path[: len(abs_path) - len(rel)]
+        return trimmed.rstrip("/\\")
+    return ""
+
+
+def _finding_file_path(check: dict, scan_root: str, stack_hint: str) -> str:
+    """Return a real, stack-qualified relative path for a failed check.
+
+    Checkov scans each stack with that stack as its working directory, so
+    ``file_path`` is relative to the stack (often ``/main.tf``) and loses the
+    stack identity. The per-stack report directory name (``stack_hint``) is the
+    reliable disambiguator, so it is preferred:
+
+    1. ``<stack_hint>/<file_path>`` — stack dir + checkov's in-stack path;
+    2. ``file_abs_path``/``repo_file_path`` relative to ``scan_root`` (used when
+       there is no usable hint, e.g. a single root-level scan);
+    3. checkov's raw ``file_path`` (last resort, may be generic).
+    """
+    raw = (check.get("file_path") or "").lstrip("/\\")
+    abs_path = check.get("file_abs_path") or check.get("repo_file_path") or ""
+
+    if stack_hint and raw:
+        return f"{stack_hint}/{raw}".replace("\\", "/")
+    if abs_path and scan_root:
+        try:
+            rel = os.path.relpath(abs_path, scan_root)
+            if not rel.startswith(".."):
+                return rel.replace("\\", "/")
+        except ValueError:
+            pass
+    return raw or (check.get("file_path") or "")
+
+
+def _stack_hint_from_report_dir(checkov_dir: str, json_path: str) -> str:
+    """Recover a stack path from the per-stack report directory name.
+
+    The recursive scan writes each stack to ``report_<parent>_<name>/``; this
+    turns that back into ``<parent>/<name>`` as a readable disambiguator.
+    """
+    rel_dir = os.path.relpath(os.path.dirname(json_path), checkov_dir)
+    base = os.path.basename(rel_dir)
+    if base.startswith("report_"):
+        return base[len("report_") :].replace("_", "/")
+    if rel_dir in (".", ""):
+        return ""
+    return rel_dir.replace(os.sep, "/")
+
+
 def _extract_checkov_findings(checkov_dir: str) -> List[Finding]:
-    """Extract individual findings from Checkov JSON reports."""
+    """Extract individual findings from Checkov JSON reports.
+
+    Each finding keeps its real (stack-qualified) file path so distinct
+    resources/stacks that violate the same rule are not collapsed downstream
+    (e.g. in the SARIF uploaded to SecObserve).
+    """
     findings: List[Finding] = []
     if not os.path.isdir(checkov_dir):
         return findings
@@ -164,6 +229,13 @@ def _extract_checkov_findings(checkov_dir: str) -> List[Finding]:
                                 # Some formats have the list directly
                                 failed_checks.extend(section)
 
+                stack_hint = _stack_hint_from_report_dir(checkov_dir, json_path)
+                scan_root = ""
+                if failed_checks and isinstance(failed_checks[0], dict):
+                    scan_root = _derive_scan_root(
+                        checkov_dir, json_path, failed_checks[0]
+                    )
+
                 for check in failed_checks:
                     if not isinstance(check, dict):
                         continue
@@ -174,7 +246,7 @@ def _extract_checkov_findings(checkov_dir: str) -> List[Finding]:
                             severity=severity.upper() if severity else "MEDIUM",
                             title=check.get("check_name", ""),
                             resource=check.get("resource", ""),
-                            file=check.get("file_path", ""),
+                            file=_finding_file_path(check, scan_root, stack_hint),
                             line=check.get("file_line_range", [0])[0]
                             if check.get("file_line_range")
                             else 0,

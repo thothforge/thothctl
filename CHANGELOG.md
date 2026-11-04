@@ -5,6 +5,19 @@ All notable changes to ThothCTL are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.1] - 2026-10-30
+
+### Fixed
+
+- **SecObserve under-reported multi-stack Checkov findings.** Every finding was
+  published with a generic `/main.tf` path, so distinct resources and stacks that
+  violated the same rule collapsed into a single SecObserve observation (e.g. 80
+  Checkov failures surfaced as ~5). Findings now carry a real, stack-qualified
+  path (`stacks/<name>/main.tf`), derived from the per-stack report directory and
+  Checkov's absolute paths. The generated SARIF also adds per-resource
+  `partialFingerprints` and `logicalLocations`, so same-rule findings on different
+  resources at the same file/line are no longer merged.
+
 ## [0.33.0] - 2026-10-30
 
 ### Added
